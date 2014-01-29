@@ -1,0 +1,29 @@
+	UESP Game Map Wiki Extension
+	============================
+	by Dave Humphrey (dave@uesp.net)
+	Released under the GPL v2
+
+This is a MediaWiki extension for using the custom UESP game maps within a
+wiki page. It requires the UESP map code to be installed and setup separately.
+
+NOTE: This extension was developed specifically for the UESP site and may 
+require modification to work in another site.
+
+
+
+   Installation
+-----------------------
+
+   - Copy the files into the new directory 'UespMap' in your MediaWiki 
+     ./extensions/ directory.
+   - Add the following line in your LocalSettings.php file:
+          require_once("$IP/extensions/UespMap/UespMap.php");
+
+
+   Usage
+-----------------------
+Add a map onto a page using the custom '<uespmap>' tag. For detailed usage
+and parameter descriptions see:
+  
+   http://www.uesp.net/wiki/UESPWiki:Extension_UespMap
+

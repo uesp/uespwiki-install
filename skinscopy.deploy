@@ -1,0 +1,20 @@
+
+name = uesp.wiki.skinscopy
+description = Copies the wiki skins into the files1 server.
+repository = https://code.google.com/p/uesp.wiki/
+backup = true
+verbosity = 0
+
+source = ./wiki/
+
+ignore = *.deploy
+ignore = .hg*
+
+chown_dest = :uespadmin -R /shared/uesp/skins
+
+chmod_dest = g+rw -R /shared/uesp/skins
+
+dest = files1.uesp.net:/dev/null
+
+manualcopy = files1: {source}skins/* {destserver}/shared/uesp/skins/
+

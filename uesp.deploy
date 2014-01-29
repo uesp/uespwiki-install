@@ -1,0 +1,28 @@
+
+name = uesp.wiki
+description = The custom mediaWiki installation files for the UESP wiki.
+repository = https://code.google.com/p/uesp.wiki/
+backup = false
+verbosity = 0
+
+source = ./wiki/
+
+ignore = *.deploy
+ignore = .hg*
+
+createpath = /imagetmp
+createpath = /uespwikicache
+
+chown_dest = apache:uespadmin /imagetmp
+chown_dest = apache:uespadmin /uespwikicache
+chown_dest = :uespadmin -R {dest}
+
+chmod_dest = g+rwx /imagetmp
+chmod_dest = g+rwx /uespwikicache
+chmod_dest = g+rw -R {dest}
+
+dest = content1.uesp.net:/home/uesp/www/w/
+dest = content2.uesp.net:/home/uesp/www/w/
+dest = content3.uesp.net:/home/uesp/www/w/
+
+deployfile = skinscopy: ../skinscopy.deploy
