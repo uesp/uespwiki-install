@@ -1,0 +1,46 @@
+==Installation==
+#1 Move directory to $IP/extensions/MetaTemplate
+   * changes that take effect: none
+
+#2 Run Install.php
+   * changes that take effect: none that are visible
+
+   Sets up two new database tables that are used by the #save and #load functions
+   * It does not make any changes to existing wiki tables, and therefore has no risk of side effects to standard
+     wiki functions.  The actual SQL that gets executed (before wiki-related processing to turn into true SQL)
+     can be seen in install.sql
+   It must be run from the command line (e.g., 'php Install.php')
+   It only needs to be once when extension is first installed (and only needs to be done on one content server, not all)
+
+
+#3 Add the following line to LocalSettings.php
+
+require_once( \$IP . '/extensions/MetaTemplate/MetaTemplate.php' );
+
+  * changes that take effect: extension is now fully enabled
+    * The only immediate visible change should be the addition of MetaTemplate to Special:Version
+    * All of the other extension features are only only implemented if explicitly requested (if the
+      extension's tags/functions are used in articles are templates).  Since the features have not
+      yet been implemented, activating the extension will not cause any changes to current articles.
+    * Once the extension is available, it will become possible to set up test templates using the
+      features.
+
+Notes:
+This extension also requires a bug fix to Parser.php, but that bug fix has already been incorporated into
+the version of Parser.php used with UespCustomCode.  Therefore, no Mediawiki code changes are necessary
+for this extension.
+
+==Upgrading Mediawiki==
+As of v0.4 of the extension, it has been revamped to be compatible with the latest version of Mediawiki.
+
+However, making it work with current Mediawiki versions requires changes to two Mediawiki files, Parser.php
+and Preprocessor_Hash.php.  Versions of these files derived from a Mediawiki 1.15alpha (i.e., non-released)
+version of the code have been placed in mw15_modified (Parser.php also requires the code modifications
+necessary for UespCustomCode).  Slightly different versions of these files are likely to be necessary
+depending upon the version of Mediawiki that is installed on UESP -- I'll be putting together a patch
+file that can simply be applied to any set of code.  Also, I'll be trying to get these changes added to
+the base Mediawiki code, in which case no patch file would even be necessary.
+
+Other than these two Mediawiki files that need updating, no other changes should be necessary to the
+extension when upgrading Mediawiki.
+
