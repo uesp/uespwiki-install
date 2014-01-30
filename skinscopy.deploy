@@ -1,4 +1,9 @@
-
+#
+# Updates the wiki skins on the files server. The limitations of the deploy
+# script makes it easier/better to put this into its own .deploy file and
+# have it called by the main uesp.deploy file. 
+#
+#
 name = uesp.wiki.skinscopy
 description = Copies the wiki skins into the files1 server.
 repository = https://code.google.com/p/uesp.wiki/
