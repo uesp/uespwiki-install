@@ -4,6 +4,7 @@ description = The custom mediaWiki installation files for the UESP wiki.
 repository = https://code.google.com/p/uesp.wiki/
 backup = false
 verbosity = 0
+staged = true
 
 source = ./wiki/
 
