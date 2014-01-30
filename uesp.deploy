@@ -13,13 +13,16 @@ ignore = .hg*
 createpath = /imagetmp
 createpath = /uespwikicache
 
+chown_source = :uespadmin -R ./
+chmod_source = g+rw,a+r -R ./
+
 chown_dest = apache:uespadmin /imagetmp
 chown_dest = apache:uespadmin /uespwikicache
 chown_dest = :uespadmin -R {dest}
 
 chmod_dest = g+rwx /imagetmp
 chmod_dest = g+rwx /uespwikicache
-chmod_dest = g+rw -R {dest}
+chmod_dest = g+rw,a+r -R {dest}
 
 dest = content1.uesp.net:/home/uesp/www/w/
 dest = content2.uesp.net:/home/uesp/www/w/
