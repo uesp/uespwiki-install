@@ -474,14 +474,14 @@ require_once( "$IP/extensions/SearchLog/SearchLog.php" );
 require_once( "$IP/extensions/DailyEdits/DailyEdits.php" );
 $wgDailyEditsGraphFile = "http://content3.uesp.net/w/extensions/UespCustomCode/files/dailyedits.png";
 
-require_once( "$IP/extensions/OAI/OAIRepo.php" );
-$wgSearchType = 'LuceneSearch';
-$wgLuceneHost = '10.2.212.12';
-$wgLucenePort = 8123;
-require_once( "$IP/extensions/MWSearch/MWSearch.php" );
-$wgEnableLucenePrefixSearch = true;
-$wgLucenePrefixHost = '10.2.212.12';
-$wgLuceneSearchVersion = 2.1;
+# require_once( "$IP/extensions/OAI/OAIRepo.php" );
+# $wgSearchType = 'LuceneSearch';
+# $wgLuceneHost = '10.2.212.12';
+# $wgLucenePort = 8123;
+# require_once( "$IP/extensions/MWSearch/MWSearch.php" );
+# $wgEnableLucenePrefixSearch = true;
+# $wgLucenePrefixHost = '10.2.212.12';
+# $wgLuceneSearchVersion = 2.1;
 
 # require_once( "$IP/extensions/UespSiteStats/UespSiteStats.php" );
 
