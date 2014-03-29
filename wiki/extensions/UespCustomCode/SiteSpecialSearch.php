@@ -21,8 +21,24 @@ class SiteSpecialSearch extends SpecialSearch {
                 parent::__construct( 'Search' );
 
 		$this->searchTalkPages = false;
-        }
-
+	}
+	
+	public function goResult( $term ) 
+	{
+		$newTerm = preg_replace('/\beso\b/i', 'online', $term);
+		error_log("Search::go = " . $newTerm);
+		
+		return parent::goResult($newTerm);
+	}
+	
+	public function showResults( $term )
+	{
+		$newTerm = preg_replace('/\beso\b/i', 'online', $term);
+		error_log("Search::show = " . $newTerm);
+		
+		return parent::showResults($newTerm);
+	}
+	
 	public function load()
 	{
 		parent::load();
