@@ -104,7 +104,7 @@ $wgDBservers = array(
 		'flag' => DBO_DEFAULT,
 		'load' => 1,
 	),
-	array(		# content3 - Backup Read
+/*	array(		# content3 - Backup Read
 		'host' => "10.2.212.14",
 		'dbname' => $uespWikiDB,
 		'user' => $uespWikiUser,
@@ -112,7 +112,7 @@ $wgDBservers = array(
 		'type' => "mysql",
 		'flag' => DBO_DEFAULT,
 		'load' => 0,
-	),
+	), */
 );
 
 # MySQL table options to use during installation or update
