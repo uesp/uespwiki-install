@@ -21,24 +21,16 @@ class SiteSpecialSearch extends SpecialSearch {
                 parent::__construct( 'Search' );
 
 		$this->searchTalkPages = false;
-	}
-	
-	public function goResult( $term ) 
-	{
-		$newTerm = preg_replace('/\beso\b/i', 'online', $term);
-		error_log("Search::go = " . $newTerm);
+        }
 		
-		return parent::goResult($newTerm);
-	}
-	
 	public function showResults( $term )
 	{
-		$newTerm = preg_replace('/\beso\b/i', 'online', $term);
+		$newTerm = preg_replace('/\b(eso)\b/i', '($1 OR Online)', $term);
 		error_log("Search::show = " . $newTerm);
 		
 		return parent::showResults($newTerm);
 	}
-	
+
 	public function load()
 	{
 		parent::load();
@@ -50,6 +42,10 @@ class SiteSpecialSearch extends SpecialSearch {
 		if ( $this->searchTalkPages )
 		{
 			$this->enableTalkPageSearch();
+		}
+		else
+		{
+			$this->setExtraParam ( 'talkpages', '0' );
 		}
 	}
 
@@ -98,6 +94,8 @@ class SiteSpecialSearch extends SpecialSearch {
 		<td><b>Online</b></td>
 	</tr><tr>
 		<td style="white-space: nowrap"><input name="ns144" type="checkbox" value="1" $checked_data[144] id="mw-search-ns144" />&#160;<label for="mw-search-ns144">Online</label></td>
+	</tr><tr>
+		<td style="white-space: nowrap"><input name="ns148" type="checkbox" value="1" $checked_data[148] id="mw-search-ns148" />&#160;<label for="mw-search-ns148">ESOMod</label></td>
 	</tr><tr>
 		<td>&nbsp;</td>
 	</tr><tr>
@@ -195,7 +193,7 @@ class SiteSpecialSearch extends SpecialSearch {
 &nbsp;	
 <input name="redirs" type="checkbox" value="1" $checked_redirects id="redirs" />&#160;<label for="redirs">List redirects</label>
 <input type="hidden" value="advanced" name="profile" />
-<div id="mw-search-togglebox"><label for="mw-search-togglelabel">Check:</label><input type="button" id="mw-search-toggleall" value="All" /><input type="button" id="mw-search-togglenone" value="None" /></div>
+<div id="mw-search-togglebox"></div>
 </fieldset>
 
 UESP_EOT;

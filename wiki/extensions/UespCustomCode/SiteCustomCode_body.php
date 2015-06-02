@@ -594,8 +594,8 @@ class SiteBreadCrumbTrail {
 		// Even more hacking... if Subtitle is completely empty, the empty <div id='subContent'></div>
 		// tags mess up the location of siteSub, when siteSub is set to float:right (the siteSub tag
 		// is displaced vertically). Forcing a nbsp to be displayed fixes the problem
-		elseif ($out->getSubtitle()=='')
-			$out->setSubtitle( '&nbsp;' );
+		/* elseif ($out->getSubtitle()=='')
+			$out->setSubtitle( '&nbsp;' ); */
 		return true;
 	}	
 }

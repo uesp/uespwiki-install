@@ -36,10 +36,24 @@ class SpoofUser {
 
 	/**
 	 * Get the normalized key form
-	 * @return string|nuyll
+	 * @return string|null
 	 */
 	public function getNormalized() {
 		return $this->mNormalized;
+	}
+
+	/**
+	 * @return string
+	 */
+	protected function getTableName() {
+		return 'user';
+	}
+
+	/**
+	 * @return string
+	 */
+	protected function getUserColumn() {
+		return 'user_name';
 	}
 
 	/**
@@ -48,16 +62,16 @@ class SpoofUser {
 	 * @return array empty if no conflict, or array containing conflicting usernames
 	 */
 	public function getConflicts() {
-		$dbr = self::getDBSlave();
+		$dbr = $this->getDBSlave();
 
 		// Join against the user table to ensure that we skip stray
 		// entries left after an account is renamed or otherwise munged.
 		$spoofedUsers = $dbr->select(
-			array( 'spoofuser', 'user' ),
-			array( 'user_name' ),
+			array( 'spoofuser', $this->getTableName() ),
+			array( 'su_name' ), // Same thing due to the join. Saves extra variableness
 			array(
 				'su_normalized' => $this->mNormalized,
-				'su_name=user_name',
+				'su_name = ' . $this->getUserColumn(),
 			),
 			__METHOD__,
 			array(
@@ -66,7 +80,7 @@ class SpoofUser {
 
 		$spoofs = array();
 		foreach ( $spoofedUsers as $row ) {
-			array_push( $spoofs, $row->user_name );
+			array_push( $spoofs, $row->su_name );
 		}
 		return $spoofs;
 	}
@@ -77,7 +91,7 @@ class SpoofUser {
 	 * @return bool
 	 */
 	public function record() {
-		return self::batchRecord( array( $this ) );
+		return self::batchRecord( $this->getDBMaster(), array( $this ) );
 	}
 
 	/**
@@ -94,10 +108,11 @@ class SpoofUser {
 
 	/**
 	 * Insert a batch of spoof normalization records into the database.
+	 * @param $dbw DatabaseBase
 	 * @param $items array of SpoofUser
 	 * @return bool
 	 */
-	public static function batchRecord( $items ) {
+	public static function batchRecord( $dbw, $items ) {
 		if ( !count( $items ) ) {
 			return false;
 		}
@@ -108,7 +123,6 @@ class SpoofUser {
 		foreach ( $items as $item ) {
 			$fields[] = $item->insertFields();
 		}
-		$dbw = self::getDBMaster();
 		$dbw->replace(
 			'spoofuser',
 			array( 'su_name' ),
@@ -121,7 +135,7 @@ class SpoofUser {
 	 * @param $oldName
 	 */
 	public function update( $oldName ) {
-		$dbw = self::getDBMaster();
+		$dbw = $this->getDBMaster();
 
 		if( $this->record() ) {
 			$dbw->delete(
@@ -135,14 +149,14 @@ class SpoofUser {
 	/**
 	 * @return DatabaseBase
 	 */
-	protected static function getDBSlave() {
+	protected function getDBSlave() {
 		return wfGetDB( DB_SLAVE );
 	}
 
 	/**
 	 * @return DatabaseBase
 	 */
-	protected static function getDBMaster() {
+	protected function getDBMaster() {
 		return wfGetDB( DB_MASTER );
 	}
 }

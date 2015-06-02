@@ -13,13 +13,16 @@ class UsersEditCountPage extends QueryPage {
 	var $RequestDateTitle = '';
 	var $OutputCSV = false;
 	var $OutputEmails = false;
+	var $Group = NULL;
+	var $ExcludeGroup = false;
 
 	function __construct( $name = 'UsersEditCount' ) {
 		global $wgUser;
 		
 		parent::__construct( $name );
 		
-		$inputdate = $this->getRequest()->getVal('date');
+		$req = $this->getRequest();
+		$inputdate = $req->getVal('date');
 		 
 		switch (strtolower($inputdate)) {
 			case 'day': 	$this->RequestDate = 'day'; $this->RequestDateTitle = 'day'; break;
@@ -29,7 +32,10 @@ class UsersEditCountPage extends QueryPage {
 			case 'year':	$this->RequestDate = 'year'; $this->RequestDateTitle = 'year'; break;
 		}
 		
-		if ($this->getRequest()->getVal('csv') == 1) $this->OutputCSV = true;
+		$this->Group = $req->getVal('group');
+		$this->ExcludeGroup = $req->getCheck('excludegroup');
+		
+		if ($req->getVal('csv') == 1) $this->OutputCSV = true;
 		
 		if (in_array('sysop', $wgUser->getEffectiveGroups())) $this->OutputEmails = true;
 		
@@ -77,59 +83,69 @@ class UsersEditCountPage extends QueryPage {
 	}
 
 	function getQueryInfo() {
+		if ( $this->Group ) {
+			$dbr = wfGetDB( DB_SLAVE );
+			$sql = $dbr->selectSQLText ( 'user_groups', 'ug_user', array ('ug_group' => $this->Group) );
+			$exclude = $this->ExcludeGroup ? 'NOT' : '';
+		}
+		
 		$queryinfo = array(
 			'tables' => array( 'user' ),
-			'fields' => array( 'user_id',
-					'user_name as type',
+			'fields' => array( 
+					'2 as namespace',
+					'user_id as title',
 					'user_editcount as value' ),
-			'conds' => array('user_editcount >= 0' )
+			'conds' => array( 'user_editcount >= 0')
 		);
 		
-		$tsnow = time();
+		if ( $sql ) {
+			$queryinfo['conds'][] = "user_id $exclude IN ($sql)";
+		}
 		
 		switch ($this->RequestDate) {
 			case 'day':
-				$tsvalue = wfTimestamp(TS_MW, $tsnow - 86400);
-				$datecond = 'rev_timestamp >= "'.$tsvalue .'"';
+				$tsvalue = 1;
 				break;
 			case 'week':
-				$tsvalue =  wfTimestamp(TS_MW, $tsnow - 86400*7);
-				$datecond = 'rev_timestamp >= "'.$tsvalue .'"';
+				$tsvalue = 7;
 				break;
 			case 'month':
-				$tsvalue =  wfTimestamp(TS_MW, $tsnow - 86400*31);
-				$datecond = 'rev_timestamp >= "'.$tsvalue .'"';
+				$tsvalue = 31;
 				break;
 			case '6month':
-				$tsvalue =  wfTimestamp(TS_MW, $tsnow - 86400*31*6);
-				$datecond = 'rev_timestamp >= "'.$tsvalue .'"';
+				$tsvalue = 182.5;
 				break;
 			case 'year':
-				$tsvalue =  wfTimestamp(TS_MW, $tsnow - 86400*365);
-				$datecond = 'rev_timestamp >= "'.$tsvalue .'"';
+				$tsvalue = 365;
 				break;
 			default:
-				$datecond = null;
+				$tsvalue = null;
 				break;
 		}
 		
-		if ($datecond == null) return $queryinfo;
+		if ($tsvalue == null) return $queryinfo;
 		
+		$tsvalue = time() - ( $tsvalue * 86400 );
 		$queryinfo = array(
 				'tables' => array( 'revision' ),
-				'fields' => array( 'rev_user',
-						'rev_user_text as type',
+				'fields' => array( 
+						'2 as namespace',
+						'rev_user as title',
 						'count(*) as value' ),
-				'conds' => array($datecond),
-				'options' => array('GROUP BY' => 'rev_user')
+				'conds' => array( 'rev_timestamp >= "'. wfTimestamp(TS_MW, $tsvalue) .'"' ),
+				'options' => array( 'GROUP BY' => 'rev_user' )
 		);
-		
+				
+		if ( $sql ) {
+			$queryinfo['conds'][] = "rev_user $exclude IN ($sql)";
+		}
 		
 		return $queryinfo;
 	}
 
 	function linkParameters() {
 		$params = array('date' => $this->RequestDate);
+		
 		return $params;
 	}
 
@@ -143,12 +159,12 @@ class UsersEditCountPage extends QueryPage {
 		if ($this->OutputCSV) return $this->formatResultCSV($skin, $result);
 
 		$user = null;
-		$user = User::newFromName($result->type);
+		$user = User::newFromId($result->title);
 
 		if (is_null($user)) {
-			return "{$result->type} has {$result->value} edits.";
+			return "User ID {$result->title} has {$result->value} edits.";
 		}
-		else if (isset($result->rev_user) && $result->rev_user == 0) {
+		else if ($user->isAnon()) {
 			return "Anonymous users have {$result->value} edits.";
 		}
 		else {
@@ -169,11 +185,11 @@ class UsersEditCountPage extends QueryPage {
 		global $wgLang, $wgContLang;
 	
 		$user = null;
-		$user = User::newFromName($result->type);
+		$user = User::newFromName($result->title);
 	
 		if (is_null($user)) {
-			if ($this->OutputEmails) return "{$result->type}, n/a, n/a, {$result->value}";
-			return "{$result->type}, {$result->value}";
+			if ($this->OutputEmails) return "{$result->title}, n/a, n/a, {$result->value}";
+			return "{$result->title}, {$result->value}";
 		}
 		else if (isset($result->rev_user) && $result->rev_user == 0) {
 			if ($this->OutputEmails) return "Anonymous, Anonymous, n/a, {$result->value}";

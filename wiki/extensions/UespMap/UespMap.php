@@ -31,6 +31,8 @@ $wgExtensionCredits['parserhook'][] = array(
 	'version' => 0.3
 );
 
+$wgExtensionMessagesFiles['uespmap'] = dirname(__FILE__) . '/UespMap.i18n.php';
+
 
 /**
  * Global extension parameters

@@ -57,26 +57,39 @@ $wgCheckUserMaxBlocks = 200;
 // each check they do through Special:CheckUser.
 $wgCheckUserForceSummary = false;
 
+//Shortest CIDR limits that can be checked in any individual range check
+$wgCheckUserCIDRLimit = array(
+	'IPv4'=>16,
+	'IPv6'=>48,
+);
+
+// Public key to encrypt private data that may need to be read later
+// Generate a public key with something like:
+// `openssl genrsa -out cu.key 2048; openssl rsa -in cu.key -pubout > cu.pub`
+// and paste the contents of cu.pub here
+$wgCUPublicKey = <<<CUPUBLICKEY
+
+CUPUBLICKEY;
+
 # Recent changes data hook
 $wgHooks['RecentChange_save'][] = 'CheckUserHooks::updateCheckUserData';
 $wgHooks['EmailUser'][] = 'CheckUserHooks::updateCUEmailData';
 $wgHooks['User::mailPasswordInternal'][] = 'CheckUserHooks::updateCUPasswordResetData';
 $wgHooks['AuthPluginAutoCreate'][] = 'CheckUserHooks::onAuthPluginAutoCreate';
 $wgHooks['AddNewAccount'][] = 'CheckUserHooks::onAddNewAccount';
-$wgHooks['LoggableUserIPData'][] = 'CheckUserHooks::onLoggableUserIPData';
 
 # Occasional pruning of CU data
 $wgHooks['ArticleEditUpdatesDeleteFromRecentchanges'][] = 'CheckUserHooks::maybePruneIPData';
 
 $wgHooks['ParserTestTables'][] = 'CheckUserHooks::checkUserParserTestTables';
 $wgHooks['LoadExtensionSchemaUpdates'][] = 'CheckUserHooks::checkUserSchemaUpdates';
-$wgHooks['ContributionsToolLinks'][] = 'CheckUserHooks::loadCheckUserLink';
+$wgHooks['ContributionsToolLinks'][] = 'CheckUserHooks::checkUserContributionsLinks';
 
 # Take over autoblocking
 $wgHooks['PerformRetroactiveAutoblock'][] = 'CheckUserHooks::doRetroactiveAutoblock';
 
 $wgResourceModules['ext.checkUser'] = array(
-	'scripts'       => 'checkuser.js',
+	'scripts'       => 'modules/ext.checkuser.cidr.js',
 	'dependencies' 	=> array( 'mediawiki.util' ), // IP stuff
 	'localBasePath' => dirname( __FILE__ ),
 	'remoteExtPath' => 'CheckUser',
@@ -88,10 +101,11 @@ $wgSpecialPageGroups['CheckUser'] = 'users';
 $wgSpecialPages['CheckUserLog'] = 'SpecialCheckUserLog';
 $wgSpecialPageGroups['CheckUserLog'] = 'changes';
 
-$wgAutoloadClasses['CheckUser'] = $dir . '/CheckUser_body.php';
+$wgAutoloadClasses['CheckUser'] = $dir . '/specials/SpecialCheckUser.php';
 $wgAutoloadClasses['CheckUserHooks'] = $dir . '/CheckUser.hooks.php';
 $wgAutoloadClasses['CheckUserLogPager'] = $dir . '/CheckUserLogPager.php';
-$wgAutoloadClasses['SpecialCheckUserLog'] = $dir . '/SpecialCheckUserLog.php';
+$wgAutoloadClasses['SpecialCheckUserLog'] = $dir . '/specials/SpecialCheckUserLog.php';
+$wgAutoloadClasses['CheckUserEncryptedData'] = $dir . '/CheckUserEncryptedData.php';
 
 // API modules
 $wgAutoloadClasses['ApiQueryCheckUser'] = "$dir/api/ApiQueryCheckUser.php";

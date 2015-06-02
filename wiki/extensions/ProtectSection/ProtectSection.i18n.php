@@ -59,7 +59,7 @@ $messages['avk'] = array(
 	'protectsection_forbidden' => 'Poun',
 );
 
-/** Belarusian (Taraškievica orthography) (‪Беларуская (тарашкевіца)‬)
+/** Belarusian (Taraškievica orthography) (беларуская (тарашкевіца)‎)
  * @author EugeneZelenko
  * @author Jim-by
  */
@@ -72,7 +72,7 @@ $messages['be-tarask'] = array(
 	'right-protectsection' => 'абарона сэкцый старонак',
 );
 
-/** Bulgarian (Български)
+/** Bulgarian (български)
  * @author Spiritia
  */
 $messages['bg'] = array(
@@ -82,7 +82,7 @@ $messages['bg'] = array(
 	'protectsection_forbidden' => 'Забранен достъп',
 );
 
-/** Breton (Brezhoneg)
+/** Breton (brezhoneg)
  * @author Fulup
  */
 $messages['br'] = array(
@@ -94,7 +94,7 @@ $messages['br'] = array(
 	'right-protectsection' => 'Gwareziñ rannoù ar pajennoù',
 );
 
-/** Bosnian (Bosanski)
+/** Bosnian (bosanski)
  * @author CERminator
  */
 $messages['bs'] = array(
@@ -106,7 +106,7 @@ $messages['bs'] = array(
 	'right-protectsection' => 'Zaštita sekcija stranice',
 );
 
-/** Catalan (Català)
+/** Catalan (català)
  * @author Aleator
  * @author SMP
  */
@@ -131,7 +131,7 @@ $messages['de'] = array(
 	'right-protectsection' => 'Abschnitte einer Seite schützen',
 );
 
-/** German (formal address) (‪Deutsch (Sie-Form)‬)
+/** German (formal address) (Deutsch (Sie-Form)‎)
  * @author Imre
  * @author PasO
  */
@@ -141,7 +141,7 @@ $messages['de-formal'] = array(
 	'protectsection_add_above' => 'Sie haben versucht, Text vor einem geschützten Abschnitt einzufügen.',
 );
 
-/** Lower Sorbian (Dolnoserbski)
+/** Lower Sorbian (dolnoserbski)
  * @author Michawiki
  */
 $messages['dsb'] = array(
@@ -170,7 +170,7 @@ $messages['eo'] = array(
 	'protectsection_forbidden' => 'Malpermesita',
 );
 
-/** Spanish (Español)
+/** Spanish (español)
  * @author Crazymadlover
  * @author Imre
  * @author Mor
@@ -184,7 +184,14 @@ $messages['es'] = array(
 	'right-protectsection' => 'Proteger secciones de página',
 );
 
-/** Basque (Euskara)
+/** Estonian (eesti)
+ * @author Avjoska
+ */
+$messages['et'] = array(
+	'protectsection_forbidden' => 'Keelatud',
+);
+
+/** Basque (euskara)
  * @author Theklan
  */
 $messages['eu'] = array(
@@ -194,7 +201,7 @@ $messages['eu'] = array(
 	'protectsection_forbidden' => 'Debekatuta',
 );
 
-/** Finnish (Suomi)
+/** Finnish (suomi)
  * @author Crt
  * @author Nike
  * @author Str4nd
@@ -209,7 +216,7 @@ $messages['fi'] = array(
 	'right-protectsection' => 'Suojata sivun osiot',
 );
 
-/** French (Français)
+/** French (français)
  * @author Crochet.david
  * @author Grondin
  * @author PieRRoMaN
@@ -225,7 +232,7 @@ $messages['fr'] = array(
 	'right-protectsection' => 'Protéger les sections de page',
 );
 
-/** Franco-Provençal (Arpetan)
+/** Franco-Provençal (arpetan)
  * @author ChrisPtDe
  */
 $messages['frp'] = array(
@@ -233,7 +240,7 @@ $messages['frp'] = array(
 	'right-protectsection' => 'Protègiér les sèccions de pâge',
 );
 
-/** Galician (Galego)
+/** Galician (galego)
  * @author Toliño
  * @author Xosé
  */
@@ -284,7 +291,7 @@ $messages['hi'] = array(
 	'protectsection_forbidden' => 'प्रतिबंधित',
 );
 
-/** Croatian (Hrvatski)
+/** Croatian (hrvatski)
  * @author Dnik
  */
 $messages['hr'] = array(
@@ -293,7 +300,7 @@ $messages['hr'] = array(
 	'protectsection_forbidden' => 'Zabranjeno',
 );
 
-/** Upper Sorbian (Hornjoserbsce)
+/** Upper Sorbian (hornjoserbsce)
  * @author Michawiki
  */
 $messages['hsb'] = array(
@@ -305,7 +312,7 @@ $messages['hsb'] = array(
 	'right-protectsection' => 'Wotrězki strony škitać',
 );
 
-/** Hungarian (Magyar)
+/** Hungarian (magyar)
  * @author Dani
  * @author Glanthor Reviol
  */
@@ -318,7 +325,7 @@ $messages['hu'] = array(
 	'right-protectsection' => 'Lap szakaszainak védelme',
 );
 
-/** Interlingua (Interlingua)
+/** Interlingua (interlingua)
  * @author McDutchie
  */
 $messages['ia'] = array(
@@ -342,7 +349,7 @@ $messages['id'] = array(
 	'right-protectsection' => 'Lindungi bagian halaman',
 );
 
-/** Italian (Italiano)
+/** Italian (italiano)
  * @author Civvì
  * @author Darth Kule
  */
@@ -361,11 +368,11 @@ $messages['it'] = array(
  */
 $messages['ja'] = array(
 	'protectsection_desc' => '権限のある利用者が <code>&lt;protect&gt;</code> タグを使ってページの一部を保護できるようにする',
-	'protectsection_add_remove' => 'あなたは保護されたセクションを追加または除去しようとしました',
+	'protectsection_add_remove' => 'あなたは保護された節を追加または除去しようとしました',
 	'protectsection_modify' => 'あなたは保護された文章を変更しようとしました',
-	'protectsection_add_above' => 'あなたは保護されたセクションの前に文章を挿入しようとしました',
+	'protectsection_add_above' => 'あなたは保護された節の前に文章を挿入しようとしました',
 	'protectsection_forbidden' => '禁止されています',
-	'right-protectsection' => 'ページのセクションを保護',
+	'right-protectsection' => 'ページの節を保護',
 );
 
 /** Javanese (Basa Jawa)
@@ -376,6 +383,14 @@ $messages['jv'] = array(
 	'protectsection_forbidden' => 'Dilarang',
 );
 
+/** Georgian (ქართული)
+ * @author David1010
+ */
+$messages['ka'] = array(
+	'protectsection_forbidden' => 'აკრძალული',
+	'right-protectsection' => 'გვერდის სექციების დაცვა',
+);
+
 /** Khmer (ភាសាខ្មែរ)
  * @author គីមស៊្រុន
  */
@@ -383,6 +398,18 @@ $messages['km'] = array(
 	'protectsection_add_remove' => 'អ្នកបានព្យាយាមបន្ថែមឬលុបចោលផ្នែកដែលត្រូវបានគេការពារ',
 	'protectsection_modify' => 'អ្នកបាន​ព្យាយាម​កែប្រែ​អត្ថបទដែលត្រូវបានគេការពារ',
 	'protectsection_forbidden' => 'ត្រូវបានហាមឃាត់',
+);
+
+/** Korean (한국어)
+ * @author 아라
+ */
+$messages['ko'] = array(
+	'protectsection_desc' => '<code>&lt;protect&gt;</code> 태그를 문서에 사용하여 인증된 사용자가 부분을 보호하도록 허용합니다',
+	'protectsection_add_remove' => '보호할 부분을 더하거나 삭제하려고 하였습니다',
+	'protectsection_modify' => '보호한 텍스트를 수정하려고 하였습니다',
+	'protectsection_add_above' => '보호한 부분 앞에 텍스트를 입력하려고 하였습니다',
+	'protectsection_forbidden' => '편집 불가',
+	'right-protectsection' => '문서의 부분 보호',
 );
 
 /** Colognian (Ripoarisch)
@@ -409,7 +436,7 @@ $messages['lb'] = array(
 	'right-protectsection' => 'Abschnitter vun enger Säit spären',
 );
 
-/** Macedonian (Македонски)
+/** Macedonian (македонски)
  * @author Bjankuloski06
  */
 $messages['mk'] = array(
@@ -439,8 +466,7 @@ $messages['mr'] = array(
 	'protectsection_forbidden' => 'फॉरबिडन',
 );
 
-/** Norwegian (bokmål)‬ (‪Norsk (bokmål)‬)
- * @author Jon Harald Søby
+/** Norwegian Bokmål (norsk (bokmål)‎)
  * @author Nghtwlkr
  */
 $messages['nb'] = array(
@@ -465,8 +491,9 @@ $messages['nl'] = array(
 	'right-protectsection' => 'Paginasecties beveiligen',
 );
 
-/** Norwegian Nynorsk (‪Norsk (nynorsk)‬)
+/** Norwegian Nynorsk (norsk (nynorsk)‎)
  * @author Harald Khan
+ * @author Njardarlogar
  */
 $messages['nn'] = array(
 	'protectsection_desc' => 'Lèt godkjende brukarar verna delar av ei sida ved å bruka merket <code>&lt;protect&gt;</code>',
@@ -477,7 +504,7 @@ $messages['nn'] = array(
 	'right-protectsection' => 'Verna bolkar',
 );
 
-/** Occitan (Occitan)
+/** Occitan (occitan)
  * @author Cedric31
  */
 $messages['oc'] = array(
@@ -496,7 +523,7 @@ $messages['pdc'] = array(
 	'protectsection_forbidden' => 'Verbodde',
 );
 
-/** Polish (Polski)
+/** Polish (polski)
  * @author Sp5uhe
  */
 $messages['pl'] = array(
@@ -520,7 +547,7 @@ $messages['pms'] = array(
 	'right-protectsection' => 'Protegg dle session ëd na pàgina',
 );
 
-/** Portuguese (Português)
+/** Portuguese (português)
  * @author Hamilton Abreu
  * @author Lijealso
  * @author Malafaya
@@ -535,7 +562,7 @@ $messages['pt'] = array(
 	'right-protectsection' => 'Proteger secções da página',
 );
 
-/** Brazilian Portuguese (Português do Brasil)
+/** Brazilian Portuguese (português do Brasil)
  * @author Eduardo.mps
  */
 $messages['pt-br'] = array(
@@ -547,14 +574,14 @@ $messages['pt-br'] = array(
 	'right-protectsection' => 'Proteger seções da página',
 );
 
-/** Romanian (Română)
+/** Romanian (română)
  * @author Firilacroco
  */
 $messages['ro'] = array(
 	'protectsection_forbidden' => 'Interzis',
 );
 
-/** Russian (Русский)
+/** Russian (русский)
  * @author Ferrer
  * @author Александр Сигачёв
  */
@@ -567,7 +594,7 @@ $messages['ru'] = array(
 	'right-protectsection' => 'защита разделов страницы',
 );
 
-/** Slovak (Slovenčina)
+/** Slovak (slovenčina)
  * @author Helix84
  */
 $messages['sk'] = array(
@@ -579,14 +606,14 @@ $messages['sk'] = array(
 	'right-protectsection' => 'Zamykať sekcie stránky',
 );
 
-/** Serbian (Cyrillic script) (‪Српски (ћирилица)‬)
+/** Serbian (Cyrillic script) (српски (ћирилица)‎)
  * @author Михајло Анђелковић
  */
 $messages['sr-ec'] = array(
 	'protectsection_forbidden' => 'Забрањено',
 );
 
-/** Serbian (Latin script) (‪Srpski (latinica)‬) */
+/** Serbian (Latin script) (srpski (latinica)‎) */
 $messages['sr-el'] = array(
 	'protectsection_forbidden' => 'Zabranjeno',
 );
@@ -601,7 +628,7 @@ $messages['stq'] = array(
 	'protectsection_forbidden' => 'Ferbeeden',
 );
 
-/** Swedish (Svenska)
+/** Swedish (svenska)
  * @author Boivie
  * @author M.M.S.
  * @author Najami
@@ -624,7 +651,7 @@ $messages['te'] = array(
 	'right-protectsection' => 'పుటల లోని విభాగాలను సంరక్షించడం',
 );
 
-/** Tajik (Cyrillic script) (Тоҷикӣ)
+/** Tajik (Cyrillic script) (тоҷикӣ)
  * @author Ibrahim
  */
 $messages['tg-cyrl'] = array(
@@ -663,7 +690,7 @@ $messages['tr'] = array(
 	'right-protectsection' => 'Sayfa bölümlerini korumaya alır',
 );
 
-/** Ukrainian (Українська)
+/** Ukrainian (українська)
  * @author NickK
  * @author Prima klasy4na
  */
@@ -676,7 +703,15 @@ $messages['uk'] = array(
 	'right-protectsection' => 'Захист розділів сторінки',
 );
 
-/** Vèneto (Vèneto)
+/** Urdu (اردو)
+ * @author පසිඳු කාවින්ද
+ */
+$messages['ur'] = array(
+	'protectsection_forbidden' => 'حرام',
+	'right-protectsection' => 'صفحہ حصوں کی حفاظت',
+);
+
+/** vèneto (vèneto)
  * @author Candalua
  */
 $messages['vec'] = array(
@@ -686,7 +721,7 @@ $messages['vec'] = array(
 	'protectsection_forbidden' => 'Proibìo',
 );
 
-/** Veps (Vepsan kel')
+/** Veps (vepsän kel’)
  * @author Игорь Бродский
  */
 $messages['vep'] = array(
@@ -706,14 +741,14 @@ $messages['vi'] = array(
 	'right-protectsection' => 'Khóa đoạn trang',
 );
 
-/** Simplified Chinese (‪中文(简体)‬)
+/** Simplified Chinese (中文（简体）‎)
  * @author Gzdavidwong
  */
 $messages['zh-hans'] = array(
 	'protectsection_forbidden' => '禁止',
 );
 
-/** Traditional Chinese (‪中文(繁體)‬)
+/** Traditional Chinese (中文（繁體）‎)
  * @author Wrightbus
  */
 $messages['zh-hant'] = array(

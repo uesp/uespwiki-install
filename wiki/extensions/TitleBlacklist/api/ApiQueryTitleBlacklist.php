@@ -34,19 +34,15 @@ class ApiQueryTitleBlacklist extends ApiBase {
 	}
 
 	public function execute() {
-		# get the current user.
-		$context = $this->createContext();
-		$user = $context->getUser();
-
 		$params = $this->extractRequestParams();
 		$action = $params['action'];
+		$override = true;
+		if( isset( $params['nooverride'] ) ) {
+			$override = false;
+		}
 
-		// check the blacklist, the same way tbhooks does it.
-		//
-		// Some places check createpage, while others check create.
-		// As it stands, upload does createpage, but normalize both
-		// to the same action, to stop future similar bugs.
-		if( $action === 'createpage' || $action === 'createtalk' ) {
+		// createtalk and createpage are useless as they're treated exactly like create
+		if ( $action === 'createpage' || $action === 'createtalk' ) {
 			$action = 'create';
 		}
 
@@ -55,8 +51,8 @@ class ApiQueryTitleBlacklist extends ApiBase {
 			$this->dieUsageMsg( array( 'invalidtitle', $params['title'] ) );
 		}
 
-		$blacklisted = TitleBlacklist::singleton()->userCannot( $title, $user, $action );
-		if( $blacklisted instanceof TitleBlacklistEntry ) {
+		$blacklisted = TitleBlacklist::singleton()->userCannot( $title, $this->getUser(), $action, $override );
+		if ( $blacklisted instanceof TitleBlacklistEntry ) {
 			// this title is blacklisted.
 			$result = array(
 				htmlspecialchars( $blacklisted->getRaw() ),
@@ -65,8 +61,8 @@ class ApiQueryTitleBlacklist extends ApiBase {
 
 			$res = $this->getResult();
 			$res->addValue( 'titleblacklist', 'result', 'blacklisted' );
-			// this is hardcoded to 'edit' in Titleblacklist.hooks.php, duplicating that.
-			$message = $blacklisted->getErrorMessage( 'edit' );
+			// there aren't any messages for create(talk|page), using edit for those instead
+			$message = $blacklisted->getErrorMessage( $action !== 'create' ? $action : 'edit' );
 			$res->addValue( 'titleblacklist', 'reason', wfMessage( $message, $result )->text() );
 			$res->addValue( 'titleblacklist', 'message', $message );
 			$res->addValue( 'titleblacklist', 'line', htmlspecialchars( $blacklisted->getRaw() ) );
@@ -74,7 +70,6 @@ class ApiQueryTitleBlacklist extends ApiBase {
 			// not blacklisted
 			$this->getResult()->addValue( 'titleblacklist', 'result', 'ok' );
 		}
-
 	}
 
 	public function getAllowedParams() {
@@ -86,8 +81,11 @@ class ApiQueryTitleBlacklist extends ApiBase {
 				ApiBase::PARAM_DFLT => 'edit',
 				ApiBase::PARAM_ISMULTI => false,
 				ApiBase::PARAM_TYPE => array(
-					'create', 'edit', 'upload', 'createtalk', 'createpage',
+					// createtalk and createpage are useless as they're treated exactly like create
+					'create', 'edit', 'upload', 'createtalk', 'createpage', 'move', 'new-account'
 				),
+			),
+			'nooverride' => array(
 			)
 		);
 	}
@@ -95,7 +93,7 @@ class ApiQueryTitleBlacklist extends ApiBase {
 	public function getParamDescription() {
 		return array(
 			'title' => 'The string to validate against the blacklist',
-			'lang' => 'The current language',
+			'nooverride' => 'Don\'t try to override the titleblacklist',
 			'action' => 'The thing you\'re trying to do',
 		);
 	}
@@ -107,7 +105,7 @@ class ApiQueryTitleBlacklist extends ApiBase {
 	public function getExamples() {
 		return array(
 			'api.php?action=titleblacklist&tbtitle=Foo',
-			'api.php?action=titleblacklist&tbtitle=Bar&tbaction=create',
+			'api.php?action=titleblacklist&tbtitle=Bar&tbaction=edit',
 		);
 	}
 

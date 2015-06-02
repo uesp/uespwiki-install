@@ -67,7 +67,7 @@ class OAIRepo {
 			'YYYY-MM-DD'           => '$1-$2-$3',
 			'YYYY-MM-DDThh:mm:ssZ' => '$1-$2-$3T$4:$5:$6Z' );
 		if( !isset( $formats[$granularity] ) ) {
-			wfDebugDieBacktrace( 'oaiFormatDate given illegal output format' );
+			throw new MWException( 'oaiFormatDate given illegal output format' );
 		}
 		return preg_replace(
 			'/^(....)(..)(..)(..)(..)(..)$/',
@@ -91,7 +91,10 @@ class OAIRepo {
 	 * @return array
 	 */
 	function initRequest( $request ) {
-		/* Legal verbs and their parameters */
+		/* Legal verbs and their parameters; the 'next' parameter is used to
+		 * specify the next desired sequence number; it and 'resumptionToken' are
+		 * mutually exclusive.
+		 */
 		$verbs = array(
 			'GetRecord' => array(
 				'required'  => array( 'identifier', 'metadataPrefix' ) ),
@@ -99,13 +102,13 @@ class OAIRepo {
 			'ListIdentifiers' => array(
 				'exclusive' =>        'resumptionToken',
 				'required'  => array( 'metadataPrefix' ),
-				'optional'  => array( 'from', 'until', 'set' ) ),
+				'optional'  => array( 'from', 'until', 'set', 'next' ) ),
 			'ListMetadataFormats' => array(
 				'optional'  => array( 'identifier' ) ),
 			'ListRecords' => array(
 				'exclusive' =>        'resumptionToken',
 				'required'  => array( 'metadataPrefix' ),
-				'optional'  => array( 'from', 'until', 'set' ) ),
+				'optional'  => array( 'from', 'until', 'set', 'next' ) ),
 			'ListSets' => array(
 				'exclusive' => 'resumptionToken' ) );
 
@@ -115,7 +118,9 @@ class OAIRepo {
 			$req['verb'] = $verb;
 			$params = $verbs[$verb];
 
-			/* If an exclusive parameter is set, it's the only one we'll see */
+			/* If an exclusive parameter is set, it's the only one we expect to
+			 * see, so we ignore others.
+			 */
 			if( isset( $params['exclusive'] ) ) {
 				$exclusive = $request->getVal( $params['exclusive'] );
 				if( !is_null( $exclusive ) ) {
@@ -151,6 +156,21 @@ class OAIRepo {
 		}
 		return $req;
 	}
+
+	function validateNext( $var ) {
+		if ( ! isset( $this->_request[ $var ] ) ) {
+			return null;
+		}
+		$seq = $this->_request[ $var ];
+		if ( '-1' == $seq ) {    // first request
+		        return -1;
+		}
+		if ( ! preg_match( '/^\d+$/', $seq, $matches ) ) {
+			$this->addError( 'badArgument', "Invalid sequence number $var='$seq'" );
+			return null;
+		}
+		return IntVal( $matches[ 0 ] );
+	}  // validateNext
 
 	function validateMetadata( $var ) {
 		if( isset( $this->_request[$var] ) ) {
@@ -276,7 +296,7 @@ class OAIRepo {
 					'oa_agent' => @$_SERVER['HTTP_USER_AGENT'],
 					'oa_dbname' => $wgDBname,
 					'oa_response_size' => $responseSize,
-					'oa_request' => wfArrayToCGI( $this->_request ),
+					'oa_request' => wfArrayToCgi( $this->_request ),
 				),
 				__METHOD__ );
 		}
@@ -399,7 +419,7 @@ class OAIRepo {
 			break;
 		default:
 			# This shouldn't happen
-			wfDebugDieBacktrace( 'Verb not implemented' );
+			throw new MWException( 'Verb not implemented' );
 		}
 	}
 
@@ -453,23 +473,81 @@ class OAIRepo {
 		$this->addError( 'badResumptionToken', 'Invalid resumption token.' );
 	}
 
-	function listRecords( $verb ) {
+	function listRecordsLucene( $verb, $next ) {
 		$withData = ($verb == 'ListRecords');
+		$metadataPrefix = $this->validateMetadata( 'metadataPrefix' );
+		$until  = null;
+		if ( -1 == $next ) {    // first request, use timestamp
+			$resume = null;
+			$from   = $this->validateDatestamp( 'from' );
+		} else {                // later requests, use sequence number
+			$resume = $next;
+			$from   = null;
+		}
 
+		// Fetch one extra row to check if we need multiple transfers
+		$resultSet = $this->fetchRows( $from, $until, $this->chunkSize() + 1, $resume );
+		$count = min( $resultSet->numRows(), $this->chunkSize() );
+		if( ! $count ) {
+			$this->addError( 'noRecordsMatch', 'No records available match the request.' );
+			return;
+		}
+
+		// we have at least one record
+		echo "<$verb>\n";
+		$rows = array();
+		$max = -1;
+		for( $i = 0; $i < $count; $i++ ) {
+			$row = $resultSet->fetchObject();
+			$rows[] = $row;
+			$seq = $row->up_sequence;
+			if ( $seq > $max ) {
+			    $max = $seq;
+			}
+		}
+		$max += 1;
+		$row = $resultSet->fetchObject();
+		$nextToken = $row ? "$max+" : "$max";  // '+' indicates more rows available
+		$resultSet->free();
+		$writer = $this->makeWriter( $metadataPrefix, $rows );
+		foreach( $rows as $row ) {
+			$item = new WikiOAIRecord( $row, $writer );
+			if( $withData ) {
+				echo $item->renderRecord( $metadataPrefix, $this->timeGranularity() );
+			} else {
+				echo $item->renderHeader( $this->timeGranularity() );
+			}
+		}
+		echo oaiTag( 'next', array(), $nextToken ) . "\n";
+		echo "</$verb>\n";
+	}  // listRecordsLucene
+
+	function listRecords( $verb ) {
+		$next = $this->validateNext( 'next' );
+		if( $this->errorCondition() ) {
+			return;
+		}
+		if ( $next ) {	  // new interface -- use sequence numbers
+			$this->listRecordsLucene( $verb, $next );
+			return;
+		}
+
+		// old interface -- use resumptionToken and timestamps
+		$withData = ($verb == 'ListRecords');
 		$startToken = $this->validateToken( 'resumptionToken' );
 		if( $this->errorCondition() ) {
 			return;
 		}
 		if( $startToken ) {
 			$metadataPrefix = $startToken['metadataPrefix'];
-			$resume         = $startToken['resume'];
+			$resume	        = $startToken['resume'];
 			$from           = null;
-			$until          = $startToken['until'];
+			$until	        = $startToken['until'];
 		} else {
 			$metadataPrefix = $this->validateMetadata( 'metadataPrefix' );
-			$resume         = null;
-			$from           = $this->validateDatestamp( 'from' );
-			$until          = $this->validateDatestamp( 'until' );
+			$resume	        = null;
+			$from	        = $this->validateDatestamp( 'from' );
+			$until	        = $this->validateDatestamp( 'until' );
 			if( isset( $this->_request['set'] ) ) {
 				$this->addError( 'noSetHierarchy', 'This repository does not support sets.' );
 			}
@@ -478,7 +556,7 @@ class OAIRepo {
 			}
 		}
 
-		# Fetch one extra row to check if we need a resumptionToken
+		# Fetch one extra row to check if we need multiple transfers
 		$resultSet = $this->fetchRows( $from, $until, $this->chunkSize() + 1, $resume );
 		$count = min( $resultSet->numRows(), $this->chunkSize() );
 		if( $count ) {
@@ -592,7 +670,7 @@ class OAIRepo {
 			$this->_db->freeResult( $result );
 			return $row->min;
 		} else {
-			wfDebugDieBacktrace( 'Bogus result.' );
+			throw new MWException( 'Bogus result.' );
 		}
 	}
 
@@ -753,7 +831,7 @@ class OAIRepo {
 	}
 }
 
-class OAIRecord {
+abstract class OAIRecord {
 	function renderRecord( $format, $datestyle ) {
 		$header = $this->renderHeader( $datestyle );
 		$metadata = $this->isDeleted()
@@ -777,9 +855,7 @@ class OAIRecord {
 			"</header>\n";
 	}
 
-	function renderMetadata( $format ) {
-		wfDebugDieBacktrace( 'Abstract' );
-	}
+	abstract function renderMetadata( $format );
 
 	function renderAbout() {
 		# Not supported yet
@@ -789,26 +865,18 @@ class OAIRecord {
 	/**
 	 * Return the date and time when this record was last modified,
 	 * created or deleted. This is needed for the header output.
-	 * Override this...
 	 *
 	 * @return int UNIX timestamp (or other wfTimestamp()-compatible)
-	 * @abstract
 	 */
-	function getDatestamp() {
-		wfDebugDieBacktrace( 'Abstract OAIRecord::getDatestamp() called.' );
-	}
+	abstract function getDatestamp();
 
 	/**
 	 * Return the record's unique OAI identifier.
 	 * This is needed for the header output.
-	 * Override this...
 	 *
 	 * @return string
-	 * @abstract
 	 */
-	function getIdentifier() {
-		wfDebugDieBacktrace( 'Abstract OAIRecord::getIdentifier() called.' );
-	}
+	abstract function getIdentifier();
 
 	/**
 	 * True if this is a deleted record, false otherwise.
@@ -869,7 +937,7 @@ class WikiOAIRecord extends OAIRecord {
 			$data = $this->renderLSearch();
 			break;
 		default:
-			wfDebugDieBacktrace( 'Unsupported metadata format.' );
+			throw new MWException( 'Unsupported metadata format.' );
 		}
 		return "<metadata>\n$data</metadata>\n";
 	}

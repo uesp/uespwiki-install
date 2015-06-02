@@ -25,7 +25,7 @@ EOT;
 // definitions change)
 $wgExtensionCredits['other'][] = array(
 	'name' => 'MetaTemplate',
-	'author' => 'Nephele',
+	'author' => '[[User:Nephele|Nephele]], [[User:RobinHood70|RobinHood70]]',
 	'url' => 'http://www.uesp.net/wiki/UESPWiki:MetaTemplate',
 	'description' => 'Features to make templates more powerful',
 	'version' => '1.0.5',
@@ -70,7 +70,7 @@ $dir = dirname(__FILE__) . '/';
 $dirspec = $wgScriptPath . '/extensions' . preg_replace('/.*\/extensions/', '', $dir);
 
 # Include the rest of the always-loaded extension code
-require_once( $dir . "MetaTemplate_body.php");
+require_once( $dir . 'MetaTemplate_body.php');
 
 # Tell Mediawiki where to find files containing extension-specific classes
 if ( version_compare ( $wgVersion, '1.12.0', '>=' ) ) {
@@ -96,7 +96,6 @@ $wgExtensionFunctions[] = 'efMetaTemplateInit';
 # Add magic words and parser functions
 # Comment out the first line to disable all magic words
 $wgHooks['MagicWordwgVariableIDs'][] = 'efMetaTemplateDeclareMagicWord';
-$wgHooks['LanguageGetMagic'][] = 'efMetaTemplateMagicWords';
 $wgHooks['ParserGetVariableValueSwitch'][] = 'efMetaTemplateAssignMagicWord';
 if ($egMetaTemplateEnableSaveLoad)
 	$wgHooks['LoadExtensionSchemaUpdates'][] = 'efMetaTemplateSchemaUpdates';
@@ -105,8 +104,20 @@ if ($egMetaTemplateEnableCatPageTemplate)
 
 # Load messages
 $wgExtensionMessagesFiles['metatemplate'] = $dir . 'MetaTemplate.i18n.php';
-$wgExtensionAliasesFiles['metatemplate'] = $dir . 'MetaTemplate.alias.php';
-$wgHooks['LoadAllMesages'][] = 'efMetaTemplateLoadMessages';
+$wgExtensionMessagesFiles['metatemplateAlias'] = $dir . 'MetaTemplate.alias.php';
+$wgExtensionMessagesFiles['metatemplateMagic'] = $dir . 'MetaTemplate.i18n.magic.php';
+
+# Register API and Special Pages
+$wgAutoloadClasses['ApiQueryMetaVars'] = "$dir/ApiQueryMetaVars.php";
+$wgAPIPropModules['metavars'] = 'ApiQueryMetaVars';
+
+$wgAutoloadClasses[ 'SpecialPagesWithMetaVar' ] = "$dir/SpecialPagesWithMetaVar.php";
+$wgSpecialPages[ 'PagesWithMetaVar' ] = 'SpecialPagesWithMetaVar';
+$wgSpecialPageGroups[ 'PagesWithMetaVar' ] = 'pages';
+
+$wgAutoloadClasses[ 'SpecialMetaVarsOnPage' ] = "$dir/SpecialMetaVarsOnPage.php";
+$wgSpecialPages[ 'MetaVarsOnPage' ] = 'SpecialMetaVarsOnPage';
+$wgSpecialPageGroups[ 'MetaVarsOnPage' ] = 'wiki';
 
 /*
  * Initialization functions
@@ -162,6 +173,7 @@ function efMetaTemplateInit() {
 		$wgParser->setFunctionHook( MAG_METATEMPLATE_LISTSAVED, 'efMetaTemplateImplementListsaved', $hookoption);
 
 		$wgHooks['ArticleDeleteComplete'][] = 'MetaTemplateSaveData::OnDelete';
+		// $wgHooks['ArticlePurge'][] = 'MetaTemplateSaveData::OnDelete'; // Same function header and desired effect as OnDelete, so re-use
 		$wgHooks['TitleMoveComplete'][] = 'MetaTemplateSaveData::OnMove';
 	}
 	
@@ -185,63 +197,6 @@ function efMetaTemplateInit() {
 	if ($egMetaTemplateEnableCatPageTemplate)
 		$wgParser->setHook( MAG_METATEMPLATE_CATPAGETEMPLATE, 'efMetaTemplateCatPageTemplate' );
 	
-	efMetaTemplateLoadMessages();
-	return true;	
-}
-
-function efMetaTemplateLoadMessages() {
-	global $wgVersion;
-	static $loaded = false;
-	if ($loaded)
-		return true;
-	
-	$dir = dirname(__FILE__) . '/';
-# Old way to load messages 
-	if( version_compare( $wgVersion, '1.11.0', '<')) {
-		global $wgMessageCache;
-                require( $dir . 'MetaTemplate.i18n.php' );
-                foreach ( $messages as $lang => $langMessages ) {
-                        $wgMessageCache->addMessages( $langMessages, $lang );
-                }
-	}
-	else {
-# New way to load messages
-		wfLoadExtensionMessages( 'metatemplate' );
-	}
-
-	return true;
-}
-
-function efMetaTemplateMagicWords(&$aWikiWords, $langID) {
-	# variables
-	# (0 means case-insensitive)
-
-	# functions
-	$aWikiWords[MAG_METATEMPLATE_DEFINE] = array(0, 'define');
-	$aWikiWords[MAG_METATEMPLATE_PREVIEW] = array(0, 'preview');
-	$aWikiWords[MAG_METATEMPLATE_UNSET] = array(0, 'unset');
-	$aWikiWords[MAG_METATEMPLATE_INHERIT] = array(0, 'inherit');
-	$aWikiWords[MAG_METATEMPLATE_INCLUDE] = array(0, 'include');
-	$aWikiWords[MAG_METATEMPLATE_TRIMLINKS] = array(0, 'trimlinks');
-	$aWikiWords[MAG_METATEMPLATE_SAVE] = array(0, 'save');
-	$aWikiWords[MAG_METATEMPLATE_LOAD] = array(0, 'load');
-	$aWikiWords[MAG_METATEMPLATE_LISTSAVED] = array(0, 'listsaved');
-	$aWikiWords[MAG_METATEMPLATE_NESTLEVEL] = array(0, 'NESTLEVEL');
-	$aWikiWords[MAG_METATEMPLATE_NAMESPACE0] = array(0, 'NAMESPACE0');
-	$aWikiWords[MAG_METATEMPLATE_PAGENAME0] = array(0, 'PAGENAME0');
-	$aWikiWords[MAG_METATEMPLATE_FULLPAGENAME0] = array(0, 'FULLPAGENAME0');
-	$aWikiWords[MAG_METATEMPLATE_NAMESPACEx] = array(0, 'NAMESPACEx');
-	$aWikiWords[MAG_METATEMPLATE_PAGENAMEx] = array(0, 'PAGENAMEx');
-	$aWikiWords[MAG_METATEMPLATE_FULLPAGENAMEx] = array(0, 'FULLPAGENAMEx');
-	$aWikiWords[MAG_METATEMPLATE_RETURN] = array(0, 'return');
-	$aWikiWords[MAG_METATEMPLATE_LOCAL] = array(0, 'local');
-	$aWikiWords[MAG_METATEMPLATE_SPLITARGS] = array(0, 'splitargs');
-	$aWikiWords[MAG_METATEMPLATE_PICKFROM] = array(0, 'pickfrom');
-	$aWikiWords[MAG_METATEMPLATE_IFEXISTX] = array(0, 'ifexistx');
-	$aWikiWords[MAG_METATEMPLATE_EXPLODEARGS] = array(0, 'explodeargs');
-	
-	#must do this or you will silence every LanguageGetMagic
-	#hook after this!
 	return true;
 }
 

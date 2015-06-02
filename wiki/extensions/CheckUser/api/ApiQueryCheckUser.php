@@ -9,7 +9,7 @@ class ApiQueryCheckUser extends ApiQueryBase {
 	}
 
 	public function execute() {
-		global $wgUser, $wgCheckUserForceSummary;
+		global $wgCheckUserForceSummary;
 
 		$db = $this->getDB( DB_SLAVE );
 		$params = $this->extractRequestParams();
@@ -18,7 +18,7 @@ class ApiQueryCheckUser extends ApiQueryBase {
 			$params['request'], $params['target'], $params['reason'],
 			$params['timecond'], $params['limit'], $params['xff'] );
 
-		if ( !$wgUser->isAllowed( 'checkuser' ) ) {
+		if ( !$this->getUser()->isAllowed( 'checkuser' ) ) {
 			$this->dieUsage( 'You need the checkuser right', 'permissionerror' );
 		}
 
@@ -26,7 +26,7 @@ class ApiQueryCheckUser extends ApiQueryBase {
 			$this->dieUsage( 'You must define reason for check', 'missingdata' );
 		}
 
-		$reason = wfMsgForContent( 'checkuser-reason-api', $reason );
+		$reason = $this->msg( 'checkuser-reason-api', $reason )->inContentLanguage()->text();
 		$timeCutoff = strtotime( $timecond ); // absolute time
 		if ( !$timeCutoff ) {
 			$this->dieUsage( 'You need use correct time limit (like "2 weeks")', 'invalidtime' );
@@ -234,6 +234,10 @@ class ApiQueryCheckUser extends ApiQueryBase {
 				ApiBase::PARAM_DFLT => '-2 weeks'
 			),
 			'xff'      => null,
+			'token'    => array(
+				ApiBase::PARAM_TYPE => 'string',
+				ApiBase::PARAM_REQUIRED => true,
+			),
 		);
 	}
 
@@ -282,5 +286,13 @@ class ApiQueryCheckUser extends ApiQueryBase {
 
 	public function getVersion() {
 		return __CLASS__ . ': $Id$';
+	}
+
+	public function getTokenSalt() {
+		return '';
+	}
+
+	public function needsToken() {
+		return true;
 	}
 }

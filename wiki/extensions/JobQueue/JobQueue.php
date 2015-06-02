@@ -8,9 +8,8 @@ $wgExtensionCredits['other'][] = array(
        'version'  => 0.1,
        'author' => '[[User:RobinHood70|RobinHood70]]', 
        );
-$wgExtensionMessagesFiles['JobQueue'] = dirname( __FILE__ ) . '/JobQueue.i18n.php';
 
-/**
+/*
  * If estimated job count is less than $wgJobQueuePrecisionCutoff, Job Queue
  * will requery the job table for a precise count.
  *
@@ -19,6 +18,8 @@ $wgExtensionMessagesFiles['JobQueue'] = dirname( __FILE__ ) . '/JobQueue.i18n.ph
  * $wgJobQueuePrecisionCutoff = 0.
  */
 $wgJobQueuePrecisionCutoff = 20;
-$wgAutoloadClasses['JobQueue'] = dirname(__FILE__) . '/JobQueue.body.php';
 
-$wgHooks['SpecialStatsAddExtra'][] = 'JobQueue::onSpecialStatsAddExtra';
+$dir = dirname( __FILE__ );
+$wgExtensionMessagesFiles['JobQueueStat'] = "$dir/JobQueue.i18n.php";
+$wgAutoloadClasses['JobQueueStatHooks'] = "$dir/JobQueue.hooks.php";
+$wgHooks['SpecialStatsAddExtra'][] = 'JobQueueStatHooks::onSpecialStatsAddExtra';

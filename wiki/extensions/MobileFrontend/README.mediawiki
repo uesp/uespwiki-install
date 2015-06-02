@@ -1,0 +1,89 @@
+= MobileFrontend Extension =
+The MobileFrontend extension adds a mobile view to your mediawiki
+instance.
+
+== Installation ==
+See https://www.mediawiki.org/wiki/Extension:MobileFrontend#Installation
+
+== Configuration ==
+See https://www.mediawiki.org/wiki/Extension:MobileFrontend#Configuration_settings
+
+== Development ==
+
+=== Coding conventions ==
+Please follow the coding conventions of MobileFrontend:
+https://www.mediawiki.org/wiki/MobileFrontend/Coding_conventions
+
+==== Git hooks ====
+Git hooks are provided in the scripts directory to assist with adhering
+to JavaScript code standards, optimizing PNG files, etc. Install like
+so:
+
+  make installhooks
+
+=== Committing ===
+Commits are important as they give the reviewer more information to
+successfully review your code and find errors or potential problems you
+might not have thought of.
+
+Commits are also useful when troubleshooting issues and refactoring.  If
+it's not clear why a line of code is in the repository important bug
+fixes could be lost.
+
+Commits should be as minor as possible. Please avoid removing unrelated
+console.log statements, fixing unrelated whitespace etc.  do that in a
+separate commit which mentions the word cleanup.
+
+First line commit should summarise the commit with bug it fixes if
+applicable. e.g. Fix problem with toggling see bug x. Second line should
+be blank. Third line should go into detail where necessary providing
+links to blog posts/other bugs to provide more background. Mention the
+platforms/browsers the change is for where necessary, e.g.:
+
+* 'this is a problem on Android but not OSX see http://<url> which explains problem in detail'
+* 'this is a workaround for a known bug in opera mobile see http://<url>'
+
+=== Testing ===
+
+==== Unit tests ====
+To run the full test suite run:
+
+  make tests
+
+To run only PHP tests:
+
+  make phpunit
+
+To run only JS tests:
+
+  make qunit
+
+==== Selenium tests ====
+To run the Selenium tests you will have to install Ruby (for the exact
+version see tests/acceptance/.ruby-version), the latest versions of
+RubyGems and Firefox.
+
+The easiest way to install Ruby on *nix is RVM (https://rvm.io/) and on
+Windows RubyInstaller (http://rubyinstaller.org/).
+
+Open terminal in tests/acceptance. Update RubyGems and install required
+gems with:
+
+  gem update --system
+  gem install bundler
+  bundle install
+
+You will need to create a user account for selenium on your local wiki with the
+username 'Selenium_user' and then store the password in /private/wmf/secret.yml
+in the following format:
+mediawiki_password: <local selenium account password>
+
+Run the tests with:
+
+  bundle exec cucumber
+
+HTML report is created at tests/acceptance/reports and XML report (for
+Jenkins) is created at tests/acceptance/reports/junit.
+
+Jenkins is hosted at https://wmf.ci.cloudbees.com/ and it drives
+browsers at http://saucelabs.com/

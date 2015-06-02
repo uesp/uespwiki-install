@@ -5,6 +5,7 @@
  * @file
  * @ingroup Extensions
  */
+// @codingStandardsIgnoreFile
 
 $specialPageAliases = array();
 
@@ -20,25 +21,66 @@ $specialPageAliases['ar'] = array(
 	'AbuseFilter' => array( 'مرشح_الإساءة', 'فلتر_الإساءة' ),
 );
 
+/** Aramaic (ܐܪܡܝܐ) */
+$specialPageAliases['arc'] = array(
+	'AbuseLog' => array( 'ܡܟܬܒܘܬܐ_ܕܚܘܒܠܐ' ),
+	'AbuseFilter' => array( 'ܡܨܦܝܢܝܬܐ_ܕܚܘܒܠܐ' ),
+);
+
 /** Egyptian Spoken Arabic (مصرى) */
 $specialPageAliases['arz'] = array(
 	'AbuseLog' => array( 'سجل_الاساءه' ),
 	'AbuseFilter' => array( 'فيلتر_الاساءه' ),
 );
 
-/** Bulgarian (Български) */
+/** Assamese (অসমীয়া) */
+$specialPageAliases['as'] = array(
+	'AbuseLog' => array( 'অপব্যৱহাৰৰ_অভিলেখ' ),
+	'AbuseFilter' => array( 'অপব্যৱহাৰৰ_চেকনী' ),
+);
+
+/** Bashkir (башҡортса) */
+$specialPageAliases['ba'] = array(
+	'AbuseLog' => array( 'Насарға_ҡулланыуҙар_журналы' ),
+	'AbuseFilter' => array( 'Насарға_ҡулланыуҙар_фильтры' ),
+);
+
+/** Bulgarian (български) */
 $specialPageAliases['bg'] = array(
 	'AbuseLog' => array( 'Дневник_на_филтъра' ),
 	'AbuseFilter' => array( 'Филтър_срещу_злоупотреби' ),
 );
 
-/** Bosnian (Bosanski) */
+/** Banjar (Bahasa Banjar) */
+$specialPageAliases['bjn'] = array(
+	'AbuseLog' => array( 'Catatan_panyalahgunaan' ),
+	'AbuseFilter' => array( 'Filter_panyalahgunaan' ),
+);
+
+/** Bosnian (bosanski) */
 $specialPageAliases['bs'] = array(
 	'AbuseLog' => array( 'ZapisZloupotrebe' ),
 	'AbuseFilter' => array( 'FilterZloupotrebe' ),
 );
 
-/** Czech (Česky) */
+/** Catalan (català) */
+$specialPageAliases['ca'] = array(
+	'AbuseLog' => array( 'Registre_dels_abusos' ),
+);
+
+/** Min Dong Chinese (Mìng-dĕ̤ng-ngṳ̄) */
+$specialPageAliases['cdo'] = array(
+	'AbuseLog' => array( '亂使其日誌' ),
+	'AbuseFilter' => array( '亂使其過濾' ),
+);
+
+/** Chechen (нохчийн) */
+$specialPageAliases['ce'] = array(
+	'AbuseLog' => array( 'Зулам_литтаран_тептар' ),
+	'AbuseFilter' => array( 'Зулам_литтар' ),
+);
+
+/** Czech (česky) */
 $specialPageAliases['cs'] = array(
 	'AbuseLog' => array( 'Záznam_filtrů_zneužití' ),
 	'AbuseFilter' => array( 'Filtry_zneužití' ),
@@ -46,11 +88,17 @@ $specialPageAliases['cs'] = array(
 
 /** German (Deutsch) */
 $specialPageAliases['de'] = array(
-	'AbuseLog' => array( 'Missbrauchsfilter-Logbuch', 'Missbrauchfilter-Logbuch' ),
-	'AbuseFilter' => array( 'Missbrauchsfilter', 'Missbrauchfilter' ),
+	'AbuseLog' => array( 'Missbrauchsfilter-Logbuch' ),
+	'AbuseFilter' => array( 'Missbrauchsfilter' ),
 );
 
-/** Lower Sorbian (Dolnoserbski) */
+/** Zazaki (Zazaki) */
+$specialPageAliases['diq'] = array(
+	'AbuseLog' => array( 'DekewtışéNenga' ),
+	'AbuseFilter' => array( 'AvrécéNenga' ),
+);
+
+/** Lower Sorbian (dolnoserbski) */
 $specialPageAliases['dsb'] = array(
 	'AbuseLog' => array( 'Protokol_znjewužywanjow' ),
 	'AbuseFilter' => array( 'Filter_znjewužywanjow' ),
@@ -68,13 +116,13 @@ $specialPageAliases['eo'] = array(
 	'AbuseFilter' => array( 'Filtrilo_kontraŭ_misuzado' ),
 );
 
-/** Spanish (Español) */
+/** Spanish (español) */
 $specialPageAliases['es'] = array(
 	'AbuseLog' => array( 'RegistroAbusos' ),
 	'AbuseFilter' => array( 'FiltroAntiAbusos' ),
 );
 
-/** Estonian (Eesti) */
+/** Estonian (eesti) */
 $specialPageAliases['et'] = array(
 	'AbuseLog' => array( 'Väärtarvituslogi' ),
 	'AbuseFilter' => array( 'Väärtarvitusfilter' ),
@@ -86,25 +134,25 @@ $specialPageAliases['fa'] = array(
 	'AbuseFilter' => array( 'پالایه_خرابکاری' ),
 );
 
-/** Finnish (Suomi) */
+/** Finnish (suomi) */
 $specialPageAliases['fi'] = array(
 	'AbuseLog' => array( 'Väärinkäyttöloki' ),
 	'AbuseFilter' => array( 'Väärinkäyttösuodatin' ),
 );
 
-/** French (Français) */
+/** French (français) */
 $specialPageAliases['fr'] = array(
 	'AbuseLog' => array( 'Journal_du_filtre_antiabus', 'Journal_du_filtre_anti-abus', 'JournalFiltreAntiabus', 'Journal_des_abus', 'JournalDesAbus' ),
 	'AbuseFilter' => array( 'Filtre_antiabus', 'Filtre_anti-abus', 'FiltreAntiabus', 'Filtre_d\'abus', 'FiltredAbus', 'FilterAbus' ),
 );
 
-/** Franco-Provençal (Arpetan) */
+/** Franco-Provençal (arpetan) */
 $specialPageAliases['frp'] = array(
 	'AbuseLog' => array( 'Jornal_des_abus', 'JornalDesAbus' ),
 	'AbuseFilter' => array( 'Filtro_d\'abus', 'FiltroDAbus' ),
 );
 
-/** Galician (Galego) */
+/** Galician (galego) */
 $specialPageAliases['gl'] = array(
 	'AbuseLog' => array( 'Rexistro_de_abusos' ),
 	'AbuseFilter' => array( 'Filtro_de_abusos' ),
@@ -128,13 +176,19 @@ $specialPageAliases['he'] = array(
 	'AbuseFilter' => array( 'מסנן_ההשחתות' ),
 );
 
-/** Croatian (Hrvatski) */
+/** Hindi (हिन्दी) */
+$specialPageAliases['hi'] = array(
+	'AbuseLog' => array( 'दुरुपयोग_लॉग', 'दुरुपयोग_लौग' ),
+	'AbuseFilter' => array( 'दुरुपयोग_फ़िल्टर', 'दुरुपयोग_फिल्टर' ),
+);
+
+/** Croatian (hrvatski) */
 $specialPageAliases['hr'] = array(
 	'AbuseLog' => array( 'Evidencija_zloporaba' ),
 	'AbuseFilter' => array( 'Filtar_zloporaba' ),
 );
 
-/** Upper Sorbian (Hornjoserbsce) */
+/** Upper Sorbian (hornjoserbsce) */
 $specialPageAliases['hsb'] = array(
 	'AbuseLog' => array( 'Protokol_znjewužiwanjow' ),
 	'AbuseFilter' => array( 'Filter_znjewužiwanjow' ),
@@ -152,13 +206,13 @@ $specialPageAliases['ht'] = array(
 	'AbuseFilter' => array( 'FiltAbi' ),
 );
 
-/** Hungarian (Magyar) */
+/** Hungarian (magyar) */
 $specialPageAliases['hu'] = array(
 	'AbuseLog' => array( 'Vandálszűrő-napló' ),
 	'AbuseFilter' => array( 'Vandálszűrő' ),
 );
 
-/** Interlingua (Interlingua) */
+/** Interlingua (interlingua) */
 $specialPageAliases['ia'] = array(
 	'AbuseLog' => array( 'Registro_de_abusos' ),
 	'AbuseFilter' => array( 'Filtro_anti-abuso', 'Filtro_antiabuso' ),
@@ -170,7 +224,13 @@ $specialPageAliases['id'] = array(
 	'AbuseFilter' => array( 'Filter_penyalahgunaan', 'FilterPenyalahgunaan' ),
 );
 
-/** Italian (Italiano) */
+/** Icelandic (íslenska) */
+$specialPageAliases['is'] = array(
+	'AbuseLog' => array( 'Misnotkunarskrá' ),
+	'AbuseFilter' => array( 'Misnotkunarsía' ),
+);
+
+/** Italian (italiano) */
 $specialPageAliases['it'] = array(
 	'AbuseLog' => array( 'RegistroAbusi' ),
 	'AbuseFilter' => array( 'FiltroAntiAbusi' ),
@@ -182,10 +242,22 @@ $specialPageAliases['ja'] = array(
 	'AbuseFilter' => array( '不正利用フィルター' ),
 );
 
+/** Korean (한국어) */
+$specialPageAliases['ko'] = array(
+	'AbuseLog' => array( '편집필터기록', '부정행위기록' ),
+	'AbuseFilter' => array( '편집필터', '부정행위필터' ),
+);
+
 /** Colognian (Ripoarisch) */
 $specialPageAliases['ksh'] = array(
 	'AbuseLog' => array( 'Logbooch_vum_Meßbruchsfellter' ),
 	'AbuseFilter' => array( 'Meßbruchsfellter' ),
+);
+
+/** Cornish (kernowek) */
+$specialPageAliases['kw'] = array(
+	'AbuseLog' => array( 'KovnotenAbusyans' ),
+	'AbuseFilter' => array( 'SidhlaAbusyans' ),
 );
 
 /** Ladino (Ladino) */
@@ -200,7 +272,7 @@ $specialPageAliases['lb'] = array(
 	'AbuseFilter' => array( 'Mëssbrauchsfilter' ),
 );
 
-/** Lithuanian (Lietuvių) */
+/** Lithuanian (lietuvių) */
 $specialPageAliases['lt'] = array(
 	'AbuseLog' => array( 'Piktnaudžiavimų_sąrašas' ),
 	'AbuseFilter' => array( 'Piktnaudžiavimų_filtras' ),
@@ -212,7 +284,13 @@ $specialPageAliases['mg'] = array(
 	'AbuseFilter' => array( 'Fanakanam-panararaotana' ),
 );
 
-/** Macedonian (Македонски) */
+/** Minangkabau (Baso Minangkabau) */
+$specialPageAliases['min'] = array(
+	'AbuseLog' => array( 'CatatanPanyalahgunoan' ),
+	'AbuseFilter' => array( 'SariangPanyalahgunoan' ),
+);
+
+/** Macedonian (македонски) */
 $specialPageAliases['mk'] = array(
 	'AbuseLog' => array( 'ДневникНаЗлоупотреба' ),
 	'AbuseFilter' => array( 'ФилтерНаЗлоупотреба' ),
@@ -226,8 +304,8 @@ $specialPageAliases['ml'] = array(
 
 /** Marathi (मराठी) */
 $specialPageAliases['mr'] = array(
-	'AbuseLog' => array( 'दुरूपयोगनोंदी' ),
-	'AbuseFilter' => array( 'दुरूपयोगगाळणी' ),
+	'AbuseLog' => array( 'दुरूपयोग_नोंदी' ),
+	'AbuseFilter' => array( 'दुरूपयोग_गाळणी' ),
 );
 
 /** Maltese (Malti) */
@@ -236,19 +314,19 @@ $specialPageAliases['mt'] = array(
 	'AbuseFilter' => array( 'FiltruAbbuż' ),
 );
 
-/** Erzya (Эрзянь) */
+/** Erzya (эрзянь) */
 $specialPageAliases['myv'] = array(
 	'AbuseLog' => array( 'АТевсНолдамодо' ),
 	'AbuseFilter' => array( 'АТевсНолдамоньФильтра' ),
 );
 
-/** Norwegian Bokmål (‪Norsk (bokmål)‬) */
+/** Norwegian Bokmål (norsk bokmål) */
 $specialPageAliases['nb'] = array(
 	'AbuseLog' => array( 'Misbrukslogg' ),
 	'AbuseFilter' => array( 'Misbruksfilter' ),
 );
 
-/** Nedersaksisch (Nedersaksisch) */
+/** Low Saxon (Netherlands) (Nedersaksies) */
 $specialPageAliases['nds-nl'] = array(
 	'AbuseLog' => array( 'Misbruuklogboek' ),
 	'AbuseFilter' => array( 'Misbruukfilter' ),
@@ -260,34 +338,40 @@ $specialPageAliases['nl'] = array(
 	'AbuseFilter' => array( 'Filter', 'Misbruikfilter' ),
 );
 
-/** Norwegian Nynorsk (‪Norsk (nynorsk)‬) */
+/** Norwegian Nynorsk (norsk nynorsk) */
 $specialPageAliases['nn'] = array(
-	'AbuseLog' => array( 'Misbrukslogg' ),
-	'AbuseFilter' => array( 'Misbruksfilter' ),
+	'AbuseLog' => array( 'Misbrukslogg', 'Endringsfilterlogg' ),
+	'AbuseFilter' => array( 'Misbruksfilter', 'Endringsfilter' ),
 );
 
-/** Occitan (Occitan) */
+/** Occitan (occitan) */
 $specialPageAliases['oc'] = array(
 	'AbuseLog' => array( 'Jornal_dels_abuses', 'JornalDelsAbuses' ),
 	'AbuseFilter' => array( 'Filtre_d\'abuses', 'FiltredAbuses', 'FilterAbus' ),
 );
 
-/** Polish (Polski) */
+/** Polish (polski) */
 $specialPageAliases['pl'] = array(
 	'AbuseLog' => array( 'Rejestr_nadużyć' ),
 	'AbuseFilter' => array( 'Filtr_nadużyć' ),
 );
 
-/** Brazilian Portuguese (Português do Brasil) */
+/** Brazilian Portuguese (português do Brasil) */
 $specialPageAliases['pt-br'] = array(
 	'AbuseLog' => array( 'Registro_de_abusos' ),
 	'AbuseFilter' => array( 'Filtro_de_abusos' ),
 );
 
-/** Romanian (Română) */
+/** Romanian (română) */
 $specialPageAliases['ro'] = array(
 	'AbuseLog' => array( 'Jurnal_abuzuri' ),
 	'AbuseFilter' => array( 'Filtru_abuzuri' ),
+);
+
+/** Russian (русский) */
+$specialPageAliases['ru'] = array(
+	'AbuseLog' => array( 'Журнал_злоупотреблений' ),
+	'AbuseFilter' => array( 'Фильтр_злоупотреблений' ),
 );
 
 /** Sanskrit (संस्कृतम्) */
@@ -296,7 +380,13 @@ $specialPageAliases['sa'] = array(
 	'AbuseFilter' => array( 'दुरुपयोगशोधबन्धन' ),
 );
 
-/** Serbo-Croatian (Srpskohrvatski) */
+/** Sicilian (sicilianu) */
+$specialPageAliases['scn'] = array(
+	'AbuseLog' => array( 'RegistroAbusi' ),
+	'AbuseFilter' => array( 'FiltroAntiAbusi' ),
+);
+
+/** Serbo-Croatian (srpskohrvatski / српскохрватски) */
 $specialPageAliases['sh'] = array(
 	'AbuseLog' => array( 'Evidencija_zloupotreba' ),
 	'AbuseFilter' => array( 'Filter_zloupotreba' ),
@@ -308,22 +398,28 @@ $specialPageAliases['si'] = array(
 	'AbuseFilter' => array( 'අපයෙදුම්_පෙරහන' ),
 );
 
-/** Slovak (Slovenčina) */
+/** Slovak (slovenčina) */
 $specialPageAliases['sk'] = array(
 	'AbuseLog' => array( 'ZáznamZneužití' ),
 	'AbuseFilter' => array( 'FilterZneužití' ),
 );
 
-/** Swedish (Svenska) */
+/** Swedish (svenska) */
 $specialPageAliases['sv'] = array(
 	'AbuseLog' => array( 'Missbrukslogg' ),
 	'AbuseFilter' => array( 'Missbruksfilter' ),
 );
 
+/** Thai (ไทย) */
+$specialPageAliases['th'] = array(
+	'AbuseLog' => array( 'ปูมการละเมิด' ),
+	'AbuseFilter' => array( 'ตัวกรองการละเมิด' ),
+);
+
 /** Tagalog (Tagalog) */
 $specialPageAliases['tl'] = array(
-	'AbuseLog' => array( 'Talaan ng pang-aabuso' ),
-	'AbuseFilter' => array( 'Talaan ng pansala' ),
+	'AbuseLog' => array( 'Talaan_ng_pang-aabuso' ),
+	'AbuseFilter' => array( 'Talaan_ng_pansala' ),
 );
 
 /** Turkish (Türkçe) */
@@ -332,7 +428,19 @@ $specialPageAliases['tr'] = array(
 	'AbuseFilter' => array( 'İstismarSüzgeci', 'DeğişiklikSüzgeci' ),
 );
 
-/** Vèneto (Vèneto) */
+/** Ukrainian (українська) */
+$specialPageAliases['uk'] = array(
+	'AbuseLog' => array( 'Журнал_зловживань' ),
+	'AbuseFilter' => array( 'Фільтр_зловживань' ),
+);
+
+/** Urdu (اردو) */
+$specialPageAliases['ur'] = array(
+	'AbuseLog' => array( 'نوشتہ_غلط_کاری' ),
+	'AbuseFilter' => array( 'مقطار_غلط_کاری' ),
+);
+
+/** vèneto (vèneto) */
 $specialPageAliases['vec'] = array(
 	'AbuseLog' => array( 'RegistroAbusi' ),
 	'AbuseFilter' => array( 'FiltroAbusi' ),
@@ -356,13 +464,13 @@ $specialPageAliases['yue'] = array(
 	'AbuseFilter' => array( '濫用過濾器' ),
 );
 
-/** Simplified Chinese (‪中文(简体)‬) */
+/** Simplified Chinese (中文（简体）‎) */
 $specialPageAliases['zh-hans'] = array(
 	'AbuseLog' => array( '滥用日志', '过滤日志' ),
-	'AbuseFilter' => array( '防滥用过滤器', '滥用过滤器' ),
+	'AbuseFilter' => array( '滥用过滤器', '防滥用过滤器' ),
 );
 
-/** Traditional Chinese (‪中文(繁體)‬) */
+/** Traditional Chinese (中文（繁體）‎) */
 $specialPageAliases['zh-hant'] = array(
 	'AbuseLog' => array( '過濾日誌' ),
 	'AbuseFilter' => array( '防濫用過濾器' ),

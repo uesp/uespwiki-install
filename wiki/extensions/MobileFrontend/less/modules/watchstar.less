@@ -1,0 +1,24 @@
+@import "../mixins.less";
+
+@watchThisArticleSize: 22px;
+
+// watchlist and search results
+.page-list .watch-this-article {
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	margin-top: -(@watchThisArticleSize / 2);
+	width: @watchThisArticleSize;
+	height: @watchThisArticleSize;
+	.background-size( auto, @watchThisArticleSize );
+}
+
+.animations {
+	.watch-this-article {
+		.transition-transform( .5s );
+
+		&.watched {
+			.transform( rotate(72deg) );
+		}
+	}
+}

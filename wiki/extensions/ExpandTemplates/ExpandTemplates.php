@@ -16,7 +16,7 @@ $wgExtensionCredits['specialpage'][] = array(
 	'descriptionmsg' => 'expandtemplates-desc',
 );
 
-$dir = dirname(__FILE__) . '/';
+$dir = __DIR__ . '/';
 $wgAutoloadClasses['ExpandTemplates'] = $dir . 'ExpandTemplates_body.php';
 $wgExtensionMessagesFiles['ExpandTemplates'] = $dir . 'ExpandTemplates.i18n.php';
 $wgExtensionMessagesFiles['ExpandTemplatesAlias'] = $dir . 'ExpandTemplates.alias.php';

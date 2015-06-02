@@ -82,7 +82,7 @@ class CategoryTree {
 	static function decodeNamespaces( $nn ) {
 		global $wgContLang;
 
-		if ( !$nn ) {
+		if ( $nn === false || is_null( $nn ) ) {
 			return false;
 		}
 
@@ -267,6 +267,9 @@ class CategoryTree {
 			$opt = array( "mode" => $options );
 		} elseif ( $enc == 'json' ) {
 			$opt = FormatJson::decode( $options );
+			if ( !$opt ) {
+				throw new MWException( 'JSON cannot decode CategoryTree options' );
+			}
 			$opt = get_object_vars( $opt );
 		} else {
 			throw new MWException( 'Unknown encoding for CategoryTree options: ' . $enc );
@@ -294,7 +297,7 @@ class CategoryTree {
 	}
 
 	/**
-	 * @param $depthnull
+	 * @param $depth int|null
 	 * @return mixed
 	 */
 	function getOptionsAsJsStructure( $depth = null ) {
@@ -321,14 +324,7 @@ class CategoryTree {
 	 * @return string
 	 */
 	function getOptionsAsUrlParameters() {
-		$u = '';
-
-		foreach ( $this->mOptions as $k => $v ) {
-			if ( $u != '' ) $u .= '&';
-			$u .= $k . '=' . urlencode( $v ) ;
-		}
-
-		return $u;
+		return http_build_query( $this->mOptions );
 	}
 
 	/**
@@ -342,7 +338,7 @@ class CategoryTree {
 		global $wgLang, $wgContLang, $wgRenderHashAppend;
 		$title = self::makeTitle( $category );
 
-		if ( ! $title ) {
+		if ( !$title ) {
 			return false; # TODO: error message?
 		}
 
@@ -432,9 +428,9 @@ class CategoryTree {
 		if ( !$allowMissing && !$title->getArticleID() ) {
 			$html .= Html::openElement( 'span', array( 'class' => 'CategoryTreeNotice' ) );
 			if ( $parser ) {
-				$html .= $parser->recursiveTagParse( wfMsgNoTrans( 'categorytree-not-found', $category ) );
+				$html .= $parser->recursiveTagParse( wfMessage( 'categorytree-not-found', $category )->plain() );
 			} else {
-				$html .= wfMsgExt( 'categorytree-not-found', 'parseinline', htmlspecialchars( $category ) );
+				$html .= wfMessage( 'categorytree-not-found', $category )->parse();
 			}
 			$html .= Html::closeElement( 'span' );
 			}
@@ -564,22 +560,19 @@ class CategoryTree {
 
 		$dbr = wfGetDB( DB_SLAVE );
 
-		# additional stuff to be used if "transaltion" by interwiki-links is desired
-		$transFields = '';
-		$transJoin = '';
-		$transWhere = '';
-
-		$categorylinks = $dbr->tableName( 'categorylinks' );
-
-		$sql = "SELECT " . NS_CATEGORY . " as page_namespace, cl_to as page_title $transFields
-				FROM $categorylinks
-				$transJoin
-				WHERE cl_from = " . $title->getArticleID() . "
-				$transWhere
-				ORDER BY cl_to";
-		$sql = $dbr->limitResult( $sql, (int)$wgCategoryTreeMaxChildren );
-
-		$res = $dbr->query( $sql, __METHOD__ );
+		$res = $dbr->select(
+			'categorylinks',
+			array(
+				'page_namespace' => NS_CATEGORY,
+				'page_title' => 'cl_to',
+			),
+			array( 'cl_from' => $title->getArticleID() ),
+			__METHOD__,
+			array(
+				'LIMIT' => $wgCategoryTreeMaxChildren,
+				'ORDER BY' => 'cl_to'
+			)
+		);
 
 		$special = SpecialPage::getTitleFor( 'CategoryTree' );
 
@@ -593,14 +586,20 @@ class CategoryTree {
 			$trans = ''; # place holder for when translated titles are available
 
 			$label = htmlspecialchars( $t->getText() );
-			if ( $trans && $trans != $label ) $label .= ' ' . Xml::element( 'i', array( 'class' => 'translation' ), $trans );
+			if ( $trans && $trans != $label ) {
+				$label .= ' ' . Xml::element( 'i', array( 'class' => 'translation' ), $trans );
+			}
 
-			$wikiLink = $special->getLocalURL( 'target=' . $t->getPartialURL() . '&' . $this->getOptionsAsUrlParameters() );
+			$wikiLink = $special->getLocalURL( 'target=' . $t->getPartialURL() .
+				'&' . $this->getOptionsAsUrlParameters() );
 
-			if ( $s !== '' ) $s .= wfMsgExt( 'pipe-separator' , 'escapenoentities' );
+			if ( $s !== '' ) {
+				$s .= wfMessage( 'pipe-separator' )->escaped();
+			}
 
 			$s .= Xml::openElement( 'span', array( 'class' => 'CategoryTreeItem' ) );
-			$s .= Xml::openElement( 'a', array( 'class' => 'CategoryTreeLabel', 'href' => $wikiLink ) ) . $label . Xml::closeElement( 'a' );
+			$s .= Xml::openElement( 'a', array( 'class' => 'CategoryTreeLabel', 'href' => $wikiLink ) )
+				. $label . Xml::closeElement( 'a' );
 			$s .= Xml::closeElement( 'span' );
 
 			$s .= "\n\t\t";
@@ -729,7 +728,7 @@ class CategoryTree {
 				}
 			}
 			if ( $count === 0 ) {
-				$bullet = wfMsgNoTrans( 'categorytree-empty-bullet' ) . ' ';
+				$bullet = wfMessage( 'categorytree-empty-bullet' )->plain() . ' ';
 				$attr['class'] = 'CategoryTreeEmptyBullet';
 			} else {
 				$linkattr = array( );
@@ -743,14 +742,14 @@ class CategoryTree {
 
 				if ( $children == 0 || $loadchildren ) {
 					$tag = 'span';
-					$txt = wfMsgNoTrans( 'categorytree-expand-bullet' );
+					$txt = wfMessage( 'categorytree-expand-bullet' )->plain();
 					# Don't load this message for ajax requests, so that we don't have to initialise $wgLang
-					$linkattr[ 'title' ] = $this->mIsAjaxRequest ? '##LOAD##' : wfMsgNoTrans( 'categorytree-expand' );
+					$linkattr[ 'title' ] = $this->mIsAjaxRequest ? '##LOAD##' : wfMessage( 'categorytree-expand' )->plain();
 					$linkattr[ 'data-ct-state' ] = 'collapsed';
 				} else {
 					$tag = 'span';
-					$txt = wfMsgNoTrans( 'categorytree-collapse-bullet' );
-					$linkattr[ 'title' ] = wfMsgNoTrans( 'categorytree-collapse' );
+					$txt = wfMessage( 'categorytree-collapse-bullet' )->plain();
+					$linkattr[ 'title' ] = wfMessage( 'categorytree-collapse' )->plain();
 					$linkattr[ 'data-ct-loaded' ] = true;
 					$linkattr[ 'data-ct-state' ] = 'expanded';
 				}
@@ -761,18 +760,20 @@ class CategoryTree {
 				$bullet = Xml::openElement( $tag, $linkattr ) . $txt . Xml::closeElement( $tag ) . ' ';
 			}
 		} else {
-			$bullet = wfMsgNoTrans( 'categorytree-page-bullet' );
+			$bullet = wfMessage( 'categorytree-page-bullet' )->plain();
 		}
 		$s .= Xml::tags( 'span', $attr, $bullet ) . ' ';
 
-		$s .= Xml::openElement( 'a', array( 'class' => $labelClass, 'href' => $wikiLink ) ) . $label . Xml::closeElement( 'a' );
+		$s .= Xml::openElement( 'a', array( 'class' => $labelClass, 'href' => $wikiLink ) )
+			. $label . Xml::closeElement( 'a' );
 
 		if ( $count !== false && $this->getOption( 'showcount' ) ) {
 			$pages = $allCount - $subcatCount - $fileCount;
 
 			global $wgContLang, $wgLang;
 			$attr = array(
-				'title' => wfMsgExt( 'categorytree-member-counts', 'parsemag', $subcatCount, $pages , $fileCount, $allCount, $count ),
+				'title' => wfMessage( 'categorytree-member-counts' )
+					->numParams( $subcatCount, $pages , $fileCount, $allCount, $count )->text(),
 				'dir' => $wgLang->getDir() # numbers and commas get messed up in a mixed dir env
 			);
 
@@ -781,13 +782,15 @@ class CategoryTree {
 			# Create a list of category members with only non-zero member counts
 			$memberNums = array();
 			if ( $subcatCount ) {
-				$memberNums[] = wfMessage( 'categorytree-num-categories', $wgLang->formatNum( $subcatCount ) )->text();
+				$memberNums[] = wfMessage( 'categorytree-num-categories' )
+					->numParams( $subcatCount )->text();
 			}
 			if ( $pages ) {
-				$memberNums[] = wfMessage( 'categorytree-num-pages', $wgLang->formatNum( $pages ) )->text();
+				$memberNums[] = wfMessage( 'categorytree-num-pages' )->numParams( $pages )->text();
 			}
 			if ( $fileCount ) {
-				$memberNums[] = wfMessage( 'categorytree-num-files', $wgLang->formatNum( $fileCount ) )->text();
+				$memberNums[] = wfMessage( 'categorytree-num-files' )
+					->numParams( $fileCount )->text();
 			}
 			$memberNumsShort = $memberNums
 				? $wgLang->commaList( $memberNums )
@@ -795,32 +798,38 @@ class CategoryTree {
 
 			# Only $5 is actually used in the default message.
 			# Other arguments can be used in a customized message.
-			$s .= Xml::tags( 'span', $attr,
-				wfMsgExt( 'categorytree-member-num',
-					array( 'parsemag', 'escapenoentities' ),
-					$subcatCount,
-					$pages,
-					$fileCount,
-					$allCount,
-					$memberNumsShort ) );
+			$s .= Xml::tags(
+				'span',
+				$attr,
+				wfMessage( 'categorytree-member-num' )
+					// Do not use numParams on params 1-4, as they are only used for customisation.
+					->params( $subcatCount, $pages, $fileCount, $allCount, $memberNumsShort )
+					->escaped()
+			);
 		}
 
 		$s .= Xml::closeElement( 'div' );
 		$s .= "\n\t\t";
-		$s .= Xml::openElement( 'div', array( 'class' => 'CategoryTreeChildren', 'style' => $children > 0 ? "display:block" : "display:none" ) );
+		$s .= Xml::openElement(
+			'div',
+			array(
+				'class' => 'CategoryTreeChildren',
+				'style' => $children > 0 ? "display:block" : "display:none"
+			)
+		);
 
 		if ( $ns == NS_CATEGORY && $children > 0 && !$loadchildren ) {
 			$children = $this->renderChildren( $title, $children );
 			if ( $children == '' ) {
 				$s .= Xml::openElement( 'i', array( 'class' => 'CategoryTreeNotice' ) );
 				if ( $mode == CT_MODE_CATEGORIES ) {
-					$s .= wfMsgExt( 'categorytree-no-subcategories', 'parsemag' );
+					$s .= wfMessage( 'categorytree-no-subcategories' )->text();
 				} elseif ( $mode == CT_MODE_PAGES ) {
-					$s .= wfMsgExt( 'categorytree-no-pages', 'parsemag' );
+					$s .= wfMessage( 'categorytree-no-pages' )->text();
 				} elseif ( $mode == CT_MODE_PARENTS ) {
-					$s .= wfMsgExt( 'categorytree-no-parent-categories', 'parsemag' );
+					$s .= wfMessage( 'categorytree-no-parent-categories' )->text();
 				} else {
-					$s .= wfMsgExt( 'categorytree-nothing-found', 'parsemag' );
+					$s .= wfMessage( 'categorytree-nothing-found' )->text();
 				}
 				$s .= Xml::closeElement( 'i' );
 			} else {
@@ -834,7 +843,8 @@ class CategoryTree {
 		if ( $load ) {
 			$s .= "\n\t\t";
 			$s .= Xml::openElement( 'script', array( 'type' => 'text/javascript' ) );
-			$s .= 'categoryTreeExpandNode("' . Xml::escapeJsString( $key ) . '", ' . $this->getOptionsAsJsStructure( $children ) . ', document.getElementById("' . $load . '"));';
+			$s .= 'categoryTreeExpandNode("' . Xml::escapeJsString( $key ) . '", '
+				. $this->getOptionsAsJsStructure( $children ) . ', document.getElementById("' . $load . '"));';
 			$s .= Xml::closeElement( 'script' );
 		}
 
@@ -851,7 +861,7 @@ class CategoryTree {
 	static function makeTitle( $title ) {
 		$title = trim( $title );
 
-		if ( $title === null || $title === '' || $title === false ) {
+		if ( strval( $title ) === '' ) {
 			return null;
 		}
 

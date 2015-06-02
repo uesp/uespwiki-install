@@ -21,9 +21,17 @@ $dir = dirname(__FILE__) . '/';
 # Add to list of special pages
 $wgSpecialPages['UsersEditCount'] = 'UsersEditCountPage';
 $wgSpecialPageGroups['UsersEditCount'] = 'users';
+$wgHooks['wgQueryPages'][] = 'onwgQueryPages';
+
 # Tell Mediawiki where to find the file containing the extension's class
 $wgAutoloadClasses['UsersEditCountPage'] = $dir . '/UsersEditCount_body.php';
 
 # Load messages
 $wgExtensionMessagesFiles['userseditcount'] = $dir . 'UsersEditCount.i18n.php';
 $wgExtensionMessagesFiles['userseditcountAlias'] = $dir . 'UsersEditCount.alias.php';
+
+function onwgQueryPages( &$wgQueryPages ) {
+	$wgQueryPages[] = array('UsersEditCountPage', 'Userseditcount');
+	
+	return true;
+}

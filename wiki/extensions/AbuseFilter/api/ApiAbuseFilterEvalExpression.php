@@ -36,6 +36,6 @@ class ApiAbuseFilterEvalExpression extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiAbuseFilterEvalExpression.php 108852 2012-01-13 21:36:51Z reedy $';
+		return __CLASS__ . ': $Id$';
 	}
 }

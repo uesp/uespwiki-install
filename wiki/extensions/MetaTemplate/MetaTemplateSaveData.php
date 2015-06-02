@@ -24,17 +24,19 @@ class MetaTemplateSaveData {
 		$this->_parser = $parser;
 		$this->_currset = '';
 		$this->_data = array();
-
+		
 // ParserAfterTidy works on save and auto-update -- called after each individual article is processed
 // ArticleSaveComplete works on save but NOT auto-update ... but ArticleSaveComplete has the correct new revision ID
 // New approach: use parser's revision ID to determine which to call
 //   no revision ID, or revision ID is not the latest one, means that the article will have to be saved
-       		if (is_null($this->_parser->mRevisionId) || $this->_parser->mRevisionId!=$this->_title->getLatestRevID())
+		if (is_null($this->_parser->mRevisionId) || $this->_parser->mRevisionId!=$this->_title->getLatestRevID()) {
 // This is somewhat kludgy, and I'm not 100% sure it will work for all combinations of requests and job queues
 //		if ($wgTitle==$title && (substr($action=$wgRequest->getVal('action'),0,4)=='edit' || $action=='submit'))
 			$wgHooks['ArticleSaveComplete'][] = array($this, 'savedata');
-		else
+		}
+		else {
 			$wgHooks['ParserAfterTidy'][] = array($this, 'savedata');
+		}
 	}
 	
 	static public function newFromTitle($title, $parser) {
@@ -77,7 +79,7 @@ class MetaTemplateSaveData {
    		$result = $dbw->select( 'mt_save_set',
 			                'mt_set_id',
 			                $conds,
-			                'efMetaTemplateImplementLoad-'.$chkid);
+			                __METHOD__);
 		if ($result) {
 			while( $row=$dbw->fetchRow( $result ) ) {
 			       $rowconds = array('mt_save_id='.$row['mt_set_id']);
@@ -98,7 +100,11 @@ class MetaTemplateSaveData {
 		if (isset($rev_id)) {
 			$delids = array();
 			$donesets = array();
-			$res = $dbw->select( 'mt_save_set', array('mt_set_subset', 'mt_set_id'), array('mt_set_page_id' => $page_id), 'MetaTemplateSaveData-cleardata', array('ORDER BY' => 'mt_set_rev_id DESC, mt_set_id DESC'));
+			$res = $dbw->select( 'mt_save_set',
+				array('mt_set_subset', 'mt_set_id'),
+				array('mt_set_page_id' => $page_id),
+				__METHOD__,
+				array('ORDER BY' => 'mt_set_rev_id DESC, mt_set_id DESC'));
 			while ($row=$dbw->fetchRow($res)) {
 				if (!isset($donesets[$row['mt_set_subset']])) {
 					$donesets[$row['mt_set_subset']] = $row['mt_set_id'];
@@ -124,8 +130,7 @@ class MetaTemplateSaveData {
 	}
 	
 	public function savedata( ) {
-
-	        if ( wfReadOnly() ) return true;
+		if ( wfReadOnly() ) return true;
 
 		if( !count($this->_data) )
 			return true;
@@ -148,7 +153,7 @@ class MetaTemplateSaveData {
 		// * the chances are that we're going to need to read all the data for this save_set,
 		//   so best to read it all at once instead of one entry at a time
 		// * best to use read-only DB object until/unless it's clear that we'll need to write
-		$db = wfGetDB(DB_SLAVE);
+		$db = wfGetDB(DB_MASTER); // Changed from DB_SLAVE to test odd occurrences of data not saving
 		$dbw = NULL;
 		
 		// 'order by' is to ensure that if there are duplicates, I'll always delete the out-of-date revision, or else
@@ -317,7 +322,7 @@ class MetaTemplateSaveData {
 	// only needs to be run occasionally
 	static public function clearoldsets ($limit=1) {
 		// do original query on slave, since it's likely it will be a null result and no writing needs to be done
-		$db = wfGetDB(DB_SLAVE);
+		$db = wfGetDB(DB_MASTER); // Changed from DB_SLAVE to test odd occurrences of data not saving
 		if (!empty($limit))
 			$opts = array('LIMIT' => $limit);
 		else
@@ -330,5 +335,14 @@ class MetaTemplateSaveData {
 		while ($row=$db->fetchRow($res)) {
 			self::cleardata($row['mt_set_page_id'], $row['page_latest']);
 		}
+	}
+	
+	static public function OnPurge( &$article ) {
+
+	        if ( wfReadOnly() ) return true;
+
+		$title = $article->getTitle();
+		self::cleardata( $title );
+		return true;
 	}
 }

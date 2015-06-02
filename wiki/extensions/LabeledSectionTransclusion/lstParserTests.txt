@@ -253,7 +253,7 @@ LST: Transcluded section headings create edit link to template
 !!input
 {{#lst:headings|head}}
 !!result
-<h2><span class="editsection">[<a href="/index.php?title=Headings&amp;action=edit&amp;section=T-1" title="Headings">edit</a>]</span> <span class="mw-headline" id="section">section</span></h2>
+<h2><span class="mw-headline" id="section">section</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/index.php?title=Headings&amp;action=edit&amp;section=T-1" title="Headings">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
 <p>blah
 </p>
 !!end
@@ -263,7 +263,7 @@ LST: Transcluded section headings create edit link to right section (mw 1.9r1821
 !!input
 {{#lst:headings|head2}}
 !!result
-<h2><span class="editsection">[<a href="/index.php?title=Headings&amp;action=edit&amp;section=T-2" title="Headings">edit</a>]</span> <span class="mw-headline" id="section2">section2</span></h2>
+<h2><span class="mw-headline" id="section2">section2</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/index.php?title=Headings&amp;action=edit&amp;section=T-2" title="Headings">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
 <p>blah
 </p>
 !!end
@@ -280,15 +280,16 @@ hi
 <section end=s/>
 =head4=
 !!endarticle
+
 !!test
 LST: more sensitive test for heading count boundaries.
 !!input
 {{#lst:lst_head_bounds|s}}
 !!result
-<h1><span class="editsection">[<a href="/index.php?title=Lst_head_bounds&amp;action=edit&amp;section=T-3" title="Lst head bounds">edit</a>]</span> <span class="mw-headline" id="3">3</span></h1>
+<h1><span class="mw-headline" id="3">3</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/index.php?title=Lst_head_bounds&amp;action=edit&amp;section=T-3" title="Lst head bounds">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
 <p>hi
 </p>
-<h1><span class="editsection">[<a href="/index.php?title=Lst_head_bounds&amp;action=edit&amp;section=T-4" title="Lst head bounds">edit</a>]</span> <span class="mw-headline" id="4">4</span></h1>
+<h1><span class="mw-headline" id="4">4</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/index.php?title=Lst_head_bounds&amp;action=edit&amp;section=T-4" title="Lst head bounds">edit</a><span class="mw-editsection-bracket">]</span></span></h1>
 
 !!end
 
@@ -346,7 +347,7 @@ LST: cycle detection
 !!input
 {{#lst:cycle|cycle}}
 !!result
-<p><a href="/wiki/Cycle" title="Cycle">Cycle</a>
+<p><span class="error">Template loop detected: <a href="/wiki/Cycle" title="Cycle">Cycle</a></span>
 </p>
 !!end
 
@@ -431,5 +432,72 @@ LST: inclusion from beginning of article to a specified section
 <p>Before...
 SectionA
 SectionB
+</p>
+!!end
+
+!! article
+status
+!! text
+<section begin="latest" />c<section end="latest" />
+<section begin="a" />sec a<section end="a" />
+<section begin="b" />sec b<section end="b" />
+<section begin="c" />sec c<section end="c" />
+!! endarticle
+
+!!test
+LST: Allow subtransclusion in lst argument (bug 42481)
+!!input
+{{#lst:status|latest}}: {{#lst:status|{{#lst:status|latest}}}}
+!!result
+<p>c: sec c
+</p>
+!!end
+
+!!article
+selfinclusion1
+!!text
+<section begin="A"/>
+Section A begin
+{{#lst:selfinclusion2|B}}
+Section A end
+<section end="A"/>
+!!endarticle
+
+!!article
+selfinclusion2
+!!text
+<section begin="B"/>
+Section B begin
+{{#lst:selfinclusion1|A}}
+Section B end
+<section end="B"/>
+!!endarticle
+
+!!test
+LST: verify self-inclusion fails
+!!options
+!!input
+{{#lst:selfinclusion1|A}}
+!!result
+<p>Section A begin
+</p><p>Section B begin
+<span class="error">Template loop detected: <a href="/wiki/Selfinclusion1" title="Selfinclusion1">Selfinclusion1</a></span>
+Section B end
+</p><p>Section A end
+</p>
+!!end
+
+!!article
+redirected
+!!text
+#REDIRECT[[Sections]]
+!!endarticle
+
+!!test
+LST: Transclude a section via a redirect
+!!input
+{{#lst:redirected|1}}
+!!result
+<p>sec 1
 </p>
 !!end

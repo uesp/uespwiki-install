@@ -1,7 +1,4 @@
 <?php
-if ( !defined( 'MEDIAWIKI' ) ) {
-	die();
-}
 
 class AbuseFilterViewHistory extends AbuseFilterView {
 	function __construct( $page, $params ) {
@@ -14,9 +11,9 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 		$filter = $this->mFilter;
 
 		if ( $filter ) {
-			$out->setPageTitle( wfMsg( 'abusefilter-history', $filter ) );
+			$out->setPageTitle( $this->msg( 'abusefilter-history', $filter ) );
 		} else {
-			$out->setPageTitle( wfMsg( 'abusefilter-filter-log' ) );
+			$out->setPageTitle( $this->msg( 'abusefilter-filter-log' ) );
 		}
 
 		# Check perms
@@ -28,28 +25,27 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 		}
 
 		# Useful links
-		$sk = $this->getSkin();
 		$links = array();
 		if ( $filter ) {
 			$links['abusefilter-history-backedit'] = $this->getTitle( $filter );
 		}
 
 		foreach ( $links as $msg => $title ) {
-			$links[$msg] = $sk->link( $title, wfMsgExt( $msg, 'parseinline' ) );
+			$links[$msg] = Linker::link( $title, $this->msg( $msg )->parse() );
 		}
 
 		$backlinks = $this->getLanguage()->pipeList( $links );
 		$out->addHTML( Xml::tags( 'p', null, $backlinks ) );
 
 		# For user
-		$user = $this->getRequest()->getText( 'user' );
+		$user = User::getCanonicalName( $this->getRequest()->getText( 'user' ), 'valid' );
 		if ( $user ) {
-			$out->setSubtitle(
-				wfMsg(
+			$out->addSubtitle(
+				$this->msg(
 					'abusefilter-history-foruser',
-					$sk->userLink( 1 /* We don't really need to get a user ID */, $user ),
+					Linker::userLink( 1 /* We don't really need to get a user ID */, $user ),
 					$user // For GENDER
-				)
+				)->text()
 			);
 		}
 
@@ -65,7 +61,8 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 			),
 			$filterForm
 		);
-		$filterForm = Xml::fieldset( wfMsg( 'abusefilter-history-select-legend' ), $filterForm );
+		$filterForm = Xml::fieldset( $this->msg( 'abusefilter-history-select-legend' )
+			->text(), $filterForm );
 		$out->addHTML( $filterForm );
 
 		$pager = new AbuseFilterHistoryPager( $filter, $this, $user );
@@ -76,11 +73,10 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 }
 
 class AbuseFilterHistoryPager extends TablePager {
-
 	/**
 	 * @param $filter
-	 * @param $page Article
-	 * @param $user User
+	 * @param $page ContextSource
+	 * @param $user string User name
 	 */
 	function __construct( $filter, $page, $user ) {
 		$this->mFilter = $filter;
@@ -103,7 +99,7 @@ class AbuseFilterHistoryPager extends TablePager {
 			'afh_public_comments' => 'abusefilter-history-public',
 			'afh_flags' => 'abusefilter-history-flags',
 			'afh_actions' => 'abusefilter-history-actions',
-			'afh_id' => 'abusefilter-history-diff'
+			'afh_id' => 'abusefilter-history-diff',
 		);
 
 		if ( !$this->mFilter ) {
@@ -112,13 +108,14 @@ class AbuseFilterHistoryPager extends TablePager {
 			unset( $headers['afh_comments'] );
 		}
 
-		$headers = array_map( 'wfMsg', $headers );
+		foreach ( $headers as &$msg ) {
+			$msg = $this->msg( $msg )->text();
+		}
 
 		return $headers;
 	}
 
 	function formatValue( $name, $value ) {
-		$sk = $this->getSkin();
 		$lang = $this->getLanguage();
 
 		$row = $this->mCurrentRow;
@@ -130,15 +127,15 @@ class AbuseFilterHistoryPager extends TablePager {
 			case 'afh_timestamp':
 				$title = SpecialPage::getTitleFor( 'AbuseFilter',
 					'history/' . $row->afh_filter . '/item/' . $row->afh_id );
-				$formatted = $sk->link( $title, $lang->timeanddate( $row->afh_timestamp, true ) );
+				$formatted = Linker::link( $title, $lang->timeanddate( $row->afh_timestamp, true ) );
 				break;
 			case 'afh_user_text':
 				$formatted =
-					$sk->userLink( $row->afh_user, $row->afh_user_text ) . ' ' .
-					$sk->userToolLinks( $row->afh_user, $row->afh_user_text );
+					Linker::userLink( $row->afh_user, $row->afh_user_text ) . ' ' .
+					Linker::userToolLinks( $row->afh_user, $row->afh_user_text );
 				break;
 			case 'afh_public_comments':
-				$formatted = $this->getOutput()->parse( $value );
+				$formatted = htmlspecialchars( $value, ENT_QUOTES, 'UTF-8', false );
 				break;
 			case 'afh_flags':
 				$formatted = AbuseFilter::formatFlags( $value );
@@ -156,14 +153,14 @@ class AbuseFilterHistoryPager extends TablePager {
 
 				$formatted = $display_actions;
 				break;
-			case 'afh_filter':
-				$title = $this->mPage->getTitle( strval( $value ) );
-				$formatted = $sk->link( $title, $value );
-				break;
 			case 'afh_id':
-				$title = $this->mPage->getTitle(
-							'history/' . $row->afh_filter . "/diff/prev/$value" );
-				$formatted = $sk->link( $title, wfMsgExt( 'abusefilter-history-diff', 'parseinline' ) );
+				$formatted = '';
+				if ( AbuseFilter::getFirstFilterChange( $row->afh_filter ) != $value ) {
+					// Set a link to a diff with the previous version if this isn't the first edit to the filter
+					$title = $this->mPage->getTitle(
+								'history/' . $row->afh_filter . "/diff/prev/$value" );
+					$formatted = Linker::link( $title, $this->msg( 'abusefilter-history-diff' )->parse() );
+				}
 				break;
 			default:
 				$formatted = "Unable to format $name";

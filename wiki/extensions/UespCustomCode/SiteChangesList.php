@@ -1,6 +1,6 @@
 <?php
 global $IP;
-require_once "$IP/includes/ChangesList.php";
+require_once "$IP/includes/changes/ChangesList.php";
 
 class SiteOldChangesList extends OldChangesList {
 	public function recentChangesLine( &$rc, $watched = false, $linenumber = NULL ) {

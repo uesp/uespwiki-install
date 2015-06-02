@@ -33,11 +33,17 @@ class InputBox {
 	private $mID = '';
 	private $mInline = false;
 	private $mPrefix = '';
+	private $mDir = '';
 
 	/* Functions */
 
 	public function __construct( $parser ) {
 		$this->mParser = $parser;
+		// Default value for dir taken from the page language (bug 37018)
+		$this->mDir = $this->mParser->getTargetLanguage()->getDir();
+		// Split caches by language, to make sure visitors do not see a cached
+		// version in a random language (since labels are in the user language)
+		$this->mParser->getOptions()->getUserLangObj();
 	}
 
 	public function render() {
@@ -61,8 +67,8 @@ class InputBox {
 							'class' => 'error'
 						),
 						strlen( $this->mType ) > 0
-						? wfMsgForContent( 'inputbox-error-bad-type', $this->mType )
-						: wfMsgForContent( 'inputbox-error-no-type' )
+						? wfMessage( 'inputbox-error-bad-type', $this->mType )->text()
+						: wfMessage( 'inputbox-error-no-type' )->text()
 					)
 				);
 		}
@@ -71,23 +77,23 @@ class InputBox {
 	/**
 	 * Generate search form
 	 * @param $type
+	 * @return string HTML
 	 */
 	public function getSearchForm( $type ) {
 		global $wgContLang, $wgNamespaceAliases;
 
 		// Use button label fallbacks
 		if ( !$this->mButtonLabel ) {
-			$this->mButtonLabel = wfMsgHtml( 'tryexact' );
+			$this->mButtonLabel = wfMessage( 'tryexact' )->escaped();
 		}
 		if ( !$this->mSearchButtonLabel ) {
-			$this->mSearchButtonLabel = wfMsgHtml( 'searchfulltext' );
+			$this->mSearchButtonLabel = wfMessage( 'searchfulltext' )->escaped();
 		}
 
 		// Build HTML
 		$htmlOut = Xml::openElement( 'div',
 			array(
-				'align' => 'center',
-				'style' => 'background-color:' . $this->mBGColor
+				'style' => 'margin-left: auto; margin-right: auto; text-align: center; background-color:' . $this->mBGColor
 			)
 		);
 		$htmlOut .= Xml::openElement( 'form',
@@ -106,6 +112,7 @@ class InputBox {
 				'value' => $this->mDefaultText,
 				'placeholder' => $this->mPlaceholderText,
 				'size' => $this->mWidth,
+				'dir' => $this->mDir,
 			)
 		);
 
@@ -138,7 +145,7 @@ class InputBox {
 					$checkedNS[$userNS] = true;
 				}
 
-				$mainMsg = wfMsgForContent( 'inputbox-ns-main' );
+				$mainMsg = wfMessage( 'inputbox-ns-main' )->inContentLanguage()->text();
 				if( $userNS == 'Main' || $userNS == $mainMsg ) {
 					$i = 0;
 				} elseif( array_search( $userNS, $namespaces ) ) {
@@ -146,7 +153,7 @@ class InputBox {
 				} elseif ( isset( $nsAliases[$userNS] ) ) {
 					$i = $nsAliases[$userNS];
 				} else {
-					continue; # Namespace not recognised, skip
+					continue; # Namespace not recognized, skip
 				}
 				$showNamespaces[$i] = $userNS;
 				if( isset( $checkedNS[$userNS] ) && $checkedNS[$userNS] ) {
@@ -230,10 +237,9 @@ class InputBox {
 	 * Generate search form version 2
 	 */
 	public function getSearchForm2() {
-
 		// Use button label fallbacks
 		if ( !$this->mButtonLabel ) {
-			$this->mButtonLabel = wfMsgHtml( 'tryexact' );
+			$this->mButtonLabel = wfMessage( 'tryexact' )->escaped();
 		}
 
 		$id = Sanitizer::escapeId( $this->mID, 'noninitial' );
@@ -266,7 +272,8 @@ class InputBox {
 				'type' => $this->mHidden ? 'hidden' : 'text',
 				'name' => 'search',
 				'size' => $this->mWidth,
-				'id' => 'bodySearchInput' . $id
+				'id' => 'bodySearchInput' . $id,
+				'dir' => $this->mDir,
 			)
 		);
 		$htmlOut .= Xml::element( 'input',
@@ -305,18 +312,17 @@ class InputBox {
 
 		if ( $this->mType == "comment" ) {
 			if ( !$this->mButtonLabel ) {
-				$this->mButtonLabel = wfMsgHtml( "postcomment" );
+				$this->mButtonLabel = wfMessage( "postcomment" )->escaped();
 			}
 		} else {
 			if ( !$this->mButtonLabel ) {
-				$this->mButtonLabel = wfMsgHtml( 'createarticle' );
+				$this->mButtonLabel = wfMessage( 'createarticle' )->escaped();
 			}
 		}
 
 		$htmlOut = Xml::openElement( 'div',
 			array(
-				'align' => 'center',
-				'style' => 'background-color:' . $this->mBGColor
+				'style' => 'margin-left: auto; margin-right: auto; text-align: center; background-color:' . $this->mBGColor
 			)
 		);
 		$createBoxParams = array(
@@ -394,7 +400,8 @@ class InputBox {
 				'class' => 'createboxInput',
 				'value' => $this->mDefaultText,
 				'placeholder' => $this->mPlaceholderText,
-				'size' => $this->mWidth
+				'size' => $this->mWidth,
+				'dir' => $this->mDir,
 			)
 		);
 		$htmlOut .= $this->mBR;
@@ -420,13 +427,12 @@ class InputBox {
 		global $wgScript;
 
 		if ( !$this->mButtonLabel ) {
-				$this->mButtonLabel = wfMsgHtml( "postcomment" );
+				$this->mButtonLabel = wfMessage( "postcomment" )->escaped();
 		}
 
 		$htmlOut = Xml::openElement( 'div',
 			array(
-				'align' => 'center',
-				'style' => 'background-color:' . $this->mBGColor
+				'style' => 'margin-left: auto; margin-right: auto; text-align: center; background-color:' . $this->mBGColor
 			)
 		);
 		$commentFormParams = array(
@@ -467,7 +473,8 @@ class InputBox {
 				'class' => 'commentboxInput',
 				'value' => $this->mDefaultText,
 				'placeholder' => $this->mPlaceholderText,
-				'size' => $this->mWidth
+				'size' => $this->mWidth,
+				'dir' => $this->mDir,
 			)
 		);
 		$htmlOut .= Xml::openElement( 'input',
@@ -517,6 +524,11 @@ class InputBox {
 			$values[ strtolower( trim( $name ) ) ] = Sanitizer::decodeCharReferences( trim( $value ) );
 		}
 
+		// Validate the dir value.
+		if ( isset( $values['dir'] ) && !in_array( $values['dir'], array( 'ltr', 'rtl' ) ) ) {
+			unset( $values['dir'] );
+		}
+
 		// Build list of options, with local member names
 		$options = array(
 			'type' => 'mType',
@@ -540,6 +552,7 @@ class InputBox {
 			'id' => 'mID',
 			'inline' => 'mInline',
 			'prefix' => 'mPrefix',
+			'dir' => 'mDir',
 		);
 		foreach ( $options as $name => $var ) {
 			if ( isset( $values[$name] ) ) {

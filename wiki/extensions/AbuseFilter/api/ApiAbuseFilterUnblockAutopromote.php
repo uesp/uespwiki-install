@@ -11,7 +11,7 @@ class ApiAbuseFilterUnblockAutopromote extends ApiBase {
 
 		if ( $user === false ) {
 			// Oh god this is so bad but this message uses GENDER
-			$msg = wfMsgExt( 'abusefilter-reautoconfirm-none', array( 'parsemag' ), $params['user'] );
+			$msg = wfMessage( 'abusefilter-reautoconfirm-none', $params['user'] )->text();
 			$this->dieUsage( $msg, 'notsuspended' );
 		}
 
@@ -20,7 +20,7 @@ class ApiAbuseFilterUnblockAutopromote extends ApiBase {
 
 		if ( !$wgMemc->get( $key ) ) {
 			// Same as above :(
-			$msg = wfMsgExt( 'abusefilter-reautoconfirm-none', array( 'parsemag' ), $params['user'] );
+			$msg = wfMessage( 'abusefilter-reautoconfirm-none', $params['user'] )->text();
 			$this->dieUsage( $msg, 'notsuspended' );
 		}
 
@@ -75,11 +75,11 @@ class ApiAbuseFilterUnblockAutopromote extends ApiBase {
 
 	public function getExamples() {
 		return array(
-			'api.php?action=abusefilterunblockautopromote&user=Bob'
+			"api.php?action=abusefilterunblockautopromote&user=Bob&token=%2B\\"
 		);
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiAbuseFilterUnblockAutopromote.php 108852 2012-01-13 21:36:51Z reedy $';
+		return __CLASS__ . ': $Id$';
 	}
 }
