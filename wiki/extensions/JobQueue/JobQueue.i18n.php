@@ -12,5 +12,5 @@ $messages = array();
  */
 $messages[ 'en' ] = array(
         'jobqueue-desc' => "Re-adds job queue to [[Special:Statistics]]",
-        'jobqueuemc' => "Job queue",
+        'jobqueue-mc' => "Job queue",
 );

@@ -9,7 +9,6 @@ class SpecialSearchLog extends SpecialPage {
 
         function __construct() {
                 parent::__construct( 'SearchLog' );
-                wfLoadExtensionMessages('SearchLog');
 
 			# TODO: Proper URL of this page
 		$this->pageurl = "/wiki/Special:SearchLog";

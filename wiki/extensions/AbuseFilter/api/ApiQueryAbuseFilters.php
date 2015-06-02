@@ -126,7 +126,8 @@ class ApiQueryAbuseFilters extends ApiQueryBase {
 				$entry['lasteditor'] = $row->af_user_text;
 			}
 			if ( $fld_time ) {
-				$entry['lastedittime'] = wfTimestamp( TS_ISO_8601, $row->af_timestamp );
+				$ts = new MWTimestamp( $row->af_timestamp );
+				$entry['lastedittime'] = $ts->getTimestamp( TS_ISO_8601 );
 			}
 			if ( $fld_private && $row->af_hidden ) {
 				$entry['private'] = '';
@@ -233,6 +234,6 @@ class ApiQueryAbuseFilters extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryAbuseFilters.php 103298 2011-11-16 05:34:24Z johnduhart $';
+		return __CLASS__ . ': $Id$';
 	}
 }

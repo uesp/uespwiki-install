@@ -66,7 +66,7 @@ class MWSearchUpdater {
 	static function getStatus() {
 		return MWSearchUpdater::sendRPC( 'searchupdater.getStatus' );
 	}
-	
+
 	/**
 	 * Request that the daemon start applying updates if it's stopped.
 	 * @return bool
@@ -75,7 +75,7 @@ class MWSearchUpdater {
 	static function start() {
 		return MWSearchUpdater::sendRPC( 'searchupdater.start' );
 	}
-	
+
 	/**
 	 * Request that the daemon stop applying updates and close open indexes.
 	 * @return bool
@@ -84,7 +84,7 @@ class MWSearchUpdater {
 	static function stop() {
 		return MWSearchUpdater::sendRPC( 'searchupdater.stop' );
 	}
-	
+
 	/**
 	 * Request that the daemon stop applying updates and close open indexes.
 	 * @return bool
@@ -103,7 +103,7 @@ class MWSearchUpdater {
 	static function flushAll() {
 		return MWSearchUpdater::sendRPC( 'searchupdater.flushAll' );
 	}
-	
+
 	/**
 	 * Request that the daemon flush and reopen all indexes, without changing
 	 * the global is-running state, and that indexes should be optimized when
@@ -114,7 +114,7 @@ class MWSearchUpdater {
 	static function optimize() {
 		return MWSearchUpdater::sendRPC( 'searchupdater.optimize' );
 	}
-	
+
 	/**
 	 * Request that the daemon flush and reopen a given index, without changing
 	 * the global is-running state.
@@ -125,7 +125,7 @@ class MWSearchUpdater {
 		return MWSearchUpdater::sendRPC( 'searchupdater.flush',
 			array( $dbname ) );
 	}
-	
+
 	/**
 	 * @access private
 	 * @static
@@ -153,7 +153,7 @@ class MWSearchUpdater {
 			throw new MWException( 'MWSearchUpdater::sendRPC given bogus parameter' );
 		}
 	}
-	
+
 	/**
 	 * @access private
 	 * @static
@@ -164,25 +164,25 @@ class MWSearchUpdater {
 		if( $mwSearchUpdateDebug ) {
 			$client->debug = true;
 		}
-		
+
 		$rpcParams = array_map( array( 'MWSearchUpdater', 'outParam' ), $params );
-		
+
 		$message = new XML_RPC_Message( $method, $rpcParams );
 		wfSuppressWarnings();
-		$start = wfTime();
+		$start = microtime( true );
 		$result = $client->send( $message );
-		$delta = wfTime() - $start;
+		$delta = microtime( true ) - $start;
 		wfRestoreWarnings();
-		
+
 		$debug = sprintf( "MWSearchUpdater::sendRPC for %s took %0.2fms\n",
 			$method, $delta * 1000.0 );
 		wfDebug( $debug );
 		if( $mwSearchUpdateDebug ) {
 			echo $debug;
 		}
-		
+
 		if( !is_object( $result ) ) {
-			throw new MWException( "Unknown XML-RPC error" );
+			throw new MWException( "XML-RPC error: {$client->errstr}" );
 		} elseif( $result->faultCode() ) {
 			throw new MWException( $result->faultCode() . ': ' . $result->faultString() );
 		} else {

@@ -1,0 +1,52 @@
+@import "../mixins.less";
+
+// This serves no purpose on the login screen as you are not logged in so cannot use.
+#user-button {
+	display: none;
+}
+
+#mw-mf-login,
+#mw-mf-accountcreate {
+	.watermark {
+		text-align: center;
+		height: 72px;
+		width: 100%;
+		margin-bottom: @headingMargin;
+		img {
+			height: 72px;
+			width: auto;
+		}
+	}
+
+	.headmsg {
+		background-color: #eee;
+		border: 1px solid #ccc;
+		color: #252525;
+		font-weight: bold;
+		padding: 0.5em 1em;
+		margin: 1em 0;
+	}
+}
+
+#mw-mf-accountcreate {
+	.alert {
+		margin-left: 0;
+		margin-right: 0;
+	}
+}
+
+/* sign up form */
+form.user-login {
+	padding-bottom: 12px;
+
+	input {
+		width: 100%;
+		display: block;
+	}
+
+	.mw-mf-create-account {
+		padding-top: 12px;
+		display: block;
+		text-align: center;
+	}
+}

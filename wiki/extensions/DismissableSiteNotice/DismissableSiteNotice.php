@@ -1,88 +1,67 @@
 <?php
+if ( !defined( 'MEDIAWIKI' ) ) die();
 
 $wgExtensionCredits['other'][] = array(
 	'path' => __FILE__,
 	'name' => 'DismissableSiteNotice',
-	'author' => 'Brion Vibber',
+	'author' => array(
+		'Brion Vibber',
+		'Kevin Israel',
+	),
 	'descriptionmsg' => 'sitenotice-desc',
 	'url' => 'https://www.mediawiki.org/wiki/Extension:DismissableSiteNotice',
 );
 
-$wgExtensionMessagesFiles['DismissableSiteNotice'] = dirname(__FILE__) . '/DismissableSiteNotice.i18n.php';
+$wgExtensionMessagesFiles['DismissableSiteNotice'] = __DIR__ . '/DismissableSiteNotice.i18n.php';
 
-function wfDismissableSiteNotice( &$notice ) {
-	global $wgMajorSiteNoticeID, $wgUser;
+$wgResourceModules['ext.dismissableSiteNotice'] = array(
+	'localBasePath' => __DIR__ . '/modules',
+	'remoteExtPath' => 'DismissableSiteNotice/modules',
+	'scripts' => 'ext.dismissableSiteNotice.js',
+	'styles' => 'ext.dismissableSiteNotice.css',
+	'dependencies' => array(
+		'jquery.cookie',
+		'mediawiki.util',
+	),
+	'position' => 'top',
+);
+
+$wgHooks['SiteNoticeAfter'][] = function( &$notice, $skin ) {
+	global $wgMajorSiteNoticeID;
 
 	if ( !$notice ) {
 		return true;
 	}
 
-	$encNotice = Xml::escapeJsString($notice);
-	$encClose = Xml::escapeJsString( wfMsg( 'sitenotice_close' ) );
-	$id = intval( $wgMajorSiteNoticeID ) . "." . intval( wfMsgForContent( 'sitenotice_id' ) );
-
 	// No dismissal for anons
-	if ( $wgUser->isAnon() ) {
-		$notice = <<<HTML
-<script type="text/javascript">
-/* <![CDATA[ */
-document.writeln("$encNotice");
-/* ]]> */
-</script>
-HTML;
+	if ( $skin->getUser()->isAnon() ) {
+		// Hide the sitenotice from search engines (see bug 9209 comment 4)
+		// XXX: Does this actually work?
+		$notice = Html::inlineScript( Xml::encodeJsCall( 'document.write', array( $notice ) ) );
 		return true;
 	}
 
-	$notice = <<<HTML
-<script type="text/javascript">
-/* <![CDATA[ */
-var cookieName = "dismissSiteNotice=";
-var cookiePos = document.cookie.indexOf(cookieName);
-var siteNoticeID = "$id";
-var siteNoticeValue = "$encNotice";
-var cookieValue = "";
-var msgClose = "$encClose";
+	// Cookie value consists of two parts
+	$major = (int) $wgMajorSiteNoticeID;
+	$minor = (int) $skin->msg( 'sitenotice_id' )->inContentLanguage()->text();
 
-if (cookiePos > -1) {
-	cookiePos = cookiePos + cookieName.length;
-	var endPos = document.cookie.indexOf(";", cookiePos);
-	if (endPos > -1) {
-		cookieValue = document.cookie.substring(cookiePos, endPos);
-	} else {
-		cookieValue = document.cookie.substring(cookiePos);
-	}
-}
-if (cookieValue != siteNoticeID) {
-	function dismissNotice() {
-		var date = new Date();
-		date.setTime(date.getTime() + 30*86400*1000);
-		document.cookie = cookieName + siteNoticeID + "; expires="+date.toGMTString() + "; path=/";
-		var element = document.getElementById('mw-dismissable-notice');
-		element.parentNode.removeChild(element);
-	}
-	document.writeln('<table width="100%" id="mw-dismissable-notice"><tr><td width="80%">'+siteNoticeValue+'</td>');
-	document.writeln('<td width="20%" align="right">[<a href="javascript:dismissNotice();">'+msgClose+'</a>]</td></tr></table>');
-}
-/* ]]> */
-</script>
-HTML;
-	// Compact the string a bit
-	/*
-	$notice = strtr( $notice, array(
-		"\r\n" => '',
-		"\n" => '',
-		"\t" => '',
-		'cookieName' => 'n',
-		'cookiePos' => 'p',
-		'siteNoticeID' => 'i',
-		'siteNoticeValue' => 'sv',
-		'cookieValue' => 'cv',
-		'msgClose' => 'c',
-		'endPos' => 'e',
-	));*/
+	$out = $skin->getOutput();
+	$out->addModules( 'ext.dismissableSiteNotice' );
+	$out->addJsConfigVars( 'wgSiteNoticeId', "$major.$minor" );
+
+	$notice = Html::rawElement( 'div', array( 'class' => 'mw-dismissable-notice' ),
+		Html::rawElement( 'div', array( 'class' => 'mw-dismissable-notice-close' ),
+			$skin->msg( 'sitenotice_close-brackets' )
+			->rawParams(
+				Html::element( 'a', array( 'href' => '#' ), $skin->msg( 'sitenotice_close' )->text() )
+			)
+			->escaped()
+		) .
+		Html::rawElement( 'div', array( 'class' => 'mw-dismissable-notice-body' ), $notice )
+	);
+
 	return true;
-}
+};
 
-$wgHooks['SiteNoticeAfter'][] = 'wfDismissableSiteNotice';
-
+// Default settings
 $wgMajorSiteNoticeID = 1;

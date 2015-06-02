@@ -117,7 +117,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			$ttype = 'subcat';
 		else
 			$ttype = 'page';
-		
+			
 		$catparams = array('catpage', 'catlabel', 'catgroup', 'cattextpre', 'cattextpost', 'catanchor', 'catredirect', 'catsortkey', 'catskip');
 		$vals = array();
 		
@@ -190,7 +190,6 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 				$start_char = $wgContLang->convert( $wgContLang->firstChar( $sortkey ) );
 			
 			$retvals = array('link' => $link, 'start_char' => $start_char, 'catlabel' => $vals['catlabel']);
-			
 		}
 		else
 			$retvals = array();
@@ -239,7 +238,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 		if (!isset(self::$_templatedata['subcat'])) {
 			parent::addSubcategoryObject( $cat, $sortkey, $pageLength );
 			return;
-		}
+		}		
 		
 		$title = $cat->getTitle();
 		$retsets = $this->processTemplate($title, $sortkey, $pageLength, false, true);
@@ -255,9 +254,21 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 		* But at the moment, there isn't anything to tweak in processing
 		* * If it's an image gallery, there's no text or start_char
 		* * Otherwise, parent already simply calls addPage, which is where my customizations will kick in
+		* 
+		* 2014-09-22: At least as of 1.19, the above assertion is untrue for __NOGALLERY__
+		* so added appropriate processing. -RH70
 		*/
 	function addImage( Title $title, $sortkey, $pageLength, $isRedirect = false ) {
-		parent::addImage( $title, $sortkey, $pageLength, $isRedirect );
+		if ( $this->showGallery ) {
+			parent::addImage( $title, $sortkey, $pageLength, $isRedirect );
+			return;
+		}		
+
+		$retsets = $this->processTemplate($title, $sortkey, $pageLength, $isRedirect);
+		foreach ($retsets as $retvals) {
+			$this->imgsNoGallery[] = $retvals['link'];
+			$this->imgsNoGallery_start_char[] = $retvals['start_char'];
+		}
 	}
 	
 	/**
@@ -268,6 +279,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			parent::addPage( $title, $sortkey, $pageLength, $isRedirect );
 			return;
 		}
+
 		$retsets = $this->processTemplate($title, $sortkey, $pageLength, $isRedirect);
 		foreach ($retsets as $retvals) {
 			$this->articles[] = $retvals['link'];

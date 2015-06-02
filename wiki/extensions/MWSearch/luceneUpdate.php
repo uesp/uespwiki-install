@@ -148,38 +148,38 @@ class LuceneBuilder {
 		$this->dbstream =& $this->streamingSlave( $this->db );
 		$this->offset = 0;
 	}
-	
+
 	function &streamingSlave( $db ) {
 		global $wgDBname;
 		$stream = new DatabaseMysql( $db->mServer, $db->mUser, $db->mPassword, $wgDBname );
 		$stream->bufferResults( false );
-		
+
 		$timeout = 3600 * 24;
 		$stream->query( "SET net_read_timeout=$timeout" );
 		$stream->query( "SET net_write_timeout=$timeout" );
 		return $stream;
 	}
-	
+
 	function skip( $offset ) {
 		$this->offset = intval( $offset );
 	}
-	
+
 	function init( $max ) {
 		$this->max = $max;
 		$this->count = 0;
-		$this->startTime = wfTime();
+		$this->startTime = microtime( true );
 	}
-	
+
 	function progress() {
 		global $wgDBname;
 		$this->count++;
 		if( $this->count % 100 == 0 ) {
-			$now = wfTime();
+			$now = microtime( true );
 			$delta = $now - $this->startTime;
 			$portion = $this->count / $this->max;
 			$eta = $this->startTime + ($delta / $portion);
 			$rate = $this->count / $delta;
-			
+
 			printf( "%s: %6.3f%% on %s, ETA %s [%d/%d] %.2f/sec\n",
 				wfTimestamp( TS_DB, intval( $now ) ),
 				$portion * 100.0,
@@ -188,18 +188,18 @@ class LuceneBuilder {
 				$this->count,
 				$this->max,
 				$rate );
-			
+
 			$this->wait();
 		}
 	}
-	
+
 	/**
 	 * See if the daemon's getting overloaded and pause if so
 	 */
 	function wait() {
 		$cutoff = 500;
 		$waittime = 10;
-		
+
 		while( true ) {
 			try {
 				$status = MWSearchUpdater::getStatus();
@@ -208,34 +208,32 @@ class LuceneBuilder {
 				sleep( $waittime );
 				continue;
 			}
-			
+
 			// Updater IS running; 90418 items queued.
 			if( !preg_match( '/([0-9]+) items queued/', $status, $matches ) ) {
 				// ?! confused
 				break;
 			}
-			
+
 			$count = intval( $matches[1] );
 			if( $count < $cutoff ) {
 				break;
 			}
-			
+
 			printf( "%s: %s\n",
 				wfTimestamp( TS_DB ),
 				$status );
-			
+
 			sleep( $waittime );
 		}
 	}
-	
+
 	function finalStatus() {
 		global $wgDBname;
-		$now = wfTime();
+		$now = microtime( true );
 		$delta = $now - $this->startTime;
-		$portion = $this->count / $this->max;
-		$eta = $now + ($delta / $portion);
 		$rate = $this->count / $delta;
-		
+
 		printf( "%s: done on %s, [%d/%d] %.2f/sec\n",
 			wfTimestamp( TS_DB, intval( $now ) ),
 			$wgDBname,
@@ -243,12 +241,12 @@ class LuceneBuilder {
 			$this->max,
 			$rate );
 	}
-	
+
 	function rebuildAll() {
 		global $wgDBname;
-		
+
 		$lastError = true;
-		
+
 		$maxId = $this->db->selectField( 'page', 'MAX(page_id)', '', __METHOD__ );
 		$maxId -= $this->offset; // hack for percentages
 		$this->init( $maxId );
@@ -256,29 +254,29 @@ class LuceneBuilder {
 			echo "Nothing to do.\n";
 			return;
 		}
-		
+
 		$limit = array();
 		if( $this->offset ) {
 			$limit = array( 'LIMIT $offset, 10000000' );
 		}
-		
+
 		$result = $this->dbstream->select( array( 'page' ),
 			array( 'page_namespace', 'page_title', 'page_latest' ),
 			'',
 			__METHOD__,
 			$limit );
-		
+
 		$errorCount = 0;
 		foreach ( $result as $row ) {
 			$this->progress();
-			
+
 			$title = Title::makeTitle( $row->page_namespace, $row->page_title );
 			$rev = Revision::newFromId( $row->page_latest );
 			if( is_null( $rev ) ) {
 				// Page was probably deleted while we were running
 				continue;
 			}
-			
+
  			$text = $rev->getText();
 
 			try {
@@ -295,24 +293,24 @@ class LuceneBuilder {
 		}
 		$this->finalStatus();
 		$this->dbstream->freeResult( $result );
-		
+
 		return $lastError;
 	}
-	
+
 	/**
 	 * Trawl thorugh the deletion log entries to remove any deleted pages
 	 * that might have been missed when the index updater daemon was broken.
 	 */
 	function rebuildDeleted( $since = null ) {
 		global $wgDBname;
-		
+
 		if( is_null( $since ) ) {
 			$since = '20010115000000';
 		}
 
 		// Turn buffering back on; these are relatively small.
 		$this->dbstream->bufferResults( true );
-		
+
 		$cutoff  = $this->dbstream->addQuotes( $this->dbstream->timestamp( $since ) );
 		$logging = $this->dbstream->tableName( 'logging' );
 		$page    = $this->dbstream->tableName( 'page' );
@@ -324,7 +322,7 @@ class LuceneBuilder {
 			 WHERE log_type='delete'
 			 AND log_timestamp > $cutoff
 			 AND page_namespace IS NULL", __METHOD__ );
-		
+
 		$max = $this->dbstream->numRows( $result );
 		if( $max == 0 ) {
 			echo "Nothing to do.\n";
@@ -332,7 +330,7 @@ class LuceneBuilder {
 		}
 		$this->init( $max );
 		$lastError = true;
-		
+
 		foreach ( $result as $row ) {
 			$this->progress();
 			$title = Title::makeTitle( $row->log_namespace, $row->log_title );
@@ -343,10 +341,10 @@ class LuceneBuilder {
 				$lastError = $e;
 			}
 		}
-		
+
 		$this->finalStatus();
 		$this->dbstream->freeResult( $result );
-		
+
 		return $lastError;
 	}
 
@@ -364,7 +362,7 @@ class LuceneBuilder {
 
 		// Turn buffering back on; these are relatively small.
 		//$this->dbstream->bufferResults( true );
-		
+
 		$cutoff  = $this->dbstream->addQuotes( $this->dbstream->timestamp( $since ) );
 		$recentchanges = $this->dbstream->tableName( 'recentchanges' );
 		$revision      = $this->dbstream->tableName( 'revision' );
@@ -377,7 +375,7 @@ class LuceneBuilder {
 			 AND rc_this_oldid=page_latest
 			 AND page_latest=rev_id
 			 AND rc_timestamp > $cutoff", __METHOD__ );
-		
+
 		#$max = $this->dbstream->numRows( $result );
 		$max = 10000; // wacky estimate
 		if( $max == 0 ) {
@@ -386,7 +384,7 @@ class LuceneBuilder {
 		}
 		$this->init( $max );
 		$lastError = true;
-		
+
 		foreach ( $result as $row ) {
 			$this->progress();
 			$rev = new Revision( $row );
@@ -400,10 +398,10 @@ class LuceneBuilder {
 				}
 			}
 		}
-		
+
 		$this->finalStatus();
 		$this->dbstream->freeResult( $result );
-		
+
 		return $lastError;
 	}
 

@@ -1,0 +1,51 @@
+@import "../mixins.less";
+
+.drawer {
+	text-align: center;
+	padding: 0 @contentMarginRight 1em;
+
+	&.text {
+		line-height: 1;
+		font-size: .9em;
+		text-align: left;
+		padding-top: .5em;
+	}
+
+	p {
+		line-height: 1.4;
+		margin-top: .5em;
+	}
+
+	a.close {
+		padding: 0 0 1.2em;
+		display: block;
+		overflow: hidden;
+		text-indent: -9999px;
+		width: 100%;
+		height: 16px;
+		background: url(../modules/images/show.png) 50% 8px no-repeat;
+	}
+
+	.button.wide {
+		display: block;
+	}
+
+	a.button {
+		margin: 1em @contentMarginLeft;
+	}
+
+	a.signup {
+		display: block;
+	}
+
+	.progress-bar {
+		margin: .9em 0 0;
+	}
+}
+
+// When overlays are opened drawers do not look good
+.overlay-enabled  {
+	.drawer {
+		display: none;
+	}
+}

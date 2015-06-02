@@ -1,7 +1,4 @@
 <?php
-if ( !defined( 'MEDIAWIKI' ) ) {
-	exit( 1 );
-}
 
 class AntiSpoofHooks {
 	/**
@@ -13,20 +10,12 @@ class AntiSpoofHooks {
 			global $wgExtNewTables, $wgDBtype;
 			$wgExtNewTables[] = array(
 				'spoofuser',
-				dirname( __FILE__ ) . '/sql/patch-antispoof.' . $wgDBtype . '.sql', true );
+				__DIR__ . '/sql/patch-antispoof.' . $wgDBtype . '.sql', true );
 		} else {
 			$updater->addExtensionUpdate( array( 'addTable', 'spoofuser',
-				dirname( __FILE__ ) . '/sql/patch-antispoof.' . $updater->getDB()->getType() . '.sql', true ) );
+				__DIR__ . '/sql/patch-antispoof.' . $updater->getDB()->getType() . '.sql', true ) );
 		}
 		return true;
-	}
-
-	/**
-	 * @param $name string Username
-	 * @return SpoofUser
-	 */
-	protected static function makeSpoofUser( $name ) {
-		return new SpoofUser( $name );
 	}
 
 	/**
@@ -52,7 +41,7 @@ class AntiSpoofHooks {
 		}
 
 		$name = $user->getName();
-		$spoof = self::makeSpoofUser( $name );
+		$spoof = new SpoofUser( $name );
 		if ( $spoof->isLegal() ) {
 			$normalized = $spoof->getNormalized();
 			$conflicts = $spoof->getConflicts();
@@ -62,12 +51,13 @@ class AntiSpoofHooks {
 				wfDebugLog( 'antispoof', "{$mode}CONFLICT new account '$name' [$normalized] spoofs " . implode( ',', $conflicts ) );
 				if ( $active ) {
 					$numConflicts = count( $conflicts );
-					$message = wfMsgExt( 'antispoof-conflict-top', array( 'parsemag' ), htmlspecialchars( $name ), $numConflicts );
+					$message = wfMessage( 'antispoof-conflict-top', $name )
+						->numParams( $numConflicts )->escaped();
 					$message .= '<ul>';
 					foreach ( $conflicts as $simUser ) {
-						$message .= '<li>' . wfMsg( 'antispoof-conflict-item', $simUser ) . '</li>';
+						$message .= '<li>' . wfMessage( 'antispoof-conflict-item', $simUser )->escaped() . '</li>';
 					}
-					$message .= '</ul>' . wfMsg( 'antispoof-conflict-bottom' );
+					$message .= '</ul>' . wfMessage( 'antispoof-conflict-bottom' )->escaped();
 					return false;
 				}
 			}
@@ -75,7 +65,7 @@ class AntiSpoofHooks {
 			$error = $spoof->getError();
 			wfDebugLog( 'antispoof', "{$mode}ILLEGAL new account '$name' $error" );
 			if ( $active ) {
-				$message = wfMsg( 'antispoof-name-illegal', $name, $error );
+				$message = wfMessage( 'antispoof-name-illegal', $name, $error )->text();
 				return false;
 			}
 		}
@@ -108,7 +98,7 @@ class AntiSpoofHooks {
 	 * @return bool
 	 */
 	public static function asAddNewAccountHook( $user ) {
-		$spoof = self::makeSpoofUser( $user->getName() );
+		$spoof = new SpoofUser( $user->getName() );
 		$spoof->record();
 		return true;
 	}
@@ -123,7 +113,7 @@ class AntiSpoofHooks {
 	 * @return bool
 	 */
 	public static function asAddRenameUserHook( $uid, $oldName, $newName ) {
-		$spoof = self::makeSpoofUser( $newName );
+		$spoof = new SpoofUser( $newName );
 		$spoof->update( $oldName );
 		return true;
 	}

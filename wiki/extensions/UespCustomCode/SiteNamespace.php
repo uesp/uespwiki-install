@@ -138,10 +138,12 @@ class SiteNamespace {
 
 	public function get_ns_full() {
 		$this->data['ns_full'] = $this->get('ns_base');
-		if (!stripos($this->data['ns_full'], ':'))
-			$this->data['ns_full'] .= ':';
-		else
-			$this->data['ns_full'] .= '/';
+		if (strlen($this->data['ns_full']) > 0) {		
+			if (!stripos($this->data['ns_full'], ':'))
+				$this->data['ns_full'] .= ':';
+			else
+				$this->data['ns_full'] .= '/';
+		}
 		return $this->data['ns_full'];
 	}
 

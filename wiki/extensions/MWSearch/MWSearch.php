@@ -73,6 +73,7 @@ $wgExtensionFunctions[] = 'efLucenePrefixSetup';
 $wgAutoloadClasses['LuceneSearch'] = $dir . 'MWSearch_body.php';
 $wgAutoloadClasses['LuceneResult'] = $dir . 'MWSearch_body.php';
 $wgAutoloadClasses['LuceneSearchSet'] = $dir . 'MWSearch_body.php';
+$wgAutoloadClasses['MWSearchUpdater'] = $dir . 'MWSearchUpdater.php';
 
 function efLucenePrefixSetup() {
 	global $wgHooks, $wgLuceneSearchVersion, $wgEnableLucenePrefixSearch;

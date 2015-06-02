@@ -33,7 +33,7 @@ class ImageMap {
 	 * @return array|mixed|string
 	 */
 	public static function render( $input, $params, $parser ) {
-		global $wgScriptPath, $wgUrlProtocols, $wgNoFollowLinks;
+		global $wgExtensionAssetsPath, $wgUrlProtocols, $wgNoFollowLinks;
 
 		$lines = explode( "\n", $input );
 
@@ -73,7 +73,7 @@ class ImageMap {
 				if ( !$imageTitle || $imageTitle->getNamespace() != NS_IMAGE ) {
 					return self::error( 'imagemap_no_image' );
 				}
-				if ( wfIsBadImage( $imageTitle->getDBkey() , $parser->mTitle ) ) {
+				if ( wfIsBadImage( $imageTitle->getDBkey(), $parser->mTitle ) ) {
 					return self::error( 'imagemap_bad_image' );
 				}
 				// Parse the options so we can use links and the like in the caption
@@ -95,9 +95,9 @@ class ImageMap {
 				if ( !$imgs->length ) {
 					return self::error( 'imagemap_invalid_image' );
 				}
-				$imageNode = $imgs->item(0);
-				$thumbWidth = $imageNode->getAttribute('width');
-				$thumbHeight = $imageNode->getAttribute('height');
+				$imageNode = $imgs->item( 0 );
+				$thumbWidth = $imageNode->getAttribute( 'width' );
+				$thumbHeight = $imageNode->getAttribute( 'height' );
 
 				$imageObj = wfFindFile( $imageTitle );
 				if ( !$imageObj || !$imageObj->exists() ) {
@@ -118,7 +118,7 @@ class ImageMap {
 			# Handle desc spec
 			$cmd = strtok( $line, " \t" );
 			if ( $cmd == 'desc' ) {
-				$typesText = wfMsgForContent( 'imagemap_desc_types' );
+				$typesText = wfMessage( 'imagemap_desc_types' )->inContentLanguage()->text();
 				if ( $descTypesCanonical != $typesText ) {
 					// i18n desc types exists
 					$typesText = $descTypesCanonical . ', ' . $typesText;
@@ -144,10 +144,11 @@ class ImageMap {
 				$alt = trim( $m[2] );
 			} elseif ( preg_match( '/^ \[\[  ([^\]]*+) \]\] \w* $ /x', $link, $m ) ) {
 				$title = Title::newFromText( $m[1] );
-				if (is_null($title))
-					return self::error('imagemap_invalid_title', $lineNum);
+				if ( is_null( $title ) ) {
+					return self::error( 'imagemap_invalid_title', $lineNum );
+				}
 				$alt = $title->getFullText();
-			} elseif ( in_array( substr( $link , 1 , strpos($link, '//' )+1 ) , $wgUrlProtocols ) || in_array( substr( $link , 1 , strpos($link, ':' ) ) , $wgUrlProtocols ) ) {
+			} elseif ( in_array( substr( $link, 1, strpos( $link, '//' ) + 1 ), $wgUrlProtocols ) || in_array( substr( $link, 1, strpos( $link, ':' ) ), $wgUrlProtocols ) ) {
 				if ( preg_match( '/^ \[  ([^\s]*+)  \s  ([^\]]*+)  \] \w* $ /x', $link, $m ) ) {
 					$title = $m[1];
 					$alt = trim( $m[2] );
@@ -219,7 +220,7 @@ class ImageMap {
 				# in Title.php to return an empty string in this case
 				$attribs['href'] = $title->getFragmentForURL();
 			} else {
-				$attribs['href'] = $title->escapeLocalURL() . $title->getFragmentForURL();
+				$attribs['href'] = $title->getLocalURL() . $title->getFragmentForURL();
 			}
 			if ( $shape != 'default' ) {
 				$attribs['shape'] = $shape;
@@ -269,6 +270,7 @@ class ImageMap {
 		$anchor = $imageNode->parentNode;
 		$parent = $anchor->parentNode;
 		$div = $parent->insertBefore( new DOMElement( 'div' ), $anchor );
+		$div->setAttribute( 'class', 'noresize' );
 		if ( $defaultLinkAttribs ) {
 			$defaultAnchor = $div->appendChild( new DOMElement( 'a' ) );
 			foreach ( $defaultLinkAttribs as $name => $value ) {
@@ -312,16 +314,22 @@ class ImageMap {
 			$descWrapper = $div->appendChild( new DOMElement( 'div' ) );
 			$descWrapper->setAttribute( 'style',
 				"margin-left: {$marginLeft}px; " .
-				"margin-top: {$marginTop}px; " .
-				"text-align: left;"
+					"margin-top: {$marginTop}px; " .
+					"text-align: left;"
 			);
 
 			$descAnchor = $descWrapper->appendChild( new DOMElement( 'a' ) );
-			$descAnchor->setAttribute( 'href', $imageTitle->escapeLocalURL() );
-			$descAnchor->setAttribute( 'title', wfMsgForContent( 'imagemap_description' ) );
+			$descAnchor->setAttribute( 'href', $imageTitle->getLocalURL() );
+			$descAnchor->setAttribute(
+				'title',
+				wfMessage( 'imagemap_description' )->inContentLanguage()->text()
+			);
 			$descImg = $descAnchor->appendChild( new DOMElement( 'img' ) );
-			$descImg->setAttribute( 'alt', wfMsgForContent( 'imagemap_description' ) );
-			$descImg->setAttribute( 'src', "$wgScriptPath/extensions/ImageMap/desc-20.png" );
+			$descImg->setAttribute(
+				'alt',
+				wfMessage( 'imagemap_description' )->inContentLanguage()->text()
+			);
+			$descImg->setAttribute( 'src', "$wgExtensionAssetsPath/ImageMap/desc-20.png" );
 			$descImg->setAttribute( 'style', 'border: none;' );
 		}
 
@@ -332,9 +340,9 @@ class ImageMap {
 
 		# Register links
 		foreach ( $links as $title ) {
-			if( $title->isExternal() || $title->getNamespace() == NS_SPECIAL ) {
+			if ( $title->isExternal() || $title->getNamespace() == NS_SPECIAL ) {
 				// Don't register special or interwiki links...
-			} elseif( $title->getNamespace() == NS_MEDIA ) {
+			} elseif ( $title->getNamespace() == NS_MEDIA ) {
 				// Regular Media: links are recorded as image usages
 				$parser->mOutput->addImage( $title->getDBkey() );
 			} else {
@@ -374,12 +382,10 @@ class ImageMap {
 
 	/**
 	 * @param $name string
-	 * @param $line string|int
+	 * @param $line string|int|bool
 	 * @return string
 	 */
 	static function error( $name, $line = false ) {
-		return '<p class="error">' . wfMsgForContent( $name, $line ) . '</p>';
+		return '<p class="error">' . wfMessage( $name, $line )->text() . '</p>';
 	}
 }
-
-

@@ -82,7 +82,7 @@ class CheckUserHooks {
 			'cuc_minor'      => 0,
 			'cuc_user'       => $user->getId(),
 			'cuc_user_text'  => $user->getName(),
-			'cuc_actiontext' => wfMsgForContent( 'checkuser-reset-action', $account->getName() ),
+			'cuc_actiontext' => wfMessage( 'checkuser-reset-action', $account->getName() )->inContentLanguage()->text(),
 			'cuc_comment'    => '',
 			'cuc_this_oldid' => 0,
 			'cuc_last_oldid' => 0,
@@ -104,7 +104,7 @@ class CheckUserHooks {
 	 * Saves user data into the cu_changes table
 	 */
 	public static function updateCUEmailData( $to, $from, $subject, $text ) {
-		global $wgSecretKey, $wgRequest;
+		global $wgSecretKey, $wgRequest, $wgCUPublicKey;
 		if ( !$wgSecretKey || $from->name == $to->name ) {
 			return true;
 		}
@@ -127,7 +127,7 @@ class CheckUserHooks {
 			'cuc_minor'      => 0,
 			'cuc_user'       => $userFrom->getId(),
 			'cuc_user_text'  => $userFrom->getName(),
-			'cuc_actiontext' => wfMsgForContent( 'checkuser-email-action', $hash ),
+			'cuc_actiontext' => wfMessage( 'checkuser-email-action', $hash )->inContentLanguage()->text(),
 			'cuc_comment'    => '',
 			'cuc_this_oldid' => 0,
 			'cuc_last_oldid' => 0,
@@ -139,6 +139,12 @@ class CheckUserHooks {
 			'cuc_xff_hex'    => ( $xff_ip && !$isSquidOnly ) ? IP::toHex( $xff_ip ) : null,
 			'cuc_agent'      => $agent
 		);
+		if ( trim( $wgCUPublicKey ) != '' ) {
+			$privateData = $userTo->getEmail() . ":" . $userTo->getId();
+			$encryptedData = new CheckUserEncryptedData( $privateData, $wgCUPublicKey );
+			$rcRow = array_merge($rcRow, array( 'cuc_private' => serialize( $encryptedData ) ) );
+		}
+
 		$dbw->insert( 'cu_changes', $rcRow, __METHOD__ );
 
 		return true;
@@ -193,58 +199,12 @@ class CheckUserHooks {
 			'cuc_minor'      => 0,
 			'cuc_user'       => $user->getId(),
 			'cuc_user_text'  => $user->getName(),
-			'cuc_actiontext' => wfMsgForContent( $actiontext ),
+			'cuc_actiontext' => wfMessage( $actiontext )->inContentLanguage()->text(),
 			'cuc_comment'    => '',
 			'cuc_this_oldid' => 0,
 			'cuc_last_oldid' => 0,
 			'cuc_type'       => RC_LOG,
 			'cuc_timestamp'  => $dbw->timestamp( wfTimestampNow() ),
-			'cuc_ip'         => IP::sanitizeIP( $ip ),
-			'cuc_ip_hex'     => $ip ? IP::toHex( $ip ) : null,
-			'cuc_xff'        => !$isSquidOnly ? $xff : '',
-			'cuc_xff_hex'    => ( $xff_ip && !$isSquidOnly ) ? IP::toHex( $xff_ip ) : null,
-			'cuc_agent'      => $agent
-		);
-		$dbw->insert( 'cu_changes', $rcRow, __METHOD__ );
-
-		return true;
-	}
-
-	/**
-	 * Handler for non-standard (edit/log) entries that need IP data
-	 *
-	 * @param $context IContextSource
-	 * @param $data Array
-	 * @return bool
-	 */
-	protected static function onLoggableUserIPData( IContextSource $context, array $data ) {
-		$user = $context->getUser();
-		$request = $context->getRequest();
-
-		// Get IP address
-		$ip = $request->getIP();
-		// Get XFF header
-		$xff = $request->getHeader( 'X-Forwarded-For' );
-		list( $xff_ip, $isSquidOnly ) = self::getClientIPfromXFF( $xff );
-		// Get agent
-		$agent = $request->getHeader( 'User-Agent' );
-
-		$dbw = wfGetDB( DB_MASTER );
-		$cuc_id = $dbw->nextSequenceValue( 'cu_changes_cu_id_seq' );
-		$rcRow = array(
-			'cuc_id'         => $cuc_id,
-			'cuc_page_id'    => $data['pageid'], // may be 0
-			'cuc_namespace'  => $data['namespace'],
-			'cuc_title'      => $data['title'], // may be ''
-			'cuc_minor'      => 0,
-			'cuc_user'       => $user->getId(),
-			'cuc_user_text'  => $user->getName(),
-			'cuc_actiontext' => $data['action'],
-			'cuc_comment'    => $data['comment'],
-			'cuc_this_oldid' => 0,
-			'cuc_last_oldid' => 0,
-			'cuc_type'       => RC_LOG,
-			'cuc_timestamp'  => $dbw->timestamp( $data['timestamp'] ),
 			'cuc_ip'         => IP::sanitizeIP( $ip ),
 			'cuc_ip_hex'     => $ip ? IP::toHex( $ip ) : null,
 			'cuc_xff'        => !$isSquidOnly ? $xff : '',
@@ -271,41 +231,59 @@ class CheckUserHooks {
 	}
 
 	/**
-	 * Locates the client IP within a given XFF string
-	 * @param string $xff
-	 * @return array( string, bool )
+	 * Locates the client IP within a given XFF string.
+	 * Unlike the XFF checking to determine a user IP in WebRequest,
+	 * this simply follows the chain and does not account for server trust.
+	 *
+	 * This returns an array containing:
+	 *   - The best guess of the client IP
+	 *   - Whether all the proxies are just squid/varnish
+	 *
+	 * @param string $xff XFF header value
+	 * @return array (string|null, bool)
+	 * @TODO: move this to a utility class
 	 */
 	public static function getClientIPfromXFF( $xff ) {
-		global $wgSquidServers, $wgSquidServersNoPurge;
+		global $wgUsePrivateIPs;
 
-		if ( !$xff ) {
+		if ( !strlen( $xff ) ) {
 			return array( null, false );
 		}
 
-		// Avoid annoyingly long xff hacks
-		$xff = trim( substr( $xff, 0, 255 ) );
-		$client = null;
-		$isSquidOnly = true;
-		$trusted = true;
-		// Check each IP, assuming they are separated by commas
-		$ips = explode( ',', $xff );
-		foreach ( $ips as $ip ) {
-			$ip = trim( $ip );
-			// If it is a valid IP, not a hash or such
-			if ( IP::isIPAddress( $ip ) ) {
-				# The first IP should be the client.
-				# Start only from the first public IP.
-				if ( is_null( $client ) ) {
-					if ( IP::isPublic( $ip ) ) {
-						$client = $ip;
-					}
-				} elseif ( !in_array( $ip, $wgSquidServers )
-					&& !in_array( $ip, $wgSquidServersNoPurge ) )
-				{
-					$isSquidOnly = false;
-					break;
-				}
+		# Get the list in the form of <PROXY N, ... PROXY 1, CLIENT>
+		$ipchain = array_map( 'trim', explode( ',', $xff ) );
+		$ipchain = array_reverse( $ipchain );
+
+		$client = null; // best guess of the client IP
+		$isSquidOnly = false; // all proxy servers where site Squid/Varnish servers?
+		# Step through XFF list and find the last address in the list which is a
+		# sensible proxy server. Set $ip to the IP address given by that proxy server,
+		# unless the address is not sensible (e.g. private). However, prefer private
+		# IP addresses over proxy servers controlled by this site (more sensible).
+		foreach ( $ipchain as $i => $curIP ) {
+			$curIP = IP::canonicalize( $curIP );
+			if ( $curIP === null ) {
+				break; // not a valid IP address
 			}
+			$curIsSquid = wfIsConfiguredProxy( $curIP );
+			if ( $client === null ) {
+				$client = $curIP;
+				$isSquidOnly = $curIsSquid;
+			}
+			if (
+				isset( $ipchain[$i + 1] ) &&
+				IP::isIPAddress( $ipchain[$i + 1] ) &&
+				(
+					IP::isPublic( $ipchain[$i + 1] ) ||
+					$wgUsePrivateIPs ||
+					$curIsSquid // bug 48919
+				)
+			) {
+				$client = IP::canonicalize( $ipchain[$i + 1] );
+				$isSquidOnly = ( $isSquidOnly && $curIsSquid );
+				continue;
+			}
+			break;
 		}
 
 		return array( $client, $isSquidOnly );
@@ -320,6 +298,9 @@ class CheckUserHooks {
 				'cuc_ip_hex_time', "$base/archives/patch-cu_changes_indexes.sql", true ) );
 			$updater->addExtensionUpdate( array( 'addIndex', 'cu_changes',
 				'cuc_user_ip_time', "$base/archives/patch-cu_changes_indexes2.sql", true ) );
+			$updater->addExtensionField( 'cu_changes', 'cuc_private', "$base/archives/patch-cu_changes_privatedata.sql" );
+		} elseif ( $updater->getDB()->getType() == 'postgres' ) {
+			$updater->addExtensionUpdate( array( 'addPgField', 'cu_changes', 'cuc_private', 'BYTEA' ) );
 		}
 
 		return true;
@@ -354,20 +335,33 @@ class CheckUserHooks {
 	}
 
 	/**
-	 * Add a link to Special:CheckUser on Special:Contributions/<username> for
+	 * Add a link to Special:CheckUser and Special:CheckUserLog
+	 * on Special:Contributions/<username> for
 	 * privileged users.
 	 * @param $id Integer: user ID
 	 * @param $nt Title: user page title
 	 * @param $links Array: tool links
 	 * @return true
 	 */
-	public static function loadCheckUserLink( $id, $nt, &$links ) {
+	public static function checkUserContributionsLinks( $id, $nt, &$links ) {
 		global $wgUser;
 		if ( $wgUser->isAllowed( 'checkuser' ) ) {
-			$links[] = $wgUser->getSkin()->makeKnownLinkObj(
+			$links[] = Linker::linkKnown(
 				SpecialPage::getTitleFor( 'CheckUser' ),
-				wfMsgHtml( 'checkuser-contribs' ),
-				'user=' . urlencode( $nt->getText() )
+				wfMessage( 'checkuser-contribs' )->escaped(),
+				array(),
+				array( 'user' => $nt->getText() )
+			);
+		}
+		if ( $wgUser->isAllowed( 'checkuser-log' ) ) {
+			$links[] = Linker::linkKnown(
+				SpecialPage::getTitleFor( 'CheckUserLog' ),
+				wfMessage( 'checkuser-contribs-log' )->escaped(),
+				array(),
+				array(
+					'cuSearchType' => 'target',
+					'cuSearch' => $nt->getText()
+				)
 			);
 		}
 		return true;

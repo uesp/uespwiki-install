@@ -9,18 +9,18 @@
  */
 class SiteMonobook {
 	public static function GoogleAdBottom() {
-		global $egSiteEnableGoogleAds, $wgUser;
+		global $egSiteEnableGoogleAds, $wgUser, $wgTitle;
 		if (!$egSiteEnableGoogleAds)
 			return true;
 ?>
 
 <!-- Wiki_Bottom_Rectangle -->
-<div class='center' style="width:300px; margin-left: auto; margin-right: auto;">
-<form method="post" target="_blank" id="form_bottomad" action="http://www.uesp.net/adreport.php">
-<input id="UespAdContent" name="UespAdContent" type="hidden" value="unknown" />
+<div class='center' style="margin-left: auto; margin-right: auto; margin-top: 10px;">
 <?php
-
-        if ( ! $wgUser->isLoggedIn() ) {
+	if ( $wgTitle->getPrefixedText() == 'Special:WebChat') {
+		// no ads
+	}
+        else if ( ! $wgUser->isLoggedIn() ) {
 ?>
 <!-- WikiBottomAnonymous -->
 <div id='div-gpt-ad-1344720487368-1' style='width:300px; height:250px;'>
@@ -30,9 +30,7 @@ googletag.cmd.push(function() { googletag.display('div-gpt-ad-1344720487368-1');
 </script>
 </div>
 <?php
-	        $LastUespAdId = "div-gpt-ad-1344720487368-1";
         } else {
-	        $LastUespAdId = "div-gpt-ad-1344720487368-0";
 ?>
 
 <!-- Wiki_Bottom_Rectangle -->
@@ -45,16 +43,6 @@ googletag.cmd.push(function() { googletag.display('div-gpt-ad-1344720487368-0');
 <?php
         }
 ?>
-
-<input name="UespAdId" type="hidden" value="<?= $LastUespAdId ?>" />
-
-<div style='width=300px; overflow: hidden;'>
-	<div style='float: left;'><small><a href='/wiki/UESPWiki:Site_Support'>What is this Ad?</a></small></div>
-	<div style='float: right;'><small><a href="javascript:submitReportAdForm('<?= $LastUespAdId ?>', 'form_bottomad')">Report Ad</a></small></div>
-	<br/>
-	<div style='float: center;'><small><a href="https://plus.google.com/106626362963035766874" rel="publisher">Google+</a></small></div>
-</div>
-</form>
 </div>
 <?php	
 		return true;

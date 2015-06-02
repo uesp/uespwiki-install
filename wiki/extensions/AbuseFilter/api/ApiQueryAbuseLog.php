@@ -36,8 +36,10 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 
 	public function execute() {
 		$user = $this->getUser();
-		if ( !$user->isAllowed( 'abusefilter-log' ) ) {
-			$this->dieUsage( 'You don\'t have permission to view the abuse log', 'permissiondenied' );
+		$errors = $this->getTitle()->getUserPermissionsErrors( 'abusefilter-log', $user );
+		if ( count( $errors ) ) {
+			$this->dieUsageMsg( $errors[0] );
+			return;
 		}
 
 		$params = $this->extractRequestParams();
@@ -53,6 +55,7 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 		$fld_result = isset( $prop['result'] );
 		$fld_timestamp = isset( $prop['timestamp'] );
 		$fld_hidden = isset( $prop['hidden'] );
+		$fld_revid = isset( $prop['revid'] );
 
 		if ( $fld_ip && !$user->isAllowed( 'abusefilter-private' ) ) {
 			$this->dieUsage( 'You don\'t have permission to view IP addresses', 'permissiondenied' );
@@ -60,19 +63,33 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 		if ( $fld_details && !$user->isAllowed( 'abusefilter-log-detail' ) ) {
 			$this->dieUsage( 'You don\'t have permission to view detailed abuse log entries', 'permissiondenied' );
 		}
+		// Match permissions for viewing events on private filters to SpecialAbuseLog (bug 42814)
+		if ( $params['filter'] && !( AbuseFilterView::canViewPrivate() || $user->isAllowed( 'abusefilter-log-private' ) ) ) {
+			// A specific filter parameter is set but the user isn't allowed to view all filters
+			if ( !is_array( $params['filter'] ) ) {
+				$params['filter'] = array( $params['filter'] );
+			}
+			foreach( $params['filter'] as $filter ) {
+				if ( AbuseFilter::filterHidden( $filter ) ) {
+					$this->dieUsage( 'You don\'t have permission to view log entries for private filters', 'permissiondenied' );
+				}
+			}
+		}
 
 		$result = $this->getResult();
 
 		$this->addTables( 'abuse_filter_log' );
 		$this->addFields( 'afl_timestamp' );
-		$this->addFieldsIf( array( 'afl_id', 'afl_filter' ), $fld_ids );
+		$this->addFields( 'afl_rev_id' );
+		$this->addFields( 'afl_deleted' );
+		$this->addFields( 'afl_filter' );
+		$this->addFieldsIf( 'afl_id', $fld_ids );
 		$this->addFieldsIf( 'afl_user_text', $fld_user );
 		$this->addFieldsIf( 'afl_ip', $fld_ip );
 		$this->addFieldsIf( array( 'afl_namespace', 'afl_title' ), $fld_title );
 		$this->addFieldsIf( 'afl_action', $fld_action );
 		$this->addFieldsIf( 'afl_var_dump', $fld_details );
 		$this->addFieldsIf( 'afl_actions', $fld_result );
-		$this->addFieldsIf( 'afl_deleted', $fld_hidden );
 
 		if ( $fld_filter ) {
 			$this->addTables( 'abuse_filter' );
@@ -84,11 +101,33 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 		$this->addOption( 'LIMIT', $params['limit'] + 1 );
 
 		$this->addWhereRange( 'afl_timestamp', $params['dir'], $params['start'], $params['end'] );
-		
-		$db = $this->getDB();
-		$notDeletedCond = SpecialAbuseLog::getNotDeletedCond($db);
 
-		$this->addWhereIf( array( 'afl_user_text' => $params['user'] ), isset( $params['user'] ) );
+		$db = $this->getDB();
+		$notDeletedCond = SpecialAbuseLog::getNotDeletedCond( $db );
+
+		if ( isset( $params['user'] ) ) {
+			$u = User::newFromName( $params['user'] );
+			if ( $u ) {
+				// Username normalisation
+				$params['user'] = $u->getName();
+				$userId = $u->getId();
+			} elseif( IP::isIPAddress( $params['user'] ) ) {
+				// It's an IP, sanitize it
+				$params['user'] = IP::sanitizeIP( $params['user'] );
+				$userId = 0;
+			}
+
+			if ( isset( $userId ) ) {
+				// Only add the WHERE for user in case it's either a valid user (but not necessary an existing one) or an IP
+				$this->addWhere(
+					array(
+						'afl_user' => $userId,
+						'afl_user_text' => $params['user']
+					)
+				);
+			}
+		}
+
 		$this->addWhereIf( array( 'afl_filter' => $params['filter'] ), isset( $params['filter'] ) );
 		$this->addWhereIf( $notDeletedCond, !SpecialAbuseLog::canSeeHidden( $user ) );
 
@@ -107,13 +146,24 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 		foreach ( $res as $row ) {
 			if ( ++$count > $params['limit'] ) {
 				// We've had enough
-				$this->setContinueEnumParameter( 'start', wfTimestamp( TS_ISO_8601, $row->afl_timestamp ) );
+				$ts = new MWTimestamp( $row->afl_timestamp );
+				$this->setContinueEnumParameter( 'start', $ts->getTimestamp( TS_ISO_8601 ) );
 				break;
 			}
+			if ( SpecialAbuseLog::isHidden( $row ) &&
+				!SpecialAbuseLog::canSeeHidden( $user )
+			) {
+				continue;
+			}
+			$canSeeDetails = SpecialAbuseLog::canSeeDetails( $row->afl_filter );
+
 			$entry = array();
 			if ( $fld_ids ) {
 				$entry['id'] = intval( $row->afl_id );
-				$entry['filter_id'] = intval( $row->afl_filter );
+				$entry['filter_id'] = '';
+				if ( $canSeeDetails ) {
+					$entry['filter_id'] = $row->afl_filter;
+				}
 			}
 			if ( $fld_filter ) {
 				$entry['filter'] = $row->af_public_comments;
@@ -134,26 +184,40 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 			if ( $fld_result ) {
 				$entry['result'] = $row->afl_actions;
 			}
+			if ( $fld_revid && !is_null( $row->afl_rev_id ) ) {
+				$entry['revid'] = '';
+				if ( $canSeeDetails ) {
+					$entry['revid'] = $row->afl_rev_id;
+				}
+			}
 			if ( $fld_timestamp ) {
-				$entry['timestamp'] = wfTimestamp( TS_ISO_8601, $row->afl_timestamp );
+				$ts = new MWTimestamp( $row->afl_timestamp );
+				$entry['timestamp'] = $ts->getTimestamp( TS_ISO_8601 );
 			}
 			if ( $fld_details ) {
-				$vars = AbuseFilter::loadVarDump( $row->afl_var_dump );
-				if ( $vars instanceof AbuseFilterVariableHolder ) {
-					$entry['details'] = $vars->exportAllVars();
-				} else {
-					$entry['details'] = array_change_key_case( $vars, CASE_LOWER );
+				$entry['details'] = array();
+				if ( $canSeeDetails ) {
+					$vars = AbuseFilter::loadVarDump( $row->afl_var_dump );
+					if ( $vars instanceof AbuseFilterVariableHolder ) {
+						$entry['details'] = $vars->exportAllVars();
+					} else {
+						$entry['details'] = array_change_key_case( $vars, CASE_LOWER );
+					}
 				}
 			}
 
 			if ( $fld_hidden ) {
-				$entry['hidden'] = $row->afl_deleted;
+				$val = SpecialAbuseLog::isHidden( $row );
+				if ( $val ) {
+					$entry['hidden'] = $val;
+				}
 			}
 
 			if ( $entry ) {
 				$fit = $result->addValue( array( 'query', $this->getModuleName() ), null, $entry );
 				if ( !$fit ) {
-					$this->setContinueEnumParameter( 'start', wfTimestamp( TS_ISO_8601, $row->afl_timestamp ) );
+					$ts = new MWTimestamp( $row->afl_timestamp );
+					$this->setContinueEnumParameter( 'start', $ts->getTimestamp( TS_ISO_8601 ) );
 					break;
 				}
 			}
@@ -178,7 +242,9 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 			),
 			'user' => null,
 			'title' => null,
-			'filter' => null,
+			'filter' => array(
+				ApiBase::PARAM_ISMULTI => true
+			),
 			'limit' => array(
 				ApiBase::PARAM_DFLT => 10,
 				ApiBase::PARAM_TYPE => 'limit',
@@ -187,7 +253,7 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 				ApiBase::PARAM_MAX2 => ApiBase::LIMIT_BIG2
 			),
 			'prop' => array(
-				ApiBase::PARAM_DFLT => 'ids|user|title|action|result|timestamp|hidden',
+				ApiBase::PARAM_DFLT => 'ids|user|title|action|result|timestamp|hidden|revid',
 				ApiBase::PARAM_TYPE => array(
 					'ids',
 					'filter',
@@ -199,6 +265,7 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 					'result',
 					'timestamp',
 					'hidden',
+					'revid',
 				),
 				ApiBase::PARAM_ISMULTI => true
 			)
@@ -225,9 +292,11 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 	public function getPossibleErrors() {
 		return array_merge( parent::getPossibleErrors(), array(
 			array( 'invalidtitle', 'title' ),
-			array( 'code' => 'permissiondenied', 'info' => 'You don\'t have permission to view the abuse log'),
-			array( 'code' => 'permissiondenied', 'info' => 'You don\'t have permission to view IP addresses'),
-			array( 'code' => 'permissiondenied', 'info' => 'You don\'t have permission to view detailed abuse log entries'),
+			array( 'code' => 'blocked', 'info' => 'You have been blocked from editing' ),
+			array( 'code' => 'permissiondenied', 'info' => 'Permission denied' ),
+			array( 'code' => 'permissiondenied', 'info' => 'You don\'t have permission to view log entries for private filters'),
+			array( 'code' => 'permissiondenied', 'info' => 'You don\'t have permission to view IP addresses' ),
+			array( 'code' => 'permissiondenied', 'info' => 'You don\'t have permission to view detailed abuse log entries' ),
 		) );
 	}
 
@@ -239,6 +308,6 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryAbuseLog.php 103298 2011-11-16 05:34:24Z johnduhart $';
+		return __CLASS__ . ': $Id$';
 	}
 }

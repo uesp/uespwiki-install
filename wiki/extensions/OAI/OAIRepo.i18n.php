@@ -21,7 +21,8 @@ $messages['en'] = array(
  */
 $messages['qqq'] = array(
 	'oai-desc' => '{{desc|name=OAI Repository|url=http://www.mediawiki.org/wiki/Extension:OAIRepository}}',
-	'oairepository' => '{{optional}}',
+	'oairepository' => '{{optional}}
+{{doc-special|OAIRepository|unlisted=1}}',
 );
 
 /** Aragonese (aragonés)
@@ -231,9 +232,10 @@ $messages['he'] = array(
 
 /** Hindi (हिन्दी)
  * @author Kaustubh
+ * @author Siddhartha Ghai
  */
 $messages['hi'] = array(
-	'oai-desc' => '[http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH] रिपॉजिटरी इंटरफेस देता हैं',
+	'oai-desc' => '[http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH] रिपॉज़िटरी इंटरफ़ेस देता है',
 );
 
 /** Hiligaynon (Ilonggo)
@@ -317,7 +319,7 @@ $messages['ka'] = array(
  * @author 아라
  */
 $messages['ko'] = array(
-	'oai-desc' => '[http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH] 저장소 인터페이스를 제공합니다.',
+	'oai-desc' => '[http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH] 저장소 인터페이스를 제공합니다',
 	'oairepository' => 'OAI 저장소',
 );
 
@@ -374,7 +376,7 @@ $messages['ms'] = array(
 	'oairepository' => 'Kepustakaan OAI',
 );
 
-/** Norwegian Bokmål (norsk (bokmål)‎)
+/** Norwegian Bokmål (norsk bokmål)
  */
 $messages['nb'] = array(
 	'oai-desc' => 'Gir tilgang til grensesnittet til [http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH]',
@@ -387,7 +389,7 @@ $messages['nds'] = array(
 	'oai-desc' => 'Stellt en [http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH]-Repositorium-Sniddstell bereit',
 );
 
-/** Nedersaksisch (Nedersaksisch)
+/** Low Saxon (Netherlands) (Nedersaksies)
  * @author Servien
  */
 $messages['nds-nl'] = array(
@@ -401,7 +403,7 @@ $messages['nl'] = array(
 	'oai-desc' => 'Biedt een interface naar de [http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH-repository]',
 );
 
-/** Norwegian Nynorsk (norsk (nynorsk)‎)
+/** Norwegian Nynorsk (norsk nynorsk)
  * @author Harald Khan
  * @author Njardarlogar
  */
@@ -416,7 +418,7 @@ $messages['oc'] = array(
 	'oai-desc' => 'Provesís una interfàcia de depaus [http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH]',
 );
 
-/** Oriya (ଓଡ଼ିଆ)
+/** Oriya (ଓଡ଼ିଆ)
  * @author Psubhashish
  */
 $messages['or'] = array(
@@ -553,10 +555,11 @@ $messages['tr'] = array(
 /** Ukrainian (українська)
  * @author Ahonc
  * @author Dim Grits
+ * @author Dubyk
  */
 $messages['uk'] = array(
-	'oai-desc' => 'Надає інтерфейс [http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH]',
-	'oairepository' => 'OAI Сховище',
+	'oai-desc' => 'Надає інтерфейс [http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH] до сховища',
+	'oairepository' => 'OAI-сховище',
 );
 
 /** vèneto (vèneto)
@@ -590,9 +593,10 @@ $messages['zh-hans'] = array(
 );
 
 /** Traditional Chinese (中文（繁體）‎)
+ * @author Justincheng12345
  * @author Mark85296341
  * @author Shinjiman
  */
 $messages['zh-hant'] = array(
-	'oai-desc' => '提供 [http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH] 檔案庫介面',
+	'oai-desc' => '提供[http://www.openarchives.org/OAI/openarchivesprotocol.html OAI-PMH]檔案庫介面',
 );

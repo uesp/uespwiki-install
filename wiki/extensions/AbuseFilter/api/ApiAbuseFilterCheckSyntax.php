@@ -60,6 +60,6 @@ class ApiAbuseFilterCheckSyntax extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiAbuseFilterCheckSyntax.php 108852 2012-01-13 21:36:51Z reedy $';
+		return __CLASS__ . ': $Id$';
 	}
 }

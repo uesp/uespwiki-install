@@ -12,8 +12,6 @@ class CheckUserLogPager extends ReverseChronologicalPager {
 	}
 
 	function formatRow( $row ) {
-		global $wgLang;
-
 		if ( $row->cul_reason === '' ) {
 			$comment = '';
 		} else {
@@ -29,14 +27,17 @@ class CheckUserLogPager extends ReverseChronologicalPager {
 			$target = $row->cul_target_text;
 		}
 
+		// Give grep a chance to find the usages:
+		// checkuser-log-userips, checkuser-log-ipedits, checkuser-log-ipusers,
+		// checkuser-log-ipedits-xff, checkuser-log-ipusers-xff, checkuser-log-useredits
 		return '<li>' .
-			$wgLang->timeanddate( wfTimestamp( TS_MW, $row->cul_timestamp ), true ) .
-			wfMsg( 'comma-separator' ) .
-			wfMsg(
+			$this->getLanguage()->timeanddate( wfTimestamp( TS_MW, $row->cul_timestamp ), true ) .
+			$this->msg( 'comma-separator' )->text() .
+			$this->msg(
 				'checkuser-log-' . $row->cul_type,
 				$user,
 				$target
-			) .
+			)->text() .
 			$comment .
 			'</li>';
 	}
@@ -67,7 +68,7 @@ class CheckUserLogPager extends ReverseChronologicalPager {
 	 * @return string
 	 */
 	function getEmptyBody() {
-		return '<p>' . wfMsgHtml( 'checkuser-empty' ) . '</p>';
+		return '<p>' . $this->msg( 'checkuser-empty' )->escaped() . '</p>';
 	}
 
 	function getQueryInfo() {

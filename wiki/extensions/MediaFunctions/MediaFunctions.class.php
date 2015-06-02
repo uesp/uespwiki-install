@@ -3,7 +3,8 @@
 /**
  * Parser function callbacks for the MediaFunctions extension
  *
- * @addtogroup Extensions
+ * @file
+ * @ingroup Extensions
  * @author Rob Church <robchur@gmail.com>
  * @version 1.1
  */
@@ -23,7 +24,7 @@ class MediaFunctions {
 	 * @return string
 	 */
 	public static function mediamime( $parser, $name = '' ) {
-		if( ( $file = self::resolve( $name ) ) instanceof File ) {
+		if ( ( $file = self::resolve( $name ) ) instanceof File ) {
 			$parser->mOutput->addImage( $file->getTitle()->getDBkey() );
 			return $file->getMimeType();
 		}
@@ -38,7 +39,7 @@ class MediaFunctions {
 	 * @return string
 	 */
 	public static function mediasize( $parser, $name = '' ) {
-		if( ( $file = self::resolve( $name ) ) instanceof File ) {
+		if ( ( $file = self::resolve( $name ) ) instanceof File ) {
 			$parser->mOutput->addImage( $file->getTitle()->getDBkey() );
 			return $parser->mOptions->getSkin()->formatSize( $file->getSize() );
 		}
@@ -53,7 +54,7 @@ class MediaFunctions {
 	 * @return string
 	 */
 	public static function mediaheight( $parser, $name = '' ) {
-		if( ( $file = self::resolve( $name ) ) instanceof File ) {
+		if ( ( $file = self::resolve( $name ) ) instanceof File ) {
 			$parser->mOutput->addImage( $file->getTitle()->getDBkey() );
 			return $file->getHeight();
 		}
@@ -68,7 +69,7 @@ class MediaFunctions {
 	 * @return string
 	 */
 	public static function mediawidth( $parser, $name = '' ) {
-		if( ( $file = self::resolve( $name ) ) instanceof File ) {
+		if ( ( $file = self::resolve( $name ) ) instanceof File ) {
 			$parser->mOutput->addImage( $file->getTitle()->getDBkey() );
 			return $file->getWidth();
 		}
@@ -84,7 +85,7 @@ class MediaFunctions {
 	 * @return string
 	 */
 	public static function mediadimensions( $parser, $name = '' ) {
-		if( ( $file = self::resolve( $name ) ) instanceof File ) {
+		if ( ( $file = self::resolve( $name ) ) instanceof File ) {
 			$parser->mOutput->addImage( $file->getTitle()->getDBkey() );
 			return $file->getDimensionsString();
 		}
@@ -97,17 +98,46 @@ class MediaFunctions {
 	 * @param Parser $parser Calling parser
 	 * @param string $name File name
 	 * @param string $meta Metadata name
+	 * @param string $index Index for compound exif fields
 	 * @return string
 	 */
-	public static function mediaexif( $parser, $name = '', $meta = '' ) {
-		if( ( $file = self::resolve( $name ) ) instanceof File ) {
+	public static function mediaexif( $parser, $name = '', $meta = '', $index = '0' ) {
+		if ( ( $file = self::resolve( $name ) ) instanceof File ) {
 			$parser->mOutput->addImage( $file->getTitle()->getDBkey() );
-			if( $meta && $file->getHandler()->getMetadataType( $file ) == 'exif' ) {
+			if ( $meta && $file->getHandler()->getMetadataType( $file ) == 'exif' ) {
 				$data = unserialize( $file->getMetadata() );
-				if( $data && isset( $data[$meta] ) )
-					return htmlspecialchars( $data[$meta] );
+				if ( $data && isset( $data[$meta] ) ) {
+					if ( is_array( $data[$meta] ) ) {
+						// Compound exif data (New in 1.18!)
+						if ( isset( $data[$meta][$index] )
+							&& !is_array( $data[$meta][$index] )
+						) {
+							return htmlspecialchars( $data[$meta][$index] );
+						}
+					} elseif ( $index === '0' /* and !is_array */ ) {
+						return htmlspecialchars( $data[$meta] );
+					}
+				}
 			}
 			return '';
+		}
+		return self::error( $file, $name );
+	}
+	
+ 	/**
+	 * Get the number of pages of a file
+	 *
+	 * @param Parser $parser Calling parser
+	 * @param string $name File name
+	 * @return string
+	 */
+	public static function mediapages( $parser, $name = '' ) {
+		if( ( $file = self::resolve( $name ) ) instanceof File ) {
+			$parser->mOutput->addImage( $file->getTitle()->getDBkey() );
+			$nrpages = $file->getHandler()->pageCount( $file );
+			if ( $nrpages == false )
+				return '';
+			return $nrpages;
 		}
 		return self::error( $file, $name );
 	}
@@ -123,10 +153,10 @@ class MediaFunctions {
 	 * @return mixed File or string
 	 */
 	private static function resolve( $text ) {
-		if( $text ) {
+		if ( $text ) {
 			$title = Title::newFromText( $text );
-			if( $title instanceof Title ) {
-				if( $title->getNamespace() != NS_IMAGE )
+			if ( $title instanceof Title ) {
+				if ( $title->getNamespace() != NS_IMAGE )
 					$title = Title::makeTitle( NS_IMAGE, $title->getText() );
 				$file = wfFindFile( $title );
 				return $file instanceof File
@@ -145,7 +175,6 @@ class MediaFunctions {
 	 * @return string
 	 */
 	private static function error( $error, $name ) {
-		wfLoadExtensionMessages( 'MediaFunctions' );
-		return htmlspecialchars( wfMsgForContent( $error, $name ) );
+		return '<span class="error">' . htmlspecialchars( wfMsgForContent( $error, $name ) ) . '</span>';
 	}
 }

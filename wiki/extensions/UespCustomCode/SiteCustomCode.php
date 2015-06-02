@@ -165,6 +165,8 @@ $wgAutoloadClasses['SiteEnhancedChangesList'] = $dir . 'SiteChangesList.php';
 # Comment out this line to disable those features (see wgSearchType below, too, for Search)
 $wgHooks['SpecialPage_initList'][] = 'efSiteSpecialPageInit';
 $wgHooks['BeforePageDisplay'][] = 'UESP_beforePageDisplay';
+$wgHooks['SearchGetNearMatchBefore'][] = 'onSearchGetNearMatchBefore';
+$wgHooks['SpecialSearchCreateLink'][] = 'onSpecialSearchCreateLink';
 
 # Load messages
 
@@ -215,16 +217,16 @@ $wgGroupPermissions['userpatroller']['skipcaptcha'] = true;
 $wgGroupPermissions['patroller']['allspacepatrol'] = true;
 $wgGroupPermissions['sysop']['allspacepatrol'] = true;
 $wgGroupPermissions['bot']['allspacepatrol'] = true;
-$wgAddGroups['sysop'][] = 'userpatroller';
-$wgRemoveGroups['sysop'][] = 'userpatroller';
+#$wgAddGroups['sysop'][] = 'userpatroller'; // Moved back to LocalSettings.php to avoid order of inclusion issues
+#$wgRemoveGroups['sysop'][] = 'userpatroller';
 
 // Blocking limitations
 $egRestrictBlockLength = 21600;
 $wgHooks['BlockIp'][] = 'SiteMiscFunctions::RestrictBlockHook';
 
 $wgGroupPermissions['blockuser']['block'] = true;
-$wgAddGroups['sysop'][] = 'blockuser';
-$wgRemoveGroups['sysop'][] = 'blockuser';
+#$wgAddGroups['sysop'][] = 'blockuser'; // Moved back to LocalSettings.php to avoid order of inclusion issues
+#$wgRemoveGroups['sysop'][] = 'blockuser';
 $wgGroupPermissions['sysop']['blocktalk'] = true;
 $wgGroupPermissions['sysop']['unrestrictedblock'] = true;
 
@@ -325,6 +327,7 @@ function efSiteSpecialPageInit(&$aSpecialPages) {
 // remove unnecessary pages
 	unset($aSpecialPages['Booksources']);
 	unset($aSpecialPages['Withoutinterwiki']);
+	unset($aSpecialPages['Mostinterwikis']);
 
 // Override pages with customized versions
 // Commmenting out individual lines will disable the customizations to that special page
@@ -343,3 +346,25 @@ function efSiteSpecialPageInit(&$aSpecialPages) {
 
 	return true;
 }
+
+function onSearchGetNearMatchBefore( $allSearchTerms, &$title ) {
+	$title = Title::newFromText( preg_replace('/\beso\b/i', 'Online', $allSearchTerms[0]) );
+	if ( $title->exists() ) {
+		return false; // false = match
+	}
+	
+	$title = Title::newFromText( preg_replace('/\beso\b/i', 'online', $allSearchTerms[0]) );
+
+	return !$title->exists();
+}
+
+function onSpecialSearchCreateLink( $t, &$params ) {
+	$params[1] = preg_replace('/\((ESO) OR online\)/i', '$1', $params[1]);
+	
+	return true;
+} 
+
+// group pages appear under at Special:SpecialPages
+$wgSpecialPageGroups['Preferences'] = 'users';
+$wgSpecialPageGroups['Search'] = 'redirects';
+$wgSpecialPageGroups['Wantedpages'] = 'maintenance';
