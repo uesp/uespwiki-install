@@ -325,7 +325,7 @@ class SiteMiscFunctions {
 		global $wgOut;
 		//		if (self::$_lastright!='autopatrol') {
 		// handle error output, since per Article::markpatrolled "The hook itself has handled any output"
-			$wgOut->setPageTitle( wfMsg( 'markedaspatrollederror' ) );
+			$wgOut->setPageTitle( wfMessage( 'markedaspatrollederror' )->text());
 			$wgOut->addWikiMsg( 'markedaspatrollederror-nonuserspace' );
 			$wgOut->returnToMain( false );
 		//		}
@@ -448,7 +448,7 @@ class SiteBreadCrumbTrail {
 			}
 		}
 
-		$separator = wfMsgForContent(strtolower($egCustomSiteID).'trailseparator');
+		$separator = wfMessage(strtolower($egCustomSiteID).'trailseparator')->inContentLanguage()->text();
 		$output = array();
 		$skip = false;
 		foreach ($args as $arg) {
@@ -545,7 +545,7 @@ class SiteBreadCrumbTrail {
 	// been parsed, and does not take effect all the other times
 	public function finishTrail( &$parser, &$text ) {
 		global $egCustomSiteID;
-		$dotrail = wfMsgForContent(strtolower($egCustomSiteID).'settrail');
+		$dotrail = wfMessage(strtolower($egCustomSiteID).'settrail')->inContentLanguage()->text();
 		if (!$dotrail)
 			return true;
 		if (is_null($trail=$this->_trailtext))
@@ -574,7 +574,7 @@ class SiteBreadCrumbTrail {
 	// display bread crumb trail in subpage location
 	public static function subpageHook( &$subpage ) {
 		global $egCustomSiteID;
-		$dotrail = wfMsgForContent(strtolower($egCustomSiteID).'settrail');
+		$dotrail = wfMessage(strtolower($egCustomSiteID).'settrail')->inContentLanguage()->text();
 		// only use bread crumb trail if feature is enabled and if trail has been set
 		if ($dotrail && (!is_null($object = self::newFromWgTitle())) && !is_null($object->_fulltrail)) {
 			$subpage = $object->_fulltrail;

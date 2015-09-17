@@ -111,7 +111,7 @@ End_GoogleSearch;
 		$nsnumvalue = $wgTitle->getNamespace()-($wgTitle->getNamespace()%2);
 		$searchredirs = $wgUser->getOption($prefix.'searchredirects', $wgDefaultUserOptions[$prefix.'searchredirects']);
 		$searchtitle = $wgUser->getOption($prefix.'searchtitles', $wgDefaultUserOptions[$prefix.'searchtitles']);
-		$extrabutton = wfMsg($prefix.'extrasearchbutton');
+		$extrabutton = wfMessage($prefix.'extrasearchbutton')->text();
 		if (!$extrabutton)
 			$text = '';
 		elseif ($extrabutton == '?' || $extrabutton == 'Help') {
