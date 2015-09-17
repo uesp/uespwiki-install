@@ -146,7 +146,7 @@
 						$el.data( 'request', ( new mw.Api() ).get( {
 							action: 'opensearch',
 							search: query,
-							namespace: 0,
+							namespace: '0|102|104|106|108|110|112|114|116|118|120|122|124|126|128|130|132|134|136|138|140|142|144|146',
 							suggest: ''
 						} ).done( function ( data ) {
 							$el.suggestions( 'suggestions', data[1] );
