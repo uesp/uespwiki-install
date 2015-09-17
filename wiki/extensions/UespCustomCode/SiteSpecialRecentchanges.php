@@ -140,18 +140,18 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 			
 	// couldn't see any easy way around copying the whole function just to add a couple tweaked lines...
 	function optionsPanel( $defaults, $nondefaults ) {
-		global $wgLang, $wgUser, $wgRCLinkLimits, $wgRCLinkDays;
+		global $wgLang, $wgUser, $wgRCLinkLimits, $wgRCLinkDaysi, $wgOut;
 		
 		$options = $nondefaults + $defaults;
 		
 		$note = '';
 		if( $options['from'] ) {
-			$note .= wfMsgExt( 'rcnotefrom', array( 'parseinline' ),
+			$note .= wfMessage( 'rcnotefrom',
 			                   $wgLang->formatNum( $options['limit'] ),
-			                   $wgLang->timeanddate( $options['from'], true ) ) . '<br />';
+			                   $wgLang->timeanddate( $options['from'], true ) )->parse() . '<br />';
 		}
-		if( !wfEmptyMsg( 'rclegend', wfMsg('rclegend') ) ) {
-			$note .= wfMsgExt( 'rclegend', array('parseinline') ) . '<br />';
+		if( !wfMessage( 'rclegend' )->inContentLanguage()->isBlank() ) {
+			$note .= wfMessage( 'rclegend' )->parse(). '<br />';
 		}
 		
 		# Sort data for display and make sure it's unique after we've added user data.
@@ -177,12 +177,12 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 		$dl = implode( ' | ', $dl );
 		
 		// link to mypreferences for setup
-		$sk = $wgUser->getSkin();
+		$sk = $wgOut->getSkin();
 		$preftitle = Title::newFromText('Special:Preferences#mw-prefsection-rc');
-		$setuplink = $sk->link( $preftitle, 'setup');
+		$setuplink = Linker::link( $preftitle, 'setup');
 		
 		// show/hide links
-		$showhide = array( wfMsg( 'show' ), wfMsg( 'hide' ) );
+		$showhide = array( wfMessage( 'show' )->text(), wfMessage( 'hide' )->text() );
 		$minorLink = $this->makeOptionsLink( $showhide[1-$options['hideminor']],
 		                                     array( 'hideminor' => 1-$options['hideminor'] ), $nondefaults);
 		$botLink = $this->makeOptionsLink( $showhide[1-$options['hidebots']],
@@ -205,15 +205,15 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 		                                              array( 'usecustomns' => 1-$options['usecustomns'], 'namespace' => '' ), $nondefaults);
 		$this->customnslink .= ' custom list ('.$setuplink.')';
 		
-		$links[] = wfMsgHtml( 'rcshowhideminor', $minorLink );
-		$links[] = wfMsgHtml( 'rcshowhidebots', $botLink );
-		$links[] = wfMsgHtml( 'rcshowhideanons', $anonsLink );
-		$links[] = wfMsgHtml( 'rcshowhideliu', $liuLink );
+		$links[] = wfMessage( 'rcshowhideminor' )->rawParams( $minorLink )->escaped();
+		$links[] = wfMessage( 'rcshowhidebots' )->rawParams( $botLink )->escaped();
+		$links[] = wfMessage( 'rcshowhideanons' )->rawParams( $anonsLink )->escaped();
+		$links[] = wfMessage( 'rcshowhideliu' )->rawParams( $liuLink )->escaped();
 		// turn "Hide patrolled edits" on for registered users, unlike mediawiki's option
 		//		if( $wgUser->useRCPatrol() )
 		if ($wgUser->getId())
-			$links[] = wfMsgHtml( 'rcshowhidepatr', $patrLink );
-		$links[] = wfMsgHtml( 'rcshowhidemine', $myselfLink );
+			$links[] = wfMessage( 'rcshowhidepatr' )->rawParams( $patrLink )->escaped();
+		$links[] = wfMessage( 'rcshowhidemine' )->rawParams( $myselfLink )->escaped();
 		if ($wgUser->getId()) {
 			if ($options['hideuserspace'])
 				$links[] = $userspaceLink.' all userspace edits ('.$setuplink.')';
@@ -226,17 +226,16 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 		$now = $wgLang->timeanddate( wfTimestampNow(), true );
 		$tl =  $this->makeOptionsLink( $now, array( 'from' => wfTimestampNow() ), $nondefaults );
 		
-		$rclinks = wfMsgExt( 'rclinks', array( 'parseinline', 'replaceafter' ),
-		                     $cl, $dl, $hl );
-		$rclistfrom = wfMsgExt( 'rclistfrom', array( 'parseinline', 'replaceafter' ), $tl );
+		$rclinks = wfMessage( 'rclinks' )->rawParams( $cl, $dl, $hl )->parse();
+		$rclistfrom = wfMessage( 'rclistfrom' )->rawParams( $tl )->parse();
 		return "{$note}$rclinks<br />$rclistfrom";
 	}
 	
 	protected function namespaceFilterForm( FormOptions $opts ) {
 		global $wgUser;
-		$nsSelect = Xml::namespaceSelector( $opts['namespace'], '' );
-		$nsLabel = Xml::label( wfMsg('namespace'), 'namespace' );
-		$invert = Xml::checkLabel( wfMsg('invert'), 'invert', 'nsinvert', $opts['invert'] );
+		$nsSelect = Html::namespaceSelector( array( $opts['namespace'] ), array() );
+		$nsLabel = Xml::label( wfMessage('namespace')->text(), 'namespace' );
+		$invert = Xml::checkLabel( wfMessage('invert')->text(), 'invert', 'nsinvert', $opts['invert'] );
 		
 		if ($wgUser->getId()) {
 			// turn custom list into link to preferences page

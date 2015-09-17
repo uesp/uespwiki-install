@@ -58,7 +58,7 @@ class SiteNamespace {
 		else
 			$mod_name = $page_title;
 			
-		$lines = explode( "\n", wfMsgForContent( strtolower($egCustomSiteID).'namespacelist' ));
+		$lines = explode("\n", wfMessage( strtolower($egCustomSiteID).'namespacelist' )->inContentLanguage()->text() );
 		$entries_ns = NULL;
 		$entries_mod = NULL;
 		foreach ($lines as $line) {
@@ -300,7 +300,7 @@ class SiteNamespace {
 		$nssubj = $wgContLang->getNsIndex( $subjectspace );
 		$extratext = '';
 
-		$lines = explode( "\n", wfMsgForContent( strtolower($egCustomSiteID).'namespacelist' ));
+		$lines = explode( "\n", wfMessage( strtolower($egCustomSiteID).'namespacelist' )->inContentLanguage()->text() );
 		$all_ns = array();
 		$related_ns = array();
 		$parent_ns = NULL;
