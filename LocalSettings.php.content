@@ -242,6 +242,12 @@ $wgEnableLucenePrefixSearch = true;
 $wgLucenePrefixHost = '10.7.143.10';
 $wgLuceneSearchVersion = 2.1;
 
+require_once( "$IP/extensions/Elastica/Elastica.php");
+require_once( "$IP/extensions/CirrusSearch/CirrusSearch.php" );
+# $wgDisableSearchUpdate = true;
+$wgCirrusSearchServers = array( $UESP_SERVER_SEARCH );
+# $wgSearchType = 'CirrusSearch';
+
 # RM: Things to consider adding
 # require_once "$IP/extensions/Interwiki/Interwiki.php";
 # require_once "$IP/extensions/Nuke/Nuke.php";
