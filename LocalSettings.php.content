@@ -235,7 +235,7 @@ require_once "$IP/skins/UespMonoBook/UespMonoBook.php";
 require_once( "$IP/extensions/OAI/OAIRepo.php" );
 $wgSearchType = 'LuceneSearch';
 $wgLuceneHost = '10.7.143.10';
-$wgLucenePort = 9123;
+$wgLucenePort = 8123;
 
 require_once( "$IP/extensions/MWSearch/MWSearch.php" );
 $wgEnableLucenePrefixSearch = true;
@@ -472,37 +472,4 @@ function onAPIEditBeforeSave( $editPage, $text, &$resultArr ) {
 	return true;
 }
 
-/*
-// Uncomment this block to enable profiling
-
-        $wgProfiler['class'] = 'Profiler';
-        $wgDebugLogFile = "/cache/debug.log";
-        $wgProfileLimit = 1.0;
-
-                // Don't put non-profiling info into log file
-        $wgProfileOnly = false;
-
-                // Log sums from profiling into "profiling" table in db
-        $wgProfileToDatabase = false;
-
-                // If true, print a raw call tree instead of per-function report
-        $wgProfileCallTree = false;
-
-                // Should application server host be put into profiling table
-        $wgProfilePerHost = false;
-
-                // Settings for UDP profiler
-        $wgUDPProfilerHost = '127.0.0.1';
-        $wgUDPProfilerPort = '3811';
-
-                // Detects non-matching wfProfileIn/wfProfileOut calls
-        $wgDebugProfiling = false;
-
-                // Output debug message on every wfProfileIn/wfProfileOut
-        $wgDebugFunctionEntry = 0;
-
-                // Lots of debugging output from SquidUpdate.php
-        $wgDebugSquid = false;
-
-//*/
-
+set_time_limit(60);
