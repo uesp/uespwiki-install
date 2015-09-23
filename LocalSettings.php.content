@@ -288,7 +288,7 @@ $wgResourceLoaderMaxage = array(
 		'client' => 86400, // default is 5 * 60
 	),
 );
-$wgTmpDirectory = "{$wgUploadDirectory}/tmp";
+$wgTmpDirectory = "/imagetmp";
 $wgUseETag = false;
 $wgUsePathInfo  = true;
 $wgUseSquid = true;
