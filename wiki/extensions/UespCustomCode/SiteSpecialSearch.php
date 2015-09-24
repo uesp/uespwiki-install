@@ -26,8 +26,6 @@ class SiteSpecialSearch extends SpecialSearch {
 	public function showResults( $term )
 	{
 		$newTerm = preg_replace('/\b(eso)\b/i', '($1 OR Online)', $term);
-		error_log("Search::show = " . $newTerm);
-		
 		return parent::showResults($newTerm);
 	}
 
