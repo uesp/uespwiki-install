@@ -97,9 +97,9 @@ $wgDBmysql5 = false;
 
 ## Shared memory settings
 $wgMainCacheType = CACHE_MEMCACHED;
-$wgSessionsInMemcached = false;
+$wgSessionsInObjectCache = true;
 $wgMemCachedServers = array("10.7.143.70:11000");
-/* RM: For wgUseFileCahce, false is default; uncomment whole section if we re-enable it
+/* RM: For wgUseFileCache, false is default; uncomment whole section if we re-enable it
 $wgUseFileCache = false;
 $wgFileCacheDirectory = '/mnt/uesp/filecache';
 */
