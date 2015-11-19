@@ -98,6 +98,7 @@ $wgDBmysql5 = false;
 ## Shared memory settings
 $wgMainCacheType = CACHE_MEMCACHED;
 $wgSessionsInObjectCache = true;
+$wgObjectCacheSessionExpiry = 100000;
 $wgMemCachedServers = array("10.7.143.70:11000");
 /* RM: For wgUseFileCache, false is default; uncomment whole section if we re-enable it
 $wgUseFileCache = false;
@@ -211,7 +212,7 @@ $egProtectSectionNoAddAbove = true;
 require_once "$IP/extensions/qwebirChat/qwebirChat.php";
 require_once "$IP/extensions/RegexFunctions/RegexFunctions.php";
 require_once "$IP/extensions/Renameuser/SpecialRenameuser.php";
-require_once "$IP/extensions/SearchLog/SearchLog.php";
+# require_once "$IP/extensions/SearchLog/SearchLog.php";
 require_once "$IP/extensions/SimpleAntiSpam/SimpleAntiSpam.php";
 require_once "$IP/extensions/SpamBlacklist/SpamBlacklist.php";
 $wgSpamBlacklistFiles = array( "DB: uesp_net_wiki5 UESPWiki:Spam_Blacklist" );
