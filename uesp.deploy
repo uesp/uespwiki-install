@@ -16,6 +16,7 @@ ignore = .hg*
 
 createpath = /imagetmp
 createpath = /uespwikicache
+createpath = /cache
 
 chown_source = :uespadmin -R ./
 chmod_source = g+rw,a+r -R ./
@@ -33,3 +34,4 @@ dest = content2.uesp.net:/home/uesp/www/w/
 dest = content3.uesp.net:/home/uesp/www/w/
 
 deployfile = skinscopy: ../skinscopy.deploy
+deployfile = mobile: ../uespmobile.deploy
