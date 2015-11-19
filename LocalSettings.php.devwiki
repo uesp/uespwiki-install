@@ -15,10 +15,8 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 	exit;
 }
 
-# $IP = "/home/uespdev/www/w"; // RM: Doesn't seem to be necessary anymore
-
-//All wiki related passwords and other secrets not intended for public release
-require '/home/uesp/secrets/devwiki.secrets';
+	// All wiki related passwords and other secrets not intended for public release
+require '/home/uesp/secrets/wiki-new.secrets';
 
 ## Uncomment this to disable output compression
 # $wgDisableOutputCompression = true;
@@ -32,10 +30,6 @@ $wgSitename = "UESPWiki";
 ## http://www.mediawiki.org/wiki/Manual:Short_URL
 $wgScriptPath       = "/w";
 $wgScriptExtension  = ".php";
-
-## The protocol and server name to use in fully-qualified URLs
-#$wgServerName       = 'content1.uesp.net';
-#$wgServer           = 'http://content1.uesp.net';
 
 ## The relative URL path to the skins directory
 $wgStylePath = "$wgScriptPath/skins";
@@ -60,17 +54,17 @@ $wgEmailAuthentication = true;
 # $wgDBadminuser = $uespWikiAdminUser; // RM: Not currently necessary
 # $wgDBadminpassword = $uespWikiAdminPW;
 # Do *not* comment out wgDBname -- it renames and resets all sessions
-$wgDBname           = "uesp_net_wiki5";
+$wgDBname           = "uesp_net_wikidev";
 $wgDBservers = array(
-	array(		# content3
-		'host' => "10.7.143.20",
-		'dbname' => $uespWikiDB,
-		'user' => $uespWikiUser,
-		'password' => $uespWikiPW,
-		'type' => "mysql",
-		'flag' => DBO_DEFAULT,
-		'load' => 1,
-	),
+      array(          # content3 - Backup Read
+                'host' => $UESP_SERVER_CONTENT3,
+                'dbname' => 'uesp_net_wikidev',
+                'user' => 'wikidev',
+                'password' => 'Np15QqrX59',
+                'type' => "mysql",
+                'flag' => DBO_DEFAULT,
+                'load' => 1,
+        ), 
 );
 
 
@@ -84,10 +78,11 @@ $wgDBTableOptions = "ENGINE=InnoDB, DEFAULT CHARSET=binary";
 $wgDBmysql5 = false;
 
 ## Shared memory settings
-# $wgMainCacheType = CACHE_MEMCACHED;
-$wgSessionsInMemcached = false;
-# $wgMemCachedServers = array("10.7.143.70:11000");
-/* RM: For wgUseFileCahce, false is default; uncomment whole section if we re-enable it
+$wgMainCacheType = CACHE_MEMCACHED;
+$wgSessionsInObjectCache = true;
+$wgObjectCacheSessionExpiry = 100000;
+$wgMemCachedServers = array("10.7.143.70:11000");
+/* RM: For wgUseFileCache, false is default; uncomment whole section if we re-enable it
 $wgUseFileCache = false;
 $wgFileCacheDirectory = '/mnt/uesp/filecache';
 */
@@ -97,14 +92,6 @@ $wgFileCacheDirectory = '/mnt/uesp/filecache';
 $wgEnableUploads = true;
 $wgUseImageMagick = true;
 $wgImageMagickTempDir = "/imagetmp";
-/* RM: No '/local' version on any of our servers. Why is this here?
-if (file_exists('/usr/local/bin/convert')) {
-	$wgImageMagickConvertCommand = '/usr/local/bin/convert';
-}
-else {
-	$wgImageMagickConvertCommand = '/usr/bin/convert';
-}
-*/
 $wgImageMagickConvertCommand = '/usr/bin/convert';
 $wgAllowExternalImages = true;
 $wgUploadPath       = "$wgScriptPath/images";
@@ -130,7 +117,7 @@ $wgUseSharedUploads = false;
 ## Set $wgCacheDirectory to a writable directory on the web server
 ## to make your wiki go slightly faster. The directory should not
 ## be publically accessible from the web.
-$wgCacheDirectory = '/uesp-devwiki-cache';
+$wgCacheDirectory = '/cache';
 
 # Site language code, should be one of the list in ./languages/Names.php
 $wgLanguageCode = "en";
@@ -207,7 +194,7 @@ $egProtectSectionNoAddAbove = true;
 require_once "$IP/extensions/qwebirChat/qwebirChat.php";
 require_once "$IP/extensions/RegexFunctions/RegexFunctions.php";
 require_once "$IP/extensions/Renameuser/SpecialRenameuser.php";
-require_once "$IP/extensions/SearchLog/SearchLog.php";
+# require_once "$IP/extensions/SearchLog/SearchLog.php";
 require_once "$IP/extensions/SimpleAntiSpam/SimpleAntiSpam.php";
 require_once "$IP/extensions/SpamBlacklist/SpamBlacklist.php";
 $wgSpamBlacklistFiles = array( "DB: uesp_net_wiki5 UESPWiki:Spam_Blacklist" );
@@ -228,16 +215,21 @@ require_once "$IP/skins/UespMonoBook/UespMonoBook.php";
 # disable temporarily: doesn't play nicely with MetaTemplate
 # require_once "$IP/extensions/CustomCategory/CustomCategory.setup.php";
 
-require_once( "$IP/extensions/OAI/OAIRepo.php" );
-$wgSearchType = 'LuceneSearch';
-$wgLuceneHost = '10.7.143.10';
-$wgLucenePort = 8123;
+# require_once( "$IP/extensions/OAI/OAIRepo.php" );
+# $wgSearchType = 'LuceneSearch';
+# $wgLuceneHost = '10.7.143.10';
+# $wgLucenePort = 8123;
 
-require_once( "$IP/extensions/MWSearch/MWSearch.php" );
-$wgEnableLucenePrefixSearch = true;
-$wgLucenePrefixHost = '10.7.143.10';
-$wgLuceneSearchVersion = 2.1;
+# require_once( "$IP/extensions/MWSearch/MWSearch.php" );
+# $wgEnableLucenePrefixSearch = true;
+# $wgLucenePrefixHost = '10.7.143.10';
+# $wgLuceneSearchVersion = 2.1;
 
+require_once( "$IP/extensions/Elastica/Elastica.php");
+require_once( "$IP/extensions/CirrusSearch/CirrusSearch.php" );
+$wgDisableSearchUpdate = true;
+$wgCirrusSearchServers = array( $UESP_SERVER_SEARCH );
+$wgSearchType = 'CirrusSearch';
 
 # RM: Things to consider adding
 # require_once "$IP/extensions/Interwiki/Interwiki.php";
@@ -264,7 +256,7 @@ $wgCookieDomain = ".uesp.net";
 $wgDisableCounters = true;
 $wgExpensiveParserFunctionLimit = 1000;
 $wgFavicon = '/favicon.ico';
-$wgJobRunRate = 1;
+$wgJobRunRate = 0.1;
 $wgLocaltimezone = "GMT";
 $wgMaxShellMemory = 1310720;
 $wgMaxShellFileSize = 1310720;
@@ -279,7 +271,7 @@ $wgResourceLoaderMaxage = array(
 		'client' => 86400, // default is 5 * 60
 	),
 );
-$wgTmpDirectory = "{$wgUploadDirectory}/tmp";
+$wgTmpDirectory = "/imagetmp";
 $wgUseETag = false;
 $wgUsePathInfo  = true;
 $wgUseSquid = true;
@@ -287,15 +279,12 @@ $wgUseTidy = true;
 $wgUseXVO = true;
 
 # Various settings that were previously disabled or disabled for 1.22+
-# $wgCacheVaryCookies = array("__utma", "__utmb", "__utmc", "__utmz");
-# $wgRCMaxAge = 3*28*86400; // RM: Default is 13 weeks, this was 12 - reset to default because 13 is closer to an even 3 months
-# $wgSquidMaxage = 2678400;
+$wgSquidMaxage = 2678400;
 # $wgSquidServers = array("10.7.143.40");
-
 
 # When you make changes to this configuration file, change this date if
 # required to make sure that cached pages are cleared.
-$wgCacheEpoch = '20150521151500';
+$wgCacheEpoch = '20150522151500';
 $wgInvalidateCacheOnLocalSettingsChange = false;
 
 ### Rights ###
@@ -391,6 +380,7 @@ $wgExtraNamespaces =
 	      144 => "Online",      145 => "Online_talk",
 	      146 => "Dragonborn",  147 => "Dragonborn_talk",
               148 => "ESOMod",      149 => "ESOMod_talk",
+	      150 => "Legends",	    151 => "Legends_talk",
 	      200 => "Dapel",       201 => "Dapel_talk");
 
 $wgNamespaceAliases =
@@ -420,6 +410,7 @@ $wgNamespaceAliases =
               'ESO' => 144,         'ESO_talk' => 145,
               'TESO' => 144,        'TESO_talk' => 145,
 	      'DB' => 146,          'DB_talk' => 147,
+	      'LG' => 150,	    'LG_talk' => 151,
 );
 
 $wgNamespacesWithSubpages = array(
@@ -430,7 +421,8 @@ $wgNamespacesWithSubpages = array(
 	110 => 1, 111 => 1, 112 => 1, 113 => 1, 114 => 1, 115 => 1, 116 => 1, 117 => 1, 118 => 1, 119 => 1,
 	120 => 1, 121 => 1, 122 => 1, 123 => 1, 124 => 1, 125 => 1, 126 => 1, 127 => 1, 128 => 1, 129 => 1,
 	130 => 1, 131 => 1, 132 => 1, 133 => 1, 134 => 1, 135 => 1, 136 => 1, 137 => 1, 138 => 1, 139 => 1,
-	140 => 1, 141 => 1, 142 => 1, 143 => 1, 144 => 1, 145 => 1, 146 => 1, 147 => 1,
+	140 => 1, 141 => 1, 142 => 1, 143 => 1, 144 => 1, 145 => 1, 146 => 1, 147 => 1, 148 => 1, 149 => 1,
+	150 => 1, 151 => 1,
 	200 => 1, 201 => 1);
 
 $wgNamespacesToBeSearchedDefault = array(
@@ -441,15 +433,18 @@ $wgNamespacesToBeSearchedDefault = array(
 	110 => 1, 111 => 0, 112 => 1, 113 => 0, 114 => 1, 115 => 0, 116 => 1, 117 => 0, 118 => 1, 119 => 0,
 	120 => 1, 121 => 0, 122 => 1, 123 => 0, 124 => 1, 125 => 0, 126 => 1, 127 => 0, 128 => 1, 129 => 0,
 	130 => 1, 131 => 0, 132 => 1, 133 => 0, 134 => 1, 135 => 0, 136 => 1, 137 => 0, 138 => 1, 139 => 0,
-	140 => 1, 141 => 0, 142 => 1, 143 => 0, 144 => 1, 145 => 0, 146 => 1, 147 => 0, 
+	140 => 1, 141 => 0, 142 => 1, 143 => 0, 144 => 1, 145 => 0, 146 => 1, 147 => 0, 148 => 1, 149 => 0, 
+	150 => 1, 151 => 0,
 	200 => 0, 201 => 0);
 
-$wgContentNamespaces = array( NS_MAIN, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146 );
+$wgContentNamespaces = array( NS_MAIN, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146, 148, 150 );
 
 # $wgReadOnly = "<b>UESPWiki is currently locked for a few minutes while the Wiki software is being upgraded.</b>";
-$wgDebugComments = true;
-$wgShowExceptionDetails = true;
-$wgShowSQLErrors = true;
+$wgDebugComments = false;
+$wgReadOnlyFile = "$wgUploadDirectory/UESP_LOCK_DB";
+$wgShowExceptionDetails = false;
+$wgShowSQLErrors = false;
+$wgAllowSiteCSSOnRestrictedPages = true;
 
 $wgHooks['APIEditBeforeSave'][] = 'onAPIEditBeforeSave';
 function onAPIEditBeforeSave( $editPage, $text, &$resultArr ) {
@@ -464,3 +459,5 @@ function onAPIEditBeforeSave( $editPage, $text, &$resultArr ) {
 	
 	return true;
 }
+
+set_time_limit(60);
