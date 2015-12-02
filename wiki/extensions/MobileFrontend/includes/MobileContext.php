@@ -30,7 +30,11 @@ class MobileContext extends ContextSource {
 	private $forceMobileView = false;
 	private $contentTransformations = true;
 	private $mobileView = null;
-
+	/**
+	 * Have we already checked for desktop/mobile view toggling?
+	 * @var bool
+	 */
+	private $toggleViewChecked = false;
 	private static $instance = null;
 
 	/**
@@ -56,6 +60,8 @@ class MobileContext extends ContextSource {
 	 * @return IDeviceProperties
 	 */
 	public function getDevice() {
+		global $wgMFMobileHeader;
+
 		wfProfileIn( __METHOD__ );
 		if ( $this->device ) {
 			wfProfileOut( __METHOD__ );
@@ -64,10 +70,8 @@ class MobileContext extends ContextSource {
 		$detector = DeviceDetection::factory();
 		$request = $this->getRequest();
 
-		$wap = $this->getRequest()->getHeader( 'X-WAP' );
-		if ( $wap ) {
-			$className = ( $wap === 'no' ) ? 'HtmlDeviceProperties' : 'WmlDeviceProperties';
-			$this->device = new $className;
+		if ( $wgMFMobileHeader && $this->getRequest()->getHeader( $wgMFMobileHeader ) !== false ) {
+			$this->device = new HtmlDeviceProperties();
 		} else {
 			$userAgent = $request->getHeader( 'User-agent' );
 			$acceptHeader = $request->getHeader( 'Accept' );
@@ -93,24 +97,6 @@ class MobileContext extends ContextSource {
 		return $this->contentFormat;
 	}
 
-	/**
-	 * Converts a multitude of format strings to 'HTML' or 'WML'
-	 * @param string $format
-	 *
-	 * @return string
-	 */
-	public static function parseContentFormat( $format ) {
-		if ( $format === 'wml' ) {
-			return 'WML';
-		} elseif ( $format === 'html' ) {
-			return 'HTML';
-		}
-		if ( $format === 'mobile-wap' ) {
-			return 'WML';
-		}
-		return 'HTML';
-	}
-
 	public function imagesDisabled() {
 		if ( is_null( $this->disableImages ) ) {
 			$this->disableImages = (bool)$this->getRequest()->getCookie( 'disableImages' );
@@ -120,10 +106,18 @@ class MobileContext extends ContextSource {
 	}
 
 	public function isMobileDevice() {
-		global $wgMFAutodetectMobileView;
+		global $wgMFAutodetectMobileView, $wgMFShowMobileViewToTablets;
 
-		return ( $wgMFAutodetectMobileView && $this->getDevice()->isMobileDevice() )
-			|| $this->getAMF();
+		if ( !$wgMFAutodetectMobileView ) {
+			return false;
+		}
+		if ( $this->getAMF() ) {
+			return true;
+		}
+		$device = $this->getDevice();
+		return $device->isMobileDevice()
+			&& !( !$wgMFShowMobileViewToTablets && $device->isTablet() );
+
 	}
 
 	/**
@@ -137,12 +131,13 @@ class MobileContext extends ContextSource {
 	 * @return bool
 	 */
 	public function getAMF() {
-		if ( isset( $_SERVER['AMF_DEVICE_IS_MOBILE'] ) && 
-			$_SERVER['AMF_DEVICE_IS_MOBILE'] === "true" &&
-			$_SERVER['AMF_DEVICE_IS_TABLET'] === "false" ) {
-				return true;
+		global  $wgMFShowMobileViewToTablets;
+
+		$amf = isset( $_SERVER['AMF_DEVICE_IS_MOBILE'] ) && $_SERVER['AMF_DEVICE_IS_MOBILE'] === 'true';
+		if ( !$wgMFShowMobileViewToTablets && $amf ) {
+			$amf &= $_SERVER['AMF_DEVICE_IS_TABLET'] === 'false';
 		}
-		return false;
+		return $amf;
 	}
 
 	/**
@@ -189,7 +184,7 @@ class MobileContext extends ContextSource {
 	protected function getMobileMode() {
 		if ( is_null( $this->mobileMode ) ) {
 			$mobileAction = $this->getMobileAction();
-			if ( $mobileAction === 'alpha' || $mobileAction === 'beta' ) {
+			if ( $mobileAction === 'alpha' || $mobileAction === 'beta' || $mobileAction === 'stable' ) {
 				$this->mobileMode = $mobileAction;
 			} else {
 				$req = $this->getRequest();
@@ -223,7 +218,9 @@ class MobileContext extends ContextSource {
 			wfIncrStats( 'mobile.opt_in_cookie_unset' );
 		}
 		$this->mobileMode = $mode;
-		$this->getRequest()->response()->setcookie( 'optin', $mode, 0, '', $this->getBaseDomain() );
+		$this->getRequest()->response()->setcookie( 'optin', $mode, 0,
+			array( 'prefix' => '', 'domain' => $this->getBaseDomain() )
+		);
 		wfProfileOut( __METHOD__ );
 	}
 
@@ -265,6 +262,8 @@ class MobileContext extends ContextSource {
 			return $this->mobileView;
 		}
 		wfProfileIn( __METHOD__ );
+		// check if we need to toggle between mobile/desktop view
+		$this->checkToggleView();
 		$this->mobileView = $this->shouldDisplayMobileViewInternal();
 		if ( $this->mobileView ) {
 			$this->redirectMobileEnabledPages();
@@ -283,6 +282,16 @@ class MobileContext extends ContextSource {
 			$redirectUrl = SpecialMobileDiff::getMobileUrlFromDesktop();
 		}
 
+		if ( $this->getRequest()->getVal( 'action' ) === 'history' ) {
+			$values = $this->getRequest()->getValues();
+			// avoid infinite redirect loops
+			unset( $values['action'] );
+			// Avoid multiple history parameters
+			unset( $values['title'] );
+			$redirectUrl = SpecialPage::getTitleFor( 'History', $this->getTitle() )->
+				getLocalURL( $values );
+		}
+
 		if ( $redirectUrl ) {
 			$this->getOutput()->redirect( $redirectUrl );
 		}
@@ -292,11 +301,12 @@ class MobileContext extends ContextSource {
 	 * @return bool Value for shouldDisplayMobileView()
 	 */
 	private function shouldDisplayMobileViewInternal() {
-		global $wgMobileUrlTemplate;
-		// always display non-mobile view for edit/history/diff
+		global $wgMobileUrlTemplate, $wgMFMobileHeader;
+
+		$ctx = MobileContext::singleton();
 		$action = $this->getAction();
 
-		if ( $action === 'history' ) {
+		if ( $action === 'history' && !$ctx->isBetaGroupMember() ) {
 			return false;
 		}
 
@@ -315,14 +325,17 @@ class MobileContext extends ContextSource {
 
 		/**
 		 * If a mobile-domain is specified by the $wgMobileUrlTemplate and
-		 * there's an X-WAP header, then we assume the user is accessing
+		 * there's a mobile header, then we assume the user is accessing
 		 * the site from the mobile-specific domain (because why would the
-		 * desktop site set X-WAP header?). If a user is accessing the
+		 * desktop site set the header?). If a user is accessing the
 		 * site from a mobile domain, then we should always display the mobile
 		 * version of the site (otherwise, the cache may get polluted). See
 		 * https://bugzilla.wikimedia.org/show_bug.cgi?id=46473
 		 */
-		if ( $wgMobileUrlTemplate && $this->getRequest()->getHeader( 'X-WAP' ) ) {
+		if ( $wgMobileUrlTemplate
+			&& $wgMFMobileHeader
+			&& $this->getRequest()->getHeader( $wgMFMobileHeader ) !== false )
+		{
 			return true;
 		}
 
@@ -424,7 +437,8 @@ class MobileContext extends ContextSource {
 			$expiry = $this->getUseFormatCookieExpiry();
 		}
 
-		setcookie( 'stopMobileRedirect', 'true', $expiry, $wgCookiePath, $this->getStopMobileRedirectCookieDomain(), $wgCookieSecure );
+		setcookie( 'stopMobileRedirect', 'true', $expiry, $wgCookiePath,
+			$this->getStopMobileRedirectCookieDomain(), $wgCookieSecure );
 	}
 
 	public function unsetStopMobileRedirectCookie() {
@@ -466,13 +480,16 @@ class MobileContext extends ContextSource {
 	 * @return string
 	 */
 	public function getBaseDomain() {
+		global $wgServer;
 		wfProfileIn( __METHOD__ );
+		$parsedUrl = wfParseUrl( $wgServer );
+		$host = $parsedUrl['host'];
 		// Validates value as IP address
-		$host = $this->getRequest()->getHeader( 'Host' );
 		if ( !IP::isValid( $host ) ) {
 			$domainParts = explode( '.', $host );
 			$domainParts = array_reverse( $domainParts );
-			// Although some browsers will accept cookies without the initial ., » RFC 2109 requires it to be included.
+			// Although some browsers will accept cookies without the initial .,
+			// » RFC 2109 requires it to be included.
 			wfProfileOut( __METHOD__ );
 			return count( $domainParts ) >= 2 ? '.' . $domainParts[1] . '.' . $domainParts[0] : $host;
 		}
@@ -503,22 +520,22 @@ class MobileContext extends ContextSource {
 	 * This cookie can determine whether or not a user should see the mobile
 	 * version of pages.
 	 *
-	 * Uses regular php setcookie rather than WebResponse::setCookie()
-	 * so we can ignore $wgCookieHttpOnly since the protection is provides
-	 * is irrelevant for this cookie.
-	 *
 	 * @param string $cookieFormat
 	 * @param null $expiry
 	 */
 	public function setUseFormatCookie( $cookieFormat = 'true', $expiry = null ) {
-		global $wgCookiePath, $wgCookieSecure;
-
 		if ( is_null( $expiry ) ) {
 			$expiry = $this->getUseFormatCookieExpiry();
 		}
-
-		setcookie( self::USEFORMAT_COOKIE_NAME, $cookieFormat, $expiry, $wgCookiePath,
-			$this->getRequest()->getHeader( 'Host' ), $wgCookieSecure );
+		$this->getRequest()->response()->setcookie(
+			self::USEFORMAT_COOKIE_NAME,
+			$cookieFormat,
+			$expiry,
+			array(
+				'prefix' => '',
+				'httpOnly' => false,
+			)
+		);
 		wfIncrStats( 'mobile.useformat_' . $cookieFormat . '_cookie_set' );
 	}
 
@@ -598,7 +615,11 @@ class MobileContext extends ContextSource {
 					global $wgMobileUrlTemplate;
 					$mobileUrlHostTemplate = $this->parseMobileUrlTemplate( 'host' );
 					$mobileToken = $this->getMobileHostToken( $mobileUrlHostTemplate );
-					$wgMobileUrlTemplate = str_replace( $mobileToken, $subdomainTokenReplacement, $wgMobileUrlTemplate );
+					$wgMobileUrlTemplate = str_replace(
+						$mobileToken,
+						$subdomainTokenReplacement,
+						$wgMobileUrlTemplate
+					);
 				}
 			}
 		}
@@ -821,11 +842,14 @@ class MobileContext extends ContextSource {
 	 * Determine whether or not we need to toggle the view, and toggle it
 	 */
 	public function checkToggleView() {
-		$mobileAction = $this->getMobileAction();
-		if ( $mobileAction == 'toggle_view_desktop' ) {
-			$this->toggleView( 'desktop' );
-		} elseif ( $mobileAction == 'toggle_view_mobile' ) {
-			$this->toggleView( 'mobile' );
+		if ( !$this->toggleViewChecked ) {
+			$this->toggleViewChecked = true;
+			$mobileAction = $this->getMobileAction();
+			if ( $mobileAction == 'toggle_view_desktop' ) {
+				$this->toggleView( 'desktop' );
+			} elseif ( $mobileAction == 'toggle_view_mobile' ) {
+				$this->toggleView( 'mobile' );
+			}
 		}
 	}
 
@@ -839,7 +863,7 @@ class MobileContext extends ContextSource {
 		global $wgServer;
 		$parsedTarget = wfParseUrl( $url );
 		$parsedServer = wfParseUrl( $wgServer );
-		return  $parsedTarget['host'] === $parsedServer['host'];
+		return $parsedTarget['host'] === $parsedServer['host'];
 	}
 
 	/**

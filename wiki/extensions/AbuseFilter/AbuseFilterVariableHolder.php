@@ -1,7 +1,6 @@
 <?php
 class AbuseFilterVariableHolder {
-
-	var $mVars = array();
+	public $mVars = array();
 
 	static $varBlacklist = array( 'context' );
 
@@ -118,6 +117,7 @@ class AbuseFilterVariableHolder {
 	public function dumpAllVars( $compute = array(), $includeUserVars = false ) {
 		$allVarNames = array_keys( $this->mVars );
 		$exported = array();
+		$coreVariables = array();
 
 		if ( !$includeUserVars ) {
 			// Compile a list of all variables set by the extension to be able to filter user set ones by name
@@ -190,7 +190,7 @@ class AbuseFilterVariableHolder {
 }
 
 class AFComputedVariable {
-	var $mMethod, $mParameters;
+	public $mMethod, $mParameters;
 	static $userCache = array();
 	static $articleCache = array();
 
@@ -207,8 +207,8 @@ class AFComputedVariable {
 	 * It's like Article::prepareTextForEdit, but not for editing (old wikitext usually)
 	 *
 	 *
-	 * @param $wikitext String
-	 * @param $article Article
+	 * @param string $wikitext
+	 * @param WikiPage $article
 	 *
 	 * @return object
 	 */
@@ -298,7 +298,7 @@ class AFComputedVariable {
 	}
 
 	/**
-	 * @param $article Article
+	 * @param WikiPage $article
 	 * @return array
 	 */
 	static function getLinksFromDB( $article ) {

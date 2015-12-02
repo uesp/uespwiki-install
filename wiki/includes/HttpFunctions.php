@@ -25,12 +25,14 @@
  * @defgroup HTTP HTTP
  */
 
+use MediaWiki\Logger\LoggerFactory;
+
 /**
  * Various HTTP related functions
  * @ingroup HTTP
  */
 class Http {
-	static $httpEngine = false;
+	static public $httpEngine = false;
 
 	/**
 	 * Perform an HTTP request
@@ -75,7 +77,11 @@ class Http {
 
 		$content = false;
 		if ( $status->isOK() ) {
-			$content = $req->getContent();
+			 $content = $req->getContent();
+		} else {
+			$errors = $status->getErrorsByType( 'error' );
+			$logger = LoggerFactory::getInstance( 'http' );
+			$logger->warning( $status->getWikiText(), array( 'caller' => $caller ) );
 		}
 		wfProfileOut( __METHOD__ . "-$method" );
 		return $content;
@@ -130,7 +136,8 @@ class Http {
 			$domainParts = array_reverse( $domainParts );
 
 			$domain = '';
-			for ( $i = 0; $i < count( $domainParts ); $i++ ) {
+			$countParts = count( $domainParts );
+			for ( $i = 0; $i < $countParts; $i++ ) {
 				$domainPart = $domainParts[$i];
 				if ( $i == 0 ) {
 					$domain = $domainPart;
@@ -204,7 +211,7 @@ class MWHttpRequest {
 	protected $followRedirects = false;
 
 	/**
-	 * @var  CookieJar
+	 * @var CookieJar
 	 */
 	protected $cookieJar;
 
@@ -294,8 +301,11 @@ class MWHttpRequest {
 				return new CurlHttpRequest( $url, $options );
 			case 'php':
 				if ( !wfIniGetBool( 'allow_url_fopen' ) ) {
-					throw new MWException( __METHOD__ . ': allow_url_fopen needs to be enabled for pure PHP' .
-						' http requests to work. If possible, curl should be used instead. See http://php.net/curl.' );
+					throw new MWException( __METHOD__ . ': allow_url_fopen ' .
+						'needs to be enabled for pure PHP http requests to ' .
+						'work. If possible, curl should be used instead. See ' .
+						'http://php.net/curl.'
+					);
 				}
 				return new PhpHttpRequest( $url, $options );
 			default:
@@ -344,13 +354,6 @@ class MWHttpRequest {
 		} elseif ( getenv( "http_proxy" ) ) {
 			$this->proxy = getenv( "http_proxy" );
 		}
-	}
-
-	/**
-	 * Set the referrer header
-	 */
-	public function setReferer( $url ) {
-		$this->setHeader( 'Referer', $url );
 	}
 
 	/**
@@ -437,18 +440,12 @@ class MWHttpRequest {
 	 * @return Status
 	 */
 	public function execute() {
-		global $wgTitle;
-
 		wfProfileIn( __METHOD__ );
 
 		$this->content = "";
 
 		if ( strtoupper( $this->method ) == "HEAD" ) {
 			$this->headersOnly = true;
-		}
-
-		if ( is_object( $wgTitle ) && !isset( $this->reqHeaders['Referer'] ) ) {
-			$this->setReferer( wfExpandUrl( $wgTitle->getFullURL(), PROTO_CURRENT ) );
 		}
 
 		$this->proxySetup(); // set up any proxy as needed
@@ -642,12 +639,16 @@ class MWHttpRequest {
 	/**
 	 * Returns the final URL after all redirections.
 	 *
-	 * Relative values of the "Location" header are incorrect as stated in RFC, however they do happen and modern browsers support them.
-	 * This function loops backwards through all locations in order to build the proper absolute URI - Marooned at wikia-inc.com
+	 * Relative values of the "Location" header are incorrect as
+	 * stated in RFC, however they do happen and modern browsers
+	 * support them.  This function loops backwards through all
+	 * locations in order to build the proper absolute URI - Marooned
+	 * at wikia-inc.com
 	 *
-	 * Note that the multiple Location: headers are an artifact of CURL -- they
-	 * shouldn't actually get returned this way. Rewrite this when bug 29232 is
-	 * taken care of (high-level redirect handling rewrite).
+	 * Note that the multiple Location: headers are an artifact of
+	 * CURL -- they shouldn't actually get returned this way. Rewrite
+	 * this when bug 29232 is taken care of (high-level redirect
+	 * handling rewrite).
 	 *
 	 * @return string
 	 */
@@ -678,7 +679,8 @@ class MWHttpRequest {
 				} else {
 					$url = parse_url( $this->url );
 					if ( isset( $url['host'] ) ) {
-						return $url['scheme'] . '://' . $url['host'] . $locations[$countLocations - 1];
+						return $url['scheme'] . '://' . $url['host'] .
+							$locations[$countLocations - 1];
 					}
 				}
 			} else {
@@ -742,10 +744,6 @@ class CurlHttpRequest extends MWHttpRequest {
 		$this->curlOptions[CURLOPT_MAXREDIRS] = $this->maxRedirects;
 		$this->curlOptions[CURLOPT_ENCODING] = ""; # Enable compression
 
-		/* not sure these two are actually necessary */
-		if ( isset( $this->reqHeaders['Referer'] ) ) {
-			$this->curlOptions[CURLOPT_REFERER] = $this->reqHeaders['Referer'];
-		}
 		$this->curlOptions[CURLOPT_USERAGENT] = $this->reqHeaders['User-Agent'];
 
 		$this->curlOptions[CURLOPT_SSL_VERIFYHOST] = $this->sslVerifyHost ? 2 : 0;
@@ -828,6 +826,8 @@ class CurlHttpRequest extends MWHttpRequest {
 
 class PhpHttpRequest extends MWHttpRequest {
 
+	private $fopenErrors = array();
+
 	/**
 	 * @param $url string
 	 * @return string
@@ -836,6 +836,60 @@ class PhpHttpRequest extends MWHttpRequest {
 		$parsedUrl = parse_url( $url );
 
 		return 'tcp://' . $parsedUrl['host'] . ':' . $parsedUrl['port'];
+	}
+
+	/**
+	 * Returns an array with a 'capath' or 'cafile' key that is suitable to be merged into the 'ssl' sub-array of a
+	 * stream context options array. Uses the 'caInfo' option of the class if it is provided, otherwise uses the system
+	 * default CA bundle if PHP supports that, or searches a few standard locations.
+	 * @return array
+	 * @throws DomainException
+	 */
+	protected function getCertOptions() {
+		$certOptions = array();
+		$certLocations = array();
+		if ( $this->caInfo ) {
+			$certLocations = array( 'manual' => $this->caInfo );
+		} elseif ( version_compare( PHP_VERSION, '5.6.0', '<' ) ) {
+			// Default locations, based on
+			// https://www.happyassassin.net/2015/01/12/a-note-about-ssltls-trusted-certificate-stores-and-platforms/
+			// PHP 5.5 and older doesn't have any defaults, so we try to guess ourselves. PHP 5.6+ gets the CA location
+			// from OpenSSL as long as it is not set manually, so we should leave capath/cafile empty there.
+			$certLocations = array_filter( array(
+				getenv( 'SSL_CERT_DIR' ),
+				getenv( 'SSL_CERT_PATH' ),
+				'/etc/pki/tls/certs/ca-bundle.crt', # Fedora et al
+				'/etc/ssl/certs',  # Debian et al
+				'/etc/pki/tls/certs/ca-bundle.trust.crt',
+				'/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem',
+				'/System/Library/OpenSSL', # OSX
+			) );
+		}
+
+		foreach( $certLocations as $key => $cert ) {
+			if ( is_dir( $cert ) ) {
+				$certOptions['capath'] = $cert;
+				break;
+			} elseif ( is_file( $cert ) ) {
+				$certOptions['cafile'] = $cert;
+				break;
+			} elseif ( $key === 'manual' ) {
+				// fail more loudly if a cert path was manually configured and it is not valid
+				throw new DomainException( "Invalid CA info passed: $cert" );
+			}
+		}
+
+		return $certOptions;
+	}
+
+	/**
+	 * Custom error handler for dealing with fopen() errors. fopen() tends to fire multiple errors in succession, and the last one
+	 * is completely useless (something like "fopen: failed to open stream") so normal methods of handling errors programmatically
+	 * like get_last_error() don't work.
+	 */
+	public function errorHandler( $errno, $errstr ) {
+		$n = count( $this->fopenErrors ) + 1;
+		$this->fopenErrors += array( "errno$n" => $errno, "errstr$n" => $errstr );
 	}
 
 	public function execute() {
@@ -847,8 +901,8 @@ class PhpHttpRequest extends MWHttpRequest {
 			$this->postData = wfArrayToCgi( $this->postData );
 		}
 
-		if ( $this->parsedUrl['scheme'] != 'http' &&
-			 $this->parsedUrl['scheme'] != 'https' ) {
+		if ( $this->parsedUrl['scheme'] != 'http'
+			&& $this->parsedUrl['scheme'] != 'https' ) {
 			$this->status->fatal( 'http-invalid-scheme', $this->parsedUrl['scheme'] );
 		}
 
@@ -891,16 +945,16 @@ class PhpHttpRequest extends MWHttpRequest {
 		}
 
 		if ( $this->sslVerifyHost ) {
-			$options['ssl']['CN_match'] = $this->parsedUrl['host'];
+			// PHP 5.6.0 deprecates CN_match, in favour of peer_name which
+			// actually checks SubjectAltName properly.
+			if ( version_compare( PHP_VERSION, '5.6.0', '>=' ) ) {
+				$options['ssl']['peer_name'] = $this->parsedUrl['host'];
+			} else {
+				$options['ssl']['CN_match'] = $this->parsedUrl['host'];
+			}
 		}
 
-		if ( is_dir( $this->caInfo ) ) {
-			$options['ssl']['capath'] = $this->caInfo;
-		} elseif ( is_file( $this->caInfo ) ) {
-			$options['ssl']['cafile'] = $this->caInfo;
-		} elseif ( $this->caInfo ) {
-			throw new MWException( "Invalid CA info passed: {$this->caInfo}" );
-		}
+		$options['ssl'] += $this->getCertOptions();
 
 		$context = stream_context_create( $options );
 
@@ -912,11 +966,25 @@ class PhpHttpRequest extends MWHttpRequest {
 
 		do {
 			$reqCount++;
-			wfSuppressWarnings();
+			$this->fopenErrors = array();
+			set_error_handler( array( $this, 'errorHandler' ) );
 			$fh = fopen( $url, "r", false, $context );
-			wfRestoreWarnings();
+			restore_error_handler();
 
 			if ( !$fh ) {
+				// HACK for instant commons.
+				// If we are contacting (commons|upload).wikimedia.org
+				// try again with CN_match for en.wikipedia.org
+				// as php does not handle SubjectAltName properly
+				// prior to "peer_name" option in php 5.6
+				if ( isset( $options['ssl']['CN_match'] )
+					&& ( $options['ssl']['CN_match'] === 'commons.wikimedia.org'
+						|| $options['ssl']['CN_match'] === 'upload.wikimedia.org' )
+				) {
+					$options['ssl']['CN_match'] = 'en.wikipedia.org';
+					$context = stream_context_create( $options );
+					continue;
+				}
 				break;
 			}
 
@@ -944,6 +1012,10 @@ class PhpHttpRequest extends MWHttpRequest {
 		$this->setStatus();
 
 		if ( $fh === false ) {
+			if ( $this->fopenErrors ) {
+				LoggerFactory::getInstance( 'http' )->warning( __CLASS__
+					. ': error opening connection: {errstr1}', $this->fopenErrors );
+			}
 			$this->status->fatal( 'http-request-error' );
 			wfProfileOut( __METHOD__ );
 			return $this->status;

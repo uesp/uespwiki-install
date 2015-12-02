@@ -41,9 +41,9 @@ class OtherIndexes extends Updater {
 	 */
 	public static function getExternalIndexes( Title $title ) {
 		global $wgCirrusSearchExtraIndexes;
-		$ns = $title->getNamespace();
-		return isset( $wgCirrusSearchExtraIndexes[ $ns ] )
-			? $wgCirrusSearchExtraIndexes[ $ns ] : array();
+		$namespace = $title->getNamespace();
+		return isset( $wgCirrusSearchExtraIndexes[ $namespace ] )
+			? $wgCirrusSearchExtraIndexes[ $namespace ] : array();
 	}
 
 	/**
@@ -55,8 +55,8 @@ class OtherIndexes extends Updater {
 		global $wgCirrusSearchExtraIndexes;
 		$extraIndexes = array();
 		if ( $wgCirrusSearchExtraIndexes ) {
-			foreach( $wgCirrusSearchExtraIndexes as $ns => $indexes ) {
-				if ( in_array( $ns, $namespaces ) ) {
+			foreach( $wgCirrusSearchExtraIndexes as $namespace => $indexes ) {
+				if ( in_array( $namespace, $namespaces ) ) {
 					$extraIndexes = array_merge( $extraIndexes, $indexes );
 				}
 			}
@@ -69,8 +69,8 @@ class OtherIndexes extends Updater {
 	 * @param Array(Title) $titles titles for which to add to the tracking list
 	 */
 	public function addLocalSiteToOtherIndex( $titles ) {
-		// Script is in MVEL and is run in a context with local_site set to this wiki's name
-		$script  = <<<MVEL
+		// Script is in groovy and is run in a context with local_site set to this wiki's name
+		$script  = <<<GROOVY
 			if (!ctx._source.containsKey("local_sites_with_dupe")) {
 				ctx._source.local_sites_with_dupe = [local_site]
 			} else if (ctx._source.local_sites_with_dupe.contains(local_site)) {
@@ -78,7 +78,7 @@ class OtherIndexes extends Updater {
 			} else {
 				ctx._source.local_sites_with_dupe += local_site
 			}
-MVEL;
+GROOVY;
 		$this->updateOtherIndex( 'addLocalSite', $script, $titles );
 	}
 
@@ -87,22 +87,23 @@ MVEL;
 	 * @param array(Title) $titles titles for which to remove the tracking field
 	 */
 	public function removeLocalSiteFromOtherIndex( $titles ) {
-		// Script is in MVEL and is run in a context with local_site set to this wiki's name
-		$script  = <<<MVEL
+		// Script is in groovy and is run in a context with local_site set to this wiki's name
+		$script  = <<<GROOVY
 			if (!ctx._source.containsKey("local_sites_with_dupe")) {
 				ctx.op = "none"
 			} else if (!ctx._source.local_sites_with_dupe.remove(local_site)) {
 				ctx.op = "none"
 			}
-MVEL;
+GROOVY;
 		$this->updateOtherIndex( 'removeLocalSite', $script, $titles );
 	}
 
 	/**
 	 * Update the indexes for other wiki that also store information about $titles.
 	 * @param string $actionName name of the action to report in logging
-	 * @param string $scriptSource MVEL source script for performing the update
+	 * @param string $scriptSource groovy source script for performing the update
 	 * @param array(Title) $titles titles in other indexes to update
+	 * @return bool false on failure, null otherwise
 	 */
 	private function updateOtherIndex( $actionName, $scriptSource, $titles ) {
 		$client = Connection::getClient();
@@ -130,7 +131,7 @@ MVEL;
 				$findIdsMultiSearch->addSearch( $type->createSearch( $query ) );
 				$findIdsClosures[] = function( $id ) use
 						( $scriptSource, $bulk, $otherIndex, $localSite, &$updatesInBulk ) {
-					$script = new \Elastica\Script( $scriptSource, array( 'local_site' => $localSite ) );
+					$script = new \Elastica\Script( $scriptSource, array( 'local_site' => $localSite ), 'groovy' );
 					$script->setId( $id );
 					$script->setParam( '_type', 'page' );
 					$script->setParam( '_index', $otherIndex );
@@ -189,6 +190,7 @@ MVEL;
 			}, $titles );
 			wfDebugLog( 'CirrusSearchChangeFailed', "Other Index $actionName for article ids: " .
 				implode( ',', $articleIDs ) );
+			return false;
 		}
 	}
 }

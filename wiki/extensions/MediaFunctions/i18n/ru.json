@@ -1,0 +1,11 @@
+{
+    "@metadata": {
+        "authors": [
+            "Ferrer",
+            "VasilievVV"
+        ]
+    },
+    "mediafunctions-desc": "Функции парсера для получения информации о медиа-файлах",
+    "mediafunctions-invalid-title": "«$1» не является корректным заголовком",
+    "mediafunctions-not-exist": "«$1» не существует"
+}

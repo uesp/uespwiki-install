@@ -2,6 +2,7 @@
 
 	var EventEmitter = M.require( 'eventemitter' );
 
+	// FIXME: remove when OverlayManager used everywhere
 	function matchRoute( hash, entry ) {
 		var match = hash.match( entry.path );
 		if ( match ) {
@@ -11,23 +12,24 @@
 		return false;
 	}
 
-	function getHash() {
-		return window.location.hash.slice( 1 );
-	}
-
+	/**
+	 * @class
+	 * @name Router
+	 */
 	function Router() {
 		var self = this;
 		// use an object instead of an array for routes so that we don't
 		// duplicate entries that already exist
 		this.routes = {};
 		this._enabled = true;
-		this._oldHash = getHash();
+		this._oldHash = this.getPath();
 
 		$( window ).on( 'hashchange', function() {
 			// ev.originalEvent.newURL is undefined on Android 2.x
-			var routeEv = $.Event();
+			var routeEv;
 
 			if ( self._enabled ) {
+				routeEv = $.Event( 'route', { path: self.getPath() } );
 				self.emit( 'route', routeEv );
 
 				if ( !routeEv.isDefaultPrevented() ) {
@@ -42,17 +44,20 @@
 				self._enabled = true;
 			}
 
-			self._oldHash = getHash();
+			self._oldHash = self.getPath();
 		} );
 	}
 
 	Router.prototype = new EventEmitter();
 
+	// FIXME: remove when OverlayManager used everywhere
 	/**
 	 * Check the current route and run appropriate callback if it matches.
+	 * @name Router.prototype.checkRoute
+	 * @function
 	 */
 	Router.prototype.checkRoute = function() {
-		var hash = getHash();
+		var hash = this.getPath();
 
 		$.each( this.routes, function( id, entry ) {
 			return !matchRoute( hash, entry );
@@ -61,11 +66,14 @@
 
 	/**
 	 * Bind a specific callback to a hash-based route, e.g.
+	 * FIXME: remove when OverlayManager used everywhere
 	 *
 	 * @example
 	 * route( 'alert', function() { alert( 'something' ); } );
 	 * route( /hi-(.*)/, function( name ) { alert( 'Hi ' + name ) } );
 	 *
+	 * @name Router.prototype.route
+	 * @function
 	 * @param {Object} path String or RegExp to match.
 	 * @param {Function} callback Callback to be run when hash changes to one
 	 * that matches.
@@ -76,19 +84,46 @@
 			callback: callback
 		};
 		this.routes[entry.path] = entry;
-		matchRoute( getHash(), entry );
+		matchRoute( this.getPath(), entry );
 	};
 
 	/**
 	 * Navigate to a specific route. This is only a wrapper for changing the
 	 * hash now.
 	 *
+	 * @name Router.prototype.navigate
+	 * @function
 	 * @param {string} path String with a route (hash without #).
 	 */
 	Router.prototype.navigate = function( path ) {
 		window.location.hash = path;
 	};
 
+	/**
+	 * Navigate to the previous route. This is a wrapper for window.history.back
+	 * @name Router.prototype.back
+	 * @function
+	 */
+	Router.prototype.back = function() {
+		window.history.back();
+	};
+
+	/**
+	 * Get current path (hash).
+	 *
+	 * @name Router.prototype.getPath
+	 * @function
+	 * @return {string} Current path.
+	 */
+	Router.prototype.getPath = function() {
+		return window.location.hash.slice( 1 );
+	};
+
+	/**
+	 * @name Router.prototype.isSupported
+	 * @function
+	 * @return {Boolean}
+	 */
 	Router.prototype.isSupported = function() {
 		return 'onhashchange' in window;
 	};

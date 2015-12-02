@@ -1,56 +1,40 @@
 ( function ( M, $) {
 
-var Api = M.require( 'api' ).Api, stub;
+var Api = M.require( 'api' ).Api, stub, tokens;
 
 QUnit.module( 'MobileFrontend api', {
 	setup: function() {
-		var self = this;
-		this.xhr = sinon.useFakeXMLHttpRequest();
-		this.xhr.onCreate = function( xhr ) {
+		var self = this, server = this.sandbox.useFakeServer();
+		server.xhr.onCreate = function( xhr ) {
+			// FIXME: smelly, sinon.extend and sinon.EventTarget are not public interface
 			xhr.upload = sinon.extend( {}, sinon.EventTarget );
 			self.lastXhr = xhr;
 		};
-	},
-	teardown: function() {
-		this.xhr.restore();
 	}
-} );
-
-QUnit.test( '$.ajaxSetup()', 1, function() {
-	$.ajax( {
-		data: { test: 'test' }
-	} );
-	strictEqual( this.lastXhr.url.indexOf( Api.prototype.apiUrl ), 0, 'set default API URL' );
 } );
 
 QUnit.test( 'default instance', 1, function() {
 	ok( M.require( 'api' ) instanceof Api, 'return default instance' );
 } );
 
-// FIXME: uncomment when https://bugzilla.wikimedia.org/show_bug.cgi?id=44921 is resolved
-/*
 QUnit.test( 'progress event', 1, function() {
-	var spy = sinon.spy(),
-		api = new Api();
-	api.post().on( 'progress', spy );
-	this.lastXhr.upload.dispatchEvent( { type: 'progress' } );
-	ok( spy.calledWith( { type: 'progress' } ), 'forward progress event from xhr' );
-} );
-*/
+	var spy = this.sandbox.spy(), api = new Api(), request;
 
+	api.on( 'progress', spy );
+	request = api.post();
+	this.lastXhr.upload.dispatchEvent( { type: 'progress', lengthComputable: true, loaded: 1, total: 2 } );
+	ok( spy.calledWith( request, 0.5 ),  'emit progress event' );
+} );
 
 QUnit.module( 'MobileFrontend api.Api', {
 	setup: function() {
-		var requests = this.requests = [];
+		var self = this, requests = this.requests = [];
 		this.api = new Api();
-		sinon.stub( $, 'ajax', function() {
-			var request = { abort: sinon.spy() };
+		this.sandbox.stub( $, 'ajax', function() {
+			var request = { abort: self.sandbox.spy() };
 			requests.push( request );
 			return request;
 		} );
-	},
-	teardown: function() {
-		$.ajax.restore();
 	}
 } );
 
@@ -63,13 +47,16 @@ QUnit.test( '#ajax', 1, function() {
 	} );
 	ok(
 		$.ajax.calledWithMatch( {
-		data: {
-			trueBool: true,
-			list: 'one|2|three',
-			normal: 'test'
-		}
-	} ),
-		'transform boolean and array data'
+			url: Api.prototype.apiUrl,
+			dataType: 'json',
+			data: {
+				format: 'json',
+				trueBool: true,
+				list: 'one|2|three',
+				normal: 'test'
+			}
+		} ),
+		'set defaults and transform boolean and array data'
 	);
 } );
 
@@ -109,7 +96,11 @@ QUnit.module( 'MobileFrontend api.getToken', {
 			warningDeferred = $.Deferred().resolve( { warning: 'you passed a bad watch token' } );
 
 		this.api = new Api();
-		stub = sinon.stub( this.api , 'ajax' );
+		stub = this.sandbox.stub( this.api , 'ajax' );
+		tokens = {
+			editToken: mw.user.tokens.get( 'editToken' ),
+			watchToken: mw.user.tokens.get( 'watchToken' )
+		};
 		params = {
 			url: this.api.apiUrl,
 			xhrFields: { withCredentials: true }
@@ -126,11 +117,15 @@ QUnit.module( 'MobileFrontend api.getToken', {
 		stub.withArgs( { action: 'tokens', type: 'edit' }, params ).returns( editDeferred );
 		stub.withArgs( { action: 'tokens', type: 'upload' }, params ).returns( uploadAnonDeferred );
 		stub.withArgs( corsData, corsParams ).returns( corsDeferred );
-		this.user = mw.config.get( 'wgUserName' ) || '';
+		this.user = mw.user.getName() || '';
+		mw.user.tokens.set( 'editToken', '123' );
+		mw.user.tokens.set( 'watchToken', 'zyx' );
 		mw.config.set( 'wgUserName', 'EvilPanda' );
 	},
 	teardown: function() {
 		stub.restore();
+		mw.user.tokens.set( 'editToken', tokens.editToken );
+		mw.user.tokens.set( 'watchToken', tokens.watchToken );
 		mw.config.set( 'wgUserName', this.user );
 	}
 } );

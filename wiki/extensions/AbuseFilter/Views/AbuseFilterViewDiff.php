@@ -27,19 +27,19 @@ class TableDiffFormatterFullContext extends TableDiffFormatter {
 		}
 
 		// Just render the diff with no preprocessing
-		$this->_start_diff();
-		$this->_block( 1, $xlen, 1, $ylen, $diff->edits );
-		$end = $this->_end_diff();
+		$this->startDiff();
+		$this->block( 1, $xlen, 1, $ylen, $diff->edits );
+		$end = $this->endDiff();
 
 		return $end;
 	}
 }
 
 class AbuseFilterViewDiff extends AbuseFilterView {
-	var $mOldVersion = null;
-	var $mNewVersion = null;
-	var $mNextHistoryId = null;
-	var $mFilter = null;
+	public $mOldVersion = null;
+	public $mNewVersion = null;
+	public $mNextHistoryId = null;
+	public $mFilter = null;
 
 	function show() {
 		$show = $this->loadData();
@@ -147,6 +147,7 @@ class AbuseFilterViewDiff extends AbuseFilterView {
 			return $cache[$spec];
 
 		$dbr = wfGetDB( DB_SLAVE );
+		$row = null;
 		if ( is_numeric( $spec ) ) {
 			$row = $dbr->selectRow(
 				'abuse_filter_history',
@@ -182,7 +183,6 @@ class AbuseFilterViewDiff extends AbuseFilterView {
 				$this->getOutput()->redirect( $t->getFullURL() );
 				return null;
 			}
-
 		} elseif ( $spec == 'next' && !in_array( $otherSpec, $dependentSpecs ) ) {
 			// cached
 			$other = $this->loadSpec( $otherSpec, $spec );

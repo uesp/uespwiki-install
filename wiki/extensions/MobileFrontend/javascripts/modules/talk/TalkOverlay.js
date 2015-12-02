@@ -2,74 +2,50 @@
 	M.assertMode( [ 'beta', 'alpha' ] );
 
 	var
-		Overlay = M.require( 'Overlay' ),
+		Overlay = M.require( 'OverlayNew' ),
+		LoadingOverlay = M.require( 'LoadingOverlayNew' ),
+		Page = M.require( 'Page' ),
+		TalkSectionAddOverlay = M.require( 'modules/talk/TalkSectionAddOverlay' ),
 		TalkSectionOverlay = M.require( 'modules/talk/TalkSectionOverlay' ),
-		api = M.require( 'api' ),
-		TalkSectionAddOverlay = Overlay.extend( {
-			defaults: {
-				cancelMsg: mw.msg( 'mobile-frontend-editor-cancel' ),
-				confirmMsg: mw.msg( 'mobile-frontend-editor-save' ),
-				licenseMsg: mw.msg( 'mobile-frontend-editor-license' ),
-				topicAdd: mw.msg( 'mobile-frontend-talk-add-overlay-submit' ),
-				topicTitlePlaceHolder: mw.msg( 'mobile-frontend-talk-add-overlay-subject-placeholder' ),
-				topicContentPlaceHolder: mw.msg( 'mobile-frontend-talk-add-overlay-content-placeholder' )
-			},
-			template: M.template.get( 'overlays/talkSectionAdd' ),
-			initialize: function( options ) {
-				this._super( options );
-				this.talkOverlay = options.parent;
-				this.title = 'Talk:' + mw.config.get( 'wgTitle' );
-			},
-			postRender: function( options ) {
-				this._super( options );
-				this.$( 'button.confirm-save' ).click( $.proxy( this, 'save' ) );
-			},
-			save: function() {
-				var $subject = this.$( 'input' ),
-					$ta = this.$( 'textarea' ),
-					heading = $subject.val(),
-					self = this,
-					text = $ta.val();
-				$ta.removeClass( 'error' );
-				$subject.removeClass( 'error' );
-				if ( text && heading ) {
-					this.$( '.content' ).empty().addClass( 'loading' );
-					this.$( '.buttonBar' ).hide();
-					api.getToken().done( function( token ) {
-						api.post( {
-							action: 'edit',
-							section: 'new',
-							sectiontitle: heading,
-							title: self.title,
-							token: token,
-							summary: mw.msg( 'mobile-frontend-talk-edit-summary', heading ),
-							text: text + ' ~~~~'
-						} ).done( function() {
-							self.hide();
-							// close the list of topics overlay as well
-							self.parent.hide();
-							// FIXME: give nicer user experience - toast message would be nice at least!
-							M.pageApi.invalidatePage( self.title );
-						} );
-					} );
-				} else {
-					if ( !text ) {
-						$ta.addClass( 'error' );
-					}
-					if ( !heading ) {
-						$subject.addClass( 'error' );
-					}
-				}
-			}
-		} ),
+		user = M.require( 'user' ),
 		TalkOverlay = Overlay.extend( {
-			template: M.template.get( 'overlays/talk' ),
-			className: 'mw-mf-overlay list-overlay',
+			templatePartials: {
+				content: M.template.get( 'overlays/talk' )
+			},
 			defaults: {
-				heading: mw.msg( 'mobile-frontend-talk-overlay-header' ),
+				addTopicLabel: mw.msg( 'mobile-frontend-talk-add-overlay-submit' ),
+				heading: '<strong>' + mw.msg( 'mobile-frontend-talk-overlay-header' ) + '</strong>',
 				leadHeading: mw.msg( 'mobile-frontend-talk-overlay-lead-header' )
 			},
+			initialize: function( options ) {
+				var self = this,
+					_super = this._super;
+				this.loadingOverlay = new LoadingOverlay();
+				this.loadingOverlay.show();
+
+				// FIXME: use Page's mechanisms for retrieving page data instead
+				M.pageApi.getPage( options.title ).fail( function( resp ) {
+					// If the API returns the error code 'missingtitle', that means the
+					// talk page doesn't exist yet.
+					if ( resp.error.code !== undefined && resp.error.code === 'missingtitle' ) {
+						// Create an empty page for new pages
+						options.page = new Page( { title: options.title, sections: [] } );
+						_super.call( self, options );
+						self.show();
+					} else {
+						// If the API request fails for any other reason, load the talk
+						// page manually rather than leaving the spinner spinning.
+						window.location = mw.util.getUrl( options.title );
+					}
+				} ).done( function( pageData ) {
+					// API request was successful so show the overlay with the talk page content
+					options.page = new Page( pageData );
+					_super.call( self, options );
+					self.show();
+				} );
+			},
 			preRender: function( options ) {
+				this.loadingOverlay.hide();
 				var page = options.page,
 					sections = page.getSubSections(),
 					explanation = sections.length > 0 ? mw.msg( 'mobile-frontend-talk-explained' ) :
@@ -85,10 +61,11 @@
 					page = options.page;
 
 				this._super( options );
-				if ( M.isLoggedIn() ) {
+				if ( !user.isAnon() ) {
 					$add.click( function() {
 						var overlay = new TalkSectionAddOverlay( {
-							parent: self
+							parent: self,
+							title: options.title
 						} );
 						overlay.show();
 					} );

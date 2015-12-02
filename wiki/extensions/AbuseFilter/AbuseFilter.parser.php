@@ -49,9 +49,9 @@ class AFPToken {
 	const TComma = 'T_COMMA';
 	const TStatementSeparator = 'T_STATEMENT_SEPARATOR';
 
-	var $type;
-	var $value;
-	var $pos;
+	public $type;
+	public $value;
+	public $pos;
 
 	public function __construct( $type = self::TNone, $value = null, $pos = 0 ) {
 		$this->type = $type;
@@ -69,8 +69,8 @@ class AFPData {
 	const DFloat  = 'float';
 	const DList   = 'list';
 
-	var $type;
-	var $data;
+	public $type;
+	public $data;
 
 	/**
 	 * @param string $type
@@ -499,7 +499,7 @@ class AFPData {
 }
 
 class AFPParserState {
-	var $pos, $token, $lastInput;
+	public $pos, $token, $lastInput;
 
 	public function __construct( $token, $pos ) {
 		$this->token = $token;
@@ -576,12 +576,12 @@ class AFPRegexErrorHandler {
 }
 
 class AbuseFilterParser {
-	var $mParams, $mCode, $mTokens, $mPos, $mCur, $mShortCircuit, $mAllowShort, $mLen;
+	public $mParams, $mCode, $mTokens, $mPos, $mCur, $mShortCircuit, $mAllowShort, $mLen;
 
 	/**
 	 * @var AbuseFilterVariableHolder
 	 */
-	var $mVars;
+	public $mVars;
 
 	// length,lcase,ucase,ccnorm,rmdoubles,specialratio,rmspecials,norm,count
 	static $mFunctions = array(
@@ -1344,6 +1344,7 @@ class AbuseFilterParser {
 				} elseif ( $tok == "null" ) {
 					$result = new AFPData();
 				} else {
+					wfProfileOut( __METHOD__ );
 					throw new AFPUserVisibleException(
 						'unrecognisedkeyword',
 						$this->mCur->pos,
@@ -1352,9 +1353,11 @@ class AbuseFilterParser {
 				}
 				break;
 			case AFPToken::TNone:
+				wfProfileOut( __METHOD__ );
 				return; // Handled at entry level
 			case AFPToken::TBrace:
 				if ( $this->mCur->value == ')' ) {
+					wfProfileOut( __METHOD__ );
 					return; // Handled at the entry level
 				}
 			case AFPToken::TSquareBracket:
@@ -1787,8 +1790,12 @@ class AbuseFilterParser {
 			$haystack = $args[1]->toString();
 
 			$count = 0;
-			while ( ( $offset = strpos( $haystack, $needle, $offset + 1 ) ) !== false ) {
-				$count++;
+
+			// Bug #60203: Keep empty parameters from causing PHP warnings
+			if ( $needle !== '' ) {
+				while ( ( $offset = strpos( $haystack, $needle, $offset + 1 ) ) !== false ) {
+					$count++;
+				}
 			}
 		}
 
@@ -1910,7 +1917,8 @@ class AbuseFilterParser {
 		} else {
 			$ok = false;
 			foreach ( $searchStrings as $needle ) {
-				if ( strpos( $s, $needle ) !== false ) {
+				// Bug #60203: Keep empty parameters from causing PHP warnings
+				if ( $needle !== '' && strpos( $s, $needle ) !== false ) {
 					$ok = true;
 					break;
 				}
@@ -2099,6 +2107,11 @@ class AbuseFilterParser {
 
 		$haystack = $args[0]->toString();
 		$needle = $args[1]->toString();
+
+		// Bug #60203: Keep empty parameters from causing PHP warnings
+		if ( $needle === '' ) {
+			return new AFPData( AFPData::DInt, -1 );
+		}
 
 		if ( isset( $args[2] ) ) {
 			$offset = $args[2]->toInt();

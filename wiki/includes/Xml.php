@@ -500,34 +500,34 @@ class Xml {
 		$options = self::option( $other, 'other', $selected === 'other' );
 
 		foreach ( explode( "\n", $list ) as $option ) {
-				$value = trim( $option );
-				if ( $value == '' ) {
-					continue;
-				} elseif ( substr( $value, 0, 1 ) == '*' && substr( $value, 1, 1 ) != '*' ) {
-					// A new group is starting ...
-					$value = trim( substr( $value, 1 ) );
-					if ( $optgroup ) {
-						$options .= self::closeElement( 'optgroup' );
-					}
-					$options .= self::openElement( 'optgroup', array( 'label' => $value ) );
-					$optgroup = true;
-				} elseif ( substr( $value, 0, 2 ) == '**' ) {
-					// groupmember
-					$value = trim( substr( $value, 2 ) );
-					$options .= self::option( $value, $value, $selected === $value );
-				} else {
-					// groupless reason list
-					if ( $optgroup ) {
-						$options .= self::closeElement( 'optgroup' );
-					}
-					$options .= self::option( $value, $value, $selected === $value );
-					$optgroup = false;
+			$value = trim( $option );
+			if ( $value == '' ) {
+				continue;
+			} elseif ( substr( $value, 0, 1 ) == '*' && substr( $value, 1, 1 ) != '*' ) {
+				// A new group is starting ...
+				$value = trim( substr( $value, 1 ) );
+				if ( $optgroup ) {
+					$options .= self::closeElement( 'optgroup' );
 				}
+				$options .= self::openElement( 'optgroup', array( 'label' => $value ) );
+				$optgroup = true;
+			} elseif ( substr( $value, 0, 2 ) == '**' ) {
+				// groupmember
+				$value = trim( substr( $value, 2 ) );
+				$options .= self::option( $value, $value, $selected === $value );
+			} else {
+				// groupless reason list
+				if ( $optgroup ) {
+					$options .= self::closeElement( 'optgroup' );
+				}
+				$options .= self::option( $value, $value, $selected === $value );
+				$optgroup = false;
 			}
+		}
 
-			if ( $optgroup ) {
-				$options .= self::closeElement( 'optgroup' );
-			}
+		if ( $optgroup ) {
+			$options .= self::closeElement( 'optgroup' );
+		}
 
 		$attribs = array();
 
@@ -679,13 +679,15 @@ class Xml {
 	/**
 	 * Check if a string is well-formed XML.
 	 * Must include the surrounding tag.
+	 * This function is a DoS vector if an attacker can define
+	 * entities in $text.
 	 *
 	 * @param string $text string to test.
 	 * @return bool
 	 *
 	 * @todo Error position reporting return
 	 */
-	public static function isWellFormed( $text ) {
+	private static function isWellFormed( $text ) {
 		$parser = xml_parser_create( "UTF-8" );
 
 		# case folding violates XML standard, turn it off
@@ -901,7 +903,7 @@ class XmlSelect {
 	 * label => value
 	 * label => ( label => value, label => value )
 	 *
-	 * @param  $options
+	 * @param $options
 	 */
 	public function addOptions( $options ) {
 		$this->options[] = $options;
@@ -912,7 +914,7 @@ class XmlSelect {
 	 * label => value
 	 * label => ( label => value, label => value )
 	 *
-	 * @param  $options
+	 * @param $options
 	 * @param bool $default
 	 * @return string
 	 */

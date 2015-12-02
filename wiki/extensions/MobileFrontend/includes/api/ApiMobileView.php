@@ -4,9 +4,10 @@ class ApiMobileView extends ApiBase {
 	/**
 	 * Increment this when changing the format of cached data
 	 */
-	const CACHE_VERSION = 5;
+	const CACHE_VERSION = 7;
 
-	private $followRedirects, $noHeadings, $mainPage, $noTransform, $variant, $offset, $maxlen;
+	private $followRedirects, $noHeadings, $mainPage, $noTransform, $variant, $offset, $maxlen,
+		$usePageImages;
 
 	/**
 	 * @var File
@@ -14,6 +15,7 @@ class ApiMobileView extends ApiBase {
 	private $file;
 
 	public function __construct( $main, $action ) {
+		$this->usePageImages = defined( 'PAGE_IMAGES_INSTALLED' );
 		parent::__construct( $main, $action );
 	}
 
@@ -27,7 +29,9 @@ class ApiMobileView extends ApiBase {
 		$this->getMain()->setCacheMode( 'anon-public-user-private' );
 
 		// Enough '*' keys in JSON!!!
-		$textElement = $this->getMain()->getPrinter()->getFormat() == 'XML' ? '*' : 'text';
+		$isXml = $this->getMain()->isInternalMode()
+			|| $this->getMain()->getPrinter()->getFormat() == 'XML';
+		$textElement = $isXml ? '*' : 'text';
 		$params = $this->extractRequestParams();
 
 		$prop = array_flip( $params['prop'] );
@@ -36,6 +40,7 @@ class ApiMobileView extends ApiBase {
 		$this->followRedirects = $params['redirect'] == 'yes';
 		$this->noHeadings = $params['noheadings'];
 		$this->noTransform = $params['notransform'];
+		$onlyRequestedSections = $params['onlyrequestedsections'];
 		$this->offset = $params['offset'];
 		$this->maxlen = $params['maxlen'];
 
@@ -45,16 +50,7 @@ class ApiMobileView extends ApiBase {
 			$this->maxlen = PHP_INT_MAX;
 		}
 
-		$title = Title::newFromText( $params['page'] );
-		if ( !$title ) {
-			$this->dieUsageMsg( array( 'invalidtitle', $params['page'] ) );
-		}
-		if ( $title->inNamespace( NS_FILE ) ) {
-			$this->file = wfFindFile( $title );
-		}
-		if ( !$title->exists() && !$this->file ) {
-			$this->dieUsageMsg( array( 'notanarticle', $params['page'] ) );
-		}
+		$title = $this->makeTitle( $params['page'] );
 		$this->mainPage = $title->isMainPage();
 		if ( $this->mainPage && $this->noHeadings ) {
 			$this->noHeadings = false;
@@ -71,19 +67,57 @@ class ApiMobileView extends ApiBase {
 				array( 'lastmodified' => $data['lastmodified'] )
 			);
 		}
+		if ( isset( $prop['lastmodifiedby'] ) ) {
+			$this->getResult()->addValue( null, $this->getModuleName(),
+				array( 'lastmodifiedby' => $data['lastmodifiedby'] )
+			);
+		}
+		if ( isset( $prop['revision'] ) ) {
+			$this->getResult()->addValue( null, $this->getModuleName(),
+				array( 'revision' => $data['revision'] )
+			);
+		}
+		if ( isset( $prop['id'] ) ) {
+			$this->getResult()->addValue( null, $this->getModuleName(),
+				array( 'id' => $data['id'] )
+			);
+		}
+		if ( isset( $prop['languagecount'] ) ) {
+			$this->getResult()->addValue( null, $this->getModuleName(),
+				array( 'languagecount' => $data['languagecount'] )
+			);
+		}
+		if ( isset( $prop['hasvariants'] ) && isset( $data['hasvariants'] ) ) {
+			$this->getResult()->addValue( null, $this->getModuleName(),
+				array( 'hasvariants' => $data['hasvariants'] )
+			);
+		}
+		if ( isset( $prop['displaytitle'] ) ) {
+			$this->getResult()->addValue( null, $this->getModuleName(),
+				array( 'displaytitle' => $data['displaytitle'] )
+			);
+		}
+		if ( $this->usePageImages ) {
+			$this->addPageImage( $data, $prop, $params['thumbsize'] );
+		}
 		$result = array();
 		$missingSections = array();
-		$requestedSections = isset( $params['sections'] )
-			? $this->parseSections( $params['sections'], $data )
-			: array();
 		if ( $this->mainPage ) {
 			$requestedSections = array( 0 );
 			$this->getResult()->addValue( null, $this->getModuleName(),
 				array( 'mainpage' => '' )
 			);
+		} elseif ( isset( $params['sections'] ) ) {
+			$requestedSections = self::parseSections( $params['sections'], $data, $missingSections );
+		} else {
+			$requestedSections = array();
 		}
 		if ( isset( $prop['sections'] ) ) {
-			for ( $i = 0; $i <= count( $data['sections'] ); $i++ ) {
+			$sectionCount = count( $data['sections'] );
+			for ( $i = 0; $i <= $sectionCount; $i++ ) {
+				if ( !isset( $requestedSections[$i] ) && $onlyRequestedSections ) {
+					continue;
+				}
 				$section = array();
 				if ( $i > 0 ) {
 					$section = array_intersect_key( $data['sections'][$i - 1], $sectionProp );
@@ -98,20 +132,26 @@ class ApiMobileView extends ApiBase {
 				}
 				$result[] = $section;
 			}
-			$missingSections = $requestedSections;
+			$missingSections = array_keys( $requestedSections );
 		} else {
 			foreach ( array_keys( $requestedSections ) as $index ) {
 				$section = array( 'id' => $index );
 				if ( isset( $data['text'][$index] ) ) {
-					$section[$textElement] = $this->stringSplitter( $data['text'][$index] );
+					$section[$textElement] =
+						$this->stringSplitter( $this->prepareSection( $data['text'][$index] ) );
 				} else {
 					$missingSections[] = $index;
 				}
 				$result[] = $section;
 			}
 		}
+
+		if ( isset( $prop['protection'] ) ) {
+			$this->addProtection( $title );
+		}
 		// https://bugzilla.wikimedia.org/show_bug.cgi?id=51586
-		// Inform ppl if the page is infested with LiquidThreads but that's the only thing we support about it.
+		// Inform ppl if the page is infested with LiquidThreads but that's the
+		// only thing we support about it.
 		if ( class_exists( 'LqtDispatch' ) && LqtDispatch::isLqtPage( $title ) ) {
 			$this->getResult()->addValue( null, $this->getModuleName(),
 				array( 'liquidthreads' => '' )
@@ -130,6 +170,26 @@ class ApiMobileView extends ApiBase {
 		$this->getResult()->addValue( null, $this->getModuleName(), array( 'sections' => $result ) );
 
 		wfProfileOut( __METHOD__ );
+	}
+
+	/**
+	 * Creates and validates a title
+	 *
+	 * @param string$name
+	 * @return Title
+	 */
+	protected function makeTitle( $name ) {
+		$title = Title::newFromText( $name );
+		if ( !$title ) {
+			$this->dieUsageMsg( array( 'invalidtitle', $name ) );
+		}
+		if ( $title->inNamespace( NS_FILE ) ) {
+			$this->file = wfFindFile( $title );
+		}
+		if ( !$title->exists() && !$this->file ) {
+			$this->dieUsageMsg( array( 'notanarticle', $name ) );
+		}
+		return $title;
 	}
 
 	private function stringSplitter( $text ) {
@@ -163,27 +223,114 @@ class ApiMobileView extends ApiBase {
 		return trim( $html );
 	}
 
-	private function parseSections( $str, $data ) {
-		if ( trim( $str ) == 'all' ) {
-			return range( 0, count( $data['sections'] ) );
+	/**
+	 * Parses requested sections string into a list of sections
+	 *
+	 * @param string $str: String to parse
+	 * @param array $data: Processed parser output
+	 * @param array $missingSections: Upon return, contains the list of sections that were
+	 *                                requested but are not present in parser output
+	 *
+	 * @return array
+	 */
+	public static function parseSections( $str, $data, &$missingSections ) {
+		$str = trim( $str );
+		$sectionCount = count( $data['sections'] );
+		if ( $str === 'all' ) {
+			return range( 0, $sectionCount );
 		}
-		$sections = array_flip( array_map( 'trim', explode( '|', $str ) ) );
-		if ( isset( $sections['references'] ) ) {
-			unset( $sections['references'] );
-			$sections += $data['refsections'];
+		$sections = array_map( 'trim', explode( '|', $str ) );
+		$ret = array();
+		foreach ( $sections as $sec ) {
+			if ( $sec === '' ) {
+				continue;
+			}
+			if ( $sec === 'references' ) {
+				$ret = array_merge( $ret, array_keys( $data['refsections'] ) );
+				continue;
+			}
+			$val = intval( $sec );
+			if ( strval( $val ) === $sec ) {
+				if ( $val >= 0 && $val <= $sectionCount ) {
+					$ret[] = $val;
+					continue;
+				}
+			} else {
+				$parts = explode( '-', $sec );
+				if ( count( $parts ) === 2 ) {
+					$from = intval( $parts[0] );
+					if ( strval( $from ) === $parts[0] && $from >= 0 && $from <= $sectionCount ) {
+						if ( $parts[1] === '' ) {
+							$ret = array_merge( $ret, range( $from, $sectionCount ) );
+							continue;
+						}
+						$to = intval( $parts[1] );
+						if ( strval( $to ) === $parts[1] ) {
+							$ret = array_merge( $ret, range( $from, $to ) );
+							continue;
+						}
+					}
+				}
+			}
+			$missingSections[] = $sec;
 		}
-		return $sections;
+		$ret = array_unique( $ret );
+		sort( $ret );
+		return array_flip( $ret );
+	}
+
+	/**
+	 * Performs a page parse
+	 *
+	 * @param WikiPage $wp
+	 * @param ParserOptions $parserOptions
+	 * @return ParserOutput
+	 */
+	protected function getParserOutput( WikiPage $wp, ParserOptions $parserOptions ) {
+		wfProfileIn( __METHOD__ );
+		$time = microtime( true );
+		$parserOutput = $wp->getParserOutput( $parserOptions );
+		$time = microtime( true ) - $time;
+		if ( !$parserOutput ) {
+			wfDebugLog( 'mobile', "Empty parser output on '{$wp->getTitle()->getPrefixedText()}'" .
+				": rev {$wp->getId()}, time $time" );
+			throw new MWException( __METHOD__ . ": PoolCounter didn't return parser output" );
+		}
+		$parserOutput->setTOCEnabled( false );
+		wfProfileOut( __METHOD__ );
+		return $parserOutput;
+	}
+
+	/**
+	 * Creates a WikiPage from title
+	 *
+	 * @param Title $title
+	 * @return WikiPage
+	 */
+	protected function makeWikiPage( Title $title ) {
+		return WikiPage::factory( $title );
+	}
+
+	/**
+	 * Creates a ParserOptions instance
+	 *
+	 * @param WikiPage $wp
+	 *
+	 * @return ParserOptions
+	 */
+	protected function makeParserOptions( WikiPage $wp ) {
+		return $wp->makeParserOptions( $this );
 	}
 
 	private function getData( Title $title, $noImages ) {
-		global $wgMemc, $wgUseTidy, $wgMFMinCachedPageSize;
+		global $wgMemc, $wgUseTidy, $wgMFTidyMobileViewSections, $wgMFMinCachedPageSize;
 
 		wfProfileIn( __METHOD__ );
-		$wp = WikiPage::factory( $title );
+		$wp = $this->makeWikiPage( $title );
 		if ( $this->followRedirects && $wp->isRedirect() ) {
 			$newTitle = $wp->getRedirectTarget();
 			if ( $newTitle ) {
-				$wp = WikiPage::factory( $newTitle );
+				$wp = $this->makeWikiPage( $newTitle );
 				$this->getResult()->addValue( null, $this->getModuleName(),
 					array( 'redirected' => $newTitle->getPrefixedText() )
 				);
@@ -201,34 +348,36 @@ class ApiMobileView extends ApiBase {
 				$latest, $this->noTransform, $this->file->getSha1(), $this->variant );
 			$cacheExpiry = 3600;
 		} else {
-			$parserOptions = $wp->makeParserOptions( $this );
+			$parserOptions = $this->makeParserOptions( $wp );
 			$parserCacheKey = ParserCache::singleton()->getKey( $wp, $parserOptions );
-			$key = wfMemcKey( 'mf', 'mobileview', self::CACHE_VERSION, $noImages, $latest, $this->noTransform, $parserCacheKey );
+			$key = wfMemcKey(
+				'mf',
+				'mobileview',
+				self::CACHE_VERSION,
+				$noImages,
+				$latest,
+				$this->noTransform,
+				$parserCacheKey
+			);
 		}
 		$data = $wgMemc->get( $key );
 		if ( $data ) {
+			wfIncrStats( 'mobile.view.cache-hit' );
 			wfProfileOut( __METHOD__ );
 			return $data;
 		}
+		wfIncrStats( 'mobile.view.cache-miss' );
 		if ( $this->file ) {
 			$html = $this->getFilePage( $title );
 		} else {
-			wfProfileIn( __METHOD__ . '-parserOutput' );
-			$time = microtime( true );
-			$parserOutput = $wp->getParserOutput( $parserOptions );
-			$time = microtime( true ) - $time;
-			if ( !$parserOutput ) {
-				wfDebugLog( 'mobile', "Empty parser output on '{$title->getPrefixedText()}': rev $latest, time $time, cache key $key" );
-				throw new MWException( __METHOD__ . ": PoolCounter didn't return parser output" );
-			}
+			$parserOutput = $this->getParserOutput( $wp, $parserOptions );
 			$html = $parserOutput->getText();
 			$cacheExpiry = $parserOutput->getCacheExpiry();
-			wfProfileOut( __METHOD__ . '-parserOutput' );
 		}
 
 		wfProfileIn( __METHOD__ . '-MobileFormatter' );
 		if ( !$this->noTransform ) {
-			$mf = new MobileFormatterHTML( MobileFormatter::wrapHTML( $html ), $title );
+			$mf = new MobileFormatter( MobileFormatter::wrapHTML( $html ), $title );
 			$mf->setRemoveMedia( $noImages );
 			$mf->filterContent();
 			$mf->setIsMainPage( $this->mainPage );
@@ -241,18 +390,20 @@ class ApiMobileView extends ApiBase {
 				'sections' => array(),
 				'text' => array( $html ),
 				'refsections' => array(),
-				'lastmodified' => $wp->getTimestamp(),
 			);
 		} else {
 			wfProfileIn( __METHOD__ . '-sections' );
 			$data = array();
 			$data['sections'] = $parserOutput->getSections();
-			for ( $i = 0; $i < count( $data['sections'] ); $i++ ) {
-				$data['sections'][$i]['line'] = $title->getPageLanguage()->convert( $data['sections'][$i]['line'] );
+			$sectionCount = count( $data['sections'] );
+			for ( $i = 0; $i < $sectionCount; $i++ ) {
+				$data['sections'][$i]['line'] =
+					$title->getPageLanguage()->convert( $data['sections'][$i]['line'] );
 			}
 			$chunks = preg_split( '/<h(?=[1-6]\b)/i', $html );
 			if ( count( $chunks ) != count( $data['sections'] ) + 1 ) {
-				wfDebugLog( 'mobile', __METHOD__ . "(): mismatching number of sections from parser and split on page {$title->getPrefixedText()}, oldid=$latest" );
+				wfDebugLog( 'mobile', __METHOD__ . "(): mismatching number of " .
+					"sections from parser and split on page {$title->getPrefixedText()}, oldid=$latest" );
 				// We can't be sure about anything here, return all page HTML as one big section
 				$chunks = array( $html );
 				$data['sections'] = array();
@@ -263,7 +414,7 @@ class ApiMobileView extends ApiBase {
 				if ( count( $data['text'] ) ) {
 					$chunk = "<h$chunk";
 				}
-				if ( $wgUseTidy && count( $chunks ) > 1 ) {
+				if ( $wgUseTidy && $wgMFTidyMobileViewSections && count( $chunks ) > 1 ) {
 					wfProfileIn( __METHOD__ . '-tidy' );
 					$chunk = MWTidy::tidy( $chunk );
 					wfProfileOut( __METHOD__ . '-tidy' );
@@ -273,10 +424,45 @@ class ApiMobileView extends ApiBase {
 				}
 				$data['text'][] = $chunk;
 			}
-			$data['lastmodified'] = $wp->getTimestamp();
-
+			if ( $this->usePageImages ) {
+				$image = PageImages::getPageImage( $title );
+				if ( $image ) {
+					$data['image'] = $image->getTitle()->getText();
+				}
+			}
 			wfProfileOut( __METHOD__ . '-sections' );
 		}
+
+		$data['lastmodified'] = wfTimestamp( TS_ISO_8601, $wp->getTimestamp() );
+
+		// Page id
+		$data['id'] = $wp->getId();
+		$user = User::newFromId( $wp->getUser() );
+		if( !$user->isAnon() ) {
+			$data['lastmodifiedby'] = array(
+				'name' => $wp->getUserText(),
+				'gender' => $user->getOption( 'gender' ),
+			);
+		}
+		$data['revision'] = $title->getLatestRevID();
+
+		if ( $parserOutput ) {
+			$languages = $parserOutput->getLanguageLinks();
+			$data['languagecount'] = count( $languages );
+		} else {
+			$data['languagecount'] = 0;
+		}
+
+		if ( $title->getPageLanguage()->hasVariants() ) {
+			$data['hasvariants'] = true;
+		}
+
+		if ( $parserOutput ) {
+			$data['displaytitle'] = $parserOutput->getDisplayTitle();
+		} else {
+			$data['displaytitle'] = $title->getPrefixedText();
+		}
+
 		// Don't store small pages to decrease cache size requirements
 		if ( strlen( $html ) >= $wgMFMinCachedPageSize ) {
 			// store for the same time as original parser output
@@ -298,8 +484,73 @@ class ApiMobileView extends ApiBase {
 		return $html;
 	}
 
+	/**
+	 * Adds PageImages information
+	 * @param array $data: whatever getData() returned
+	 * @param array $prop: prop parameter value
+	 * @param int $size: thumbnail size
+	 */
+	private function addPageImage( array $data, array $prop, $size ) {
+		if ( !isset( $prop['image'] ) && !isset( $prop['thumb'] ) ) {
+			return;
+		}
+		if ( !isset( $data['image'] ) ) {
+			return;
+		}
+		$file = wfFindFile( $data['image'] );
+		if ( !$file ) {
+			return;
+		}
+		$result = $this->getResult();
+		if ( isset( $prop['image'] ) ) {
+			$result->addValue( null, $this->getModuleName(),
+				array( 'image' =>
+					array(
+						'file' => $data['image'],
+						'width' => $file->getWidth(),
+						'height' => $file->getHeight(),
+					)
+				)
+			);
+		}
+		if ( isset( $prop['thumb'] ) ) {
+			$thumb = $file->transform( array( 'width' => $size, 'height' => $size ) );
+			if ( !$thumb ) {
+				return;
+			}
+			$result->addValue( null, $this->getModuleName(),
+				array( 'thumb' =>
+					array(
+						'url' => $thumb->getUrl(),
+						'width' => $thumb->getWidth(),
+						'height' => $thumb->getHeight(),
+					)
+				)
+			);
+		}
+	}
+
+	/**
+	 * Adds protection information
+	 * @param Title $title
+	 */
+	private function addProtection( Title $title ) {
+		$result = $this->getResult();
+		$protection = array();
+		foreach ( $title->getRestrictionTypes() as $type ) {
+			$levels = $title->getRestrictions( $type );
+			if ( $levels ) {
+				$protection[$type] = $levels;
+				$result->setIndexedTagName( $protection[$type], 'level' );
+			}
+		}
+		$result->addValue( null, $this->getModuleName(),
+			array( 'protection' => $protection )
+		);
+	}
+
 	public function getAllowedParams() {
-		return array(
+		$res = array(
 			'page' => array(
 				ApiBase::PARAM_REQUIRED => true,
 			),
@@ -312,10 +563,17 @@ class ApiMobileView extends ApiBase {
 				ApiBase::PARAM_DFLT => 'text|sections|normalizedtitle',
 				ApiBase::PARAM_ISMULTI => true,
 				ApiBase::PARAM_TYPE => array(
+					'id',
 					'text',
 					'sections',
 					'normalizedtitle',
 					'lastmodified',
+					'lastmodifiedby',
+					'revision',
+					'protection',
+					'languagecount',
+					'hasvariants',
+					'displaytitle',
 				)
 			),
 			'sectionprop' => array(
@@ -338,6 +596,7 @@ class ApiMobileView extends ApiBase {
 			'noimages' => false,
 			'noheadings' => false,
 			'notransform' => false,
+			'onlyrequestedsections' => false,
 			'offset' => array(
 				ApiBase::PARAM_TYPE => 'integer',
 				ApiBase::PARAM_MIN => 0,
@@ -349,29 +608,59 @@ class ApiMobileView extends ApiBase {
 				ApiBase::PARAM_DFLT => 0,
 			),
 		);
+		if ( $this->usePageImages ) {
+			$res['prop'][ApiBase::PARAM_TYPE][] = 'image';
+			$res['prop'][ApiBase::PARAM_TYPE][] = 'thumb';
+			$res['thumbsize'] = array(
+				ApiBase::PARAM_TYPE => 'integer',
+				ApiBase::PARAM_MIN => 0,
+				ApiBase::PARAM_DFLT => 50,
+			);
+		}
+		return $res;
 	}
 
 	public function getParamDescription() {
-		return array(
+		$res = array(
+			'id' => 'Id of the page',
 			'page' => 'Title of page to process',
 			'redirect' => 'Whether redirects should be followed',
-			'sections' => "Pipe-separated list of section numbers for which to return text or `all' to return for all. "
-				. "`references' can be used to specify that all sections containing references should be returned.",
+			'sections' => array(
+				'Pipe-separated list of section numbers for which to return text.',
+				" `all' can be used to return for all. Ranges in format '1-4' mean get sections 1,2,3,4.",
+				" Ranges without second number, e.g. '1-' means get all until the end.",
+				" `references' can be used to specify that all sections containing references",
+				" should be returned."
+			),
 			'prop' => array(
 				'Which information to get',
 				' text            - HTML of selected section(s)',
 				' sections        - information about all sections on page',
 				' normalizedtitle - normalized page title',
 				' lastmodified    - MW timestamp for when the page was last modified, e.g. "20130730174438"',
+				' lastmodifiedby  - information about the user who modified the page last',
+				' revision        - return the current revision id of the page',
+				' protection      - information about protection level',
+				' languagecount   - number of languages that the page is available in',
+				' hasvariants     - whether or not the page is available in other language variants',
+				' displaytitle    - the rendered title of the page, with {{DISPLAYTITLE}} and such applied'
 			),
 			'sectionprop' => 'What information about sections to get',
 			'variant' => "Convert content into this language variant",
 			'noimages' => 'Return HTML without images',
 			'noheadings' => "Don't include headings in output",
 			'notransform' => "Don't transform HTML into mobile-specific version",
-			'offset' => 'Pretend all text result is one string, and return the substring starting at this point',
+			'onlyrequestedsections' => 'Return only requested sections even with prop=sections',
+			'offset' =>
+				'Pretend all text result is one string, and return the substring starting at this point',
 			'maxlen' => 'Pretend all text result is one string, and limit result to this length',
 		);
+		if ( $this->usePageImages ) {
+			$res['prop'][] = ' image           - information about an image associated with this page';
+			$res['prop'][] = ' thumb           - thumbnail of an image associated with this page';
+			$res['thumbsize'] = 'Maximum thumbnail dimensions';
+		}
+		return $res;
 	}
 
 	public function getDescription() {
@@ -382,15 +671,11 @@ class ApiMobileView extends ApiBase {
 		return array(
 			'api.php?action=mobileview&page=Doom_metal&sections=0',
 			'api.php?action=mobileview&page=Candlemass&sections=0|references',
+			'api.php?action=mobileview&page=Candlemass&sections=1-|references',
 		);
 	}
 
 	public function getHelpUrls() {
 		return 'https://www.mediawiki.org/wiki/Extension:MobileFrontend#action.3Dmobileview';
 	}
-
-	public function getVersion() {
-		return __CLASS__ . ': $Id$';
-	}
-
 }

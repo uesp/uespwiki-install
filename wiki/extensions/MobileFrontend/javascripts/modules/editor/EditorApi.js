@@ -6,15 +6,16 @@
 			this._super( options );
 			this.title = options.title;
 			this.sectionId = options.sectionId;
+			this.oldId = options.oldId;
 			// return an empty section for new pages
-			this.content = options.isNew ? '' : null;
+			this.content = options.isNewPage ? '' : undefined;
 			this.hasChanged = false;
 		},
 
 		getContent: function() {
 			var self = this, result = $.Deferred(), options;
 
-			if ( this.content !== null ) {
+			if ( this.content !== undefined ) {
 				result.resolve( this.content );
 			} else {
 				options = {
@@ -23,6 +24,10 @@
 					rvprop: [ 'content', 'timestamp' ],
 					titles: this.title
 				};
+				// Load text of old revision if desired
+				if ( this.oldId ) {
+					options.rvstartid = this.oldId;
+				}
 				// See Bug 50136 - passing rvsection will fail with non wikitext
 				if ( $.isNumeric( this.sectionId ) ) {
 					options.rvsection = this.sectionId;
@@ -62,6 +67,17 @@
 		},
 
 		/**
+		 * Mark content as modified and set text that should be prepended to given
+		 * section when #save is invoked.
+		 *
+		 * @param text String Text to be prepended.
+		 */
+		setPrependText: function( text ) {
+			this.prependtext = text;
+			this.hasChanged = true;
+		},
+
+		/**
 		 * Save the new content of the section, previously set using #setContent.
 		 *
 		 * @param [options.summary] String Optional summary for the edit.
@@ -85,7 +101,6 @@
 				var apiOptions = {
 					action: 'edit',
 					title: self.title,
-					text: self.content,
 					summary: options.summary,
 					captchaid: options.captchaId,
 					captchaword: options.captchaWord,
@@ -93,6 +108,12 @@
 					basetimestamp: self.timestamp,
 					starttimestamp: self.timestamp
 				};
+
+				if ( self.content !== undefined ) {
+					apiOptions.text = self.content;
+				} else if ( self.prependtext ) {
+					apiOptions.prependtext = self.prependtext;
+				}
 
 				if ( $.isNumeric( self.sectionId ) ) {
 					apiOptions.section = self.sectionId;
@@ -140,10 +161,36 @@
 					} else {
 						result.reject( { type: 'error', details: 'unknown' } );
 					}
-				} ).fail( $.proxy( result, 'reject', { type: 'error', details: 'HTTP error' } ) );
+				} ).fail( $.proxy( result, 'reject', { type: 'error', details: 'http' } ) );
 			}
 
 			this.getToken().done( saveContent ).fail( $.proxy( result, 'reject' ) );
+
+			return result;
+		},
+
+		getPreview: function( options ) {
+			var result = $.Deferred();
+
+			$.extend( options, {
+				action: 'parse',
+				// Enable section preview mode to avoid errors (bug 49218)
+				sectionpreview: true,
+				// needed for pre-save transform to work (bug 53692)
+				pst: true,
+				// Output mobile HTML (bug 54243)
+				mobileformat: true,
+				title: this.title,
+				prop: 'text'
+			} );
+
+			this.post( options ).done( function( resp ) {
+				if ( resp && resp.parse && resp.parse.text ) {
+					result.resolve( resp.parse.text['*'] );
+				} else {
+					result.reject();
+				}
+			} ).fail( $.proxy( result, 'reject' ) );
 
 			return result;
 		}

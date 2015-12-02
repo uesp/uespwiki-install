@@ -21,6 +21,12 @@ $specialPageAliases['ar'] = array(
 	'DisambiguationPageLinks' => array( 'وصلات_صفحات_توضيح' ),
 );
 
+/** Egyptian Spoken Arabic (مصرى) */
+$specialPageAliases['arz'] = array(
+	'DisambiguationPages' => array( 'صفحات_توضيح' ),
+	'DisambiguationPageLinks' => array( 'وصلات_صفحات_توضيح' ),
+);
+
 /** Min Dong Chinese (Mìng-dĕ̤ng-ngṳ̄) */
 $specialPageAliases['cdo'] = array(
 	'DisambiguationPages' => array( '消除歧義頁面' ),
@@ -55,6 +61,18 @@ $specialPageAliases['fa'] = array(
 $specialPageAliases['gl'] = array(
 	'DisambiguationPages' => array( 'Páxinas_de_homónimos' ),
 	'DisambiguationPageLinks' => array( 'Ligazóns_cara_a_páxinas_de_homónimos' ),
+);
+
+/** Hebrew (עברית) */
+$specialPageAliases['he'] = array(
+	'DisambiguationPages' => array( 'דפי_פירושונים' ),
+	'DisambiguationPageLinks' => array( 'דפים_המקשרים_לדפי_פירושונים' ),
+);
+
+/** Italian (italiano) */
+$specialPageAliases['it'] = array(
+	'DisambiguationPages' => array( 'PagineDisambiguazione' ),
+	'DisambiguationPageLinks' => array( 'CollegamentiPagineDisambiguazione' ),
 );
 
 /** Japanese (日本語) */
@@ -111,6 +129,12 @@ $specialPageAliases['pt'] = array(
 	'DisambiguationPageLinks' => array( 'Links_para_páginas_de_desambiguação' ),
 );
 
+/** Swedish (svenska) */
+$specialPageAliases['sv'] = array(
+	'DisambiguationPages' => array( 'Förgreningssidor' ),
+	'DisambiguationPageLinks' => array( 'Sidor_som_länkar_till_förgreningssidor' ),
+);
+
 /** Ukrainian (українська) */
 $specialPageAliases['uk'] = array(
 	'DisambiguationPages' => array( 'Сторінки_тлумачення_неоднозначності' ),
@@ -133,4 +157,10 @@ $specialPageAliases['vi'] = array(
 $specialPageAliases['zh-hans'] = array(
 	'DisambiguationPages' => array( '消歧义页面' ),
 	'DisambiguationPageLinks' => array( '链接到消歧义页的页面' ),
+);
+
+/** Traditional Chinese (中文（繁體）‎) */
+$specialPageAliases['zh-hant'] = array(
+	'DisambiguationPages' => array( '消歧義頁' ),
+	'DisambiguationPageLinks' => array( '消歧義頁連接' ),
 );

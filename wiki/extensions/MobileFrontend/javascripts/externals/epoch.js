@@ -3,16 +3,17 @@ window.History = {
 		bind: function() {},
 		trigger: function() {}
 	},
-	enabled: false,
-	history: window.history
+	enabled: false
 };
 
 ( function( H, $ ) {
-	var lastState, currentState, h = H.history;
+	var lastState, currentState, h = window.history;
 
 	function isBrowserSupported( ua ) {
 		// http://caniuse.com/history
 		return (
+			// Firefox 4.0+
+			ua.match( /Firefox\/[4-9]\.|Firefox\/[1-9][1-9]*\./ ) ||
 			// Chrome browser 5-9
 			ua.match( /Chrome\/[5-9]\./ ) ||
 			// Chrome 10+

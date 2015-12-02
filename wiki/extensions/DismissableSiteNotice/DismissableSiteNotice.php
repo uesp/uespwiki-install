@@ -12,6 +12,7 @@ $wgExtensionCredits['other'][] = array(
 	'url' => 'https://www.mediawiki.org/wiki/Extension:DismissableSiteNotice',
 );
 
+$wgMessagesDirs['DismissableSiteNotice'] = __DIR__ . '/i18n';
 $wgExtensionMessagesFiles['DismissableSiteNotice'] = __DIR__ . '/DismissableSiteNotice.i18n.php';
 
 $wgResourceModules['ext.dismissableSiteNotice'] = array(
@@ -26,6 +27,11 @@ $wgResourceModules['ext.dismissableSiteNotice'] = array(
 	'position' => 'top',
 );
 
+/**
+ * @param string $notice
+ * @param Skin $skin
+ * @return bool true
+ */
 $wgHooks['SiteNoticeAfter'][] = function( &$notice, $skin ) {
 	global $wgMajorSiteNoticeID;
 

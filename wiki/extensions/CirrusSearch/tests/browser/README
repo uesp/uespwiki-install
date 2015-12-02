@@ -72,8 +72,8 @@ Then add this to your LocalSettings.php:
 
 Finally, go back to the console:
  php CirrusSearch/maintenance/updateSearchIndexConfig.php
- php CirrusSearch/maintenance/forceSearchIndex.php --forceUpdate --skipLinks --indexOnSkip
- php CirrusSearch/maintenance/forceSearchIndex.php --forceUpdate --skipParse
+ php CirrusSearch/maintenance/forceSearchIndex.php --skipLinks --indexOnSkip
+ php CirrusSearch/maintenance/forceSearchIndex.php --skipParse
  popd
  sudo /etc/init.d/apache2 restart
 
@@ -93,21 +93,21 @@ And add an Elasticsearch server, for example:
 
 If you want to test with Redis (it is better) add this to LocalSettings.php and
 installl Redis:
- $wgRedisPassword = 'Q6dzak4k9vjYjh341fHS';
+ $redisPassword = 'Q6dzak4k9vjYjh341fHS';
  $wgJobTypeConf['default'] = array(
 	'class' => 'JobQueueRedis',
 	'order' => 'fifo',
 	'redisServer' => 'localhost',
 	'checkDelay' => true,
 	'redisConfig' => array(
-		'password' => $wgRedisPassword,
+		'password' => $redisPassword,
 	),
  );
  $wgJobQueueAggregator = array(
 	'class'       => 'JobQueueAggregatorRedis',
 	'redisServer' => 'localhost',
 	'redisConfig' => array(
-		'password' => $wgRedisPassword,
+		'password' => $redisPassword,
 			),
  );
 

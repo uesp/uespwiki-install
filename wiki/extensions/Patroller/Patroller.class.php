@@ -109,7 +109,7 @@ class Patroller extends SpecialPage {
 		global $wgUser, $wgOut;
 		$edit->counter = 1;
 		$edit->mAttribs['rc_patrolled'] = 1;
-		$list = ChangesList::newFromUser( $wgUser );
+		$list = ChangesList::newFromContext( $this->getContext() );
 		$wgOut->addHTML( $list->beginRecentChangesList() .
 						 $list->recentChangesLine( $edit ) .
 						 $list->endRecentChangesList() );

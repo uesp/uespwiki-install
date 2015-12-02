@@ -16,7 +16,7 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 }
 
 	// All wiki related passwords and other secrets not intended for public release
-require '/home/uesp/secrets/wiki.secrets';
+require '/home/uesp/secrets/wiki-new.secrets';
 
 ## Uncomment this to disable output compression
 # $wgDisableOutputCompression = true;
@@ -195,7 +195,7 @@ require_once "$IP/extensions/Disambiguator/Disambiguator.php";
 require_once "$IP/extensions/DismissableSiteNotice/DismissableSiteNotice.php";
 require_once "$IP/extensions/DynamicFunctions/DynamicFunctions.php";
 require_once "$IP/extensions/Editcount/Editcount.php";
-require_once "$IP/extensions/ExpandTemplates/ExpandTemplates.php";
+# require_once "$IP/extensions/ExpandTemplates/ExpandTemplates.php";
 require_once "$IP/extensions/Gadgets/Gadgets.php";
 require_once "$IP/extensions/ImageMap/ImageMap.php";
 require_once "$IP/extensions/InputBox/InputBox.php";
@@ -213,7 +213,7 @@ require_once "$IP/extensions/qwebirChat/qwebirChat.php";
 require_once "$IP/extensions/RegexFunctions/RegexFunctions.php";
 require_once "$IP/extensions/Renameuser/SpecialRenameuser.php";
 # require_once "$IP/extensions/SearchLog/SearchLog.php";
-require_once "$IP/extensions/SimpleAntiSpam/SimpleAntiSpam.php";
+# require_once "$IP/extensions/SimpleAntiSpam/SimpleAntiSpam.php";
 require_once "$IP/extensions/SpamBlacklist/SpamBlacklist.php";
 $wgSpamBlacklistFiles = array( "DB: uesp_net_wiki5 UESPWiki:Spam_Blacklist" );
 require_once "$IP/extensions/StringFunctions/StringFunctions.php";
@@ -245,7 +245,7 @@ require_once "$IP/skins/UespMonoBook/UespMonoBook.php";
 
 require_once( "$IP/extensions/Elastica/Elastica.php");
 require_once( "$IP/extensions/CirrusSearch/CirrusSearch.php" );
-# $wgDisableSearchUpdate = true;
+$wgDisableSearchUpdate = true;
 $wgCirrusSearchServers = array( $UESP_SERVER_SEARCH );
 $wgSearchType = 'CirrusSearch';
 

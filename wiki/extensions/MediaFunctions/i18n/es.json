@@ -1,0 +1,10 @@
+{
+    "@metadata": {
+        "authors": [
+            "Sanbec"
+        ]
+    },
+    "mediafunctions-desc": "Funciones para obtener información sobre ficheros de imagen y sonido",
+    "mediafunctions-invalid-title": "«$1» no es un título válido",
+    "mediafunctions-not-exist": "«$1» no existe"
+}

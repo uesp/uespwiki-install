@@ -4,10 +4,11 @@
 
 	QUnit.module( 'MobileFrontend Class' );
 
-	QUnit.test( '.extend', 5, function( assert ) {
+	QUnit.test( '.extend', 6, function( assert ) {
 		var Parent, Child, child;
 
 		Parent = Class.extend( {
+			prop: 'parent',
 			parent: function() {
 				return 'parent';
 			},
@@ -20,6 +21,7 @@
 		} );
 
 		Child = Parent.extend( {
+			prop: 'child',
 			override: function() {
 				return 'overriden';
 			},
@@ -36,11 +38,12 @@
 		assert.strictEqual( child.override(), 'overriden', 'override parent properties' );
 		assert.strictEqual( child.child(), 'child', 'add new properties' );
 		assert.strictEqual( child.callSuper(), 'super duper', "call parent's functions" );
+		assert.strictEqual( child._parent.prop, 'parent', "access parent's prototype through _parent" );
 		assert.strictEqual( Child.extend, Class.extend, 'make Child extendeable' );
 	} );
 
 	QUnit.test( '#initialize', 1, function( assert ) {
-		var Thing, spy = sinon.spy();
+		var Thing, spy = this.sandbox.spy();
 
 		Thing = Class.extend( {
 			initialize: spy

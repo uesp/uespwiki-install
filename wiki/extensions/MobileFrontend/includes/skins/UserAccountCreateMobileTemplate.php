@@ -3,6 +3,16 @@
  * Provides a custom account creation form for mobile devices
  */
 class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
+	protected $actionMessages = array(
+		'watch' => 'mobile-frontend-watchlist-signup-action',
+		'edit' => 'mobile-frontend-edit-signup-action',
+		'signup-edit' => 'mobile-frontend-edit-signup-action',
+		'' => 'mobile-frontend-generic-signup-action',
+	);
+	protected $pageMessages = array(
+		'Uploads' => 'mobile-frontend-donate-image-signup-action',
+		'Watchlist' => 'mobile-frontend-watchlist-signup-action',
+	);
 
 	/**
 	 * @TODO refactor this into parent template
@@ -13,35 +23,8 @@ class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
 		$watchArticle = $this->getArticleTitleToWatch();
 		$stickHTTPS = ( $this->doStickHTTPS() ) ? Html::input( 'wpStickHTTPS', 'true', 'hidden' ) : '';
 		$username = ( strlen( $this->data['name'] ) ) ? $this->data['name'] : null;
-		$message = $this->data['message'];
-		$messageType = $this->data['messagetype'];
-		$msgBox = ''; // placeholder for displaying any login-related system messages (eg errors)
 		// handle captcha
 		$captcha = $this->handleCaptcha( $this->data['header'] );
-		$headMsg = $this->getHeadMsg();
-
-		$accountCreation = Html::openElement( 'div', array( 'id' => 'mw-mf-accountcreate', 'class' => 'content' ) );
-
-		// @TODO refactor this into base class
-		if ( $headMsg ) {
-			$msgBox .= Html::Element( 'div', array( 'class' => 'headmsg' ), $headMsg );
-		}
-
-		if ( $message ) {
-			$heading = '';
-			$class = 'alert';
-			if ( $messageType == 'error' ) {
-				$heading = wfMessage( 'mobile-frontend-sign-in-error-heading' )->text();
-				$class .= ' error';
-			}
-
-			$msgBox .= Html::openElement( 'div', array( 'class' => $class ) );
-			$msgBox .= ( $heading ) ? Html::rawElement( 'h2', array(), $heading ) : '';
-			$msgBox .= $message;
-			$msgBox .= Html::closeElement( 'div' );
-		} else {
-			$msgBox .= $this->getLogoHtml();
-		}
 
 		$form =
 			Html::openElement( 'form',
@@ -82,17 +65,24 @@ class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
 					'size' => '20' ) ) .
 			Html::closeElement( 'div' ) .
 			$captcha .
-			Html::input( 'wpCreateaccount', wfMessage( 'mobile-frontend-account-create-submit' )->text(), 'submit',
+			Html::input( 'wpCreateaccount',
+				wfMessage( 'mobile-frontend-account-create-submit' )->text(),
+				'submit',
 				array( 'id' => 'wpCreateaccount',
-					'tabindex' => '6' ) ) .
+					'class' => 'mw-ui-button mw-ui-constructive',
+					'tabindex' => '6'
+				)
+			) .
 			Html::input( 'wpRemember', '1', 'hidden' ) .
 			Html::input( 'wpCreateaccountToken', $token, 'hidden' ) .
 			Html::input( 'watch', $watchArticle, 'hidden' ) .
 			$stickHTTPS .
 			Html::closeElement( 'form' );
-		$accountCreation .= $msgBox . $form;
-		$accountCreation .= Html::closeElement( 'div' );
-		echo $accountCreation;
+		echo Html::openElement( 'div', array( 'id' => 'mw-mf-accountcreate', 'class' => 'content' ) );
+		$this->renderGuiderMessage();
+		$this->renderMessageHtml();
+		echo $form;
+		echo Html::closeElement( 'div' );
 	}
 
 	/**
@@ -129,7 +119,27 @@ class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
 		$captchaId = $matches[1];
 
 		// generate src for captcha img
-		$captchaSrc = SpecialPage::getTitleFor( 'Captcha', 'image' )->getLocalUrl( array( 'wpCaptchaId' => $captchaId ) );
+		$captchaSrc = SpecialPage::getTitleFor( 'Captcha', 'image' )
+			->getLocalUrl( array( 'wpCaptchaId' => $captchaId ) );
+
+		// add reload if fancyCaptcha and has reload
+		if ( stristr( $header, 'fancycaptcha-reload' ) ) {
+			$output = $this->getSkin()->getOutput();
+			$output->addModuleStyles( 'ext.confirmEdit.fancyCaptcha.styles' );
+			$output->addModules( 'ext.confirmEdit.fancyCaptchaMobile' );
+			$captchaReload = Html::element( 'br' ) .
+				Html::openElement( 'div', array( 'id' => 'mf-captcha-reload-container' ) ) .
+				Html::element(
+					'span',
+					array(
+						'class' => 'confirmedit-captcha-reload fancycaptcha-reload'
+					),
+					wfMessage( 'fancycaptcha-reload-text' )->text()
+				) .
+				Html::closeElement( 'div' ); #mf-captcha-reload-container
+		} else {
+			$captchaReload = '';
+		}
 
 		// captcha output html
 		$captchaHtml =
@@ -137,9 +147,11 @@ class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
 				array( 'class' => 'inputs-box' ) ) .
 			Html::element( 'img',
 				array(
+					'class' => 'fancycaptcha-image',
 					'src' => $captchaSrc,
 				)
 			) .
+			$captchaReload .
 			Html::input( 'wpCaptchaWord', null, 'text',
 				array(
 					'placeholder' => wfMessage( 'mobile-frontend-account-create-captcha-placeholder' )->text(),

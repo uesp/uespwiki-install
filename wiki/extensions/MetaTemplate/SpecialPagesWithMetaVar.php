@@ -144,7 +144,7 @@ class SpecialPagesWithMetaVar extends QueryPage {
 		$form->displayForm( $result );
 
 		if ( $result === true || ( $result instanceof Status && $result->isGood() ) ) {
-			parent::execute();
+			parent::execute( $par );
 		}
 	}
 

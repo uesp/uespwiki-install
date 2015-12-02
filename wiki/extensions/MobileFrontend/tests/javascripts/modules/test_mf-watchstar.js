@@ -3,10 +3,9 @@
 var _ajax;
 QUnit.module( 'MobileFrontend mf-watchlist.js', {
 	setup: function() {
-		// ensure getToken doesn't think the user is anon
-		this.user = mw.config.get( 'wgUserName' ) || '';
-		mw.config.set( 'wgUserName', 'z' );
+		this.sandbox.stub( mw.user, 'isAnon' ).returns( false );
 		_ajax = $.ajax;
+		// FIXME: horrible, use this.sandbox AKA sinon instead
 		$.ajax = function( options ) {
 			var d = new $.Deferred();
 			if ( options.data.action === 'tokens' ) {
@@ -42,7 +41,6 @@ QUnit.module( 'MobileFrontend mf-watchlist.js', {
 	},
 	teardown: function() {
 		$.ajax = _ajax;
-		mw.config.set( 'wgUserName', this.user );
 	}
 } );
 

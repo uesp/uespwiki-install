@@ -8,8 +8,18 @@
 	} );
 
 	QUnit.test( '#getPage (h1s)', 1, function( assert ) {
-		sinon.stub( PageApi.prototype, 'get' ).returns( $.Deferred().resolve( {
+		this.sandbox.stub( PageApi.prototype, 'get' ).returns( $.Deferred().resolve( {
 			"mobileview": {
+				"id": -1,
+				displaytitle: 'Test',
+				revId: 42,
+				"lastmodifiedby": {
+					"name": "bob",
+					"gender": "unknown"
+				},
+				"protection": [],
+				"lastmodified": "2013-10-28T18:49:56Z",
+				"languagecount": 10,
 				"sections":[
 					{"id":0,"text":""},
 					{"level":"1","line":"1","anchor":"1","id":1,"text":"<p>Text of 1\n</p>"},
@@ -21,9 +31,20 @@
 
 		pageApi.getPage( 'Test' ).done( function( resp ) {
 			assert.deepEqual( resp, {
+				historyUrl: mw.util.getUrl( 'Test', { action: 'history' } ),
+				lastModifiedUserName: 'bob',
+				lastModifiedUserGender: 'unknown',
+				lastModifiedTimestamp: 1382986196,
 				title: 'Test',
+				revId: 42,
+				displayTitle: 'Test',
 				id: -1,
+				protection: {
+					edit: [ '*' ]
+				},
 				isMainPage: false,
+				languageCount: 10,
+				hasVariants: false,
 				lead: '',
 				sections: [
 					{
@@ -31,14 +52,22 @@
 						"line": "1",
 						"anchor": "1",
 						"id": 1,
-						"text": '<p>Text of 1\n</p><h2 id="1.1">1.1</h2><p>Text of 1.1\n</p>'
+						"text": '<p>Text of 1\n</p><h2 id="1.1">1.1</h2><p>Text of 1.1\n</p>',
+						"children": [
+							{"level":"2","lineText": "1.1", "line": "<i>1.1</i>",
+								"anchor":"1.1","id":2,"text":"<p>Text of 1.1\n</p>", children: [] }
+						]
 					},
 					{
 						"level": "1",
 						"line": "2",
 						"anchor": "2",
 						"id": 3,
-						"text": '<p>Text of 2\n</p><h2 id="2.1">2.1</h2><p>Text of 2.1\n</p>'
+						"text": '<p>Text of 2\n</p><h2 id="2.1">2.1</h2><p>Text of 2.1\n</p>',
+						"children": [
+							{"level":"2","line":"2.1", "lineText":"2.1",
+								"anchor":"2.1","id":4,"text":"<p>Text of 2.1\n</p>", children: [] }
+						]
 					}
 				]
 			}, 'return lead and sections' );
@@ -47,8 +76,20 @@
 	} );
 
 	QUnit.test( '#getPage', 2, function( assert ) {
-		sinon.stub( PageApi.prototype, 'get' ).returns( $.Deferred().resolve( {
+		this.sandbox.stub( PageApi.prototype, 'get' ).returns( $.Deferred().resolve( {
 			"mobileview": {
+				"id": -1,
+				protection: {
+					edit: [ 'sysop' ]
+				},
+				"lastmodifiedby": {
+					"name": "Melissa",
+					"gender": "female"
+				},
+				revId: 42,
+				displaytitle: 'Test',
+				"lastmodified": "2013-10-28T18:49:56Z",
+				"languagecount": 10,
 				"sections": [
 					{ "id": 0, "text": "lead content" },
 					{
@@ -86,9 +127,20 @@
 
 		pageApi.getPage( 'Test' ).done( function( resp ) {
 			assert.deepEqual( resp, {
+				historyUrl: mw.util.getUrl( 'Test', { action: 'history' } ),
+				lastModifiedUserName: 'Melissa',
+				lastModifiedUserGender: 'female',
+				lastModifiedTimestamp: 1382986196,
+				protection: {
+					edit: [ 'sysop' ]
+				},
 				title: 'Test',
+				displayTitle: 'Test',
 				id: -1,
 				isMainPage: false,
+				revId: 42,
+				languageCount: 10,
+				hasVariants: false,
 				lead: 'lead content',
 				sections: [
 					{
@@ -96,14 +148,25 @@
 						"line": "Aaa section",
 						"anchor": "Aaa_section",
 						"id": 1,
-						"text": 'aaa content<h3 id="Subaaa_section">Subaaa section</h3>subaaa content'
+						"text": 'aaa content<h3 id="Subaaa_section">Subaaa section</h3>subaaa content',
+						"children": [
+							{
+								"level": "3",
+								"line": "Subaaa section",
+								"anchor": "Subaaa_section",
+								"id": 2,
+								"text": "subaaa content",
+								"children": []
+							}
+						]
 					},
 					{
 						"level": "2",
 						"line": "Bbb section",
 						"anchor": "Bbb_section",
 						"id": 3,
-						"text": "bbb content"
+						"text": "bbb content",
+						"children": []
 					},
 					{
 						"level": "2",
@@ -111,7 +174,8 @@
 						"references": "",
 						"anchor": "References",
 						"id": 4,
-						"text": "references"
+						"text": "references",
+						"children": []
 					}
 				]
 			}, 'return lead and sections' );
@@ -122,46 +186,8 @@
 		PageApi.prototype.get.restore();
 	} );
 
-	QUnit.test( '#_getAllLanguages', 2, function( assert ) {
-		sinon.stub( PageApi.prototype, 'get' ).returns( $.Deferred().resolve( {
-			"query":{
-				"languages":[
-					{
-						"code":"en",
-						"*":"English"
-					},
-					{
-						"code":"es",
-						"*":"espa\u00f1ol"
-					},
-					{
-						"code":"pl",
-						"*":"polski"
-					},
-					{
-						"code":"sr",
-						"*":"\u0441\u0440\u043f\u0441\u043a\u0438 / srpski"
-					}
-				]
-			}
-		} ) );
-
-		pageApi._getAllLanguages().done( function( resp ) {
-			assert.deepEqual( resp, {
-				en: "English",
-				es: "espa\u00f1ol",
-				pl: "polski",
-				sr: "\u0441\u0440\u043f\u0441\u043a\u0438 / srpski"
-			}, 'return languages object' );
-		} );
-		pageApi._getAllLanguages();
-		assert.ok( pageApi.get.calledOnce, 'cache languages' );
-
-		PageApi.prototype.get.restore();
-	} );
-
-	QUnit.test( '#getPageLanguages', 1, function( assert ) {
-		sinon.stub( PageApi.prototype, 'get' ).returns( $.Deferred().resolve( {
+	QUnit.test( '#getPageLanguages', 2, function( assert ) {
+		this.sandbox.stub( PageApi.prototype, 'get' ).returns( $.Deferred().resolve( {
 			"query":{
 				"pages":{
 					"94":{
@@ -186,22 +212,54 @@
 							}
 						]
 					}
-				}
+				},
+				"general": {
+					"variants": [
+						{
+							"code": "sr",
+							"name": "sr"
+						},
+						{
+							"code": "sr-ec",
+							"name": "\u040b\u0438\u0440\u0438\u043b\u0438\u0446\u0430"
+						},
+						{
+							"code": "sr-el",
+							"name": "Latinica"
+						}
+					],
+					"variantarticlepath": "/$2/$1"
+				},
+				"languages": [
+					{
+						"code": "sr",
+						"*": "\u0441\u0440\u043f\u0441\u043a\u0438 / srpski"
+					},
+					{
+						"code": "sr-ec",
+						"*": "\u0441\u0440\u043f\u0441\u043a\u0438 (\u045b\u0438\u0440\u0438\u043b\u0438\u0446\u0430)\u200e"
+					},
+					{
+						"code": "sr-el",
+						"*": "srpski (latinica)\u200e"
+					},
+					{
+						"code": "es",
+						"*": "espa\u00f1ol"
+					},
+					{
+						"code": "pl",
+						"*": "polski"
+					}
+				]
 			},
 			"limits":{
 				"langlinks":500
 			}
 		} ) );
 
-		sinon.stub( pageApi, '_getAllLanguages' ).returns( $.Deferred().resolve( {
-			en: "English",
-			es: "espa\u00f1ol",
-			pl: "polski",
-			sr: "\u0441\u0440\u043f\u0441\u043a\u0438 / srpski"
-		} ) );
-
 		pageApi.getPageLanguages( 'Test' ).done( function( resp ) {
-			assert.deepEqual( resp, [
+			assert.deepEqual( resp.languages, [
 				{
 					"lang":"es",
 					"url":"http://es.wikipedia.org/wiki/San_Francisco_(California)",
@@ -221,25 +279,38 @@
 					langname: "\u0441\u0440\u043f\u0441\u043a\u0438 / srpski"
 				}
 			], 'return augmented language links' );
+
+			assert.deepEqual( resp.variants, [
+				{
+					"lang":"sr",
+					"langname":"sr",
+					"url":"/sr/Test"
+				},
+				{
+					"lang":"sr-ec",
+					"langname":"\u040b\u0438\u0440\u0438\u043b\u0438\u0446\u0430",
+					"url":"/sr-ec/Test"
+				},
+				{
+					"lang":"sr-el",
+					"langname":"Latinica",
+					"url":"/sr-el/Test"
+				}
+			], 'return augmented language variant links' );
 		} );
 
 		PageApi.prototype.get.restore();
-		pageApi._getAllLanguages.restore();
 	} );
 
-	QUnit.test( '#getPage (html headings get stripped)', 1, function( assert ) {
-		sinon.stub( PageApi.prototype, 'get' ).returns( $.Deferred().resolve( {
-			"mobileview": {
-				"sections":[
-					{"id":0,"text":""},
-					{"level":"1","line":"<i>html text heading</i>","anchor":"1","id":1,"text":"<p>Text of 1\n</p>"}
-				]
-			}
-		} ) );
-		pageApi.getPage( 'Test' ).done( function( resp ) {
-			assert.strictEqual( resp.sections[0].line, 'html text heading' );
-		} );
-		PageApi.prototype.get.restore();
+	QUnit.test( '#_getAPIResponseFromHTML', 1, function( assert ) {
+		var resp = pageApi._getAPIResponseFromHTML( $( '<div><h1><span id="1.0">A1</span></h1><h2><span>A2.1</span></h2><h2><span>A2.2</span></h2><h1><span>A2</span></h1><h2><span>A2.1</span></h2></div>' ) );
+		assert.deepEqual( resp, [
+			{ line: 'A1', level: '1', anchor: '1.0', text: '' },
+			{ line: 'A2.1', level: '2', anchor: '', text: '' },
+			{ line: 'A2.2', level: '2', anchor: '', text: '' },
+			{ line: 'A2', level: '1', anchor: '', text: '' },
+			{ line: 'A2.1', level: '2', anchor: '', text: '' }
+		] );
 	} );
 
 }( mw.mobileFrontend, jQuery ) );

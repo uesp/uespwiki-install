@@ -1,9 +1,13 @@
-@import "../mixins.less";
+@import "minerva.variables";
+@import "minerva.mixins";
+
 
 .mw-mf-overlay.media-viewer {
 	// http://stackoverflow.com/a/10910802/36523i8
 	// http://www.w3.org/Style/Examples/007/center.en.html#vertical
 	display: table;
+	// Bug 57435
+	width: 100%;
 	background: #000;
 
 	.container {
@@ -16,10 +20,6 @@
 			display: table-cell;
 			vertical-align: middle;
 		}
-	}
-
-	.loading img {
-		display: none;
 	}
 
 	img {
@@ -63,7 +63,7 @@
 			opacity: 1;
 		}
 
-		a {
+		.button {
 			float: right;
 		}
 	}

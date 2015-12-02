@@ -1,6 +1,7 @@
 ( function ( mw, $ ) {
-	var mwLanguageCache = {}, formatText, formatParse, formatnumTests, specialCharactersPageName,
-		expectedListUsers, expectedEntrypoints;
+	var formatText, formatParse, formatnumTests, specialCharactersPageName, expectedListUsers, expectedEntrypoints,
+		mwLanguageCache = {},
+		hasOwn = Object.hasOwnProperty;
 
 	// When the expected result is the same in both modes
 	function assertBothModes( assert, parserArguments, expectedResult, assertMessage ) {
@@ -10,14 +11,14 @@
 
 	QUnit.module( 'mediawiki.jqueryMsg', QUnit.newMwEnvironment( {
 		setup: function () {
-			this.orgMwLangauge = mw.language;
-			mw.language = $.extend( true, {}, this.orgMwLangauge );
+			this.originalMwLanguage = mw.language;
 
 			// Messages that are reused in multiple tests
 			mw.messages.set( {
 				// The values for gender are not significant,
 				// what matters is which of the values is choosen by the parser
 				'gender-msg': '$1: {{GENDER:$2|blue|pink|green}}',
+				'gender-msg-currentuser': '{{GENDER:|blue|pink|green}}',
 
 				'plural-msg': 'Found $1 {{PLURAL:$1|item|items}}',
 
@@ -55,35 +56,56 @@
 			} );
 		},
 		teardown: function () {
-			mw.language = this.orgMwLangauge;
+			mw.language = this.originalMwLanguage;
 		}
 	} ) );
 
-	function getMwLanguage( langCode, cb ) {
-		if ( mwLanguageCache[langCode] !== undefined ) {
-			mwLanguageCache[langCode].add( cb );
-			return;
-		}
-		mwLanguageCache[langCode] = $.Callbacks( 'once memory' );
-		mwLanguageCache[langCode].add( cb );
-		$.ajax( {
-			url: mw.util.wikiScript( 'load' ),
-			data: {
-				skin: mw.config.get( 'skin' ),
-				lang: langCode,
-				debug: mw.config.get( 'debug' ),
-				modules: [
-					'mediawiki.language.data',
-					'mediawiki.language'
-				].join( '|' ),
-				only: 'scripts'
-			},
-			dataType: 'script'
-		} ).done(function () {
-				mwLanguageCache[langCode].fire( mw.language );
-			} ).fail( function () {
-				mwLanguageCache[langCode].fire( false );
+	/**
+	 * Be careful to no run this in parallel as it uses a global identifier (mw.language)
+	 * to transport the module back to the test. It musn't be overwritten concurrentely.
+	 *
+	 * This function caches the mw.language data to avoid having to request the same module
+	 * multiple times. There is more than one test case for any given language.
+	 */
+	function getMwLanguage( langCode ) {
+		if ( !hasOwn.call( mwLanguageCache, langCode ) ) {
+			mwLanguageCache[langCode] = $.ajax( {
+				url: mw.util.wikiScript( 'load' ),
+				data: {
+					skin: mw.config.get( 'skin' ),
+					lang: langCode,
+					debug: mw.config.get( 'debug' ),
+					modules: [
+						'mediawiki.language.data',
+						'mediawiki.language'
+					].join( '|' ),
+					only: 'scripts'
+				},
+				dataType: 'script',
+				cache: true
+			} ).then( function () {
+				return mw.language;
 			} );
+		}
+		return mwLanguageCache[langCode];
+	}
+
+	/**
+	 * @param {Function[]} tasks List of functions that perform tasks
+	 *  that may be asynchronous. Invoke the callback parameter when done.
+	 * @param {Function} done When all tasks are done.
+	 * @return
+	 */
+	function process( tasks, done ) {
+		function run() {
+			var task = tasks.shift();
+			if ( task ) {
+				task( run );
+			} else {
+				done();
+			}
+		}
+		run();
 	}
 
 	QUnit.test( 'Replace', 9, function ( assert ) {
@@ -142,32 +164,49 @@
 		assert.equal( formatParse( 'plural-msg', 2 ), 'Found 2 items', 'Plural test for english' );
 	} );
 
-	QUnit.test( 'Gender', 11, function ( assert ) {
+	QUnit.test( 'Gender', 15, function ( assert ) {
+		var originalGender = mw.user.options.get( 'gender' );
+
 		// TODO: These tests should be for mw.msg once mw.msg integrated with mw.jqueryMsg
 		// TODO: English may not be the best language for these tests. Use a language like Arabic or Russian
-		var user = mw.user;
-
-		user.options.set( 'gender', 'male' );
+		mw.user.options.set( 'gender', 'male' );
 		assert.equal(
 			formatParse( 'gender-msg', 'Bob', 'male' ),
 			'Bob: blue',
 			'Masculine from string "male"'
 		);
 		assert.equal(
-			formatParse( 'gender-msg', 'Bob', user ),
+			formatParse( 'gender-msg', 'Bob', mw.user ),
 			'Bob: blue',
 			'Masculine from mw.user object'
 		);
-
-		user.options.set( 'gender', 'unknown' );
 		assert.equal(
-			formatParse( 'gender-msg', 'Foo', user ),
-			'Foo: green',
-			'Neutral from mw.user object' );
+			formatParse( 'gender-msg-currentuser' ),
+			'blue',
+			'Masculine for current user'
+		);
+
+		mw.user.options.set( 'gender', 'female' );
 		assert.equal(
 			formatParse( 'gender-msg', 'Alice', 'female' ),
 			'Alice: pink',
 			'Feminine from string "female"' );
+		assert.equal(
+			formatParse( 'gender-msg', 'Alice', mw.user ),
+			'Alice: pink',
+			'Feminine from mw.user object'
+		);
+		assert.equal(
+			formatParse( 'gender-msg-currentuser' ),
+			'pink',
+			'Feminine for current user'
+		);
+
+		mw.user.options.set( 'gender', 'unknown' );
+		assert.equal(
+			formatParse( 'gender-msg', 'Foo', mw.user ),
+			'Foo: green',
+			'Neutral from mw.user object' );
 		assert.equal(
 			formatParse( 'gender-msg', 'User' ),
 			'User: green',
@@ -176,6 +215,11 @@
 			formatParse( 'gender-msg', 'User', 'unknown' ),
 			'User: green',
 			'Neutral from string "unknown"'
+		);
+		assert.equal(
+			formatParse( 'gender-msg-currentuser' ),
+			'green',
+			'Neutral for current user'
 		);
 
 		mw.messages.set( 'gender-msg-one-form', '{{GENDER:$1|User}}: $2 {{PLURAL:$2|edit|edits}}' );
@@ -209,6 +253,8 @@
 			' test',
 			'Invalid syntax should result in {{gender}} simply being stripped away'
 		);
+
+		mw.user.options.set( 'gender', originalGender );
 	} );
 
 	QUnit.test( 'Grammar', 2, function ( assert ) {
@@ -220,23 +266,27 @@
 
 	QUnit.test( 'Match PHP parser', mw.libs.phpParserData.tests.length, function ( assert ) {
 		mw.messages.set( mw.libs.phpParserData.messages );
-		$.each( mw.libs.phpParserData.tests, function ( i, test ) {
-			QUnit.stop();
-			getMwLanguage( test.lang, function ( langClass ) {
-				QUnit.start();
-				if ( !langClass ) {
-					assert.ok( false, 'Language "' + test.lang + '" failed to load' );
-					return;
-				}
-				mw.config.set( 'wgUserLanguage', test.lang );
-				var parser = new mw.jqueryMsg.parser( { language: langClass } );
-				assert.equal(
-					parser.parse( test.key, test.args ).html(),
-					test.result,
-					test.name
-				);
-			} );
+		var tasks = $.map( mw.libs.phpParserData.tests, function ( test ) {
+			return function ( next ) {
+				getMwLanguage( test.lang )
+					.done( function ( langClass ) {
+						mw.config.set( 'wgUserLanguage', test.lang );
+						var parser = new mw.jqueryMsg.parser( { language: langClass } );
+						assert.equal(
+							parser.parse( test.key, test.args ).html(),
+							test.result,
+							test.name
+						);
+					} )
+					.fail( function () {
+						assert.ok( false, 'Language "' + test.lang + '" failed to load.' );
+					} )
+					.always( next );
+			};
 		} );
+
+		QUnit.stop();
+		process( tasks, QUnit.start );
 	} );
 
 	QUnit.test( 'Links', 6, function ( assert ) {
@@ -273,11 +323,13 @@
 
 		// Pipe trick is not supported currently, but should not parse as text either.
 		mw.messages.set( 'pipe-trick', '[[Tampa, Florida|]]' );
+		this.suppressWarnings();
 		assert.equal(
 			formatParse( 'pipe-trick' ),
-			'pipe-trick: Parse error at position 0 in input: [[Tampa, Florida|]]',
-			'Pipe trick should return error string.'
+			'[[Tampa, Florida|]]',
+			'Pipe trick should not be parsed.'
 		);
+		this.restoreWarnings();
 
 		expectedMultipleBars = '<a title="Main Page" href="/wiki/Main_Page">Main|Page</a>';
 		mw.messages.set( 'multiple-bars', '[[Main Page|Main|Page]]' );
@@ -393,8 +445,8 @@
 		);
 	} );
 
-// Tests that getMessageFunction is used for non-plain messages with curly braces or
-// square brackets, but not otherwise.
+	// Tests that getMessageFunction is used for non-plain messages with curly braces or
+	// square brackets, but not otherwise.
 	QUnit.test( 'mw.Message.prototype.parser monkey-patch', 22, function ( assert ) {
 		var oldGMF, outerCalled, innerCalled;
 
@@ -545,25 +597,27 @@ formatnumTests = [
 QUnit.test( 'formatnum', formatnumTests.length, function ( assert ) {
 	mw.messages.set( 'formatnum-msg', '{{formatnum:$1}}' );
 	mw.messages.set( 'formatnum-msg-int', '{{formatnum:$1|R}}' );
-	$.each( formatnumTests, function ( i, test ) {
-		QUnit.stop();
-		getMwLanguage( test.lang, function ( langClass ) {
-			QUnit.start();
-			if ( !langClass ) {
-				assert.ok( false, 'Language "' + test.lang + '" failed to load' );
-				return;
-			}
-			mw.messages.set(test.message );
-			mw.config.set( 'wgUserLanguage', test.lang ) ;
-			var parser = new mw.jqueryMsg.parser( { language: langClass } );
-			assert.equal(
-				parser.parse( test.integer ? 'formatnum-msg-int' : 'formatnum-msg',
-					[ test.number ] ).html(),
-				test.result,
-				test.description
-			);
-		} );
+	var queue = $.map( formatnumTests, function ( test ) {
+		return function ( next ) {
+			getMwLanguage( test.lang )
+				.done( function ( langClass ) {
+					mw.config.set( 'wgUserLanguage', test.lang );
+					var parser = new mw.jqueryMsg.parser( { language: langClass } );
+					assert.equal(
+						parser.parse( test.integer ? 'formatnum-msg-int' : 'formatnum-msg',
+							[ test.number ] ).html(),
+						test.result,
+						test.description
+					);
+				} )
+				.fail( function () {
+					assert.ok( false, 'Language "' + test.lang + '" failed to load' );
+				} )
+				.always( next );
+		};
 	} );
+	QUnit.stop();
+	process( queue, QUnit.start );
 } );
 
 // HTML in wikitext
@@ -681,7 +735,6 @@ QUnit.test( 'HTML', 26, function ( assert ) {
 		'Escaped attributes are parsed correctly'
 	);
 
-
 	mw.messages.set( 'jquerymsg-wikitext-contents-parsed', '<i>[http://example.com Example]</i>' );
 	assert.htmlEqual(
 		formatParse( 'jquerymsg-wikitext-contents-parsed' ),
@@ -710,5 +763,26 @@ QUnit.test( 'HTML', 26, function ( assert ) {
 		'Self-closing tags don\'t cause a parse error'
 	);
 } );
+
+	QUnit.test( 'Behavior in case of invalid wikitext', 3, function ( assert ) {
+		mw.messages.set( 'invalid-wikitext', '<b>{{FAIL}}</b>' );
+
+		this.suppressWarnings();
+		var logSpy = this.sandbox.spy( mw.log, 'warn' );
+
+		assert.equal(
+			formatParse( 'invalid-wikitext' ),
+			'&lt;b&gt;{{FAIL}}&lt;/b&gt;',
+			'Invalid wikitext: \'parse\' format'
+		);
+
+		assert.equal(
+			formatText( 'invalid-wikitext' ),
+			'<b>{{FAIL}}</b>',
+			'Invalid wikitext: \'text\' format'
+		);
+
+		assert.equal( logSpy.callCount, 2, 'mw.log.warn calls' );
+	} );
 
 }( mediaWiki, jQuery ) );

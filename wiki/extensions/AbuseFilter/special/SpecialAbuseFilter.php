@@ -1,8 +1,19 @@
 <?php
 
 class SpecialAbuseFilter extends SpecialPage {
+	public $mFilter, $mHistoryID;
+
 	public function __construct() {
 		parent::__construct( 'AbuseFilter', 'abusefilter-view' );
+	}
+
+	/**
+	 * Back-compat function for pre-1.23 MediaWiki versions
+	 * @param bool|string $subpage
+	 * @return Title
+	 */
+	public function getPageTitle( $subpage = false ) {
+		return self::getTitleFor( $this->getName(), $subpage );
 	}
 
 	public function execute( $subpage ) {
@@ -100,6 +111,7 @@ class SpecialAbuseFilter extends SpecialPage {
 		// Links at the top
 		AbuseFilter::addNavigationLinks( $this->getContext(), $pageType );
 
+		/** @var AbuseFilterView $v */
 		$v = new $view( $this, $params );
 		$v->show();
 	}

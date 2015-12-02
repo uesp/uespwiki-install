@@ -6,16 +6,16 @@ var CACHE_KEY_RESULTS = 'mfNearbyLastSearchResult',
 
 $( function() {
 	var
-		$userBtn = $( '#user-button' ),
+		$userBtn = $( '#secondary-button' ),
 		cache = M.settings.saveUserSetting,
 		lastSearchResult = M.settings.getUserSetting( CACHE_KEY_RESULTS ),
 		// FIXME: Adapt modules/nearby/Nearby.js and use that instead
-		pendingQuery = false, btn;
+		pendingQuery = false, $btn;
 
 	overlay = new Nearby( {
 		el: $( '#mw-mf-nearby' )
 	} ).on( 'end-load-from-current-location', function() {
-		$( 'button.refresh' ).removeClass( 'refreshing' );
+		$btn.removeClass( 'loading' );
 		pendingQuery = false;
 	} ).on( 'searchResult', function( pages ) {
 		cache( CACHE_KEY_RESULTS, $.toJSON( pages ) );
@@ -25,7 +25,7 @@ $( function() {
 		if ( pendingQuery ) {
 			return;
 		} else {
-			$( 'button.refresh' ).addClass( 'refreshing' );
+			$btn.addClass( 'loading' );
 			pendingQuery = true;
 			overlay.loadFromCurrentLocation();
 		}
@@ -43,7 +43,7 @@ $( function() {
 		$userBtn.remove();
 	}
 	// FIXME: i18n
-	btn = $( '<button class="refresh" id="secondary-button">' ).on( 'click', refresh ).appendTo( '.header' );
+	$btn = $( '<a class="refresh" id="secondary-button">' ).on( 'click', refresh ).appendTo( '.header' );
 } );
 
 }( mw.mobileFrontend, jQuery ) );

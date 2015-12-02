@@ -1,64 +1,27 @@
-/* the following definitions exist to deal with certain inline styles
+/*
+A file for css that corrects known rendering issues on known Wikimedia wikis.
+
+the following definitions exist to deal with certain inline styles
 present in wikitext.
 This file should not need to exist
-IMPORTANT: do not use selectors containing attribute notation e.g. [style] [colspan]
-	as they are known to damage the ios app
+It will become redundant when the following RFC is resolved:
+https://www.mediawiki.org/wiki/Requests_for_comment/Allow_styling_in_templates
+
+FIXME: Review all of these hacks to see if they still apply.
 */
-
-table {
-	border-spacing: 0 !important;
-	float: none !important;
-	margin-left: 0 !important;
-	width: 100% !important;
-}
-
-table.geography td {
-	text-align: left !important;
-	margin-left: 0 !important;
-	margin-right: 0 !important;
-}
-
-.thumb .thumbinner {
-	margin: 5px auto;
-	max-width: 100%;
-}
-
-.thumb .thumbcaption {
-	width: 100%;
-	margin: 5px 10px 0;
-	text-align: center;
-	width: auto !important;
-}
-
-/* bug 20030 */
-.thumb .noresize {
-	width: 100%;
-	overflow-x: auto;
-}
-
-.thumb .noresize img {
-	max-width: none !important;
-}
-
-.thumb .thumbinner > div {
-	float: none !important;
-	width: auto !important;
-	clear: both !important;
-}
+@import "minerva.variables";
+@import "minerva.mixins";
 
 /* Hide some on-wiki defined classes */
-#content {
+.content {
+	// Hide cleanup templates by default to non-javascript users as these stop them from reading the article itself
+	// Note not in issues.less as that is only loaded via JavaScript
+	.ambox,
+	#coordinates,
 	// Hide article badges, clean-up notices, stub notices, and navigation boxes
 	.navbox, .vertical-navbox, .topicon, .metadata {
-		display: none;
-	}
-}
-/* Revert to showing nav boxes on tablet/desktop */
-@media all and (min-width: @wgMFDeviceWidthTablet) {
-	#content {
-		.navbox, .vertical-navbox {
-			display: inherit;
-		}
+		// It's important as some of these are tables which become display: table on larger screens
+		display: none !important;
 	}
 }
 
@@ -88,4 +51,60 @@ ul.gallery {
 .editsection,
 .mw-editsection {
 	display: none;
+}
+
+/* force portals to use a one column layout on mobile */
+.skin-minerva {
+	.portal-column-left-wide,
+	.portal-column-left,
+	.portal-column-right,
+	.portal-column-right-narrow {
+		float: none;
+		width: 100%;
+	}
+}
+
+.collapsible td {
+	width: auto !important;
+}
+
+.content {
+	table {
+		// A lot of templates introduce floating, border-spacing and horizontal margins inline styles [citation needed]
+		border-spacing: 0 !important;
+		float: none !important;
+		margin-left: 0 !important;
+		margin-right: 0 !important;
+
+		&.infobox {
+			background: #f9f9f9;
+			text-align: center !important;
+		}
+	}
+}
+/* bug 34878: Set an optimal width for a column.
+ * Makes sure that on small screens column-count is only honored if column-width hint is not violated.
+ * https://developer.mozilla.org/en-US/docs/CSS/column-width
+ */
+.references-column-count {
+	-moz-column-width: 35em;
+	-webkit-column-width: 35em;
+	column-width: 35em;
+}
+
+// When JavaScript is disabled clarify to the user which reference they clicked on
+.references li:target {
+	background-color: #ddeeff;
+}
+
+.beta, .alpha {
+	.dablink,
+	.rellink {
+		// Use bottom padding instead of bottom margin so that it doesn't affect the
+		// position of floated elements below the hatnotes.
+		padding: 0 0 .6em 0;
+		color: @grayMedium;
+		font-size: .8em;
+		font-style: italic;
+	}
 }

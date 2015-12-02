@@ -1,10 +1,7 @@
 ( function( M, $ ) {
-	var View = M.require( 'view' ),
-		popup = M.require( 'notifications' ),
-		CtaDrawer = M.require( 'CtaDrawer' ),
-		LoadingOverlay = M.require( 'LoadingOverlay' ),
-		PhotoUploaderButton,
-		LeadPhotoUploaderButton;
+	var View = M.require( 'View' ),
+		LoadingOverlay = M.require( 'LoadingOverlayNew' ),
+		PhotoUploaderButton;
 
 	function isSupported() {
 		// FIXME: create a module for browser detection stuff
@@ -77,88 +74,35 @@
 	 */
 	PhotoUploaderButton = View.extend( {
 		template: M.template.get( 'uploads/PhotoUploaderButton' ),
-		className: 'button photo',
-
-		initialize: function( options ) {
-			this._super( options );
-		},
+		className: 'mw-ui-progressive mw-ui-button button photo',
 
 		postRender: function() {
-			var self = this, $input = this.$( 'input' ), ctaDrawer;
+			var self = this, $input = this.$( 'input' );
 
-			// show CTA instead if not logged in
-			if ( !M.isLoggedIn() ) {
-				ctaDrawer = new CtaDrawer( {
-					content: mw.msg( 'mobile-frontend-photo-upload-cta' ),
-					queryParams: {
-						campaign: 'mobile_uploadPageActionCta',
-						returntoquery: 'article_action=photo-upload'
-					}
+			function handleFile( file ) {
+				var loadingOverlay = new LoadingOverlay();
+
+				loadingOverlay.show();
+
+				mw.loader.using( 'mobile.uploads', function() {
+					loadingOverlay.hide();
+					// FIXME: this is hacky but it would be hard to pass a file in a route
+					M.emit( '_upload-preview', file );
+					M.router.navigate( '#/upload-preview/' + self.options.funnel );
 				} );
-				this.$el.click( function( ev ) {
-					ctaDrawer.show();
-					ev.preventDefault();
-				} );
-				return;
 			}
 
 			$input.
-				// accept must be set via attr otherwise cannot use camera on Android
-				attr( 'accept', 'image/*;' ).
 				on( 'change', function() {
-					var options = $.extend( {}, self.options, {
-						file: $input[0].files[0],
-						parent: self
-					} ),
-						loadingOverlay = new LoadingOverlay();
-
-					loadingOverlay.show();
-					mw.loader.using( 'mobile.uploads', function() {
-						var PhotoUploader = M.require( 'modules/uploads/PhotoUploader' );
-						loadingOverlay.hide();
-						new PhotoUploader( options );
-					} );
-
+					handleFile( $input[0].files[0] );
 					// clear so that change event is fired again when user selects the same file
 					$input.val( '' );
 				} );
 		}
 	} );
 
-	LeadPhotoUploaderButton = PhotoUploaderButton.extend( {
-		template: M.template.get( 'uploads/LeadPhotoUploaderButton' ),
-		className: 'enabled',
+	PhotoUploaderButton.isSupported = isSupported();
 
-		initialize: function( options ) {
-			var self = this;
-			this._super( options );
-			this.on( 'start', function() {
-					self.$el.removeClass( 'enabled' );
-				} ).
-				on( 'success', function( data ) {
-					popup.show( mw.msg( 'mobile-frontend-photo-upload-success-article' ), 'toast' );
-
-					// just in case, LeadPhoto should be loaded by now anyway
-					mw.loader.using( 'mobile.uploads', function() {
-						var LeadPhoto = M.require( 'modules/uploads/LeadPhoto' );
-
-						new LeadPhoto( {
-							url: data.url,
-							pageUrl: data.descriptionUrl,
-							caption: data.description
-						} ).prependTo( M.getLeadSection() );
-					} );
-				} ).
-				on( 'error cancel', function() {
-					self.$el.addClass( 'enabled' );
-				} );
-		}
-	} );
-
-	PhotoUploaderButton.isSupported = LeadPhotoUploaderButton.isSupported = isSupported();
-
-	// FIXME: should we allow more than one define() per file?
 	M.define( 'modules/uploads/PhotoUploaderButton', PhotoUploaderButton );
-	M.define( 'modules/uploads/LeadPhotoUploaderButton', LeadPhotoUploaderButton );
 
 }( mw.mobileFrontend, jQuery ) );

@@ -35,7 +35,13 @@ class MobileUserInfo {
 		$constraints = array(
 			'LIMIT' => self::LIMIT + 1,
 		);
-		$innerSelect = $dbr->selectSQLText( 'recentchanges', 'rc_timestamp', $where, __METHOD__, $constraints );
+		$innerSelect = $dbr->selectSQLText(
+			'recentchanges',
+			'rc_timestamp',
+			$where,
+			__METHOD__,
+			$constraints
+		);
 		$res = $dbr->query( "SELECT COUNT(*) FROM ($innerSelect) t", __METHOD__ );
 		$row = $res->fetchRow();
 		$result = 0;
@@ -47,7 +53,8 @@ class MobileUserInfo {
 	}
 
 	/**
-	 * Returns a count of the most recent uploads to $wgMFPhotoUploadWiki since a given timestamp, not exceeding LIMIT
+	 * Returns a count of the most recent uploads to $wgMFPhotoUploadWiki since
+	 * a given timestamp, not exceeding LIMIT.
 	 *
 	 * @param Integer $fromDate Time to measure from
 	 * @return Integer the amount of edits
@@ -116,6 +123,33 @@ class MobileUserInfo {
 	}
 
 	/**
+	 * Returns the last edit of the user
+	 *
+	 * @return Revision|false
+	 */
+	public function getLastEdit() {
+		wfProfileIn( __METHOD__ );
+		$conds = array(
+			'rev_user' => $this->user->getId(),
+		);
+		$options = array(
+			'LIMIT' => 1,
+			'ORDER BY' => 'rev_timestamp DESC',
+		);
+
+		$dbr = wfGetDB( DB_SLAVE, 'revision' );
+		$res = $dbr->select( 'revision', 'rev_id', $conds, __METHOD__, $options );
+		$row = $res->fetchObject();
+		if ( $row ) {
+			$rev = Revision::newFromId( $row->rev_id );
+		} else {
+			$rev = false;
+		}
+		wfProfileOut( __METHOD__ );
+		return $rev;
+	}
+
+	/**
 	 * Returns user who last thanked current user. Requires Extension:Echo
 	 *
 	 * @return array|null
@@ -123,11 +157,13 @@ class MobileUserInfo {
 	public function getLastThanking() {
 		wfProfileIn( __METHOD__ );
 		$thank = false;
-		if ( class_exists( 'MWEchoDbFactory' ) ) {
+		// Check that the Thank Extension and Echo extension are both installed
+		// before doing this (bug 56825).
+		if ( class_exists( 'MWEchoDbFactory' ) && class_exists( 'ApiThank' ) ) {
 			$dbr = MWEchoDbFactory::getDB( DB_SLAVE );
 			$rows = $dbr->select(
 				array( 'echo_event', 'echo_notification' ),
-				'event_agent_id, event_page_id, notification_timestamp',
+				'event_agent_id, notification_timestamp',
 				array(
 					'notification_user' => $this->user->getId(),
 					'event_id=notification_event',
@@ -138,7 +174,6 @@ class MobileUserInfo {
 			$row = $rows->fetchObject();
 			if ( $row ) {
 				$thank = array(
-					'title' => Title::newFromId( $row->event_page_id ),
 					'user' => User::newFromId( $row->event_agent_id ),
 				);
 			}

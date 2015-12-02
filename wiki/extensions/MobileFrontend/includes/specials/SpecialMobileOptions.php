@@ -6,6 +6,7 @@ class SpecialMobileOptions extends MobileSpecialPage {
 	 */
 	private $returnToTitle;
 	private $subpage;
+	protected $hasDesktopVersion = true;
 	private $options = array(
 		'Language' => array( 'get' => 'chooseLanguage' ),
 	);
@@ -16,6 +17,7 @@ class SpecialMobileOptions extends MobileSpecialPage {
 	}
 
 	public function execute( $par = '' ) {
+		parent::execute( $par );
 		$context = MobileContext::singleton();
 
 		wfIncrStats( 'mobile.options.views' );
@@ -69,9 +71,12 @@ class SpecialMobileOptions extends MobileSpecialPage {
 		$betaDescriptionMsg = $this->msg( 'mobile-frontend-opt-in-explain' )->parse();
 
 		$saveSettings = $this->msg( 'mobile-frontend-save-settings' )->escaped();
-		$onoff = '<span class="mw-mf-settings-on">' . $this->msg( 'mobile-frontend-on' )->escaped() . '</span><span class="mw-mf-settings-off">' .
-			$this->msg( 'mobile-frontend-off' )->escaped() .'</span>';
-		$action = $this->getTitle()->getLocalURL();
+		$onoff = '<span class="mw-mf-settings-on">' .
+			$this->msg( 'mobile-frontend-on' )->escaped() .
+			'</span><span class="mw-mf-settings-off">' .
+			$this->msg( 'mobile-frontend-off' )->escaped() .
+			'</span>';
+		$action = $this->getPageTitle()->getLocalURL();
 		$html = Html::openElement( 'form',
 			array( 'class' => 'mw-mf-settings', 'method' => 'POST', 'action' => $action )
 		);
@@ -84,16 +89,18 @@ class SpecialMobileOptions extends MobileSpecialPage {
 		$alphaDescriptionMsg = wfMessage( 'mobile-frontend-settings-alpha-description' )->text();
 
 		$betaSetting = <<<HTML
-		<li>
+	<li>
+		<div class="option-name">
 			{$betaEnableMsg}
 			<div class="mw-mf-checkbox-css3" id="enable-beta-toggle">
 				<input type="checkbox" name="enableBeta"
 				{$imagesBeta}>{$onoff}
 			</div>
-		</li>
-		<li class="mw-mf-settings-description">
+		</div>
+		<div class="option-description">
 				{$betaDescriptionMsg}
-		</li>
+		</div>
+	</li>
 HTML;
 		$alphaSetting = '';
 		if ( $betaEnabled ) {
@@ -103,41 +110,47 @@ HTML;
 			}
 
 			$alphaSetting .= <<<HTML
-			<li>
+		<li>
+			<div class="option-name">
 				{$alphaEnableMsg}
 				<div class="mw-mf-checkbox-css3" id="enable-alpha-toggle">
 					<input type="checkbox" name="enableAlpha"
 					{$alphaChecked}>{$onoff}
 				</div>
-			</li>
-			<li class="mw-mf-settings-description">
+			</div>
+			<div class="option-description">
 					{$alphaDescriptionMsg}
-			</li>
+			</div>
+		</li>
 HTML;
 		}
 
+		// @codingStandardsIgnoreStart Long line
 		$html .= <<<HTML
 	<p>
 		{$aboutMessage}
 	</p>
 	<ul>
 		<li>
+			<div class="option-name">
 			{$disableMsg}
 			<span class="mw-mf-checkbox-css3" id="enable-images-toggle">
 				<input type="checkbox" name="enableImages"
 				{$imagesChecked}>{$onoff}
 			</span>
+			</div>
 		</li>
 		{$betaSetting}
 		{$alphaSetting}
 		<li>
-			<input type="submit" id="mw-mf-settings-save" value="{$saveSettings}">
+			<input type="submit" class="mw-ui-progressive mw-ui-button" id="mw-mf-settings-save" value="{$saveSettings}">
 		</li>
 	</ul>
 	$token
 	$returnto
 </form>
 HTML;
+		// @codingStandardsIgnoreEnd
 		$out->addHTML( $html );
 	}
 
@@ -194,7 +207,10 @@ HTML;
 
 		if ( $request->getVal( 'token' ) != $context->getMobileToken() ) {
 			wfIncrStats( 'mobile.options.errors' );
-			wfDebugLog( 'mobile', __METHOD__ . "(): token mismatch" );
+			wfDebugLog( 'mobile', __METHOD__ . "(): token mismatch, "
+				. "received {$request->getVal( 'token' )} - expected "
+				. $context->getMobileToken()
+			);
 			$this->getOutput()->addHTML( '<div class="error">'
 				. $this->msg( "mobile-frontend-save-error" )->parse()
 				. '</div>'
@@ -218,7 +234,7 @@ HTML;
 		if ( $returnToTitle ) {
 			$url = $returnToTitle->getFullURL();
 		} else {
-			$url = $this->getTitle()->getFullURL( 'success' );
+			$url = $this->getPageTitle()->getFullURL( 'success' );
 		}
 		$context->getOutput()->redirect( MobileContext::singleton()->getMobileUrl( $url ) );
 	}

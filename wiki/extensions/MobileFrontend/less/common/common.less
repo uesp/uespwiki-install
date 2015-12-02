@@ -1,4 +1,40 @@
-@import "../mixins.less";
+@import "mediawiki.mixins.less";
+@import "minerva.variables.less";
+@import "minerva.mixins.less";
+
+// Deprecated rules
+.stable {
+	// this makes sure mobile browsers don't zoom on inputs (minimum resulting
+	// font size has to be 16px)
+	// header font size is kept the same to make it consistent with the search input
+	input,
+	textarea,
+	.header,
+	.overlay-header {
+		font-size: round( 1em / @fontScalingFactor, 2 );
+	}
+
+	input.search {
+	  // reset font size set for search input in .header
+	  font-size: 1em;
+	}
+
+	.content {
+		p,
+		li,
+		dl {
+			line-height: 1.65;
+		}
+	}
+}
+
+.mw-mf-overlay,
+#content_wrapper {
+	.error {
+		color: #C85353;
+		background: #FAE1E1 !important;
+	}
+}
 
 .mw-mf-image-replacement {
 	font-style: italic;
@@ -39,11 +75,6 @@ textarea {
 	padding: 5px 0 5px 5px;
 }
 
-input,
-textarea {
-	font-size: round( 1em / @fontScalingFactor, 2 ); // Fixed font on purpose to avoid zooming on iOS
-}
-
 input:not([type=submit]), textarea {
 	background: #fff;
 	border: 1px solid #ccc;
@@ -68,7 +99,9 @@ input:not([type=submit]), textarea {
 }
 
 a.external {
-	background: url(images/external-link-ltr-icon.png) center right no-repeat;
+	.background-image-svg( 'images/external-link-ltr-icon.svg', 'images/external-link-ltr-icon.png' );
+	background-repeat: no-repeat;
+	background-position: center right;
 	padding-right: 13px;
 }
 
@@ -93,22 +126,6 @@ ul.gallery {
 			word-wrap: break-word;
 		}
 	}
-}
-
-#content {
-	position: relative; // allow absolute positioned children e.g. edit link
-	img {
-		// FIXME [Inline Styles]: Important ensures we can overwrite any inline styles
-		// It's a leaf node so Nicole Sullivan says its okay
-		max-width: 100% !important;
-		height: auto !important;
-	}
-}
-
-p,
-li,
-dl {
-	line-height: 1.65;
 }
 
 pre {
@@ -142,11 +159,6 @@ img.thumbborder {
 	border: 1px solid #ccc;
 }
 
-.sibling-page {
-	display: block;
-	font-size: .9em;
-	margin-top: 1.5em;
-}
 
 /* Plainlinks - this can be used to switch
  * off special external link styling */
@@ -165,7 +177,27 @@ i {
 	font-style: italic;
 }
 
+fieldset {
+	border: 1px solid @blueBase;
+	margin: 1em 0 1em 0;
+	padding: 0 1em 1em;
+	line-height: 1.5em;
+	display: block;
+}
+
 .hlist > ul, // FIXME: to support hlists on enwiki projects - this should be deprecated
+
+// Horizontal Lists
+//
+// Use hlist class when dealing with lists where items should be horizontal.
+//
+// Markup:
+// <ul class="hlist">
+// <li>item 1</li>
+// <li>item 2</li>
+// </ul>
+//
+// Styleguide 1.6.
 ul.hlist {
 	li {
 		display: inline-block;
@@ -173,7 +205,85 @@ ul.hlist {
 	}
 }
 
+// Code
+//
+// Use this solely for blocks of computer code.
+//
+// Markup:
+// <code>
+// body {
+//   color:red;
+// }
+// </code>
+//
+// Styleguide 1.4.
+code,
+// Preformatted text
+//
+// Use on text where whitespace is significant and the content should not be formatted.
+//
+// Markup:
+// <pre>
+// body {
+//   color:red;
+// }
+// </pre>
+//
+// Styleguide 1.5.
+pre {
+	padding: 0.2em 0.5em;
+	font-family: monospace;
+	border: solid 1px #CCC;
+}
+
+pre {
+	padding: 1em;
+}
+
 .content {
+	// Deal with long links (bug 60387)
+	word-wrap: break-word;
+
+	// Linker.php
+	.thumb {
+		.thumbinner {
+			margin: 5px auto;
+			max-width: 100%;
+
+			> div {
+				float: none !important;
+				width: auto !important;
+				clear: both !important;
+			}
+		}
+
+		.thumbcaption {
+			margin: 5px 10px 0;
+			text-align: center;
+			width: auto !important;
+		}
+
+		/* bug 20030 */
+		.noresize {
+			width: 100%;
+			overflow-x: auto;
+
+			img {
+				max-width: none !important;
+			}
+		}
+	}
+
+	// Prevent inline styles on images in wikitext
+	// Note we restrict to img's to avoid conflicts with VisualEditor shields
+	// See bug 62460
+	a > img {
+		// make sure that images in articles don't cause a horizontal scrollbar
+		// on small screens
+		max-width: 100% !important;
+		height: auto !important;
+	}
+
 	ul {
 		list-style: square inside;
 	}
@@ -183,20 +293,30 @@ ul.hlist {
 	}
 
 	table {
-		caption {
-			display: block;
-			text-align: left;
-		}
+		margin: 1em 0;
 
 		/* following 4 rules are needed for scrolling */
 		overflow: auto; /* for browsers that don't support overflow-y */
 		overflow-y: hidden;
 		overflow-x: auto;
 		display: block;
+		width: 100% !important;
 
 		td,
 		th {
-		 padding: 3px;
+			padding: 3px;
+			border: 1px @grayLight solid;
+		}
+
+		th {
+			font-weight: bold;
+			background-color: #f2f2f2;
+			text-align: center;
+		}
+
+		caption {
+			display: block;
+			text-align: left;
 		}
 	}
 
@@ -204,8 +324,18 @@ ul.hlist {
 	div.magnify {
 		display: none;
 	}
+
+	// Generic class name needed
+	.return-link,
+	#mw-mf-last-modified {
+		display: block;
+		font-size: .9em;
+		margin-top: 1.5em;
+	}
 }
 
+// FIXME: Use generic rule for print stylesheets
+.printfooter,
 .jsonly {
 	display: none;
 }
@@ -215,7 +345,8 @@ ul.hlist {
 }
 
 .position-fixed {
-	position: fixed;
+	// use !important to override more specific rules (e.g. in OverlayNew.less)
+	position: fixed !important;
 }
 
 .animations .position-fixed {
@@ -231,24 +362,16 @@ ul.hlist {
 	}
 
 	.position-fixed {
-		position: absolute;
+		position: absolute !important;
+	}
+}
+
+.touch-events {
+	:focus {
+		outline: 0;
 	}
 }
 
 .nomobile {
 	display: none;
-}
-
-// classes added by thumbnails
-// e.g. [[File:Scholars mate animation.gif|frame|left|"[[Scholar's mate]]"]]
-@media all and (min-width: @wgMFDeviceWidthTablet) {
-	.content {
-		.tleft {
-			float: left;
-		}
-
-		.tright {
-			float: right;
-		}
-	}
 }

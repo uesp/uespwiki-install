@@ -59,7 +59,15 @@
 			}
 			return mw.msg( msg, mw.language.convertNumber( d ) );
 		},
-		getPages: function( location, range ) {
+		/**
+		 * Renders an error in the existing view
+		 *
+		 * @param {Object} location: In form { latitude: 0, longitude: 2 }
+		 * @param {Integer} range: Number of meters to perform a geosearch for
+		 * @param {String} exclude: Name of a title to exclude from the list of results
+		 * @return {jQuery.Deferred} Object taking list of pages as argument
+		 */
+		getPages: function( location, range, exclude ) {
 			var d = $.Deferred(), self = this;
 			this.get( {
 				action: 'query',
@@ -101,7 +109,7 @@
 						page.pageimageClass = 'needsPhoto';
 					}
 					page.anchor = 'item_' + i;
-					page.url = mw.util.wikiGetlink( page.title );
+					page.url = mw.util.getUrl( page.title );
 					if ( page.coordinates ) { // FIXME: protect against bug 47133 (remove when resolved)
 						coords = page.coordinates[0];
 						lngLat = { latitude: coords.lat, longitude: coords.lon };
@@ -111,8 +119,9 @@
 						page.proximity = self._distanceMessage( page.dist );
 					}
 					page.heading = page.title;
-					pages.push( page );
-					return page;
+					if ( exclude !== page.title ) {
+						return page;
+					}
 				} );
 
 				pages.sort( function( a, b ) {

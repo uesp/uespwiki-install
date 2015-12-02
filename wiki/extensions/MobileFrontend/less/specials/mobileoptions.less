@@ -3,7 +3,9 @@ SETTINGS PAGE
 based on http://acidmartin.wordpress.com/2011/06/18/css3-iphone-toggle-buttons/
 */
 
-@import "../mixins.less";
+@import "minerva.variables";
+@import "minerva.mixins";
+
 
 /* variables */
 @btngrey:#818181;
@@ -36,14 +38,18 @@ form.mw-mf-settings ul {
 	list-style: none;
 	padding-bottom: 40px;
 
-	li {
+	.option-name,
+	.option-description {
 		min-height: 4em;
 		line-height: 2em;
 		vertical-align: middle;
 		display: block;
-		font-weight: bold;
-		font-size: 1.1em;
 		position: relative;
+	}
+
+	.option-name {
+		font-size: 1.1em;
+		font-weight: bold;
 
 		div.mw-mf-checkbox-css3 {
 			display: inline;
@@ -79,10 +85,9 @@ form.mw-mf-settings ul {
 		}
 	}
 
-	li.mw-mf-settings-description {
+	.option-description {
 		font-size: 0.8em;
 		line-height: 1.8em;
-		font-weight: normal;
 		padding-right: 8px;
 	}
 

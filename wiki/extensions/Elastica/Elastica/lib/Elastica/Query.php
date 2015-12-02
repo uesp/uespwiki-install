@@ -1,6 +1,7 @@
 <?php
 
 namespace Elastica;
+use Elastica\Aggregation\AbstractAggregation;
 use Elastica\Exception\InvalidException;
 use Elastica\Exception\NotImplementedException;
 use Elastica\Facet\AbstractFacet;
@@ -318,6 +319,21 @@ class Query extends Param
     }
 
     /**
+     * Adds an Aggregation to the query
+     *
+     * @param AbstractAggregation $agg
+     * @return \Elastica\Query Query object
+     */
+    public function addAggregation(AbstractAggregation $agg)
+    {
+        if (!array_key_exists('aggs', $this->_params)) {
+            $this->_params['aggs'] = array();
+        }
+        $this->_params['aggs'][$agg->getName()] = $agg->toArray();
+        return $this;
+    }
+
+    /**
      * Converts all query params to an array
      *
      * @return array Query array
@@ -360,6 +376,16 @@ class Query extends Param
     {
         $this->addParam(NULL, $suggest->toArray());
         $this->_suggest = 1;
+    }
+
+    /**
+     * Add a Rescore
+     *
+     * @param  \Elastica\Rescore\AbstractRescore $suggest suggestion object
+     */
+    public function setRescore($rescore)
+    {
+        $this->setParam('rescore', $rescore->toArray());
     }
 }
 

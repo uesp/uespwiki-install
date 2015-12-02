@@ -54,13 +54,16 @@ $wgEmailAuthentication = true;
 # $wgDBadminuser = $uespWikiAdminUser; // RM: Not currently necessary
 # $wgDBadminpassword = $uespWikiAdminPW;
 # Do *not* comment out wgDBname -- it renames and resets all sessions
-$wgDBname           = "uesp_net_wikidev";
+$wgDBname           = "uesp_net_wiki5";
 $wgDBservers = array(
       array(          # content3 - Backup Read
                 'host' => $UESP_SERVER_CONTENT3,
                 'dbname' => 'uesp_net_wikidev',
                 'user' => 'wikidev',
                 'password' => 'Np15QqrX59',
+		//'dbname' => 'uesp_net_wiki5',
+		//'user' => 'wikiuser',
+		//'password' => 'ESPO!=uesp',
                 'type' => "mysql",
                 'flag' => DBO_DEFAULT,
                 'load' => 1,
@@ -78,10 +81,10 @@ $wgDBTableOptions = "ENGINE=InnoDB, DEFAULT CHARSET=binary";
 $wgDBmysql5 = false;
 
 ## Shared memory settings
-$wgMainCacheType = CACHE_MEMCACHED;
-$wgSessionsInObjectCache = true;
-$wgObjectCacheSessionExpiry = 100000;
-$wgMemCachedServers = array("10.7.143.70:11000");
+# $wgMainCacheType = CACHE_MEMCACHED;
+# $wgSessionsInObjectCache = true;
+# $wgObjectCacheSessionExpiry = 100000;
+# $wgMemCachedServers = array("10.7.143.70:11000");
 /* RM: For wgUseFileCache, false is default; uncomment whole section if we re-enable it
 $wgUseFileCache = false;
 $wgFileCacheDirectory = '/mnt/uesp/filecache';
@@ -177,7 +180,7 @@ require_once "$IP/extensions/Disambiguator/Disambiguator.php";
 require_once "$IP/extensions/DismissableSiteNotice/DismissableSiteNotice.php";
 require_once "$IP/extensions/DynamicFunctions/DynamicFunctions.php";
 require_once "$IP/extensions/Editcount/Editcount.php";
-require_once "$IP/extensions/ExpandTemplates/ExpandTemplates.php";
+# require_once "$IP/extensions/ExpandTemplates/ExpandTemplates.php";
 require_once "$IP/extensions/Gadgets/Gadgets.php";
 require_once "$IP/extensions/ImageMap/ImageMap.php";
 require_once "$IP/extensions/InputBox/InputBox.php";
@@ -195,7 +198,7 @@ require_once "$IP/extensions/qwebirChat/qwebirChat.php";
 require_once "$IP/extensions/RegexFunctions/RegexFunctions.php";
 require_once "$IP/extensions/Renameuser/SpecialRenameuser.php";
 # require_once "$IP/extensions/SearchLog/SearchLog.php";
-require_once "$IP/extensions/SimpleAntiSpam/SimpleAntiSpam.php";
+# require_once "$IP/extensions/SimpleAntiSpam/SimpleAntiSpam.php";
 require_once "$IP/extensions/SpamBlacklist/SpamBlacklist.php";
 $wgSpamBlacklistFiles = array( "DB: uesp_net_wiki5 UESPWiki:Spam_Blacklist" );
 require_once "$IP/extensions/StringFunctions/StringFunctions.php";

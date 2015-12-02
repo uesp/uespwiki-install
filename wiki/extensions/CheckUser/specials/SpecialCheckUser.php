@@ -48,7 +48,9 @@ class CheckUser extends SpecialPage {
 
 		# Perform one of the various submit operations...
 		if ( $request->wasPosted() ) {
-			if ( $request->getVal( 'action' ) === 'block' ) {
+			if ( !$this->getUser()->matchEditToken( $request->getVal( 'wpEditToken' ) ) ) {
+				$this->getOutput()->wrapWikiMsg( '<div class="error">$1</div>', 'checkuser-token-fail' );
+			} elseif ( $request->getVal( 'action' ) === 'block' ) {
 				$this->doMassUserBlock( $users, $blockreason, $tag, $talkTag );
 			} elseif ( !$this->checkReason( $reason ) ) {
 				$this->getOutput()->addWikiMsg( 'checkuser-noreason' );
@@ -115,7 +117,7 @@ class CheckUser extends SpecialPage {
 	 * @param $period
 	 */
 	protected function showForm( $user, $reason, $checktype, $ip, $xff, $name, $period ) {
-		$action = $this->getTitle()->escapeLocalUrl();
+		$action = htmlspecialchars( $this->getPageTitle()->getLocalUrl() );
 		# Fill in requested type if it makes sense
 		$encipusers = $encedits = $encuserips = 0;
 		if ( $checktype == 'subipusers' && ( $ip || $xff ) ) {
@@ -168,6 +170,7 @@ class CheckUser extends SpecialPage {
 		$form .= '</tr>';
 		$form .= Xml::closeElement( 'table' );
 		$form .= '</fieldset>';
+		$form .= Html::hidden( 'wpEditToken', $this->getUser()->getEditToken() );
 		$form .= Xml::closeElement( 'form' );
 		# Output form
 		$this->getOutput()->addHTML( $form );
@@ -204,11 +207,11 @@ class CheckUser extends SpecialPage {
 	}
 
 	/**
-	 * FIXME: documentation incomplete
 	 * Block a list of selected users
 	 * @param array $users
 	 * @param string $reason
 	 * @param string $tag
+	 * @param string $talkTag
 	 */
 	protected function doMassUserBlock( $users, $reason = '', $tag = '', $talkTag = '' ) {
 		global $wgCheckUserMaxBlocks;
@@ -388,9 +391,7 @@ class CheckUser extends SpecialPage {
 
 		# If user is not IP or nonexistent
 		if ( !$user_id ) {
-			// FIXME: addWikiMsg
-			$s = $this->msg( 'nosuchusershort', $user )->parseAsBlock();
-			$out->addHTML( $s );
+			$out->addWikiMsgArray( 'nosuchusershort', $user );
 			return;
 		}
 
@@ -431,8 +432,7 @@ class CheckUser extends SpecialPage {
 			$counter = 0;
 			foreach ( $ret as $row ) {
 				if ( $counter >= 5000 ) {
-					// FIXME: addWikiMSG
-					$out->addHTML( $this->msg( 'checkuser-limited' )->parseAsBlock() );
+					$out->addWikiMsg( 'checkuser-limited' );
 					break;
 				}
 				$ips_edits[$row->cuc_ip] = $row->count;
@@ -451,9 +451,12 @@ class CheckUser extends SpecialPage {
 			foreach ( $ips_edits as $ip => $edits ) {
 				$s .= '<li>';
 				$s .= '<a href="' .
-					$this->getTitle()->escapeLocalURL( 'user=' . urlencode( $ip ) . '&reason=' . urlencode( $reason ) ) . '">' .
+					htmlspecialchars( $this->getPageTitle()->getLocalURL( array(
+						'user' => $ip,
+						'reason' => $reason
+					) ) ) . '">' .
 					htmlspecialchars( $ip ) . '</a>';
-				$s .= ' (<a href="' . $blockip->escapeLocalURL( 'ip=' . urlencode( $ip ) ) . '">' .
+				$s .= ' (<a href="' . htmlspecialchars( $blockip->getLocalURL( 'ip=' . urlencode( $ip ) ) ) . '">' .
 					$this->msg( 'blocklink' )->escaped() . '</a>)';
 				if ( $ips_first[$ip] == $ips_last[$ip] ) {
 					$s .= ' (' . $this->getLanguage()->timeanddate( wfTimestamp( TS_MW, $ips_first[$ip] ), true ) . ') ';
@@ -601,8 +604,7 @@ class CheckUser extends SpecialPage {
 			$s .= '<ol>';
 			foreach ( $ret as $row ) {
 				if ( $counter >= 5000 ) {
-					// @todo FIXME: addWikiMsg
-					$out->addHTML( $this->msg( 'checkuser-limited' )->parseAsBlock() );
+					$out->addWikiMsg( 'checkuser-limited' );
 					break;
 				}
 				# Convert the IP hexes into normal form
@@ -613,7 +615,11 @@ class CheckUser extends SpecialPage {
 					$ip = long2ip( wfBaseConvert( $row->cuc_ip_hex, 16, 10, 8 ) );
 				}
 				$s .= '<li><a href="' .
-					$this->getTitle()->escapeLocalURL( 'user=' . urlencode( $ip ) . '&reason=' . urlencode( $reason ) . '&checktype=subipusers' ) .
+					htmlspecialchars( $this->getPageTitle()->getLocalURL( array(
+						'user' => $ip,
+						'reason' => $reason,
+						'checktype' => 'subipusers'
+					) ) ) .
 					'">' . $ip . '</a>';
 				if ( $row->first == $row->last ) {
 					$s .= ' (' . $this->getLanguage()->timeanddate( wfTimestamp( TS_MW, $row->first ), true ) . ') ';
@@ -672,8 +678,7 @@ class CheckUser extends SpecialPage {
 			$s = '<div id="checkuserresults">';
 			foreach ( $ret as $row ) {
 				if ( $counter >= 5000 ) {
-					// @todo FIXME: addWikiMsg
-					$out->addHTML( $this->msg( 'checkuser-limited' )->parseAsBlock() );
+					$out->addWikiMsg( 'checkuser-limited' );
 					break;
 				}
 				$s .= $this->CUChangesLine( $row, $reason );
@@ -906,7 +911,11 @@ class CheckUser extends SpecialPage {
 					$ip = long2ip( wfBaseConvert( $row->cuc_ip_hex, 16, 10, 8 ) );
 				}
 				$s .= '<li><a href="' .
-					$this->getTitle()->escapeLocalURL( 'user=' . urlencode( $ip ) . '&reason=' . urlencode( $reason ) . '&checktype=subipusers' ) .
+					htmlspecialchars( $this->getPageTitle()->getLocalURL( array(
+						'user' => $ip,
+						'reason' => $reason,
+						'checktype' => 'subipusers'
+					) ) ) .
 					'">' . $ip . '</a>';
 				if ( $row->first == $row->last ) {
 					$s .= ' (' . $this->getLanguage()->timeanddate( wfTimestamp( TS_MW, $row->first ), true ) . ') ';
@@ -976,7 +985,7 @@ class CheckUser extends SpecialPage {
 				}
 			}
 
-			$action = $this->getTitle()->escapeLocalURL( 'action=block' );
+			$action = htmlspecialchars( $this->getPageTitle()->getLocalURL( 'action=block' ) );
 			$s = "<form name='checkuserblock' id='checkuserblock' action=\"$action\" method='post'>";
 			$s .= '<div id="checkuserresults"><ul>';
 			foreach ( $users_edits as $name => $count ) {
@@ -987,8 +996,10 @@ class CheckUser extends SpecialPage {
 				# Add user tool links
 				$s .= Linker::userLink( - 1 , $name ) . Linker::userToolLinks( - 1 , $name );
 				# Add CheckUser link
-				$s .= ' (<a href="' . $this->getTitle()->escapeLocalURL( 'user=' . urlencode( $name ) .
-					'&reason=' . urlencode( $reason ) ) . '">' . $this->msg( 'checkuser-check' )->escaped() . '</a>)';
+				$s .= ' (<a href="' . htmlspecialchars( $this->getPageTitle()->getLocalURL( array(
+						'user' => $name,
+						'reason' => $reason
+					) ) ) . '">' . $this->msg( 'checkuser-check' )->escaped() . '</a>)';
 				# Show edit time range
 				if ( $users_first[$name] == $users_last[$name] ) {
 					// @todo FIXME: Hard coded parentheses.
@@ -1043,7 +1054,9 @@ class CheckUser extends SpecialPage {
 					$set = $users_infosets[$name][$i];
 					# IP link
 					$s .= '<li>';
-					$s .= '<a href="' . $this->getTitle()->escapeLocalURL( 'user=' . urlencode( $set[0] ) ) . '">' . htmlspecialchars( $set[0] ) . '</a>';
+					$s .= '<a href="' .
+						htmlspecialchars( $this->getPageTitle()->getLocalURL( 'user=' . urlencode( $set[0] ) ) ) .
+						'">' . htmlspecialchars( $set[0] ) . '</a>';
 					# XFF string, link to /xff search
 					if ( $set[1] ) {
 						# Flag our trusted proxies
@@ -1053,7 +1066,7 @@ class CheckUser extends SpecialPage {
 						$c = $trusted ? '#F0FFF0' : '#FFFFCC';
 						$s .= '&#160;&#160;&#160;<span style="background-color: ' . $c . '"><strong>XFF</strong>: ';
 						$s .= Linker::linkKnown(
-							$this->getTitle(),
+							$this->getPageTitle(),
 							htmlspecialchars( $set[1] ),
 							array(),
 							array( 'user' => $client . '/xff' )
@@ -1090,6 +1103,7 @@ class CheckUser extends SpecialPage {
 					array( 'id' => 'checkuserblocksubmit', 'name' => 'checkuserblock' ) ) . "</p>\n";
 				$s .= "</fieldset>\n";
 			}
+			$s .= Html::hidden( 'wpEditToken', $this->getUser()->getEditToken() );
 			$s .= '</form>';
 		}
 
@@ -1255,11 +1269,12 @@ class CheckUser extends SpecialPage {
 	 * @create diff/hist/page link
 	 */
 	protected function getLinksFromRow( $row ) {
+		$links = array();
 		// Log items
 		if ( $row->cuc_type == RC_LOG ) {
 			$title = Title::makeTitle( $row->cuc_namespace, $row->cuc_title );
 			// @todo FIXME: Hard coded parentheses.
-			$links = '(' . Linker::linkKnown(
+			$links['log'] = '(' . Linker::linkKnown(
 				SpecialPage::getTitleFor( 'Log' ),
 				$this->message['log'],
 				array(),
@@ -1269,11 +1284,11 @@ class CheckUser extends SpecialPage {
 			$title = Title::makeTitle( $row->cuc_namespace, $row->cuc_title );
 			# New pages
 			if ( $row->cuc_type == RC_NEW ) {
-				$links = '(' . $this->message['diff'] . ') ';
+				$links['diff'] = '(' . $this->message['diff'] . ') ';
 			} else {
 				# Diff link
 				// @todo FIXME: Hard coded parentheses.
-				$links = ' (' . Linker::linkKnown(
+				$links['diff'] = ' (' . Linker::linkKnown(
 					$title,
 					$this->message['diff'],
 					array(),
@@ -1286,7 +1301,7 @@ class CheckUser extends SpecialPage {
 			}
 			# History link
 			// @todo FIXME: Hard coded parentheses.
-			$links .= ' (' . Linker::linkKnown(
+			$links['history'] = ' (' . Linker::linkKnown(
 				$title,
 				$this->message['hist'],
 				array(),
@@ -1297,15 +1312,22 @@ class CheckUser extends SpecialPage {
 			) . ') . . ';
 			# Some basic flags
 			if ( $row->cuc_type == RC_NEW ) {
-				$links .= '<span class="newpage">' . $this->message['newpageletter'] . '</span>';
+				$links['newpage'] = '<span class="newpage">' . $this->message['newpageletter'] . '</span>';
 			}
 			if ( $row->cuc_minor ) {
-				$links .= '<span class="minor">' . $this->message['minoreditletter'] . '</span>';
+				$links['minor'] = '<span class="minor">' . $this->message['minoreditletter'] . '</span>';
 			}
 			# Page link
-			$links .= ' ' . Linker::link( $title );
+			$links['title'] = Linker::link( $title );
 		}
-		return $links;
+
+		wfRunHooks( 'SpecialCheckUserGetLinksFromRow', array( $this, $row, &$links ) );
+		if ( is_array( $links ) ) {
+			return implode( ' ', $links );
+		} else {
+			wfDebugLog( __CLASS__, __METHOD__ . ': Expected array from SpecialCheckUserGetLinksFromRow $links param, but received ' . gettype( $links ) );
+			return '';
+		}
 	}
 
 	protected static function userWasBlocked( $name ) {

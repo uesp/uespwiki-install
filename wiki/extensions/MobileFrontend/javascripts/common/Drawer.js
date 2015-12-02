@@ -1,6 +1,14 @@
 ( function( M, $ ) {
 
-var View = M.require( 'view' ),
+var View = M.require( 'View' ),
+	Drawer;
+
+	/**
+	 * A {@link View} that pops up from the bottom of the screen.
+	 * @name Drawer
+	 * @class
+	 * @extends View
+	 */
 	Drawer = View.extend( {
 		defaults: {
 			cancelMessage: mw.msg( 'mobile-frontend-drawer-cancel' )
@@ -15,9 +23,18 @@ var View = M.require( 'view' ),
 				ev.preventDefault();
 				self.hide();
 			} );
-			this.appendTo( '#notifications' );
+			// This module might be loaded at the top of the page e.g. Special:Uploads
+			// Thus ensure we wait for the DOM to be loaded
+			// FIXME: This should be moved out of Drawer.js. Caller should actually append to DOM.
+			$( function() {
+				self.appendTo( '#notifications' );
+			} );
 		},
 
+		/**
+		 * @name Drawer.prototype.show
+		 * @function
+		 */
 		show: function() {
 			var self = this;
 
@@ -41,6 +58,10 @@ var View = M.require( 'view' ),
 			}
 		},
 
+		/**
+		 * @name Drawer.prototype.hide
+		 * @function
+		 */
 		hide: function() {
 			var self = this;
 
@@ -54,10 +75,18 @@ var View = M.require( 'view' ),
 			}, 10 );
 		},
 
+		/**
+		 * @name Drawer.prototype.isVisible
+		 * @function
+		 */
 		isVisible: function() {
 			return this.$el.hasClass( 'visible' );
 		},
 
+		/**
+		 * @name Drawer.prototype.toggle
+		 * @function
+		 */
 		toggle: function() {
 			if ( this.isVisible() ) {
 				this.hide();

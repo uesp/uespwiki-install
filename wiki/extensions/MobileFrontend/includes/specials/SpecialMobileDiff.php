@@ -1,6 +1,7 @@
 <?php
 
 class SpecialMobileDiff extends MobileSpecialPage {
+	protected $hasDesktopVersion = true;
 	private $revId;
 	/** @var Revision */
 	private $rev;
@@ -28,7 +29,8 @@ class SpecialMobileDiff extends MobileSpecialPage {
 	 * Takes 2 ids/keywords and validates them returning respective revisions
 	 *
 	 * @param Array Array of revision ids currently limited to 2 elements
-	 * @return Array of previous and next revision. The next revision is null if a bad parameter is passed
+	 * @return Array of previous and next revision. The next revision is null if
+	 *   a bad parameter is passed
 	 */
 	public function getRevisionsToCompare( $revids ) {
 		$prev = null;
@@ -43,7 +45,7 @@ class SpecialMobileDiff extends MobileSpecialPage {
 				// deal with identical ids
 				if ( $id === $prevId ) {
 					$rev = null;
-				} else if ( $rev ) {
+				} elseif ( $rev ) {
 					$prev = static::getRevision( $prevId );
 					if ( !$prev ) {
 						$rev = null;
@@ -52,7 +54,7 @@ class SpecialMobileDiff extends MobileSpecialPage {
 					$rev = null;
 				}
 			}
-		} else if ( count( $revids ) === 1 ) {
+		} elseif ( count( $revids ) === 1 ) {
 			$id = intval( $revids[0] );
 			if ( $id ) {
 				$rev = static::getRevision( $id );
@@ -64,14 +66,11 @@ class SpecialMobileDiff extends MobileSpecialPage {
 		return array( $prev, $rev );
 	}
 
-	function execute( $par ) {
+	function executeWhenAvailable( $par ) {
+		wfProfileIn( __METHOD__ );
 		$ctx = MobileContext::singleton();
 		$this->setHeaders();
 		$output = $this->getOutput();
-		if ( $ctx->isBetaGroupMember() ) {
-			$output->addModules( 'mobile.mobilediff.scripts.beta.head' );
-			$output->addModules( 'mobile.mobilediff.scripts.beta' );
-		}
 
 		// @FIXME add full support for git-style notation (eg ...123, 123...)
 		$revisions = $this->getRevisionsToCompare( explode( '...', $par ) );
@@ -79,19 +78,26 @@ class SpecialMobileDiff extends MobileSpecialPage {
 		$prev = $revisions[0];
 
 		if ( is_null( $rev ) ) {
-			return $this->executeBadQuery();
+			$this->executeBadQuery();
+			wfProfileOut( __METHOD__ );
+			return false;
 		}
 		$this->revId = $rev->getId();
 		$this->rev = $rev;
 		$this->prevRev = $prev;
 		$this->targetTitle = $this->rev->getTitle();
 
-		$output->setPageTitle( $this->msg( 'mobile-frontend-diffview-title', $this->targetTitle->getPrefixedText() ) );
+		$output->setPageTitle( $this->msg(
+			'mobile-frontend-diffview-title',
+			$this->targetTitle->getPrefixedText()
+		) );
 
-		$output->addModules( 'mobile.watchlist' );
+		// @todo FIXME: Don't add these styles. This is only needed for the user
+		// icon to the left of the username
+		$output->addModuleStyles( 'mobile.special.pagefeed.styles' );
 
 		// Allow other extensions to load more stuff here
-		wfRunHooks( 'BeforeSpecialMobileDiffDisplay', array( &$output, $ctx ) );
+		wfRunHooks( 'BeforeSpecialMobileDiffDisplay', array( &$output, $ctx, $revisions ) );
 
 		$output->addHtml( '<div id="mw-mf-diffview"><div id="mw-mf-diffarea">' );
 
@@ -102,6 +108,7 @@ class SpecialMobileDiff extends MobileSpecialPage {
 		$this->showFooter();
 
 		$output->addHtml( '</div>' );
+		wfProfileOut( __METHOD__ );
 		return true;
 	}
 
@@ -115,10 +122,10 @@ class SpecialMobileDiff extends MobileSpecialPage {
 		}
 		if ( $bytesChanged >= 0 ) {
 			$changeMsg = 'mobile-frontend-diffview-bytesadded';
-			$sizeClass = 'mw-mf-bytesadded';
+			$sizeClass = 'mw-mf-bytesadded meta';
 		} else {
 			$changeMsg = 'mobile-frontend-diffview-bytesremoved';
-			$sizeClass = 'mw-mf-bytesremoved';
+			$sizeClass = 'mw-mf-bytesremoved meta';
 			$bytesChanged = abs( $bytesChanged );
 		}
 
@@ -133,9 +140,11 @@ class SpecialMobileDiff extends MobileSpecialPage {
 					$title->getPrefixedText()
 				).
 				Html::closeElement( 'h2' ) .
-				Html::element( 'span', array( 'class' => $sizeClass ), $this->msg( $changeMsg )->numParams( $bytesChanged )->text() ) .
+				Html::element( 'span', array( 'class' => $sizeClass ),
+					$this->msg( $changeMsg )->numParams( $bytesChanged )->text()
+				) .
 				$this->msg( 'comma-separator' )->text() .
-				Html::element( 'span', array( 'class' => 'mw-mf-diff-date' ), $ts->getHumanTimestamp() ) .
+				Html::element( 'span', array( 'class' => 'mw-mf-diff-date meta' ), $ts->getHumanTimestamp() ) .
 			Html::closeElement( 'div' ) .
 			Html::element( 'div', array( 'id' => 'mw-mf-diff-comment' ), $this->rev->getComment() )
 		);
@@ -143,18 +152,43 @@ class SpecialMobileDiff extends MobileSpecialPage {
 
 	function showDiff() {
 		$ctx = MobileContext::singleton();
-		if ( $this->prevRev ) {
-			$prevId = $this->prevRev->getId();
-			$contentHandler = $this->rev->getContentHandler();
-			$de = $contentHandler->createDifferenceEngine( $this->getContext(), $prevId, $this->revId );
-			$diff = $de->getDiffBody();
-			$processedDiff = $this->processDiff( $diff );
-		} else {
-			$processedDiff = '<ins>' . htmlspecialchars( $this->rev->getText() ) . '</ins>';
+
+		$prevId = $this->prevRev ? $this->prevRev->getId() : 0;
+		$unhide = (bool)$this->getRequest()->getVal( 'unhide' );
+		$contentHandler = $this->rev->getContentHandler();
+		$de = $contentHandler->createDifferenceEngine( $this->getContext(), $prevId, $this->revId );
+		// HACK:
+		if ( get_class( $de ) == 'DifferenceEngine' ) {
+			$de = new InlineDifferenceEngine(
+				$this->getContext(),
+				$prevId,
+				$this->revId,
+				0,
+				false,
+				$unhide
+			);
+		}
+		$diff = $de->getDiffBody();
+		if ( !$prevId ) {
+			$audience = $unhide ? Revision::FOR_THIS_USER : Revision::FOR_PUBLIC;
+			$diff = '<ins>'
+				. nl2br( htmlspecialchars( $this->rev->getText( $audience ) ) )
+				. '</ins>';
+		}
+
+		$warnings = $de->getWarningMessageText();
+		if ( $warnings ) {
+			$warnings = Html::openElement( 'div',
+				array(
+					'class' => 'warning alert',
+				) ) .
+				$warnings .
+				Html::closeElement( 'div' );
 		}
 		$this->getOutput()->addHtml(
+			$warnings .
 			'<div id="mw-mf-minidiff">' .
-			$processedDiff .
+			$diff .
 			'</div>'
 		);
 		$prev = $this->rev->getPrevious();
@@ -178,35 +212,12 @@ class SpecialMobileDiff extends MobileSpecialPage {
 		}
 	}
 
-	function processDiff( $diff ) {
-		$out = '';
-
-		// haaaacccckkkkk
-		$doc = new DOMDocument();
-		$doc->loadHtml( '<?xml encoding="utf-8">' . $diff );
-		$xpath = new DOMXpath( $doc );
-		$els = $xpath->query( "//td[@class='diff-deletedline'] | //td[@class='diff-addedline']" );
-		$out .= Html::element( 'div', array( 'class' => 'heading' ),
-			$this->msg( 'mobile-frontend-diffview-explained' )->plain() );
-		/** @var $el DOMElement */
-		foreach( $els as $el ) {
-			$class = $el->getAttribute( 'class' );
-			if ( $class === 'diff-deletedline' ) {
-				$out .= Html::element( 'del', array(), $el->nodeValue );
-			} else {
-				$out .= Html::element( 'ins', array(), $el->nodeValue );
-			}
-		}
-
-		return $out;
-	}
-
 	function showFooter() {
 		$output = $this->getOutput();
 
 		$output->addHtml(
 			Html::openElement( 'div', array( 'id' => 'mw-mf-userinfo',
-				'class' => 'position-fixed' ) )
+				'class' => 'buttonBar position-fixed' ) )
 		);
 
 		$userId = $this->rev->getUser();
@@ -220,7 +231,9 @@ class SpecialMobileDiff extends MobileSpecialPage {
 				'data-user-gender' => $user->getOption( 'gender' ),
 			);
 			$inBeta = MobileContext::singleton()->isBetaGroupMember();
-			$userLink = $inBeta ? SpecialPage::getTitleFor( 'UserProfile', $user->getName() ) : $user->getUserPage();
+			$userLink = $inBeta
+				? SpecialPage::getTitleFor( 'UserProfile', $user->getName() )
+				: $user->getUserPage();
 			$output->addHtml(
 				Html::openElement( 'div', $attrs ) .
 				Linker::link(
@@ -229,11 +242,14 @@ class SpecialMobileDiff extends MobileSpecialPage {
 					array( 'class' => 'mw-mf-user-link' )
 				) .
 				'</div>' .
-				'<div class="mw-mf-roles">' .
+				'<div class="mw-mf-roles meta">' .
 					$this->listGroups( $user ) .
 				'</div>' .
-				'<div class="mw-mf-edit-count">' .
-					$this->msg( 'mobile-frontend-diffview-editcount', $this->getLanguage()->formatNum( $edits ) )->parse() .
+				'<div class="mw-mf-edit-count meta">' .
+					$this->msg(
+						'mobile-frontend-diffview-editcount',
+						$this->getLanguage()->formatNum( $edits )
+					)->parse() .
 				'</div>'
 			);
 		} else {
@@ -292,7 +308,7 @@ class SpecialMobileDiff extends MobileSpecialPage {
 					// yes this is confusing - this is how it works arrgghh
 					$rev2 = $rev1;
 					$rev1 = $prev ? $prev->getId() : '';
-				} else if ( $rev2 === 'next' ) {
+				} elseif ( $rev2 === 'next' ) {
 					$next = $rev->getNext();
 					$rev2 = $next ? $next->getId() : '';
 				} else {

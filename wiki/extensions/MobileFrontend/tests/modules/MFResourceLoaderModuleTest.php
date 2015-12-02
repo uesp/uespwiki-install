@@ -36,6 +36,7 @@ class MFResourceLoaderModuleTest extends MediaWikiTestCase {
 			'dependencies' => array( 'dependency1', 'dependency2' )
 		)
 	);
+
 	// providers
 	public function providerGetMessages() {
 		return array(
@@ -57,7 +58,7 @@ class MFResourceLoaderModuleTest extends MediaWikiTestCase {
 	public function providerAddParsedMessages() {
 		$msg = wfMessage( 'mobile-frontend-photo-license' )->parse();
 		$expected = "\n" . Xml::encodeJsCall( 'mw.messages.set',
-			array( 'mobile-frontend-photo-license', $msg ) );
+				array( 'mobile-frontend-photo-license', $msg ) );
 
 		return array(
 			// test case 1
@@ -98,15 +99,26 @@ class MFResourceLoaderModuleTest extends MediaWikiTestCase {
 	public function providerGetTemplateScript() {
 		$module = $this->modules['templateModule'];
 		$module['localTemplateBasePath'] = realpath( dirname( __FILE__ ) . '/templates/' );
+
 		return array(
 			array(
 				$this->modules[0], ''
 			),
 			array(
 				$module,
-				'mw.template.add("template","hello\n");' . 
+				'mw.template.add("template","hello\n");' .
 				'mw.template.add("template2","goodbye\n");'
 			)
+		);
+	}
+
+	public function providerGetModifiedTimeTemplates() {
+		$module = $this->modules['templateModule'];
+		$module['localTemplateBasePath'] = '/tmp/templates';
+
+		return array(
+			// Check the default value when no templates present in module is 1
+			array( $module, 1 ),
 		);
 	}
 
@@ -150,5 +162,14 @@ class MFResourceLoaderModuleTest extends MediaWikiTestCase {
 		$js = $rl->getTemplateScript();
 
 		$this->assertEquals( $js, $expected );
+	}
+
+	/**
+	 * @dataProvider providerGetModifiedTimeTemplates
+	 */
+	public function testGetModifiedTimeTemplates( $module, $expected ) {
+		$rl = new MFResourceLoaderModule( $module );
+		$ts = $rl->getModifiedTimeTemplates( new ResourceLoaderContext( array(), new WebRequest() ) );
+		$this->assertEquals( $ts, $expected );
 	}
 }

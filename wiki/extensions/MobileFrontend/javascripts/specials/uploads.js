@@ -1,13 +1,13 @@
 ( function( M, $ ) {
 var
 	PhotoUploaderButton = M.require( 'modules/uploads/PhotoUploaderButton' ),
-	popup = M.require( 'notifications' ),
+	user = M.require( 'user' ),
+	popup = M.require( 'toast' ),
 	Api = M.require( 'api' ).Api,
-	View = M.require( 'view' ),
-	CarouselOverlay = M.require( 'overlays/CarouselOverlay' ),
+	View = M.require( 'View' ),
 	corsUrl = mw.config.get( 'wgMFPhotoUploadEndpoint' ),
 	pageParams = mw.config.get( 'wgPageName' ).split( '/' ),
-	currentUserName = mw.config.get( 'wgUserName' ),
+	currentUserName = user.getName(),
 	userName = pageParams[1] ? pageParams[1] : currentUserName,
 	IMAGE_WIDTH = 320,
 	UserGalleryApi, PhotoItem, PhotoList;
@@ -81,25 +81,29 @@ var
 			this.$list = this.$( 'ul' );
 
 			this._loadPhotos();
-			if ( mw.config.get( 'wgMFMode' ) !== 'stable' ) {
-				$( window ).on( 'scroll', $.proxy( this, '_loadPhotos' ) );
-			} else {
-				this.$end.remove();
-			}
+			// FIXME: Consider using setInterval instead or some sort of dethrottling/debouncing to avoid performance
+			// degradation
+			// e.g. http://benalman.com/projects/jquery-throttle-debounce-plugin/
+			$( window ).on( 'scroll', $.proxy( this, '_loadPhotos' ) );
 		},
 		isEmpty: function() {
 			return this.$list.find( 'li' ).length === 0;
 		},
 		showEmptyMessage: function() {
-			$( '<p class="content">' ).text( mw.msg( 'mobile-frontend-donate-image-nouploads' ) ).
+			$( '<p class="content empty">' ).text( mw.msg( 'mobile-frontend-donate-image-nouploads' ) ).
 				insertBefore( this.$list );
+		},
+		hideEmptyMessage: function() {
+			this.$( '.empty' ).remove();
 		},
 		prependPhoto: function( photoData ) {
 			var photoItem = new PhotoItem( photoData ).prependTo( this.$list );
+			this.hideEmptyMessage();
 			M.emit( 'photo-loaded', photoItem.$el );
 		},
 		appendPhoto: function( photoData ) {
 			var photoItem = new PhotoItem( photoData ).appendTo( this.$list );
+			this.hideEmptyMessage();
 			M.emit( 'photo-loaded', photoItem.$el );
 		},
 		_isEndNear: function() {
@@ -124,6 +128,7 @@ var
 						self.$end.remove();
 						if ( self.isEmpty() ) {
 							self.emit( 'empty' );
+							self.showEmptyMessage();
 						}
 					}
 				} ).fail( function() {
@@ -159,66 +164,53 @@ var
 		};
 	}
 
+	function createButton( $container ) {
+		var btn = new PhotoUploaderButton( {
+			buttonCaption: mw.msg( 'mobile-frontend-photo-upload-generic' ),
+			pageTitle: mw.config.get( 'wgTitle' ),
+			funnel: 'uploads'
+		} );
+
+		btn.appendTo( $container );
+	}
+
 	function init() {
-		var $container, userGallery, emptyHandler;
+		var $container, userGallery, $a;
 
 		userGallery = new PhotoList().appendTo( '#content_wrapper' );
-		if ( currentUserName === userName ) {
-			emptyHandler = function() {
-				new CarouselOverlay( {
-					pages: [
-						{
-							caption: mw.msg( 'mobile-frontend-first-upload-wizard-new-page-1-header' ),
-							text: mw.msg( 'mobile-frontend-first-upload-wizard-new-page-1' ),
-							className: 'page-1 slide-image', id: 1
-						},
-						{
-							caption: mw.msg( 'mobile-frontend-first-upload-wizard-new-page-2-header' ),
-							text: mw.msg( 'mobile-frontend-first-upload-wizard-new-page-2' ),
-							className: 'page-2 slide-image', id: 2
-						},
-						{
-							caption: mw.msg( 'mobile-frontend-first-upload-wizard-new-page-3-header' ),
-							cancel: mw.msg( 'mobile-frontend-first-upload-wizard-new-page-3-ok' ),
-							className: 'photo-upload slide-image', id: 3
-						}
-					]
-				} ).show();
-			};
-		} else {
-			emptyHandler = function() {
-				userGallery.showEmptyMessage();
-			};
-		}
-		userGallery.on( 'empty', emptyHandler );
 
 		if ( PhotoUploaderButton.isSupported && currentUserName === userName ) {
 			$container = $( '.ctaUploadPhoto' );
 
-			new PhotoUploaderButton( {
-				buttonCaption: mw.msg( 'mobile-frontend-photo-upload-generic' ),
-				pageTitle: mw.config.get( 'wgTitle' ),
-				funnel: 'uploads'
-			} ).
-				appendTo( $container ).
-				on( 'success', function( image ) {
-					var $counter = $container.find( 'h2' ).show().find( 'span' ), newCount, msgKey;
+			if ( user.getEditCount() === 0 ) {
+				$a = $( '<a class="button photo">' ).
+					text( mw.msg( 'mobile-frontend-photo-upload-generic' ) ).
+					attr( 'href', '#/upload-tutorial/uploads' ).appendTo( $container );
+				// FIXME: This is needed so the camera shows. Eww.
+				$( '<div>' ).appendTo( $a );
+			} else {
+				createButton( $container );
+			}
 
-					if ( userGallery.isEmpty() ) {
-						msgKey = 'mobile-frontend-donate-photo-first-upload-success';
-					} else {
-						msgKey = 'mobile-frontend-donate-photo-upload-success';
-					}
-					popup.show( mw.msg( msgKey ), 'toast' );
+			// FIXME: Please find a way to do this without a global event.
+			M.on( '_file-upload', function( image ) {
+				var $counter = $container.find( 'h2' ).show().find( 'span' ), newCount, msgKey;
 
-					image.width = IMAGE_WIDTH;
-					userGallery.prependPhoto( image );
+				if ( userGallery.isEmpty() ) {
+					msgKey = 'mobile-frontend-donate-photo-first-upload-success';
+				} else {
+					msgKey = 'mobile-frontend-donate-photo-upload-success';
+				}
+				popup.show( mw.msg( msgKey ), 'toast' );
 
-					if ( $counter.length ) {
-						newCount = parseInt( $counter.text(), 10 ) + 1;
-						$counter.parent().html( mw.msg( 'mobile-frontend-photo-upload-user-count', newCount ) ).show();
-					}
-				} );
+				image.width = IMAGE_WIDTH;
+				userGallery.prependPhoto( image );
+
+				if ( $counter.length ) {
+					newCount = parseInt( $counter.text(), 10 ) + 1;
+					$counter.parent().html( mw.msg( 'mobile-frontend-photo-upload-user-count', newCount ) ).show();
+				}
+			} );
 		}
 	}
 

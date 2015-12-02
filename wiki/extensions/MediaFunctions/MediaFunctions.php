@@ -7,19 +7,19 @@ if ( !defined( 'MEDIAWIKI' ) ) die();
  * @file
  * @ingroup Extensions
  * @author Rob Church <robchur@gmail.com>
- * @version 1.2
  */
 
 $wgExtensionCredits['parserhook'][] = array(
 	'path' => __FILE__,
 	'name' => 'MediaFunctions',
-	'version' => '1.2.1',
+	'version' => '1.3.0',
 	'author' => 'Rob Church',
 	'url' => 'https://www.mediawiki.org/wiki/Extension:MediaFunctions',
 	'descriptionmsg' => 'mediafunctions-desc',
 );
 
 $dir = dirname( __FILE__ ) . '/';
+$wgMessagesDirs['MediaFunctions'] = __DIR__ . '/i18n';
 $wgExtensionMessagesFiles['MediaFunctions'] = $dir . 'MediaFunctions.i18n.php';
 $wgExtensionMessagesFiles['MediaFunctionsMagic'] = $dir . 'MediaFunctions.i18n.magic.php';
 $wgAutoloadClasses['MediaFunctions'] = $dir . 'MediaFunctions.class.php';

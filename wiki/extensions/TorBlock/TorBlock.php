@@ -39,6 +39,7 @@ $wgExtensionCredits['antispam'][] = array(
 	'url'            => 'https://www.mediawiki.org/wiki/Extension:TorBlock',
 );
 
+$wgMessagesDirs['TorBlock'] = __DIR__ . '/i18n';
 $wgExtensionMessagesFiles['TorBlock'] =  "$dir/TorBlock.i18n.php";
 $wgAutoloadClasses['TorBlock'] = "$dir/TorBlock.class.php";
 $wgAutoloadClasses['TorExitNodes'] = "$dir/TorExitNodes.php";
@@ -54,7 +55,6 @@ $wgHooks['AbuseFilter-filterAction'][] = 'TorBlock::onAbuseFilterFilterAction';
 $wgHooks['AbuseFilter-builder'][] = 'TorBlock::onAbuseFilterBuilder';
 $wgHooks['EmailUserPermissionsErrors'][] = 'TorBlock::onEmailUserPermissionsErrors';
 $wgHooks['OtherBlockLogLink'][] = 'TorBlock::getTorBlockStatus';
-$wgHooks['SpecialPasswordResetOnSubmit'][] = 'TorBlock::onSpecialPasswordResetOnSubmit';
 
 // Define new autopromote condition
 define( 'APCOND_TOR', 'tor' ); // Numbers won't work, we'll get collisions

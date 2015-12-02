@@ -3,6 +3,11 @@
 *.kate-swp
 .*.swp
 .idea/
+/composer.phar
+/vendor/
 node_modules/
 tmp/
-tests/acceptance/Gemfile.lock
+docs/
+scripts/remotes
+vendor/
+composer.phar

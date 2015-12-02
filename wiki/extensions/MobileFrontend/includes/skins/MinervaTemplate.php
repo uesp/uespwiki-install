@@ -1,11 +1,16 @@
 <?php
 class MinervaTemplate extends BaseTemplate {
+	/**
+	 * @var Boolean
+	 */
+	protected $isSpecialPage;
+
 	public function getPersonalTools() {
 		return $this->data['personal_urls'];
 	}
 
 	public function execute() {
-		$this->getSkin()->prepareData( $this );
+		$this->isSpecialPage = $this->getSkin()->getTitle()->isSpecialPage();
 		wfRunHooks( 'MinervaPreRender', array( $this ) );
 		$this->render( $this->data );
 	}
@@ -30,60 +35,31 @@ class MinervaTemplate extends BaseTemplate {
 		return $this->data['page_actions'];
 	}
 
-	protected function renderLanguages() {
-		$languages = $this->getLanguages();
-		$variants = $this->getLanguageVariants();
-		$languagesCount = count( $languages );
-		$variantsCount = count( $variants );
-
-		if ( $languagesCount > 0 || $variantsCount > 1 ) {
-			$heading = wfMessage( 'mobile-frontend-language-article-heading' )->text();
-			$languageSummary = wfMessage( 'mobile-frontend-language-header', $languagesCount )->text();
-			$variantSummary = $variantsCount > 1 ? wfMessage( 'mobile-frontend-language-variant-header' )->text() : '';
-			?>
-			<div class="section" id="mw-mf-language-section">
-				<h2 id="section_language" class="section_heading"><?php echo $heading; ?></h2>
-				<div id="content_language" class="content_block">
-
-					<?php if ( $variantsCount > 1 ) { ?>
-					<p id="mw-mf-language-variant-header"><?php echo $variantSummary; ?></p>
-					<ul id="mw-mf-language-variant-selection">
-					<?php
-					foreach( $variants as $key => $val ):
-						echo $this->makeListItem( $key, $val );
-					endforeach;
-					?>
-					</ul>
-					<?php } ?>
-
-					<?php if ( $languagesCount > 0 ) { ?>
-					<p id="mw-mf-language-header"><?php echo $languageSummary; ?></p>
-					<ul id="mw-mf-language-selection">
-					<?php
-					foreach( $languages as $key => $val ):
-						echo $this->makeListItem( $key, $val );
-					endforeach;
-					?>
-					</ul>
-					<?php } ?>
-
-				</div>
-			</div>
-		<?php
-		}
+	public function getFooterLinks( $option = null ) {
+		return $this->data['footerlinks'];
 	}
 
 	protected function renderFooter( $data ) {
-		if ( !$this->getSkin()->getTitle()->isSpecialPage() ) {
+		if ( !$data['disableSearchAndFooter'] ) {
 		?>
 		<div id="footer">
 			<?php
 				foreach( $this->getFooterLinks() as $category => $links ):
 			?>
 				<ul class="footer-<?php echo $category; ?>">
-					<?php foreach( $links as $link ): ?><li><?php $this->html( $link ) ?></li><?php endforeach; ?>
+					<?php
+						foreach( $links as $link ) {
+							if ( isset( $this->data[$link] ) ) {
+								echo Html::openElement( 'li', array( 'id' => "footer-{$category}-{$link}" ) );
+								$this->html( $link );
+								echo Html::closeElement( 'li' );
+							}
+						}
+					?>
 				</ul>
-			<?php endforeach; ?>
+			<?php
+				endforeach;
+			?>
 		</div>
 		<?php
 		}
@@ -97,6 +73,10 @@ class MinervaTemplate extends BaseTemplate {
 		?></ul><?php
 	}
 
+	/**
+	 * Outputs the 'Last edited' message, e.g. 'Last edited on...'
+	 * @param Array $data Data used to build the page
+	 */
 	protected function renderHistoryLink( $data ) {
 		if ( isset( $data['historyLink'] ) ) {
 			$historyLink = $data['historyLink'];
@@ -106,41 +86,93 @@ class MinervaTemplate extends BaseTemplate {
 		}
 	}
 
+	/**
+	 * Renders history link at top of page
+	 * @param Array $data Data used to build the page
+	 */
+	protected function renderHistoryLinkBottom( $data ) {
+		$this->renderHistoryLink( $data );
+	}
+
 	protected function renderMetaSections() {
-		$this->renderLanguages();
+		echo Html::openElement( 'div', array( 'id' => 'page-secondary-actions' ) );
+
+		// If languages are available, render a languages link
+		if ( $this->getLanguages() || $this->getLanguageVariants() ) {
+			$languageUrl = SpecialPage::getTitleFor(
+				'MobileLanguages',
+				$this->getSkin()->getTitle()
+			)->getLocalURL();
+			$languageLabel = wfMessage( 'mobile-frontend-language-article-heading' )->text();
+
+			echo Html::element( 'a', array(
+				'class' => 'mw-ui-button mw-ui-progressive button languageSelector',
+				'href' => $languageUrl
+			), $languageLabel );
+		}
+
+		echo Html::closeElement( 'div' );
+	}
+
+	/**
+	 * Renders the content of a page
+	 * @param Array $data Data used to build the page
+	 */
+	protected function renderContent( $data ) {
+		if ( !$data[ 'unstyledContent' ] ) {
+			echo Html::openElement( 'div', array(
+				'id' => 'content',
+				'class' => 'content',
+				'lang' => $data['pageLang'],
+				'dir' => $data['pageDir'],
+			) );
+			?>
+			<?php
+				if ( isset( $data['subject-page'] ) ) {
+					echo $data['subject-page'];
+				}
+				echo $data[ 'bodytext' ];
+				$this->renderMetaSections();
+				$this->renderHistoryLinkBottom( $data );
+			?>
+		</div>
+		<?php
+		} else {
+			echo $data[ 'bodytext' ];
+		}
+	}
+
+	protected function renderPreContent( $data ) {
+		$internalBanner = $data[ 'internalBanner' ];
+		$isSpecialPage = $this->isSpecialPage;
+		$preBodyText = isset( $data['prebodytext'] ) ? $data['prebodytext'] : '';
+
+		if ( $internalBanner || $preBodyText ) {
+		?>
+		<div class="pre-content">
+			<?php
+				echo $preBodyText;
+				// FIXME: Temporary solution until we have design
+				if ( isset( $data['_old_revision_warning'] ) ) {
+					echo $data['_old_revision_warning'];
+				} elseif ( !$isSpecialPage ){
+					$this->renderPageActions( $data );
+				}
+				echo $internalBanner;
+				?>
+		</div>
+		<?php
+		}
 	}
 
 	protected function renderContentWrapper( $data ) {
-		$isSpecialPage = $this->getSkin()->getTitle()->isSpecialPage();
 		?>
-		<div id="content_wrapper">
-			<?php
-				if ( !$isSpecialPage ) {
-					echo $data['prebodytext'];
-					// FIXME: Temporary solution until we have design
-					if ( isset( $data['_old_revision_warning'] ) ) {
-						echo $data['_old_revision_warning'];
-					} else {
-						$this->renderPageActions( $data );
-					}
-				}
-			?>
-			<?php if ( !$data[ 'unstyledContent' ] ) { ?>
-			<div id="content" class="content">
-				<?php
-					if ( isset( $data['subject-page'] ) ) {
-						echo $data['subject-page'];
-					}
-					echo $data[ 'bodytext' ];
-					$this->renderMetaSections();
-					$this->renderHistoryLink( $data );
-				?>
-			</div>
-			<?php } else {
-				echo $data[ 'bodytext' ];
-			} ?>
-		</div>
+		<script>
+			if ( window.mw && mw.mobileFrontend ) { mw.mobileFrontend.emit( 'header-loaded' ); }
+		</script>
 		<?php
+			$this->renderPreContent( $data );
+			$this->renderContent( $data );
 	}
 
 	protected function renderMainMenu( $data ) {
@@ -170,13 +202,12 @@ class MinervaTemplate extends BaseTemplate {
 	}
 
 	protected function render( $data ) { // FIXME: replace with template engines
-		$isSpecialPage = $this->getSkin()->getTitle()->isSpecialPage();
 
 		// begin rendering
 		echo $data[ 'headelement' ];
 		?>
 		<div id="mw-mf-viewport">
-			<div id="mw-mf-page-left">
+			<div id="mw-mf-page-left" class="navigation-drawer">
 				<?php
 					$this->renderMainMenu( $data );
 				?>
@@ -190,14 +221,18 @@ class MinervaTemplate extends BaseTemplate {
 				<div class="header">
 					<?php
 						$this->html( 'menuButton' );
-						if ( $isSpecialPage ) {
+						if ( $data['disableSearchAndFooter'] ) {
 							echo $data['specialPageHeader'];
 						} else {
 							?>
 							<form action="<?php echo $data['wgScript'] ?>" class="search-box">
 							<?php
 							echo $this->makeSearchInput( $data['searchBox'] );
-							echo $this->makeSearchButton( 'go', array( 'class' => 'searchSubmit' ) );
+							// FIXME: change this into a search icon instead of a text button
+							echo $this->makeSearchButton(
+								'fulltext',
+								array( 'class' => 'searchSubmit mw-ui-button mw-ui-progressive' )
+							);
 							?>
 							</form>
 							<?php
@@ -205,11 +240,12 @@ class MinervaTemplate extends BaseTemplate {
 						echo $data['secondaryButton'];
 					?>
 				</div>
-				<script>
-					mw.mobileFrontend.emit( 'header-loaded' );
-				</script>
+				<div id="content_wrapper">
 				<?php
 					$this->renderContentWrapper( $data );
+				?>
+				</div>
+				<?php
 					$this->renderFooter( $data );
 				?>
 			</div>

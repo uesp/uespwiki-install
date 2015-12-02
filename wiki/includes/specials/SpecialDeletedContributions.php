@@ -276,7 +276,7 @@ class DeletedContribsPager extends IndexPager {
 class DeletedContributionsPage extends SpecialPage {
 	function __construct() {
 		parent::__construct( 'DeletedContributions', 'deletedhistory',
-		/*listed*/true, /*function*/false, /*file*/false );
+			/*listed*/true, /*function*/false, /*file*/false );
 	}
 
 	/**
@@ -395,7 +395,7 @@ class DeletedContributionsPage extends SpecialPage {
 			if ( ( $id !== null ) || ( $id === null && IP::isIPAddress( $nt->getText() ) ) ) {
 				# Block / Change block / Unblock links
 				if ( $this->getUser()->isAllowed( 'block' ) ) {
-					if ( $userObj->isBlocked() ) {
+					if ( $userObj->isBlocked() && $userObj->getBlock()->getType() !== Block::TYPE_AUTO ) {
 						$tools[] = Linker::linkKnown( # Change block link
 							SpecialPage::getTitleFor( 'Block', $nt->getDBkey() ),
 							$this->msg( 'change-blocklink' )->escaped()
@@ -427,6 +427,15 @@ class DeletedContributionsPage extends SpecialPage {
 						'page' => $nt->getPrefixedText()
 					)
 				);
+				# Suppression log link (bug 59120)
+				if ( $this->getUser()->isAllowed( 'suppressionlog' ) ) {
+					$tools[] = Linker::linkKnown(
+						SpecialPage::getTitleFor( 'Log', 'suppress' ),
+						$this->msg( 'sp-contributions-suppresslog' )->escaped(),
+						array(),
+						array( 'offender' => $userObj->getName() )
+					);
+				}
 			}
 
 			# Uploads
@@ -495,7 +504,7 @@ class DeletedContributionsPage extends SpecialPage {
 	function getForm( $options ) {
 		global $wgScript;
 
-		$options['title'] = $this->getTitle()->getPrefixedText();
+		$options['title'] = $this->getPageTitle()->getPrefixedText();
 		if ( !isset( $options['target'] ) ) {
 			$options['target'] = '';
 		} else {

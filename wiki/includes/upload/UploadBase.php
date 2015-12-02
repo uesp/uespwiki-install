@@ -31,8 +31,6 @@
  * UploadBase and subclasses are the backend of MediaWiki's file uploads.
  * The frontends are formed by ApiUpload and SpecialUpload.
  *
- * See also includes/docs/upload.txt
- *
  * @author Brion Vibber
  * @author Bryan Tong Minh
  * @author Michael Dale
@@ -105,7 +103,7 @@ abstract class UploadBase {
 		}
 
 		# Check php's file_uploads setting
-		return wfIsHipHop() || wfIniGetBool( 'file_uploads' );
+		return wfIsHHVM() || wfIniGetBool( 'file_uploads' );
 	}
 
 	/**
@@ -123,6 +121,16 @@ abstract class UploadBase {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Returns true if the user has surpassed the upload rate limit, false otherwise.
+	 *
+	 * @param User $user
+	 * @return bool
+	 */
+	public static function isThrottled( $user ) {
+		return $user->pingLimiter( 'upload' );
 	}
 
 	// Upload handlers. Should probably just be a global.
@@ -322,8 +330,8 @@ abstract class UploadBase {
 
 		$error = '';
 		if ( !wfRunHooks( 'UploadVerification',
-			array( $this->mDestName, $this->mTempPath, &$error ) ) )
-		{
+			array( $this->mDestName, $this->mTempPath, &$error ) )
+		) {
 			wfProfileOut( __METHOD__ );
 			return array( 'status' => self::HOOK_ABORTED, 'error' => $error );
 		}
@@ -397,7 +405,6 @@ abstract class UploadBase {
 		return true;
 	}
 
-
 	/**
 	 * Verifies that it's ok to include the uploaded file
 	 *
@@ -423,7 +430,6 @@ abstract class UploadBase {
 				return array( 'filetype-mime-mismatch', $this->mFinalExtension, $mime );
 			}
 		}
-
 
 		$handler = MediaHandler::getHandler( $mime );
 		if ( $handler ) {
@@ -617,6 +623,8 @@ abstract class UploadBase {
 
 		if ( $this->mDesiredDestName != $filename && $comparableName != $filename ) {
 			$warnings['badfilename'] = $filename;
+			// Debugging for bug 62241
+			wfDebugLog( 'upload', "Filename: '$filename', mDesiredDestName: '$this->mDesiredDestName', comparableName: '$comparableName'" );
 		}
 
 		// Check whether the file extension is on the unwanted list
@@ -660,7 +668,11 @@ abstract class UploadBase {
 		// Check dupes against archives
 		$archivedImage = new ArchivedFile( null, 0, "{$hash}.{$this->mFinalExtension}" );
 		if ( $archivedImage->getID() > 0 ) {
-			$warnings['duplicate-archive'] = $archivedImage->getName();
+			if ( $archivedImage->userCan( File::DELETED_FILE ) ) {
+				$warnings['duplicate-archive'] = $archivedImage->getName();
+			} else {
+				$warnings['duplicate-archive'] = '';
+			}
 		}
 
 		wfProfileOut( __METHOD__ );
@@ -726,7 +738,8 @@ abstract class UploadBase {
 		# exclamation mark, so restrict file name to 240 bytes.
 		if ( strlen( $this->mFilteredName ) > 240 ) {
 			$this->mTitleError = self::FILENAME_TOO_LONG;
-			return $this->mTitle = null;
+			$this->mTitle = null;
+			return $this->mTitle;
 		}
 
 		/**
@@ -739,7 +752,8 @@ abstract class UploadBase {
 		$nt = Title::makeTitleSafe( NS_FILE, $this->mFilteredName );
 		if ( is_null( $nt ) ) {
 			$this->mTitleError = self::ILLEGAL_FILENAME;
-			return $this->mTitle = null;
+			$this->mTitle = null;
+			return $this->mTitle;
 		}
 		$this->mFilteredName = $nt->getDBkey();
 
@@ -780,19 +794,22 @@ abstract class UploadBase {
 
 		if ( $this->mFinalExtension == '' ) {
 			$this->mTitleError = self::FILETYPE_MISSING;
-			return $this->mTitle = null;
+			$this->mTitle = null;
+			return $this->mTitle;
 		} elseif ( $blackListedExtensions ||
 				( $wgCheckFileExtensions && $wgStrictFileExtensions &&
-					!$this->checkFileExtensionList( $ext, $wgFileExtensions ) ) ) {
+					!$this->checkFileExtension( $this->mFinalExtension, $wgFileExtensions ) ) ) {
 			$this->mBlackListedExtensions = $blackListedExtensions;
 			$this->mTitleError = self::FILETYPE_BADTYPE;
-			return $this->mTitle = null;
+			$this->mTitle = null;
+			return $this->mTitle;
 		}
 
 		// Windows may be broken with special characters, see bug XXX
 		if ( wfIsWindows() && !preg_match( '/^[\x0-\x7f]*$/', $nt->getText() ) ) {
 			$this->mTitleError = self::WINDOWS_NONASCII_FILENAME;
-			return $this->mTitle = null;
+			$this->mTitle = null;
+			return $this->mTitle;
 		}
 
 		# If there was more than one "extension", reassemble the base
@@ -805,10 +822,12 @@ abstract class UploadBase {
 
 		if ( strlen( $partname ) < 1 ) {
 			$this->mTitleError = self::MIN_LENGTH_PARTNAME;
-			return $this->mTitle = null;
+			$this->mTitle = null;
+			return $this->mTitle;
 		}
 
-		return $this->mTitle = $nt;
+		$this->mTitle = $nt;
+		return $this->mTitle;
 	}
 
 	/**
@@ -1101,7 +1120,6 @@ abstract class UploadBase {
 		return false;
 	}
 
-
 	/**
 	 * Check a whitelist of xml encodings that are known not to be interpreted differently
 	 * by the server's xml parser (expat) and some common browsers.
@@ -1159,7 +1177,7 @@ abstract class UploadBase {
 
 	/**
 	 * @param $filename string
-	 * @return bool
+	 * @return mixed false of the file is verified (does not contain scripts), array otherwise.
 	 */
 	protected function detectScriptInSvg( $filename ) {
 		$this->mSVGNSError = false;
@@ -1189,7 +1207,7 @@ abstract class UploadBase {
 	 */
 	public static function checkSvgPICallback( $target, $data ) {
 		// Don't allow external stylesheets (bug 57550)
-		if ( preg_match( '/xml-stylesheet/i', $target) ) {
+		if ( preg_match( '/xml-stylesheet/i', $target ) ) {
 			return true;
 		}
 		return false;
@@ -1307,23 +1325,22 @@ abstract class UploadBase {
 				}
 			}
 
-			# href with embedded svg as target
-			if ( $stripped == 'href' && preg_match( '!data:[^,]*image/svg[^,]*,!sim', $value ) ) {
-				wfDebug( __METHOD__ . ": Found href to embedded svg \"<$strippedElement '$attrib'='$value'...\" in uploaded file.\n" );
-				return true;
+			# only allow data: targets that should be safe. This prevents vectors like,
+			# image/svg, text/xml, application/xml, and text/html, which can contain scripts
+			if ( $stripped == 'href' && strncasecmp( 'data:', $value, 5 ) === 0 ) {
+				// rfc2397 parameters. This is only slightly slower than (;[\w;]+)*.
+				$parameters = '(?>;[a-zA-Z0-9\!#$&\'*+.^_`{|}~-]+=(?>[a-zA-Z0-9\!#$&\'*+.^_`{|}~-]+|"(?>[\0-\x0c\x0e-\x21\x23-\x5b\x5d-\x7f]+|\\\\[\0-\x7f])*"))*(?:;base64)?';
+				if ( !preg_match( "!^data:\s*image/(gif|jpeg|jpg|png)$parameters,!i", $value ) ) {
+					wfDebug( __METHOD__ . ": Found href to unwhitelisted data: uri "
+						. "\"<$strippedElement '$attrib'='$value'...\" in uploaded file.\n" );
+					return true;
+				}
 			}
 
-			# href with embedded (text/xml) svg as target
-			if ( $stripped == 'href' && preg_match( '!data:[^,]*text/xml[^,]*,!sim', $value ) ) {
-				wfDebug( __METHOD__ . ": Found href to embedded svg \"<$strippedElement '$attrib'='$value'...\" in uploaded file.\n" );
-				return true;
-			}
-
-			# Change href with animate from (http://html5sec.org/#137). This doesn't seem
-			# possible without embedding the svg, but filter here in case.
-			if ( $stripped == 'from'
+			# Change href with animate from (http://html5sec.org/#137).
+			if ( $stripped === 'attributename'
 				&& $strippedElement === 'animate'
-				&& !preg_match( '!^https?://!im', $value )
+				&& $this->stripXmlNamespace( $value ) == 'href'
 			) {
 				wfDebug( __METHOD__ . ": Found animate that might be changing href using from "
 					. "\"<$strippedElement '$attrib'='$value'...\" in uploaded file.\n" );
@@ -1396,7 +1413,7 @@ abstract class UploadBase {
 	private static function checkCssFragment( $value ) {
 
 		# Forbid external stylesheets, for both reliability and to protect viewer's privacy
-		if ( strpos( $value, '@import' ) !== false ) {
+		if ( stripos( $value, '@import' ) !== false ) {
 			return true;
 		}
 

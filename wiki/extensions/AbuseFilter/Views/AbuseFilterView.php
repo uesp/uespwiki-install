@@ -1,8 +1,10 @@
 <?php
 
 abstract class AbuseFilterView extends ContextSource {
+	public $mFilter, $mHistoryID, $mSubmit;
+
 	/**
-	 * @param $page SpecialPage
+	 * @param $page SpecialAbuseFilter
 	 * @param $params array
 	 */
 	function __construct( $page, $params ) {
@@ -16,7 +18,7 @@ abstract class AbuseFilterView extends ContextSource {
 	 * @return Title
 	 */
 	function getTitle( $subpage = '' ) {
-		return $this->mPage->getTitle( $subpage );
+		return $this->mPage->getPageTitle( $subpage );
 	}
 
 	abstract function show();
@@ -82,7 +84,7 @@ class AbuseFilterChangesList extends OldChangesList {
 			$examineParams
 		);
 
-		$s .= " ($examineLink)";
+		$s .= ' '.$this->msg( 'parentheses' )->rawParams( $examineLink )->escaped();
 
 		# If we have a match..
 		if ( isset( $rc->filterResult ) ) {

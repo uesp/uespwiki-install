@@ -41,7 +41,7 @@ class MediaFunctions {
 	public static function mediasize( $parser, $name = '' ) {
 		if ( ( $file = self::resolve( $name ) ) instanceof File ) {
 			$parser->mOutput->addImage( $file->getTitle()->getDBkey() );
-			return $parser->mOptions->getSkin()->formatSize( $file->getSize() );
+			return Linker::formatSize( $file->getSize() );
 		}
 		return self::error( $file, $name );
 	}
@@ -123,7 +123,7 @@ class MediaFunctions {
 		}
 		return self::error( $file, $name );
 	}
-	
+
  	/**
 	 * Get the number of pages of a file
 	 *

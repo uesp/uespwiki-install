@@ -1,5 +1,6 @@
 ( function( M, $ ) {
 	var Api = M.require( 'api' ).Api,
+		user = M.require( 'user' ),
 		endpoint = mw.config.get( 'wgMFPhotoUploadEndpoint' ),
 		PhotoApi;
 
@@ -79,42 +80,45 @@
 
 	PhotoApi = Api.extend( {
 		useCentralAuthToken: mw.config.get( 'wgMFUseCentralAuthToken' ),
-		updatePage: function( options, callback ) {
-			var self = this;
-			self.getToken().done( function( token ) {
-				self.post( {
-					action: 'edit',
-					title: options.pageTitle,
-					token: token,
-					summary: mw.msg( 'mobile-frontend-photo-upload-comment' ),
-					prependtext: '[[File:' + options.fileName + '|thumbnail|' + options.description + ']]\n\n'
-				} ).done( callback );
-			} );
+
+		/**
+		 * @param [options.editorApi] EditorApi An API instance that will be used
+		 * for inserting images in a page.
+		 */
+		initialize: function( options ) {
+			this._super();
+			options = options || {};
+			this.editorApi = options.editorApi;
 		},
 
 		// FIXME: See UploadBase::checkWarnings - why these are not errors only the MediaWiki Gods know See Bug 48261
 		_handleWarnings: function( result, warnings ) {
-			var errorMsg = 'Missing filename: ', humanErrorMsg;
+			var err = { stage: 'upload', type: 'warning' }, humanErrorMsg;
+
+			warnings = $.map( warnings, function( value, code ) {
+				return code + '/' + value;
+			} );
+			err.details = warnings[0] || 'unknown';
+
 			if ( warnings.exists ) {
-				errorMsg += 'Filename exists';
 				humanErrorMsg = mw.msg( 'mobile-frontend-photo-upload-error-filename' );
-			} else if ( warnings.badfilename ) {
-				errorMsg = 'Bad filename: [' + warnings.badfilename + ']';
-			} else if ( warnings.emptyfile ) {
-				errorMsg += 'Empty file';
-			} else if ( warnings['filetype-unwanted-type'] ) {
-				errorMsg += 'Bad filetype';
-			} else if ( warnings['duplicate-archive'] ) {
-				errorMsg += 'Duplicate archive';
-			} else if ( warnings['large-file'] ) {
-				errorMsg += 'Large file';
-			} else {
-				errorMsg += 'Unknown warning ' + $.toJSON( warnings );
 			}
 
-			return result.reject( errorMsg, humanErrorMsg );
+			return result.reject( err, humanErrorMsg );
 		},
 
+		/**
+		 * Upload an image and, optionally, add it to current page (if PhotoApi
+		 * was initialized with `editorApi`).
+		 *
+		 * @param options.file File A file object obtained from a file input.
+		 * @param options.description String Image description.
+		 * @return jQuery.Deferred On failure callback is passed an object with
+		 * `stage`, `type` and `details` properties. `stage` is either "upload"
+		 * or "edit" (inserting image in a page). `type` is a string describing
+		 * the type of error, `details` can be any object (usually a string
+		 * containing error message).
+		 */
 		save: function( options ) {
 			var self = this, result = $.Deferred(), apiUrl = endpoint || this.apiUrl;
 
@@ -124,6 +128,7 @@
 
 			function doUpload( token, caToken ) {
 				var formData = new FormData(),
+					uploadUrl = apiUrl + '?useformat=mobile&r=' + Math.random(),
 					ext = options.file.name.slice( options.file.name.lastIndexOf( '.' ) + 1 ),
 					request;
 
@@ -133,7 +138,7 @@
 				formData.append( 'format', 'json' );
 				// add origin only when doing CORS
 				if ( endpoint ) {
-					formData.append( 'origin', M.getOrigin() );
+					uploadUrl += '&origin=' + M.getOrigin();
 					if ( caToken ) {
 						formData.append( 'centralauthtoken', caToken );
 					}
@@ -146,56 +151,72 @@
 					render( {
 						suffix: mw.config.get( 'wgMFPhotoUploadAppendToDesc' ),
 						text: options.description,
-						username: mw.config.get( 'wgUserName' )
+						username: user.getName()
 					} )
 				);
 
 				request = self.post( formData, {
 					// iOS seems to ignore the cache parameter so sending r parameter
 					// send useformat=mobile for sites where endpoint is a desktop url so that they are mobile edit tagged
-					url: apiUrl + '?useformat=mobile&r=' + Math.random(),
+					url: uploadUrl,
 					xhrFields: { 'withCredentials': true },
 					cache: false,
 					contentType: false,
 					processData: false
 				} ).done( function( data ) {
 					var descriptionUrl = '',
-						warnings = data.upload ? data.upload.warnings : false;
+						warnings = data.upload ? data.upload.warnings : false,
+						err = { stage: 'upload', type: 'error' };
+
 					if ( !data || !data.upload ) {
 						// error uploading image
-						result.reject( data.error ? data.error.info : '' );
+						if ( data.error ) {
+							if ( data.error.code ) {
+								err.details = data.error.code;
+								if ( data.error.details && data.error.details[0] ) {
+									err.details += '/' + data.error.details[0];
+								}
+							}
+						}
+						result.reject( err );
 						return;
 					}
+
 					options.fileName = data.upload.filename;
+
 					if ( !options.fileName ) {
 						if ( warnings && warnings.duplicate ) {
 							options.fileName = warnings.duplicate[ '0' ];
 						} else if ( warnings ) {
 							return self._handleWarnings( result, warnings );
 						} else {
-							return result.reject( 'Missing filename: ' + $.toJSON( data.upload ) );
+							return result.reject( { stage: 'upload', type: 'unknown', details: 'missing-filename' } );
 						}
 					}
+
 					// FIXME: API doesn't return this information on duplicate images...
 					if ( data.upload.imageinfo ) {
 						descriptionUrl = data.upload.imageinfo.descriptionurl;
 					}
-					if ( options.insertInPage ) {
-						self.updatePage( options, function( data ) {
-							if ( !data || data.error ) {
-								// error updating page's wikitext
-								result.reject( data.error.info );
-							} else {
+
+					if ( self.editorApi ) {
+						self.editorApi.setPrependText( '[[File:' + options.fileName + '|thumbnail|' + options.description + ']]\n\n' );
+						self.editorApi.save( { summary: mw.msg( 'mobile-frontend-photo-upload-comment' ) } ).
+							done( function() {
 								result.resolve( options.fileName, descriptionUrl );
-							}
-						} );
+							} ).
+							fail( function( err ) {
+								err.stage = 'edit';
+								result.reject( err );
+							} );
 					} else {
 						result.resolve( options.fileName, descriptionUrl );
 					}
-				} ).fail( function( xhr, status, error ) {
+
+				} ).fail( function() {
 					// error on the server side (abort happens when user cancels the upload)
 					if ( status !== 'abort' ) {
-						result.reject( status + ': ' + error );
+						result.reject( { stage: 'upload', type: 'error', details: 'http' } );
 					}
 				} );
 
