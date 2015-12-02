@@ -1,6 +1,7 @@
 <?php
 
 namespace CirrusSearch;
+use Elastica\Exception\ResponseException;
 use \ElasticaConnection;
 use \Status;
 
@@ -24,10 +25,10 @@ use \Status;
  */
 class ElasticsearchIntermediary {
 	/**
-	 * @var string|null the name or ip of the user for which we're performing this search or null in the case of
+	 * @var User|null user for which we're performing this search or null in the case of
 	 * requests kicked off by jobs
 	 */
-	private $user;
+	protected $user;
 	/**
 	 * @var float|null start time of current request or null if none is running
 	 */
@@ -43,6 +44,11 @@ class ElasticsearchIntermediary {
 	private $slowMillis;
 
 	/**
+	 * @var array Metrics about a completed search
+	 */
+	private $searchMetrics = array();
+
+	/**
 	 * Constructor.
 	 *
 	 * @param User|null $user user for which this search is being performed.  Attached to slow request logs.  Note that
@@ -53,11 +59,7 @@ class ElasticsearchIntermediary {
 	 * slow.  0 means none count as slow.
 	 */
 	protected function __construct( $user, $slowSeconds ) {
-		if ( $user ) {
-			$this->user = 'User:' . $user->getName(); // name is the ip address of anonymous users
-		} else {
-			$this->user = 'nobody';
-		}
+		$this->user = $user;
 		$this->slowMillis = round( 1000 * $slowSeconds );
 	}
 
@@ -91,49 +93,28 @@ class ElasticsearchIntermediary {
 	 */
 	public function failure( $exception = null ) {
 		$took = $this->finishRequest();
-		$message = '';
-		$status = Status::newFatal( 'cirrussearch-backend-error' );
-		if ( $exception ) {
-			$message = $exception->getMessage();
-			$marker = 'ParseException[Cannot parse ';
-			$markerLocation = strpos( $message, $marker );
-			if ( $markerLocation === false ) {
-				$message = 'Error message:  ' . $message;
-			} else {
-				// The important part of the parse error message comes before the next new line
-				// so lets slurp it up and log it rather than the huge clump of error.
-				$start = $markerLocation + strlen( $marker );
-				$end = strpos( $message, "\n", $start );
-				$parseError = substr( $message, $start, $end - $start );
-				$message = 'Parse error on ' . $parseError;
-				// Finally, return a different fatal status that we can check later on.
-				$status = Status::newFatal( 'cirrussearch-parse-error' );
-			}
-		}
+		list( $status, $message ) = $this->extractMessageAndStatus( $exception );
 		wfLogWarning( "Search backend error during $this->description after $took.  $message" );
 		return $status;
 	}
 
 	/**
-	 * Unwrap a result that we expect to be a single value.
-	 * @param mixed $data from Elastica result
-	 * @return mixed the single result
+	 * Get the search metrics we have
+	 * @return array
 	 */
-	public static function singleValue( $result, $name ) {
-		$data = $result->__get( $name );
-		if ( $data === null ) {
-			return null;
-		}
-		// Elasticsearch 0.90 returns single results as, well, single results
-		if ( !is_array( $data ) ) {
-			return $data;
-		}
-		// Elasticsearch 1.0 returns them as single node arrays
-		$count = count( $data );
-		if ( $count !== 1 ) {
-			wfLogWarning( "Expected a single result for $name but got $count." );
-		}
-		return $data[ 0 ];
+	public function getSearchMetrics() {
+		return $this->searchMetrics;
+	}
+
+	/**
+	 * Extract an error message from an exception thrown by Elastica.
+	 * @param RuntimeException $exception exception from which to extract a message
+	 * @return message from the exception
+	 */
+	public static function extractMessage( $exception ) {
+		return $exception instanceof ResponseException ?
+			$exception->getElasticsearchException()->getMessage() :
+			$exception->getMessage();
 	}
 
 	/**
@@ -162,8 +143,12 @@ class ElasticsearchIntermediary {
 		// No need to check description because it must be set by $this->start.
 
 		// Build the log message
-		$took = round( ( microtime( true ) - $this->requestStart ) * 1000 );
+		$endTime = microtime( true );
+		$took = round( ( $endTime - $this->requestStart ) * 1000 );
 		$logMessage = "$this->description took $took millis";
+
+		$this->searchMetrics['wgCirrusStartTime'] = $this->requestStart;
+		$this->searchMetrics['wgCirrusEndTime'] = $endTime;
 
 		// Extract the amount of time Elasticsearch reported the last request took if possible.
 		$result = ElasticaConnection::getClient()->getLastResponse();
@@ -172,18 +157,70 @@ class ElasticsearchIntermediary {
 			if ( isset( $data[ 'took' ] ) ) {
 				$elasticTook = $data[ 'took' ];
 				$logMessage .= " and $elasticTook Elasticsearch millis";
+				$this->searchMetrics['wgCirrusElasticTime'] = $elasticTook;
 			}
 		}
 
 		// Now log and clear our state.
 		wfDebugLog( 'CirrusSearchRequests', $logMessage );
 		if ( $this->slowMillis && $took >= $this->slowMillis ) {
-			if ( $this->user ) {
-				$logMessage .= " for $this->user";
-			}
+			$logMessage .= $this->user ? ' for ' . $this->user->getName() : '';
 			wfDebugLog( 'CirrusSearchSlowRequests', $logMessage );
 		}
 		$this->requestStart = null;
 		return $took;
+	}
+
+	private function extractMessageAndStatus( $exception ) {
+		if ( !$exception ) {
+			return array( Status::newFatal( 'cirrussearch-backend-error' ), '' );
+		}
+
+		// Lots of times these are the same as getMessage(), but sometimes
+		// they're not. So get the nested exception so we're sure we get
+		// what we want. I'm looking at you PartialShardFailureException.
+		$message = self::extractMessage( $exception );
+
+		$marker = 'ParseException[Cannot parse ';
+		$markerLocation = strpos( $message, $marker );
+		if ( $markerLocation !== false ) {
+			// The important part of the parse error message comes before the next new line
+			// so lets slurp it up and log it rather than the huge clump of error.
+			$start = $markerLocation + strlen( $marker );
+			$end = strpos( $message, "\n", $start );
+			$parseError = substr( $message, $start, $end - $start );
+			return array( Status::newFatal( 'cirrussearch-parse-error' ), 'Parse error on ' . $parseError );
+		}
+
+		// This is _probably_ a regex syntax error so lets call it that. I can't think of
+		// what else would have automatons and illegal argument exceptions. Just looking
+		// for the exception won't suffice because other weird things could cause it.
+		$seemsToUseRegexes = strpos( $message, 'import org.apache.lucene.util.automaton.*' ) !== false;
+		$usesExtraRegex = strpos( $message, 'org.wikimedia.search.extra.regex.SourceRegexFilter' ) !== false;
+		$seemsToUseRegexes |= $usesExtraRegex;
+		$marker = 'IllegalArgumentException[';
+		$markerLocation = strpos( $message, $marker );
+		if ( $seemsToUseRegexes && $markerLocation !== false ) {
+			$start = $markerLocation + strlen( $marker );
+			$end = strpos( $message, "];", $start );
+			$syntaxError = substr( $message, $start, $end - $start );
+			$errorMessage = 'unknown';
+			$position = 'unknown';
+			$matches = array();
+			if ( preg_match( '/(.+) at position ([0-9]+)/', $syntaxError, $matches ) ) {
+				$errorMessage = $matches[ 1 ];
+				$position = $matches[ 2 ];
+				if ( !$usesExtraRegex ) {
+					// The 3 below offsets the .*( in front of the user pattern
+					// to make it unanchored.
+					$position -= 3;
+				}
+			} else if ( $syntaxError === 'unexpected end-of-string' ) {
+				$errorMessage = 'regex too short to be correct';
+			}
+			$status = Status::newFatal( 'cirrussearch-regex-syntax-error', $errorMessage, $position );
+			return array( $status, 'Regex syntax error:  ' . $syntaxError );
+		}
+		return array( Status::newFatal( 'cirrussearch-backend-error' ), $message );
 	}
 }

@@ -2,7 +2,7 @@
 
 class AbuseFilterViewEdit extends AbuseFilterView {
 	/**
-	 * @param SpecialPage $page
+	 * @param SpecialAbuseFilter $page
 	 * @param array $params
 	 */
 	function __construct( $page, $params ) {
@@ -415,7 +415,7 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 		$fields['abusefilter-edit-notes'] = Xml::textarea(
 			'wpFilterNotes',
 			( isset( $row->af_comments ) ? $row->af_comments . "\n" : "\n" ),
-			40, 5,
+			40, 15,
 			$readOnlyAttrib
 		);
 
@@ -507,7 +507,7 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 		}
 
 		// Add export
-		$exportText = json_encode( array( 'row' => $row, 'actions' => $actions ) );
+		$exportText = FormatJson::encode( array( 'row' => $row, 'actions' => $actions ) );
 		$tools .= Xml::tags( 'a', array( 'href' => '#', 'id' => 'mw-abusefilter-export-link' ),
 			$this->msg( 'abusefilter-edit-export' )->parse() );
 		$tools .= Xml::element( 'textarea',
@@ -581,7 +581,7 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 	 * @return string
 	 */
 	function buildConsequenceSelector( $action, $set, $parameters, $row ) {
-		global $wgAbuseFilterAvailableActions;
+		global $wgAbuseFilterAvailableActions, $wgMainCacheType;
 
 		if ( !in_array( $action, $wgAbuseFilterAvailableActions ) ) {
 			return '';
@@ -597,6 +597,10 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 
 		switch( $action ) {
 			case 'throttle':
+				// Throttling is only available via object caching
+				if ( $wgMainCacheType === CACHE_NONE ) {
+					return '';
+				}
 				$throttleSettings = Xml::checkLabel(
 					$this->msg( 'abusefilter-edit-action-throttle' )->text(),
 					'wpFilterActionThrottle',
@@ -895,7 +899,7 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 		// Check for importing
 		$import = $request->getVal( 'wpImportText' );
 		if ( $import ) {
-			$data = json_decode( $import );
+			$data = FormatJson::decode( $import );
 
 			$importRow = $data->row;
 			$actions = wfObjectToArray( $data->actions );

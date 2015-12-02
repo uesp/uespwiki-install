@@ -3,7 +3,7 @@
 	var EventEmitter = M.require( 'eventemitter' ), View;
 
 	/**
-	 * An abstraction over a jQuery element. Should be extended using extend().
+	 * Should be extended using extend().
 	 *
 	 * When options contains el property, this.$el in the constructed object
 	 * will be set to the corresponding jQuery object. Otherwise, this.$el
@@ -29,34 +29,75 @@
 	 * append(), prepend(), before(), after() can be used to modify $el. on()
 	 * can be used to bind events.
 	 *
+	 * @class
+	 * @name View
 	 * @example
-	 * <code>
-	 * var View, Section, section;
-	 *
-	 * View = M.require( 'view' );
-	 * Section = View.extend( {
-	 *     template: M.template.compile( '<h2>{{title}}</h2><p>{{text}}</p>' ),
-	 *     // ...
-	 * } );
-	 *
-	 * section = new Section( { title: 'Test', text: 'Test section body' } );
-	 * section.appendTo( 'body' );
-	 * </code>
+	 * // var View, Section, section;
+	 * //
+	 * // View = M.require( 'View' );
+	 * // Section = View.extend( {
+	 * //    template: M.template.compile( '<h2>{{title}}</h2><p>{{text}}</p>' ),
+	 * //     // ...
+	 * // } );
+	 * //
+	 * // section = new Section( { title: 'Test', text: 'Test section body' } );
+	 * // section.appendTo( 'body' );
 	 *
 	 * @constructor
+	 * @extends EventEmitter
 	 * @param {Object} options Options for the view, containing the el or
 	 * template data or any other information you want to use in the view.
 	 */
 	View = EventEmitter.extend( {
+		/**
+		 * @name View.prototype.tagName
+		 * @type String
+		 */
 		tagName: 'div',
+
+		/**
+		 * Specifies the template used in render().
+		 *
+		 * @name View.prototype.template
+		 * @type {Object|string|HoganTemplate}
+		 */
+
+		/**
+		 * Specifies partials (sub-templates) for the main template. Example:
+		 *
+		 * @example
+		 * // example content for the "some" template (sub-template will be
+		 * // inserted where {{>content}} is):
+		 * // <h1>Heading</h1>
+		 * // {{>content}}
+		 *
+		 * var SomeView = View.extend( {
+		 *   template: M.template.get( 'some' ),
+		 *   templatePartials: { content: M.template.get( 'sub' ) }
+		 * }
+		 *
+		 * @name View.prototype.templatePartials
+		 * @type {Object|string|HoganTemplate}
+		 */
+
+		/**
+		 * A set of default options that are merged with options passed into the initialize function.
+		 *
+		 * @name View.prototype.defaults
+		 * @type {Object}
+		 */
 
 		/**
 		 * Constructor, if you override it, use _super().
 		 *
+		 * @name View.prototype.initialize
+		 * @function
 		 * @param {Object} options Object passed to the constructor.
 		 */
 		initialize: function( options ) {
 			this._super();
+			this.defaults = $.extend( {}, this._parent.defaults, this.defaults );
+			this.templatePartials = $.extend( {}, this._parent.templatePartials, this.templatePartials );
 			options = $.extend( {}, this.defaults, options );
 			if ( options.el ) {
 				this.$el = $( options.el );
@@ -80,6 +121,8 @@
 		 * Function called before the view is rendered. Can be redefined in
 		 * objects that extend View.
 		 *
+		 * @name View.prototype.preRender
+		 * @function
 		 * @param {Object} options Object passed to the constructor.
 		 */
 		preRender: function() {},
@@ -88,6 +131,8 @@
 		 * Function called after the view is rendered. Can be redefined in
 		 * objects that extend View.
 		 *
+		 * @name View.prototype.postRender
+		 * @function
 		 * @param {Object} options Object passed to the constructor.
 		 */
 		postRender: function() {},
@@ -95,13 +140,15 @@
 		/**
 		 * Fill this.$el with template rendered using data if template is set.
 		 *
+		 * @name View.prototype.render
+		 * @function
 		 * @param {Object} data Template data.
 		 */
 		render: function( data ) {
 			data = $.extend( true, {}, this.options, data );
 			this.preRender( data );
 			if ( this.template ) {
-				this.$el.html( this.template.render( data ) );
+				this.$el.html( this.template.render( data, this.templatePartials ) );
 			}
 			this.postRender( data );
 
@@ -112,6 +159,8 @@
 		 * Wraps this.$el.find, so that you can search for elements in the view's
 		 * ($el's) scope.
 		 *
+		 * @name View.prototype.$
+		 * @function
 		 * @param {string} query A jQuery CSS selector.
 		 * @return {jQuery} jQuery object containing results of the search.
 		 */
@@ -138,6 +187,6 @@
 		};
 	} );
 
-	M.define( 'view', View );
+	M.define( 'View', View );
 
 }( mw.mobileFrontend, jQuery ) );

@@ -2,8 +2,8 @@
 
 	var
 		funnel = $.cookie( 'mwUploadsFunnel' ) || 'article',
-		showCta = mw.config.get( 'wgMFEnablePhotoUploadCTA' ) || funnel === 'nearby',
-		popup = M.require( 'notifications' ),
+		user = M.require( 'user' ),
+		popup = M.require( 'toast' ),
 		LeadPhotoUploaderButton = M.require( 'modules/uploads/LeadPhotoUploaderButton' ),
 		PhotoUploaderButton = M.require( 'modules/uploads/PhotoUploaderButton' ),
 		isSupported = PhotoUploaderButton.isSupported;
@@ -12,7 +12,7 @@
 		return $container.find( mw.config.get( 'wgMFLeadPhotoUploadCssSelector' ) ).length === 0;
 	}
 
-	// reset the funnel cookie as it is no longer valid (this stops upload cta showing on further page loads)
+	// reset the funnel cookie as it is no longer valid
 	if ( funnel ) {
 		$.cookie( 'mwUploadsFunnel', null );
 	}
@@ -30,8 +30,7 @@
 			isEditable = mw.config.get( 'wgIsPageEditable' ),
 			validNamespace = ( M.inNamespace( '' ) || M.inNamespace( 'user' ) );
 
-		if ( !M.isLoggedIn() && !showCta ) {
-			// Note with the CTA this is unnecessary but the new nav requires showing the upload button at all times
+		if ( user.isAnon() ) {
 			return makeDisabledButton( 'mobile-frontend-photo-upload-anon' );
 		} else if ( !isEditable ) {
 			return makeDisabledButton( 'mobile-frontend-photo-upload-protected' );
@@ -39,13 +38,12 @@
 			return makeDisabledButton();
 		}
 
-		new LeadPhotoUploaderButton( {
-			buttonCaption: mw.msg( 'mobile-frontend-photo-upload' ),
-			insertInPage: true,
-			el: '#ca-upload',
-			pageTitle: mw.config.get( 'wgPageName' ),
-			funnel: funnel
-		} );
+		if ( user.getEditCount() === 0 ) {
+			$( '#ca-upload' ).addClass( 'enabled' );
+			$( '<a>' ).attr( 'href', '#/upload-tutorial/' + funnel ).appendTo( '#ca-upload' );
+		} else {
+			new LeadPhotoUploaderButton( { funnel: funnel } );
+		}
 	}
 
 	if ( isSupported ) {

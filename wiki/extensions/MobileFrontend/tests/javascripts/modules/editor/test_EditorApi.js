@@ -4,7 +4,7 @@
 
 	QUnit.module( 'MobileFrontend modules/editor/EditorApi', {
 		setup: function() {
-			this.spy = sinon.stub( EditorApi.prototype, 'get' ).returns( $.Deferred().resolve( {
+			this.spy = this.sandbox.stub( EditorApi.prototype, 'get' ).returns( $.Deferred().resolve( {
 				"query": {
 					"pages": {
 						"1": {
@@ -18,11 +18,7 @@
 					}
 				}
 			} ) );
-			sinon.stub( EditorApi.prototype, 'getToken' ).returns( $.Deferred().resolve( 'fake token' ) );
-		},
-		teardown: function() {
-			EditorApi.prototype.get.restore();
-			EditorApi.prototype.getToken.restore();
+			this.sandbox.stub( EditorApi.prototype, 'getToken' ).returns( $.Deferred().resolve( 'fake token' ) );
 		}
 	} );
 
@@ -49,7 +45,7 @@
 	} );
 
 	QUnit.test( '#getContent, new page', 2, function( assert ) {
-		var editorApi = new EditorApi( { title: 'test', isNew: true } );
+		var editorApi = new EditorApi( { title: 'test', isNewPage: true } );
 
 		editorApi.getContent().done( function( resp ) {
 			assert.strictEqual( resp, '', 'return empty section' );
@@ -58,10 +54,10 @@
 	} );
 
 	QUnit.test( '#getContent, missing section', 2, function( assert ) {
-		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } ), doneSpy = sinon.spy();
+		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } ), doneSpy = this.sandbox.spy();
 
 		EditorApi.prototype.get.restore();
-		sinon.stub( EditorApi.prototype, 'get' ).returns( $.Deferred().resolve( {
+		this.sandbox.stub( EditorApi.prototype, 'get' ).returns( $.Deferred().resolve( {
 			"error": { "code": "rvnosuchsection" }
 		} ) );
 
@@ -74,7 +70,7 @@
 	QUnit.test( '#save, success', 2, function( assert ) {
 		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } );
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve(
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve(
 			{ edit: { result: 'Success' } }
 		) );
 
@@ -98,9 +94,9 @@
 	} );
 
 	QUnit.test( '#save, new page', 2, function( assert ) {
-		var editorApi = new EditorApi( { title: 'Talk:test', isNew: true } );
+		var editorApi = new EditorApi( { title: 'Talk:test', isNewPage: true } );
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve(
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve(
 			{ edit: { result: 'Success' } }
 		) );
 
@@ -122,10 +118,34 @@
 		assert.strictEqual( editorApi.hasChanged, false, 'reset hasChanged' );
 	} );
 
+	QUnit.test( '#save, after #setPrependText', 2, function( assert ) {
+		var editorApi = new EditorApi( { title: 'test' } );
+
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve(
+			{ edit: { result: 'Success' } }
+		) );
+
+		editorApi.setPrependText( 'abc' );
+		editorApi.save( { summary: 'summary' } ).done( function() {
+			assert.ok( editorApi.post.calledWith( {
+				action: 'edit',
+				title: 'test',
+				prependtext: 'abc',
+				summary: 'summary',
+				captchaid: undefined,
+				captchaword: undefined,
+				token: 'fake token',
+				basetimestamp: undefined,
+				starttimestamp: undefined
+			} ), 'prepend text' );
+		} );
+		assert.strictEqual( editorApi.hasChanged, false, 'reset hasChanged' );
+	} );
+
 	QUnit.test( '#save, submit CAPTCHA', 2, function( assert ) {
 		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } );
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve(
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve(
 			{ edit: { result: 'Success' } }
 		) );
 
@@ -150,24 +170,24 @@
 
 	QUnit.test( '#save, request failure', 2, function( assert ) {
 		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } ),
-			doneSpy = sinon.spy(), failSpy = sinon.spy();
+			doneSpy = this.sandbox.spy(), failSpy = this.sandbox.spy();
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().reject() );
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().reject() );
 
 		editorApi.getContent();
 		editorApi.setContent( 'section 1' );
 
 		editorApi.save().done( doneSpy ).fail( failSpy );
 
-		assert.ok( failSpy.calledWith( { type: 'error', details: 'HTTP error' } ), "call fail" );
+		assert.ok( failSpy.calledWith( { type: 'error', details: 'http' } ), "call fail" );
 		assert.ok( !doneSpy.called, "don't call done" );
 	} );
 
 	QUnit.test( '#save, API failure', 2, function( assert ) {
 		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } ),
-			doneSpy = sinon.spy(), failSpy = sinon.spy();
+			doneSpy = this.sandbox.spy(), failSpy = this.sandbox.spy();
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve(
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve(
 			{ error: { code: 'error code' } }
 		) );
 
@@ -188,9 +208,9 @@
 				id: "1852528679",
 				url: "/w/index.php?title=Especial:Captcha/image&wpCaptchaId=1852528679"
 			},
-			doneSpy = sinon.spy(), failSpy = sinon.spy();
+			doneSpy = this.sandbox.spy(), failSpy = this.sandbox.spy();
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
 			edit: {
 				result: 'Failure',
 				captcha: captcha
@@ -208,9 +228,9 @@
 
 	QUnit.test( '#save, AbuseFilter warning', 2, function( assert ) {
 		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } ),
-			doneSpy = sinon.spy(), failSpy = sinon.spy();
+			doneSpy = this.sandbox.spy(), failSpy = this.sandbox.spy();
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
 			edit: {
 				code: "abusefilter-warning-usuwanie-tekstu",
 				info: "Hit AbuseFilter: Usuwanie du\u017cej ilo\u015bci tekstu",
@@ -236,9 +256,9 @@
 
 	QUnit.test( '#save, AbuseFilter disallow', 2, function( assert ) {
 		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } ),
-			doneSpy = sinon.spy(), failSpy = sinon.spy();
+			doneSpy = this.sandbox.spy(), failSpy = this.sandbox.spy();
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
 			edit: {
 				code: "abusefilter-disallow",
 				info: "Scary filter",
@@ -264,9 +284,9 @@
 
 	QUnit.test( '#save, AbuseFilter other', 2, function( assert ) {
 		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } ),
-			doneSpy = sinon.spy(), failSpy = sinon.spy();
+			doneSpy = this.sandbox.spy(), failSpy = this.sandbox.spy();
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
 			edit: {
 				code: "abusefilter-something",
 				info: "Scary filter",
@@ -292,9 +312,9 @@
 
 	QUnit.test( '#save, extension errors', 2, function( assert ) {
 		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } ),
-			doneSpy = sinon.spy(), failSpy = sinon.spy();
+			doneSpy = this.sandbox.spy(), failSpy = this.sandbox.spy();
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
 			edit: {
 				code: "testerror",
 				result: "Failure"
@@ -312,9 +332,9 @@
 
 	QUnit.test( '#save, unknown errors', 2, function( assert ) {
 		var editorApi = new EditorApi( { title: 'test', sectionId: 1 } ),
-			doneSpy = sinon.spy(), failSpy = sinon.spy();
+			doneSpy = this.sandbox.spy(), failSpy = this.sandbox.spy();
 
-		sinon.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {} ) );
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {} ) );
 
 		editorApi.getContent();
 		editorApi.setContent( 'section 1' );
@@ -336,6 +356,21 @@
 			'throw an error'
 		);
 		assert.ok( !editorApi.getToken.called, "don't get the token" );
+	} );
+
+	QUnit.test( '#getPreview', 2, function( assert ) {
+		var editorApi = new EditorApi( { title: 'Test', sectionId: 1 } ), doneSpy = this.sandbox.spy();
+		this.sandbox.stub( editorApi, 'post' ).returns( $.Deferred().resolve( {
+			"parse": {
+				"title": "test",
+				"text": { "*": "<h1>Heading 1</h1><h2>Heading 2</h2><p>test content</p>" }
+			}
+		} ) );
+
+		editorApi.getPreview( { text: "test content" } ).done( doneSpy );
+
+		assert.ok( editorApi.post.calledWithMatch( { text: "test content" } ) );
+		assert.ok( doneSpy.calledWith( '<h1>Heading 1</h1><h2>Heading 2</h2><p>test content</p>' ) );
 	} );
 
 }( mw.mobileFrontend, jQuery ) );

@@ -7,9 +7,10 @@ class ApiAbuseFilterCheckMatch extends ApiBase {
 
 		// "Anti-DoS"
 		if ( !$this->getUser()->isAllowed( 'abusefilter-modify' ) ) {
-			$this->dieUsageMsg( 'permissiondenied' );
+			$this->dieUsage( 'You don\'t have permission to test abuse filters', 'permissiondenied' );
 		}
 
+		$vars = null;
 		if ( $params['vars'] ) {
 			$vars = FormatJson::decode( $params['vars'], true );
 		} elseif ( $params['rcid'] ) {
@@ -93,7 +94,7 @@ class ApiAbuseFilterCheckMatch extends ApiBase {
 		return array_merge( parent::getPossibleErrors(),
 			$this->getRequireOnlyOneParameterErrorMessages( array( 'vars', 'rcid', 'logid' ) ),
 			array(
-				array( 'permissiondenied' ),
+				array( 'code' => 'permissiondenied', 'info' => 'You don\'t have permission to test abuse filters' ),
 				array( 'nosuchrcid' ),
 				array( 'code' => 'nosuchlogid', 'info' => 'There is no abuselog entry with the id given' ),
 				array( 'code' => 'badsyntax', 'info' => 'The filter has invalid syntax' ),

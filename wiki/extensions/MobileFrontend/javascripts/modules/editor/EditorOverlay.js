@@ -1,70 +1,52 @@
 ( function( M, $ ) {
-
-	var Overlay = M.require( 'Overlay' ),
-		Page = M.require( 'Page' ),
-		popup = M.require( 'notifications' ),
-		api = M.require( 'api' ),
-		inBetaOrAlpha = mw.config.get( 'wgMFMode' ) !== 'stable',
+	var EditorOverlayBase = M.require( 'modules/editor/EditorOverlayBase' ),
+		popup = M.require( 'toast' ),
+		schema = M.require( 'loggingSchemas/mobileWebEditing' ),
+		MobileWebClickTracking = M.require( 'loggingSchemas/MobileWebClickTracking' ),
+		inBetaOrAlpha = M.isBetaGroupMember(),
+		isVisualEditorEnabled = M.isWideScreen() && M.isAlphaGroupMember(),
 		inKeepGoingCampaign = M.query.campaign === 'mobile-keepgoing',
+		inNavSignupCampaign = M.query.campaign === 'leftNavSignup',
 		Section = M.require( 'Section' ),
 		EditorApi = M.require( 'modules/editor/EditorApi' ),
-		KeepGoingDrawer,
-		AbuseFilterOverlay = M.require( 'modules/editor/AbuseFilterOverlay' ),
+		AbuseFilterPanel = M.require( 'modules/editor/AbuseFilterPanel' ),
+		mobileLeftNavbarEditCTA = M.require( 'loggingSchemas/mobileLeftNavbarEditCTA' ),
 		EditorOverlay;
 
-	EditorOverlay = Overlay.extend( {
-		defaults: {
-			closeMsg: mw.msg( 'mobile-frontend-overlay-escape' ),
-			continueMsg: mw.msg( 'mobile-frontend-editor-continue' ),
-			saveMsg: mw.msg( 'mobile-frontend-editor-save' ),
-			cancelMsg: mw.msg( 'mobile-frontend-editor-cancel' ),
-			keepEditingMsg: mw.msg( 'mobile-frontend-editor-keep-editing' ),
-			summaryMsg: mw.msg( 'mobile-frontend-editor-summary-placeholder' ),
-			licenseMsg: mw.msg( 'mobile-frontend-editor-license' ),
-			placeholder: mw.msg( 'mobile-frontend-editor-placeholder' ),
-			previewMsg: mw.msg( 'mobile-frontend-editor-preview-header' ),
-			waitMsg: mw.msg( 'mobile-frontend-editor-wait' ),
-			guiderMsg: mw.msg( 'mobile-frontend-editor-guider' ),
-			captchaMsg: mw.msg( 'mobile-frontend-account-create-captcha-placeholder' ),
-			captchaTryAgainMsg: mw.msg( 'mobile-frontend-editor-captcha-try-again' ),
-			abusefilterReadMoreMsg: mw.msg( 'mobile-frontend-editor-abusefilter-read-more')
+	EditorOverlay = EditorOverlayBase.extend( {
+		templatePartials: {
+			header: M.template.get( 'modules/editor/EditorOverlayHeader' ),
+			content: M.template.get( 'modules/editor/EditorOverlay' )
 		},
-		// FIXME: [QA] Needs an acceptance test to ensure we do not break the first time editor workflow
-		template: M.template.get( 'modules/editor/EditorOverlay' ),
-		className: 'mw-mf-overlay editor-overlay',
-		closeOnBack: true,
-
 		log: function( action, errorText ) {
 			var
 				data = {
-					token: M.getSessionId(),
 					action: action,
 					section: this.sectionId,
-					namespace: mw.config.get( 'wgNamespaceNumber' ),
-					userEditCount: mw.config.get( 'wgUserEditCount' ),
-					isTestA: M.isTestA,
-					pageId: mw.config.get( 'wgArticleId' ),
-					username: mw.config.get( 'wgUserName' ),
-					mobileMode: mw.config.get( 'wgMFMode' ),
-					userAgent: window.navigator.userAgent
+					funnel: this.funnel
 				};
 			if ( errorText ) {
 				data.errorText = errorText;
 			}
-			M.log( 'MobileWebEditing', data );
+			schema.log( data );
 		},
 
 		initialize: function( options ) {
 			this.api = new EditorApi( {
 				title: options.title,
 				sectionId: options.sectionId,
-				isNew: options.isNew
+				oldId: options.oldId,
+				isNewPage: options.isNewPage
 			} );
-			this.sectionId = options.sectionId;
-			this.isNewEditor = options.isNewEditor;
-			this.editCount = mw.config.get( 'wgUserEditCount' );
-			this.isFirstEdit = this.editCount === 0;
+			this.readOnly = options.oldId ? true : false; // If old revision, readOnly mode
+			this.funnel = options.funnel;
+			if ( isVisualEditorEnabled ) {
+				options.editSwitcher = true;
+			}
 			this._super( options );
+			if ( isVisualEditorEnabled ) {
+				this.initializeSwitcher();
+			}
 		},
 
 		postRender: function( options ) {
@@ -76,101 +58,85 @@
 			this.$content = this.$( 'textarea' ).
 				on( 'input', function() {
 					self.api.setContent( self.$content.val() );
-					self.$( '.continue, .save' ).prop( 'disabled', false );
-					self._resizeContent();
+					self.$( '.continue, .submit' ).prop( 'disabled', false );
 				} );
-			this.$( '.continue' ).on( 'click', $.proxy( this, '_showPreview' ) );
-			this.$( '.back' ).on( 'click', $.proxy( this, '_hidePreview' ) );
-			this.$( '.save' ).on( 'click', $.proxy( this, '_save' ) );
-			this.$( '.cancel' ).on( 'click', function() {
+			this.$( '.continue' ).on( M.tapEvent( 'click' ), $.proxy( this, '_showPreview' ) );
+			this.$( '.back' ).on( M.tapEvent( 'click' ), $.proxy( this, '_hidePreview' ) );
+			this.$( '.submit' ).on( M.tapEvent( 'click' ), $.proxy( this, '_save' ) );
+			this.$( '.cancel' ).on( M.tapEvent( 'click' ), function() {
 				// log cancel attempt
 				self.log( 'cancel' );
 			} );
 			// make license links open in separate tabs
 			this.$( '.license a' ).attr( 'target', '_blank' );
 
-			// This is used to avoid position: fixed weirdness in mobile Safari when
-			// the keyboard is visible
-			if ( ( /ipad|iphone/i ).test( navigator.userAgent ) ) {
-				this.$content.
-					on( 'focus', function() {
-						self.$( '.buttonBar' ).removeClass( 'position-fixed' );
-					} ).
-					on( 'blur', function() {
-						self.$( '.buttonBar' ).addClass( 'position-fixed' );
-					} );
+			if ( isVisualEditorEnabled ) {
+				this.$( '.visual-editor' ).on( 'click', function() {
+					// If changes have been made tell the user they have to save first
+					if ( !self.api.hasChanged ) {
+						MobileWebClickTracking.log( 'editor-switch-to-visual', options.title );
+						self._switchToVisualEditor( options );
+					} else {
+						if ( window.confirm( mw.msg( 'mobile-frontend-editor-switch-confirm' ) ) ) {
+							self._showPreview();
+						}
+					}
+				} );
+			}
+
+			this.abuseFilterPanel = new AbuseFilterPanel().appendTo( this.$( '.panels' ) );
+
+			// If in readOnly mode, make textarea readonly
+			if ( this.readOnly ) {
+				this.$content.prop( 'readonly', true );
 			}
 
 			this._loadContent();
 			// log section edit attempt
 			self.log( 'attempt' );
+			if ( inNavSignupCampaign ) {
+				// Log edit page impression
+				mobileLeftNavbarEditCTA.log( {
+					action: 'page-edit-impression'
+				} );
+			}
 		},
 
-		hide: function() {
-			var confirmMessage = mw.msg( 'mobile-frontend-editor-cancel-confirm' );
-			if ( !this.api.hasChanged || this.canHide || window.confirm( confirmMessage ) ) {
-				return this._super();
+		_shouldShowKeepGoingOverlay: function() {
+			if ( inBetaOrAlpha &&
+				mw.config.get( 'wgMFKeepGoing' ) &&
+				( this.editCount === 0 || inKeepGoingCampaign )
+			) {
+				return true;
 			} else {
 				return false;
 			}
 		},
 
 		_showPreview: function() {
-			var self = this;
+			var self = this, params = { text: this.$content.val() };
 
 			// log save button click
 			this.log( 'save' );
-			this._showBar( '.save-bar' );
+			this._showHidden( '.save-header, .save-panel' );
 
 			this.scrollTop = $( 'body' ).scrollTop();
 			this.$content.hide();
 			this.$spinner.show();
 
 			// pre-fetch keep going with expectation user will go on to save
-			if ( inBetaOrAlpha && ( this.isFirstEdit || inKeepGoingCampaign ) ) {
-				mw.loader.using( 'mobile.keepgoing', function() {
-					KeepGoingDrawer = M.require( 'modules/keepgoing/KeepGoingDrawer' );
-				} );
+			if ( this._shouldShowKeepGoingOverlay() ) {
+				this._keepgoing = true;
+				mw.loader.using( 'mobile.keepgoing' );
 			}
 
-			api.post( {
-				action: 'parse',
-				// Enable section preview mode to avoid errors (bug 49218)
-				sectionpreview: true,
-				// needed for pre-save transform to work (bug 53692)
-				pst: true,
-				// Output mobile HTML (bug 54243)
-				mobileformat: 'html',
-				title: self.options.title,
-				text: self.$content.val(),
-				prop: 'text'
-			} ).then( function( resp ) {
-				var html;
-				// FIXME: Don't trust the api response
-				if ( resp && resp.parse && resp.parse.text ) {
-					html = resp.parse.text;
-					// FIXME: [API] inconsistency (again) workaround for bug 54607
-					if ( typeof html !== 'string' ) {
-						html = html['*'];
-					}
-					return $.Deferred().resolve( html );
-				} else {
-					return $.Deferred().reject();
-				}
-			} ).done( function( parsedText ) {
-				// FIXME: hacky
-				var $tmp = $( '<div>' ).html( parsedText ), heading;
-				// Extract the first heading
-				heading = $tmp.find( 'h1 span, h2 span' ).eq( 0 ).text();
-				// remove heading from the parsed output
-				$tmp.find( 'h1,h2' ).eq( 0 ).remove();
-
+			if ( mw.config.get( 'wgIsMainPage' ) ) {
+				params.mainpage = 1; // Setting it to 0 will have the same effect
+			}
+			this.api.getPreview( params ).done( function( parsedText ) {
 				new Section( {
-					el: self.$preview.find( '.content' ),
-					index: 'preview',
-					// doesn't account for headings with html inside
-					heading: heading,
-					content: $tmp.html()
+					el: self.$preview,
+					content: parsedText
 				// bug 49218: stop links from being clickable (note user can still hold down to navigate to them)
 				} ).$( 'a' ).on( 'click', false );
 				// Emit event so we can perform enhancements to page
@@ -184,16 +150,13 @@
 		},
 
 		_hidePreview: function() {
-			this.$preview.hide();
+			this.api.abort();
+			this.$spinner.hide();
+			this.$preview.removeClass( 'error' ).hide();
 			this.$content.show();
 			window.scrollTo( 0, this.scrollTop );
-			this._showBar( '.initial-bar' );
-		},
-
-		_resizeContent: function() {
-			if ( this.$content.prop( 'scrollHeight' ) ) {
-				this.$content.css( 'height', this.$content.prop( 'scrollHeight' ) + 'px' );
-			}
+			this._showHidden( '.initial-header' );
+			this.abuseFilterPanel.hide();
 		},
 
 		_loadContent: function() {
@@ -206,8 +169,8 @@
 				done( function( content ) {
 					self.$content.
 						show().
-						val( content );
-					self._resizeContent();
+						val( content ).
+						microAutosize();
 					self.$spinner.hide();
 				} ).
 				fail( function( error ) {
@@ -217,54 +180,37 @@
 				} );
 		},
 
-		_showCaptcha: function( url ) {
-			var self = this, $input = this.$( '.captcha-word' );
-
-			if ( this.captchaShown ) {
-				$input.val( '' );
-				$input.attr( 'placeholder', this.options.captchaTryAgainMsg );
-				setTimeout( function() {
-					$input.attr( 'placeholder', self.options.captchaMsg );
-				}, 2000 );
-			}
-
-			this.$( '.captcha-bar img' ).attr( 'src', url );
-			this._showBar( '.captcha-bar' );
-
-			this.captchaShown = true;
+		_switchToVisualEditor: function( options ) {
+			mw.loader.using( 'mobile.editor.ve', function() {
+				var VisualEditorOverlay = M.require( 'modules/editor/VisualEditorOverlay' );
+				M.overlayManager.replaceCurrent( new VisualEditorOverlay( options ) );
+			} );
 		},
 
 		_updateEditCount: function() {
-			this.isFirstEdit = false;
 			this.editCount += 1;
 			mw.config.set( 'wgUserEditCount', this.editCount );
 		},
 
 		_showAbuseFilter: function( type, message ) {
-			var self = this, msg;
-
-			this.$( '.abusefilter-bar .readmore' ).on( 'click', function() {
-				self.canHide = true;
-				new AbuseFilterOverlay( { parent: self, message: message } ).show();
-				self.canHide = false;
-			} );
-
-			if ( type === 'warning' ) {
-				msg = mw.msg( 'mobile-frontend-editor-abusefilter-warning' );
-			} else if ( type === 'disallow' ) {
-				msg = mw.msg( 'mobile-frontend-editor-abusefilter-disallow' );
-				// disable continue and save buttons, reenabled when user changes content
-				this.$( '.continue, .save' ).prop( 'disabled', true );
-			}
-
-			this.$( '.message p' ).text( msg );
-			this._showBar( '.abusefilter-bar' );
+			this.abuseFilterPanel.show( type, message );
+			this._showHidden( '.save-header' );
+			// disable continue and save buttons, reenabled when user changes content
+			this.$( '.continue, .submit' ).prop( 'disabled', this.abuseFilterPanel.isDisallowed );
 		},
 
+		/**
+		 * Executed when the editor clicks the save button. Handles logging and submitting
+		 * the save action to the editor API.
+		 */
 		_save: function() {
-			var self = this, className = 'toast landmark',
-				options = { summary: this.$( '.summary' ).val() },
-				msg;
+			var self = this,
+				options = { summary: this.$( '.summary' ).val() };
+
+			// Ask for confirmation in some cases
+			if ( !this.confirmSave() ) {
+				return;
+			}
 
 			if ( this.captchaId ) {
 				options.captchaId = this.captchaId;
@@ -272,36 +218,31 @@
 			}
 
 			self.log( 'submit' );
-			this._showBar( '.saving-bar' );
+			if ( inNavSignupCampaign ) {
+				mobileLeftNavbarEditCTA.log( {
+					action: 'page-save-attempt',
+				} );
+			}
+			this._showHidden( '.saving-header' );
 
 			this.api.save( options ).
 				done( function() {
 					var title = self.options.title;
+					// Special case behaviour of main page
+					if ( mw.config.get( 'wgIsMainPage' ) ) {
+						window.location = mw.util.getUrl( title );
+						return;
+					}
 
 					// log success!
 					self.log( 'success' );
-					M.pageApi.invalidatePage( title );
-					new Page( { title: title, el: $( '#content_wrapper' ) } ).on( 'ready', M.reloadPage );
-					M.router.navigate( '' );
+					if ( inNavSignupCampaign ) {
+						mobileLeftNavbarEditCTA.log( {
+							action: 'page-save-success',
+						} );
+					}
+					self.onSave();
 					self.hide();
-					// FIXME: What was the outcome of this A-B test?
-					if ( M.isTestA && self.isNewEditor ) {
-						msg = 'mobile-frontend-editor-success-landmark-1';
-					} else {
-						className = 'toast';
-						msg = 'mobile-frontend-editor-success';
-					}
-					self._updateEditCount();
-					// Set a cookie for 30 days indicating that this user has edited from
-					// the mobile interface.
-					$.cookie( 'mobileEditor', 'true', { expires: 30 } );
-					// double check it was successfully pre-fetched during preview phase
-					if ( KeepGoingDrawer ) {
-						new KeepGoingDrawer( { isFirstEdit: self.isFirstEdit } );
-					} else {
-						// just show a toast
-						popup.show( mw.msg( msg ), className );
-					}
 				} ).
 				fail( function( data ) {
 					var msg;
@@ -319,19 +260,16 @@
 						}
 
 						popup.show( msg, 'toast error' );
-						self._showBar( '.save-bar' );
+						self._showHidden( '.save-header, .save-panel' );
 						// log error that occurred in retrieving section
 						self.log( 'error', data.details );
 					}
 				} );
 		},
-
-		_showBar: function( className ) {
-			this.$( '.buttonBar' ).hide();
-			this.$( className ).show();
+		_hasChanged: function () {
+			return this.api.hasChanged;
 		}
 	} );
 
 	M.define( 'modules/editor/EditorOverlay', EditorOverlay );
-
 }( mw.mobileFrontend, jQuery ) );

@@ -28,15 +28,15 @@
  */
 interface IDeviceProperties {
 	/**
-	 * @return string: 'html' or 'wml'
-	 */
-	function format();
-
-	/**
 	 * @return bool
 	 */
 	function isMobileDevice();
 
+	/**
+	 * Whether the device is tablet. If this is true, isMobileDevice() is also true
+	 * @return bool
+	 */
+	function isTablet();
 }
 
 interface IDeviceDetector {
@@ -55,35 +55,12 @@ class DeviceProperties implements IDeviceProperties {
 	private $userAgent,
 		$acceptHeader,
 		$isMobile = null,
+		$tablet = null,
 		$format = null;
 
 	public function __construct( $userAgent, $acceptHeader ) {
 		$this->userAgent = $userAgent;
 		$this->acceptHeader = $acceptHeader;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function format() {
-		wfProfileIn( __METHOD__ );
-		if ( !$this->format ) {
-			$this->format = $this->detectFormat( $this->userAgent, $this->acceptHeader );
-		}
-		wfProfileOut( __METHOD__ );
-		return $this->format;
-	}
-
-	/**
-	 * @return string
-	 */
-	protected function detectFormat() {
-		if ( strpos( $this->acceptHeader, 'text/vnd.wap.wml' ) !== false
-			&& strpos( $this->acceptHeader, 'text/html' ) === false )
-		{
-			return 'wml';
-		}
-		return 'html';
 	}
 
 	/**
@@ -94,6 +71,16 @@ class DeviceProperties implements IDeviceProperties {
 			$this->isMobile = $this->detectMobileDevice();
 		}
 		return $this->isMobile;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function isTablet() {
+		if ( is_null( $this->tablet ) ) {
+			$this->tablet = $this->detectTablet();
+		}
+		return $this->tablet;
 	}
 
 	/**
@@ -164,34 +151,29 @@ class DeviceProperties implements IDeviceProperties {
 		wfProfileOut( __METHOD__ );
 		return $isMobile;
 	}
-}
 
-class HtmlDeviceProperties implements IDeviceProperties {
+	private function detectTablet() {
+		wfProfileIn( __METHOD__ );
 
-	/**
-	 * @return string
-	 */
-	function format() {
-		return 'html';
-	}
+		$pattern = '/(iPad|Android.3|Tablet|PlayBook|Wii)/i'; // @todo: Kindle?
+		$result = (bool)preg_match( $pattern, $this->userAgent );
 
-	/**
-	 * @return bool
-	 */
-	function isMobileDevice() {
-		return true;
+		wfProfileOut( __METHOD__ );
+		return $result;
 	}
 }
 
-class WmlDeviceProperties implements IDeviceProperties {
-
+abstract class PredefinedDeviceProperties implements IDeviceProperties {
 	/**
-	 * @return string
+	 * This class's descendants should only be instantiated with $wgMFAutodetectMobileView set to true,
+	 * otherwise all attempts to check for tabletness will lie
 	 */
-	function format() {
-		return 'wml';
+	function isTablet() {
+		throw new MWException( __METHOD__ . '() called!' );
 	}
+}
 
+class HtmlDeviceProperties extends PredefinedDeviceProperties {
 	/**
 	 * @return bool
 	 */

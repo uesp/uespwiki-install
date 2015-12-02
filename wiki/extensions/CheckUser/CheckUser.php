@@ -19,7 +19,8 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 }
 
 # Internationalisation files
-$dir = dirname( __FILE__ ) . '/';
+$dir = __DIR__ . '/';
+$wgMessagesDirs['CheckUser'] = __DIR__ . '/i18n';
 $wgExtensionMessagesFiles['CheckUser'] = $dir . 'CheckUser.i18n.php';
 $wgExtensionMessagesFiles['CheckUserAliases'] = $dir . 'CheckUser.alias.php';
 
@@ -47,7 +48,7 @@ $wgGroupPermissions['checkuser']['checkuser-log'] = true;
 // the 'cu_log' table in the database.
 $wgCheckUserLog = '/home/wikipedia/logs/checkuser.log';
 
-# How long to keep CU data?
+# How long to keep CU data (in seconds)?
 $wgCUDMaxAge = 3 * 30 * 24 * 3600; // 3 months
 
 # Mass block limits

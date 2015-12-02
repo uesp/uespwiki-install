@@ -41,15 +41,14 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onRequestContextCreateSkin( $context, &$skin ) {
-		global $wgMFEnableDesktopResources, $wgMFDefaultSkinClass;
+		global $wgMFEnableDesktopResources, $wgMFDefaultSkinClass, $wgULSPosition,
+			$wgValidSkinNames, $wgMFEnableMinervaBetaFeature;
 
-		// check whether or not the user has requested to toggle their view
 		$mobileContext = MobileContext::singleton();
-		$mobileContext->checkToggleView();
 
 		if ( !$mobileContext->shouldDisplayMobileView()
-			|| $mobileContext->isBlacklistedPage() )
-		{
+			|| $mobileContext->isBlacklistedPage()
+		) {
 			// add any necessary resources for desktop view, if enabled
 			if ( $wgMFEnableDesktopResources ) {
 				$out = $context->getOutput();
@@ -57,6 +56,9 @@ class MobileFrontendHooks {
 			}
 			return true;
 		}
+
+		// FIXME: Remove hack around Universal Language selector bug 57091
+		$wgULSPosition = 'none';
 
 		// Handle any X-Analytics header values in the request by adding them
 		// as log items. X-Analytics header values are serialized key=value
@@ -75,22 +77,23 @@ class MobileFrontendHooks {
 		// log whether user is using alpha/beta/stable
 		$mobileContext->logMobileMode();
 
-		if ( $mobileContext->getContentFormat() == 'WML' ) {
-			# Grab the skin class and initialise it.
-			$skin = new SkinMobileWML( $context );
-		} else {
-			$skinName = $wgMFDefaultSkinClass;
-			$betaSkinName = $skinName . 'Beta';
-			$alphaSkinName = $skinName . 'Alpha';
-			// Force alpha for test mode to sure all modules can run
-			$inTestMode = $context->getTitle()->getDBkey() === 'JavaScriptTest/qunit';
-			if ( ( $mobileContext->isAlphaGroupMember() || $inTestMode ) && class_exists( $alphaSkinName ) ) {
-				$skinName = $alphaSkinName;
-			} else if ( $mobileContext->isBetaGroupMember() && class_exists( $betaSkinName ) ) {
-				$skinName = $betaSkinName;
-			}
-			$skin = new $skinName( $context );
+		$skinName = $wgMFDefaultSkinClass;
+		$betaSkinName = $skinName . 'Beta';
+		$alphaSkinName = $skinName . 'Alpha';
+		$appSkinName = $skinName . 'App';
+		// Force alpha for test mode to sure all modules can run
+		$name = $context->getTitle()->getDBkey();
+		$inTestMode =
+			$name === SpecialPage::getTitleFor( 'JavaScriptTest', 'qunit' )->getDBkey();
+		if ( $name === 'MobileWebApp' || $name === 'MobileWebApp/manifest' ) {
+			$skinName = $appSkinName;
+		} elseif ( ( $mobileContext->isAlphaGroupMember() || $inTestMode ) &&
+			class_exists( $alphaSkinName ) ) {
+			$skinName = $alphaSkinName;
+		} elseif ( $mobileContext->isBetaGroupMember() && class_exists( $betaSkinName ) ) {
+			$skinName = $betaSkinName;
 		}
+		$skin = new $skinName( $context );
 
 		return false;
 	}
@@ -101,29 +104,32 @@ class MobileFrontendHooks {
 	 *
 	 * Adds a link to view the current page in 'mobile view' to the desktop footer.
 	 *
-	 * @param $obj Article
+	 * @param $skin SkinTemplate
 	 * @param $tpl QuickTemplate
 	 * @return bool
 	 */
-	public static function onSkinTemplateOutputPageBeforeExec( &$obj, &$tpl ) {
+	public static function onSkinTemplateOutputPageBeforeExec( &$skin, &$tpl ) {
 		global $wgMobileUrlTemplate;
 		wfProfileIn( __METHOD__ );
 
-		$title = $obj->getTitle();
+		$title = $skin->getTitle();
 		$isSpecial = $title->isSpecialPage();
+		$context = MobileContext::singleton();
 
-		if ( ! $isSpecial ) {
+		if ( !$context->isBlacklistedPage() ) {
 			$footerlinks = $tpl->data['footerlinks'];
-			$args = $tpl->getSkin()->getRequest()->getValues();
+			$args = $skin->getRequest()->getQueryValues();
+			// avoid title being set twice
+			unset( $args['title'] );
+
 			/**
 			 * Adds query string to force mobile view if we're not using $wgMobileUrlTemplate
 			 * This is to preserve pretty/canonical links for a happy cache where possible (eg WMF cluster)
 			 */
 			if ( !strlen( $wgMobileUrlTemplate ) ) {
-				// avoid title being set twice
-				unset( $args['title'] );
 				$args['mobileaction'] = 'toggle_view_mobile';
 			}
+
 			$mobileViewUrl = $title->getFullURL( $args );
 			$mobileViewUrl = MobileContext::singleton()->getMobileUrl( $mobileViewUrl );
 
@@ -178,7 +184,9 @@ class MobileFrontendHooks {
 	 * @param ResourceLoader $resourceLoader
 	 * @return bool
 	 */
-	public static function onResourceLoaderTestModules( array &$testModules, ResourceLoader &$resourceLoader ) {
+	public static function onResourceLoaderTestModules( array &$testModules,
+		ResourceLoader &$resourceLoader
+	) {
 		global $wgResourceModules;
 
 		$testModuleBoilerplate = array(
@@ -190,7 +198,6 @@ class MobileFrontendHooks {
 		// additional frameworks and fixtures we use in tests
 		$testModules['qunit']['mobile.tests.base'] = $testModuleBoilerplate + array(
 			'scripts' => array(
-				'tests/externals/sinon.js',
 				'tests/javascripts/fixtures.js',
 			),
 		);
@@ -230,14 +237,18 @@ class MobileFrontendHooks {
 	public static function onGetCacheVaryCookies( $out, &$cookies ) {
 		global $wgMobileUrlTemplate;
 
-		$cookies[] = MobileContext::USEFORMAT_COOKIE_NAME; // Enables mobile cookies on wikis w/o mobile domain
-		$cookies[] = 'stopMobileRedirect'; // Don't redirect to mobile if user had explicitly opted out of it
+		// Enables mobile cookies on wikis w/o mobile domain
+		$cookies[] = MobileContext::USEFORMAT_COOKIE_NAME;
+		// Don't redirect to mobile if user had explicitly opted out of it
+		$cookies[] = 'stopMobileRedirect';
+
 		$context = MobileContext::singleton();
 		if ( $context->shouldDisplayMobileView() || !$wgMobileUrlTemplate ) {
 			$cookies[] = 'optin'; // Alpha/beta cookie
 			$cookies[] = 'disableImages';
 		}
-		// Redirect people who want so from HTTP to HTTPS. Ideally, should be only for HTTP but we don't vary on protocol
+		// Redirect people who want so from HTTP to HTTPS. Ideally, should be
+		// only for HTTP but we don't vary on protocol.
 		$cookies[] = 'forceHTTPS';
 		return true;
 	}
@@ -252,7 +263,7 @@ class MobileFrontendHooks {
 	 * @return boolean
 	 */
 	public static function onResourceLoaderGetConfigVars( &$vars ) {
-		global $wgCookiePath, $wgMFNearbyEndpoint, $wgMFNearbyNamespace;
+		global $wgCookiePath, $wgMFNearbyEndpoint, $wgMFNearbyNamespace, $wgMFKeepGoing;
 		$ctx = MobileContext::singleton();
 		$wgStopMobileRedirectCookie = array(
 			'name' => 'stopMobileRedirect',
@@ -263,6 +274,14 @@ class MobileFrontendHooks {
 		$vars['wgStopMobileRedirectCookie'] = $wgStopMobileRedirectCookie;
 		$vars['wgMFNearbyEndpoint'] = $wgMFNearbyEndpoint;
 		$vars['wgMFNearbyNamespace'] = $wgMFNearbyNamespace;
+		$vars['wgMFKeepGoing'] = $wgMFKeepGoing;
+
+		// Set the licensing agreement that is displayed in the editor.
+		$wgMFLicenseLink = SkinMinerva::getLicenseLink( 'editor' );
+		$vars['wgMFLicenseLink'] = $wgMFLicenseLink;
+		// Set the licensing agreement that is displayed in the uploading interface.
+		$wgMFUploadLicenseLink = SkinMinerva::getLicenseLink( 'upload' );
+		$vars['wgMFUploadLicenseLink'] = $wgMFUploadLicenseLink;
 		return true;
 	}
 
@@ -274,18 +293,28 @@ class MobileFrontendHooks {
 	 */
 	public static function onSpecialPage_initList( &$list ) {
 		$ctx = MobileContext::singleton();
+		// Perform substitutions of pages that are unsuitable for mobile
+		// FIXME: Upstream these changes to core.
 		if ( $ctx->shouldDisplayMobileView() ) {
 			// Replace the standard watchlist view with our custom one
 			$list['Watchlist'] = 'SpecialMobileWatchlist';
-			// FIXME: Make uploads work on desktop
-			$list['Uploads'] = 'SpecialUploads';
+
+			if ( $ctx->isBetaGroupMember() ) {
+				/* Special:MobileContributions redefines Special:History in
+				 * such a way that for Special:Contributions/Foo, Foo is a
+				 * username (in Special:History/Foo, Foo is a page name).
+				 * Redirect people here as this is essential
+				 * Special:Contributions without the bells and whistles.
+				 */
+				$list['Contributions'] = 'SpecialMobileContributions';
+				$list['Watchlist'] = 'SpecialMobileWatchlistBeta';
+			}
+
 			$list['Userlogin'] = 'SpecialMobileUserlogin';
 
 			if ( class_exists( 'MWEchoNotifUser' ) ) {
 				$list['Notifications'] = 'SpecialMobileNotifications';
 			}
-
-			$list['UserProfile'] = 'SpecialUserProfile';
 		}
 		return true;
 	}
@@ -359,7 +388,7 @@ class MobileFrontendHooks {
 	 *
 	 * We use this hook to ensure that login/account creation pages
 	 * are redirected to HTTPS if they are not accessed via HTTPS and
-	 * $wgMFForceSecureLogin == true - but only when using the
+	 * $wgSecureLogin == true - but only when using the
 	 * mobile site.
 	 *
 	 * @param $special SpecialPage
@@ -367,41 +396,42 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onSpecialPageBeforeExecute( SpecialPage $special, $subpage ) {
-		global $wgMFForceSecureLogin;
+		global $wgSecureLogin;
 		$mobileContext = MobileContext::singleton();
 		$isMobileView = $mobileContext->shouldDisplayMobileView();
-		if ( $special->getName() != 'Userlogin' || !$isMobileView ) {
-			// no further processing necessary
-			return true;
-		}
-
 		$out = $special->getContext()->getOutput();
-		if ( $special->getName() === 'Search' ) {
-			$out->addModuleStyles( 'mobile.search.styles' );
+		$skin = $out->getSkin()->getSkinName();
+
+		$name = $special->getName();
+
+		// Ensure desktop version of Special:Preferences page gets mobile targeted modules
+		// FIXME: Upstream to core (?)
+		if ( $name === 'Preferences' && $skin === 'minerva' ) {
+			$out->addModules( 'skins.minerva.special.preferences.scripts' );
 		}
 
-		// go no further if we're not dealing with the login page
-		if ( $special->getName() != 'Userlogin' ) {
-			return true;
-		}
-
-		$out->addModuleStyles( 'mobile.userlogin.styles' );
-
-		// make sure we're on https if we're supposed to be and currently aren't.
-		// most of this is lifted from https redirect code in SpecialUserlogin::execute()
-		// also, checking for 'https' in $wgServer is a little funky, but this is what
-		// is done on the WMF cluster (see config in CommonSettings.php)
-		if ( $wgMFForceSecureLogin && WebRequest::detectProtocol() != 'https' ) {
-			// get the https url and redirect
-			$query = $special->getContext()->getRequest()->getQueryValues();
-			if ( isset( $query['title'] ) )  {
-				unset( $query['title'] );
+		if ( $isMobileView ) {
+			if ( $name === 'Search' ) {
+				$out->addModuleStyles( 'skins.minerva.special.search.styles' );
+			} elseif ( $name === 'Userlogin' ) {
+				$out->addModuleStyles( 'skins.minerva.special.userlogin.styles' );
+				// make sure we're on https if we're supposed to be and currently aren't.
+				// most of this is lifted from https redirect code in SpecialUserlogin::execute()
+				// also, checking for 'https' in $wgServer is a little funky, but this is what
+				// is done on the WMF cluster (see config in CommonSettings.php)
+				if ( $wgSecureLogin && WebRequest::detectProtocol() != 'https' ) {
+					// get the https url and redirect
+					$query = $special->getContext()->getRequest()->getQueryValues();
+					if ( isset( $query['title'] ) )  {
+						unset( $query['title'] );
+					}
+					$url = $mobileContext->getMobileUrl(
+						$special->getFullTitle()->getFullURL( $query ),
+						true
+					);
+					$special->getContext()->getOutput()->redirect( $url );
+				}
 			}
-			$url = $mobileContext->getMobileUrl(
-				$special->getFullTitle()->getFullURL( $query ),
-				true
-			);
-			$special->getContext()->getOutput()->redirect( $url );
 		}
 
 		return true;
@@ -479,11 +509,44 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onBeforePageDisplay( &$out, &$sk ) {
-		global $wgMFEnableXAnalyticsLogging;
+		global $wgMFEnableXAnalyticsLogging, $wgMFAppPackageId, $wgMFAppScheme;
 		wfProfileIn( __METHOD__ );
 
 		$context = MobileContext::singleton();
+
+		$title = $sk->getTitle();
+		$request = $context->getRequest();
+		# Add deep link to a mobile app specified by $wgMFAppScheme
+		if ( ( $wgMFAppPackageId !== false ) && ( $title->isContentPage() )
+			&& ( $request->getRawQueryString() === '' )
+		) {
+			$fullUrl = $title->getFullURL();
+			$mobileUrl = $context->getMobileUrl( $fullUrl );
+			$path = preg_replace( "/^([a-z]+:)?(\/)*/", '', $mobileUrl, 1 );
+
+			$scheme = 'http';
+			if ( $wgMFAppScheme !== false ) {
+				$scheme = $wgMFAppScheme;
+			} else {
+				$protocol = $request->getProtocol();
+				if ( $protocol != '' ) {
+					$scheme = $protocol;
+				}
+			}
+
+			$hreflink = 'android-app://' . $wgMFAppPackageId . '/' . $scheme . '/' . $path;
+			$out->addLink( array( 'rel' => 'alternate', 'href' => $hreflink ) );
+		}
+
 		if ( !$context->shouldDisplayMobileView() ) {
+			if ( class_exists( 'BetaFeatures' ) &&
+				BetaFeatures::isFeatureEnabled( $out->getSkin()->getUser(), 'betafeatures-geonotahack' ) ) {
+				// @todo FIXME: Remove need for this module
+				$out->addModules( array( 'mobile.bridge' ) );
+				// @todo FIXME: Find better way to deal with wgMFMode in desktop
+				// (maybe standardise BetaFeatures to use the same variable).
+				$out->addJsConfigVars( 'wgMFMode', 'desktop-beta' );
+			}
 			wfProfileOut( __METHOD__);
 			return true;
 		}
@@ -497,12 +560,6 @@ class MobileFrontendHooks {
 			}
 		}
 
-		$request = $context->getRequest();
-		$xWap = $request->getHeader( 'X-WAP' );
-		if ( $xWap ) {
-			$out->addVaryHeader( 'X-WAP' );
-			$request->response()->header( "X-WAP: $xWap" );
-		}
 		$out->addVaryHeader( 'Cookie' );
 
 		wfProfileOut( __METHOD__ );
@@ -524,12 +581,13 @@ class MobileFrontendHooks {
 		if ( $context->shouldDisplayMobileView() ) {
 			$output = $context->getOutput();
 			$data = $output->getRequest()->getValues();
-			// Unset these to avoid a redirect loop but make sure we pass other parameters to edit e.g. undo actions
+			// Unset these to avoid a redirect loop but make sure we pass other
+			// parameters to edit e.g. undo actions
 			unset( $data['action'] );
 			unset( $data['title'] );
-			$articleUrl = $context->getMobileUrl( $article->getTitle()->getFullURL( $data ) );
-			$section = (int)$output->getRequest()->getVal( 'section', 0 );
-			$output->redirect( $articleUrl . '#editor/' . $section );
+
+			$output->redirect( SpecialPage::getTitleFor( 'MobileEditor', $article->getTitle() )
+				->getFullURL( $data ) );
 			return false;
 		}
 
@@ -546,12 +604,72 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onGetPreferences( $user, &$preferences ) {
+		global $wgMFEnableMinervaBetaFeature;
 		$definition = array(
 			'type' => 'api',
 			'default' => '',
 		);
 		$preferences[SpecialMobileWatchlist::FILTER_OPTION_NAME] = $definition;
 		$preferences[SpecialMobileWatchlist::VIEW_OPTION_NAME] = $definition;
+
+		// Remove the Minerva skin from the preferences unless Minerva has been enabled in
+		// BetaFeatures.
+		if ( !class_exists( 'BetaFeatures' )
+			|| !BetaFeatures::isFeatureEnabled( $user, 'betafeatures-minerva' )
+			|| !$wgMFEnableMinervaBetaFeature
+		) {
+			// Preference key/values are backwards. The value is the name of the skin. The
+			// key is the text+links to display.
+			$key = array_search( 'minerva', $preferences['skin']['options'] );
+			unset( $preferences['skin']['options'][$key] );
+		}
+
+		return true;
+	}
+
+	/**
+	 * GetBetaFeaturePreferences hook handler
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/GetPreferences
+	 *
+	 * @param User $user
+	 * @param array $preferences
+	 *
+	 * @return bool
+	 */
+	public static function onGetBetaFeaturePreferences( $user, &$preferences ) {
+		global $wgExtensionAssetsPath, $wgMFNearby, $wgMFEnableMinervaBetaFeature, $wgLang;
+
+		$dir = $wgLang->getDir();
+
+		if ( $wgMFNearby ) {
+			$preferences['betafeatures-geonotahack'] = array(
+				'requirements' => array(
+					'skins' => array( 'vector' ),
+				),
+				'label-message' => 'beta-feature-geonotahack',
+				'desc-message' => 'beta-feature-geonotahack-description',
+				'info-link' => '//www.mediawiki.org/wiki/Beta_Features/Nearby_Pages',
+				'discussion-link' => '//www.mediawiki.org/wiki/Talk:Beta_Features/Nearby_Pages',
+				'screenshot' => array(
+					'ltr' => "$wgExtensionAssetsPath/MobileFrontend/images/BetaFeatures/nearby-ltr.svg",
+					'rtl' => "$wgExtensionAssetsPath/MobileFrontend/images/BetaFeatures/nearby-rtl.svg",
+				),
+			);
+		}
+
+		if ( $wgMFEnableMinervaBetaFeature ) {
+			// Enable the mobile skin on desktop
+			$preferences['betafeatures-minerva'] = array(
+				'label-message' => 'beta-feature-minerva',
+				'desc-message' => 'beta-feature-minerva-description',
+				'info-link' => '//www.mediawiki.org/wiki/Beta_Features/Minerva',
+				'discussion-link' => '//www.mediawiki.org/wiki/Talk:Beta_Features/Minerva',
+				'screenshot' => array(
+					'ltr' => "$wgExtensionAssetsPath/MobileFrontend/images/BetaFeatures/minerva-ltr.svg",
+					'rtl' => "$wgExtensionAssetsPath/MobileFrontend/images/BetaFeatures/minerva-rtl.svg",
+				),
+			);
+		}
 
 		return true;
 	}
@@ -575,12 +693,11 @@ class MobileFrontendHooks {
 	public static function onUnitTestsList( &$files ) {
 		$dir = dirname( dirname( __FILE__ ) ) . '/tests';
 
+		$files[] = "$dir/ApiMobileViewTest.php";
 		$files[] = "$dir/ApiParseExtenderTest.php";
 		$files[] = "$dir/DeviceDetectionTest.php";
-		$files[] = "$dir/ExtractFormatterTest.php";
 		$files[] = "$dir/MobileContextTest.php";
 		$files[] = "$dir/MobileFormatterTest.php";
-		$files[] = "$dir/MobileFrontendHooksTest.php";
 		$files[] = "$dir/modules/MFResourceLoaderModuleTest.php";
 
 		// special page tests
@@ -627,20 +744,90 @@ class MobileFrontendHooks {
 	}
 
 	/**
-	 * UserRequiresHTTPS hook handler
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/UserRequiresHTTPS
+	 * ResourceLoaderRegisterModules hook handler
+	 * Registering our EventLogging schema modules
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ResourceLoaderRegisterModules
 	 *
-	 * @param User $user
-	 * @param bool $https
+	 * @param ResourceLoader &$resourceLoader The ResourceLoader object
+	 * @return bool Always true
+	 */
+	public static function onResourceLoaderRegisterModules( ResourceLoader &$resourceLoader ) {
+		global $wgResourceModules, $wgMFMobileResourceBoilerplate;
+
+		$mobileEventLoggingSchemas = array(
+			'mobile.uploads.schema' => array(
+				'schema' => 'MobileWebUploads',
+				'revision' => 7967082,
+			),
+			'mobile.watchlist.schema' => array(
+				'schema' => 'MobileBetaWatchlist',
+				'revision' => 5281061,
+			),
+			'mobile.editing.schema' => array(
+				'schema' => 'MobileWebEditing',
+				'revision' => 7675117,
+			),
+			'schema.MobileWebCta' => array(
+				'schema' => 'MobileWebCta',
+				'revision' => 5972684,
+			),
+			'schema.MobileWebClickTracking' => array(
+				'schema' => 'MobileWebClickTracking',
+				'revision' => 5929948,
+			),
+			'schema.MobileLeftNavbarEditCTA' => array(
+				'schema' => 'MobileLeftNavbarEditCTA',
+				'revision' => 7074652,
+			),
+		);
+
+		$scripts = array(
+			'javascripts/loggingSchemas/mobileWebEditing.js',
+			'javascripts/loggingSchemas/mobileLeftNavbarEditCTA.js',
+			'javascripts/loggingSchemas/MobileWebClickTracking.js',
+		);
+		if ( class_exists( 'ResourceLoaderSchemaModule' ) ) {
+			foreach ( $mobileEventLoggingSchemas as $module => $properties ) {
+				$wgResourceModules[ $module ] = array(
+					'class'  => 'ResourceLoaderSchemaModule',
+					'schema' => $properties['schema'],
+					'revision' => $properties['revision'],
+					'targets' => 'mobile',
+				);
+			}
+			$wgResourceModules['mobile.loggingSchemas'] = $wgMFMobileResourceBoilerplate + array(
+				'dependencies' => array_merge( array_keys( $mobileEventLoggingSchemas ), array(
+					'mobile.startup',
+					'ext.eventLogging',
+				) ),
+				'scripts' => $scripts,
+			);
+		} else {
+			// Define a module without the EventLogging dependency
+			// Note the log function will be benign and do nothing but available as if exists for purpose
+			// of modules that want to log.
+			$wgResourceModules['mobile.loggingSchemas'] = $wgMFMobileResourceBoilerplate + array(
+				'dependencies' => array(
+					'mobile.startup',
+				),
+				'scripts' => $scripts,
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * OutputPageParserOutput hook handler
+	 * Disables TOC in output before it grabs HTML
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/OutputPageParserOutput
+	 * @param OutputPage $outputPage
 	 *
 	 * @return bool
 	 */
-	public static function onUserRequiresHTTPS( $user, &$https ) {
-		// WAP phones allegedly can't handle HTTPS, don't redirect them there
-		$context = MobileContext::singleton();
-		if ( $context->shouldDisplayMobileView() && $context->getDevice()->format() === 'wml' ) {
-			$https = false;
-			return false; // Stop further hook processing
+	public static function onOutputPageParserOutput( $outputPage ) {
+		if ( MobileContext::singleton()->shouldDisplayMobileView() ) {
+			$outputPage->enableTOC( false );
 		}
 		return true;
 	}

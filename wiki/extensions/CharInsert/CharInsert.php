@@ -40,8 +40,8 @@ $wgExtensionCredits['parserhook'][] = array(
 	'descriptionmsg' => 'charinsert-desc',
 );
 
-$dir = dirname( __FILE__ ) . '/';
-$wgExtensionMessagesFiles['CharInsert'] = $dir . 'CharInsert.i18n.php';
+$wgMessagesDirs['CharInsert'] = __DIR__ . '/i18n';
+$wgExtensionMessagesFiles['CharInsert'] = __DIR__ . '/CharInsert.i18n.php';
 
 function setupSpecialChars( &$parser ) {
 	$parser->setHook( 'charinsert', 'charInsert' );
@@ -97,7 +97,7 @@ function charInsertChar( $start, $end = '' ) {
 	return Xml::element( 'a',
 		array(
 			'onclick' => "insertTags('$estart','$eend','');return false",
-			'href'    => '#' ),
+			'href'    => "javascript:void()" ),
 		$inline );
 }
 
@@ -120,5 +120,3 @@ function charInsertDisplay( $text ) {
 	return Sanitizer::decodeCharReferences(
 			str_replace( $invisibles, $visibles, $text ) );
 }
-
-

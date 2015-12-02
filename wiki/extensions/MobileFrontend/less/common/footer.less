@@ -1,11 +1,13 @@
+@import "minerva.variables";
+@import "minerva.mixins";
+
 /* FOOTER
 initially moved from beta_common.css in
 Change-Id: I48bcdc43e72f2a9b60e6d1bfe877d79ad80b6d5d
 */
-@import "../variables.less";
 
 #footer {
-	padding: 2em @contentMarginRight 1.5em @contentMarginLeft;
+	padding: 2em @contentMargin 1.5em @contentMargin;
 	margin: 2em 0 0;
 	border-top: 1px solid #aaa;
 	font-size: 0.9em;
@@ -13,7 +15,7 @@ Change-Id: I48bcdc43e72f2a9b60e6d1bfe877d79ad80b6d5d
 	h2 {
 		display: inline;
 		font-weight: bold;
-		font-size: @baseFontSize;
+		font-size: 1em;
 
 		img {
 			height: 1em;
@@ -42,5 +44,12 @@ Change-Id: I48bcdc43e72f2a9b60e6d1bfe877d79ad80b6d5d
 				border: none;
 			}
 		}
+	}
+}
+
+.beta, .alpha {
+	#footer {
+		margin: 2em auto 0 auto;
+		clear: both;
 	}
 }

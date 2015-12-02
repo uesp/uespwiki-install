@@ -1,9 +1,23 @@
 ( function( M, $ ) {
-	M.assertMode( [ 'alpha' ] );
+	M.assertMode( [ 'alpha', 'beta', 'app' ] );
 
 	var Overlay = M.require( 'Overlay' ),
+		// use predefined buckets so that we don't pollute cache with random
+		// size images
+		sizeBuckets = [320, 640, 800, 1024, 1280, 1920, 2560, 2880],
 		Api = M.require( 'api' ).Api,
 		ImageApi, ImageOverlay, api;
+
+	/**
+	 * Gets the first size larger than or equal to the provided size.
+	 */
+	function findSizeBucket( size ) {
+		var i = 0;
+		while ( size > sizeBuckets[i] && i < sizeBuckets.length - 1 ) {
+			++i;
+		}
+		return sizeBuckets[i];
+	}
 
 	ImageApi = Api.extend( {
 		initialize: function() {
@@ -21,11 +35,11 @@
 					action: 'query',
 					prop: 'imageinfo',
 					titles: title,
-					iiprop: 'url',
+					iiprop: ['url', 'extmetadata'],
 					// request an image two times bigger than the reported screen size
 					// for retina displays and zooming
-					iiurlwidth: $( window ).width() * 2,
-					iiurlheight: $( window ).height() * 2
+					iiurlwidth: findSizeBucket( $( window ).width() * 2 ),
+					iiurlheight: findSizeBucket( $( window ).height() * 2 )
 				} ).done( function( resp ) {
 					if ( resp.query && resp.query.pages ) {
 						// FIXME: API
@@ -47,21 +61,37 @@
 		closeOnBack: true,
 
 		defaults: {
-			closeMsg: mw.msg( 'mobile-frontend-overlay-escape' ),
-			detailsMsg: mw.msg( 'mobile-frontend-media-details' )
+			detailsMsg: mw.msg( 'mobile-frontend-media-details' ),
+			licenseLinkMsg: mw.msg( 'mobile-frontend-media-license-link' )
 		},
 
 		postRender: function( options ) {
-			var self = this;
+			var self = this, $img;
 			this._super( options );
 
 			api.getThumb( options.title ).done( function( data ) {
-				self.imgRatio = data.thumbwidth / data.thumbheight;
+				function removeLoader() {
+					self.$( '.container' ).removeClass( 'loading' );
+				}
 
-				self.$( '.container' ).removeClass( 'loading' );
-				self.$( 'img' ).attr( 'src', data.thumburl );
+				self.imgRatio = data.thumbwidth / data.thumbheight;
+				$img = $( '<img>' ).attr( 'src', data.thumburl ).attr( 'alt', options.caption );
+				self.$( '.container div' ).append( $img );
+
+				if ( $img.prop( 'complete' ) ) {
+					// if the image is loaded from browser cache, "load" event may not fire
+					// (http://stackoverflow.com/questions/910727/jquery-event-for-images-loaded#comment10616132_1110094)
+					removeLoader();
+				} else {
+					// remove the loader when the image is loaded
+					$img.on( 'load', removeLoader );
+				}
+
 				self._positionImage();
 				self.$( '.details a' ).attr( 'href', data.descriptionurl );
+				if ( data.extmetadata && data.extmetadata.LicenseShortName ) {
+					self.$( '.license a' ).text( data.extmetadata.LicenseShortName.value );
+				}
 
 				self.$el.on( M.tapEvent( 'click' ), function() {
 					self.$( '.details' ).toggleClass( 'visible' );
@@ -92,32 +122,26 @@
 		}
 	} );
 
-	M.router.route( /^image\/(.+)$/, function( hrefPart ) {
-		// FIXME: replace hrefPart with title when we get rid of History.js
-		// (which apart from slashes doesn't like dots...)
-		var $a = $( 'a[href*="' + hrefPart + '"]' ), title = $a.data( 'title' );
-
-		if ( title ) {
-			new ImageOverlay( {
-				title: $a.data( 'title' ),
-				caption: $a.siblings( '.thumbcaption' ).text()
-			} ).show();
-		}
-	} );
-
 	function init( $el ) {
-		$el.find( 'a.image, a.thumbimage' ).each( function() {
-			var $a = $( this ),
-				// FIXME: change to /[^\/]+$/ when we get rid of History.js
-				match = $a.attr( 'href' ).match( /.*\/(([^\/]+)\..+)$/ );
+		M.router.route( /^\/image\/(.+)$/, function( title ) {
+			var caption = $( 'a[href*="' + title + '"]' ).siblings( '.thumbcaption' ).text();
 
-			if ( match ) {
-				$a.data( 'title', match[1] );
-				$a.attr( 'href', '#image/' + match[2] );
-			}
+			new ImageOverlay( {
+				title: decodeURIComponent( title ),
+				caption: caption
+			} ).show();
 		} );
 
-		M.router.checkRoute();
+		$el.find( 'a.image, a.thumbimage' ).each( function() {
+			var $a = $( this ), match = $a.attr( 'href' ).match( /[^\/]+$/ );
+
+			if ( match ) {
+				$a.on( M.tapEvent( 'click' ), function( ev ) {
+					ev.preventDefault();
+					M.router.navigate( '#/image/' + match[0] );
+				} );
+			}
+		} );
 	}
 
 	// FIXME: this should bind to only 1-2 events
@@ -127,5 +151,9 @@
 	} );
 	M.on( 'section-rendered', init );
 	M.on( 'photo-loaded', init );
+
+	M.define( 'modules/mediaViewer', {
+		_findSizeBucket: findSizeBucket
+	} );
 
 }( mw.mobileFrontend, jQuery ) );

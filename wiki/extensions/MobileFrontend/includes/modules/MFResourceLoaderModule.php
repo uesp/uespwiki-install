@@ -16,6 +16,15 @@ class MFResourceLoaderModule extends ResourceLoaderFileModule {
 	private $hasTemplates = false;
 
 	/**
+	 * Array: Cache for mtime of templates
+	 * @par Usage:
+	 * @code
+	 * array( [hash] => [mtime], [hash] => [mtime], ... )
+	 * @endcode
+	 */
+	protected $templateModifiedTime = array();
+
+	/**
 	 * Registers core modules and runs registration hooks.
 	 */
 	public function __construct( $options ) {
@@ -81,8 +90,8 @@ class MFResourceLoaderModule extends ResourceLoaderFileModule {
 				$content = file_get_contents( $localPath );
 				$js .= Xml::encodeJsCall( 'mw.template.add', array( $templateName, $content ) );
 			} else {
-				$msg = __METHOD__.": template file not found: \"$localPath\"";
-				throw new MWException( $msg );
+				$msg = __METHOD__.": template not found: \"$templateName\"";
+				$js .= Xml::encodeJsCall( 'throw', array( $msg ) );
 			}
 		}
 		return $js;
@@ -129,11 +138,6 @@ class MFResourceLoaderModule extends ResourceLoaderFileModule {
 		return $this->messages;
 	}
 
-	public function supportsURLLoading() {
-		// When templates or parsed messages are present in the module force load.php urls
-		return $this->hasTemplates || $this->hasParsedMessages ? false : true;
-	}
-
 	/**
 	 * Gets all scripts for a given context concatenated together including processed messages
 	 *
@@ -146,15 +150,74 @@ class MFResourceLoaderModule extends ResourceLoaderFileModule {
 	}
 
 	/**
+	 * @param ResourceLoaderContext $context
+	 * @return array
+	 */
+	public function getScriptURLsForDebug( ResourceLoaderContext $context ) {
+		if ( $this->hasParsedMessages || $this->hasTemplates ) {
+			$urls = array(
+				ResourceLoader::makeLoaderURL(
+					array( $this->getName() ),
+					$context->getLanguage(),
+					$context->getSkin(),
+					$context->getUser(),
+					$context->getVersion(),
+					true, // debug
+					// @todo FIXME: Make this templates and update
+					// makeModuleResponse so that it only outputs template code.
+					// When this is done you can merge with parent array and
+					// retain file names.
+					'scripts', // only
+					$context->getRequest()->getBool( 'printable' ),
+					$context->getRequest()->getBool( 'handheld' )
+				),
+			);
+		} else {
+			$urls = parent::getScriptURLsForDebug( $context );
+		}
+		return $urls;
+	}
+
+	/**
+	 * Checks whether any templates used by module have changed
+	 *
+	 * @param $context ResourceLoaderContext: Context in which to generate script
+	 * @return Integer: UNIX timestamp
+	 */
+	public function getModifiedTimeTemplates( ResourceLoaderContext $context ) {
+		$hash = $context->getHash();
+		if ( isset( $this->templateModifiedTime[$hash] ) ) {
+			$tlm = $this->templateModifiedTime[$hash];
+		} else {
+			// Get local paths to all templates
+			$files = array_map(
+				array( $this, 'getLocalTemplatePath' ),
+				$this->getTemplateNames()
+			);
+
+			// Store for quicker future lookup
+			if ( count( $files ) === 0 ) {
+				$tlm = 1;
+			} else {
+				// check the last modified time of them
+				wfProfileIn( __METHOD__ . '-filemtime' );
+				$tlm = max( array_map( array( __CLASS__, 'safeFilemtime' ), $files ) );
+				wfProfileOut( __METHOD__ . '-filemtime' );
+			}
+			// store for future lookup
+			$this->templateModifiedTime[$hash] = $tlm;
+		}
+		return $tlm;
+	}
+
+	/**
 	 * Checks whether any resources used by module have changed
 	 *
 	 * @param $context ResourceLoaderContext: Context in which to generate script
 	 * @return Integer: UNIX timestamp
 	 */
 	public function getModifiedTime( ResourceLoaderContext $context ) {
-		return max(
-			filemtime( dirname( dirname( __DIR__ ) ) . "/MobileFrontend.php" ),
-			filemtime( dirname( dirname( __DIR__ ) ) . "/MobileFrontend.i18n.php" )
-		);
+		return max( parent::getModifiedTime( $context ),
+			$this->getModifiedTimeTemplates( $context ) );
 	}
 }

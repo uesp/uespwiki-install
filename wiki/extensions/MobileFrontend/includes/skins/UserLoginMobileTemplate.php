@@ -3,9 +3,18 @@
  * Provides a custom login form for mobile devices
  */
 class UserLoginMobileTemplate extends UserLoginAndCreateTemplate {
+	protected $actionMessages = array(
+		'watch' => 'mobile-frontend-watchlist-login-action',
+		'edit' => 'mobile-frontend-edit-login-action',
+		'' => 'mobile-frontend-generic-login-action',
+	);
+	protected $pageMessages = array(
+		'Uploads' => 'mobile-frontend-donate-image-login-action',
+		'Watchlist' => 'mobile-frontend-watchlist-login-action',
+	);
 
 	/**
-	 * @TODO refactor this into parent template
+	 * @todo Refactor this into parent template
 	 */
 	public function execute() {
 		$action = $this->data['action'];
@@ -13,10 +22,6 @@ class UserLoginMobileTemplate extends UserLoginAndCreateTemplate {
 		$watchArticle = $this->getArticleTitleToWatch();
 		$stickHTTPS = ( $this->doStickHTTPS() ) ? Html::input( 'wpStickHTTPS', 'true', 'hidden' ) : '';
 		$username = ( strlen( $this->data['name'] ) ) ? $this->data['name'] : null;
-		$message = $this->data['message'];
-		$messageType = $this->data['messagetype'];
-		$msgBox = ''; // placeholder for displaying any login-related system messages (eg errors)
-		$headMsg = $this->getHeadMsg();
 
 		// @TODO make sure this also includes returnto and returntoquery from the request
 		$query = array(
@@ -29,6 +34,11 @@ class UserLoginMobileTemplate extends UserLoginAndCreateTemplate {
 		}
 		if ( isset( $actionQuery['returntoquery'] ) ) {
 			$query['returntoquery'] = $actionQuery['returntoquery'];
+			// Allow us to distinguish sign ups from the left nav to logins.
+			// This allows us to apply story 1402 A/B test.
+			if ( $query['returntoquery'] === 'welcome=yes' ) {
+				$query['returntoquery'] = 'campaign=leftNavSignup';
+			}
 		}
 		// For Extension:Campaigns
 		$campaign = $this->getSkin()->getRequest()->getText( 'campaign' );
@@ -38,29 +48,9 @@ class UserLoginMobileTemplate extends UserLoginAndCreateTemplate {
 
 		$signupLink = Linker::link( SpecialPage::getTitleFor( 'Userlogin' ),
 			wfMessage( 'mobile-frontend-main-menu-account-create' )->text(),
-			array( 'class'=> 'mw-mf-create-account' ), $query );
+			array( 'class'=> 'mw-mf-create-account mw-ui-block' ), $query );
 
 		$login = Html::openElement( 'div', array( 'id' => 'mw-mf-login', 'class' => 'content' ) );
-
-		if ( $headMsg ) {
-			$msgBox .= Html::Element( 'div', array( 'class' => 'headmsg' ), $headMsg );
-		}
-
-		if ( $message ) {
-			$heading = '';
-			$class = 'alert';
-			if ( $messageType == 'error' ) {
-				$heading = wfMessage( 'mobile-frontend-sign-in-error-heading' )->text();
-				$class .= ' error';
-			}
-
-			$msgBox .= Html::openElement( 'div', array( 'class' => $class ) );
-			$msgBox .= ( $heading ) ? Html::rawElement( 'h2', array(), $heading ) : '';
-			$msgBox .= $message;
-			$msgBox .= Html::closeElement( 'div' );
-		} else {
-			$msgBox .= $this->getLogoHtml();
-		}
 
 		$form = Html::openElement( 'div', array() ) .
 			Html::openElement( 'form',
@@ -88,16 +78,24 @@ class UserLoginMobileTemplate extends UserLoginAndCreateTemplate {
 			Html::input( 'wpRemember', '1', 'hidden' ) .
 			Html::input( 'wpLoginAttempt', wfMessage( 'mobile-frontend-login' )->text(), 'submit',
 				array( 'id' => 'wpLoginAttempt',
+					'class' => 'mw-ui-button mw-ui-constructive',
 					'tabindex' => '3' ) ) .
-			$signupLink .
 			Html::input( 'wpLoginToken', $token, 'hidden' ) .
 			Html::input( 'watch', $watchArticle, 'hidden' ) .
 			$stickHTTPS .
 			Html::closeElement( 'form' ) .
+			Html::element( 'a', array(
+					'class' => 'mw-userlogin-help mw-ui-block',
+					'href' => SpecialPage::getTitleFor( 'PasswordReset' )->getLocalUrl(),
+				),
+				wfMessage( 'passwordreset' ) ) .
+			$signupLink .
 			Html::closeElement( 'div' );
-		$login .= $msgBox . $form;
-		$login .= Html::closeElement( 'div' );
 		echo $login;
+		$this->renderGuiderMessage();
+		$this->renderMessageHtml();
+		echo $form;
+		echo Html::closeElement( 'div' );
 	}
 
 }

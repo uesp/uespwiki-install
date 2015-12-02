@@ -1,6 +1,10 @@
-@import "../mixins.less";
+@import "minerva.variables";
+@import "minerva.mixins";
+
 
 // FIXME: hide in stable till talk code is stable
+.mw-mobile-mode.stable #ca-talk,
+// FIXME: Remove when mw-mobile-skin class is present in cached pages
 .stable #ca-talk,
 // hide menu items when not possible to use
 .client-nojs #ca-watch.cta,
@@ -10,23 +14,42 @@
 	display: none;
 }
 
+// Restore talk link for the desktop skin.
+// FIXME: Remove when mw-mobile-skin class is present in cached pages
+.mw-desktop-mode #ca-talk {
+	display: inline-block;
+}
+
 #section_0 {
-	padding: 12px @contentMarginRight 7px @contentMarginLeft;
+	padding: 12px @contentMargin 7px;
+	// FIXME: Use a gray defined in variables e.g. @grayMediumLight
 	border-bottom: dotted 1px #CACACA;
+}
+
+.pre-content {
+	// FIXME: Use a gray defined in variables e.g. @grayMediumLight
+	border-bottom: solid 1px #CACACA;
+	// FIXME: Remove when pre-content in cache
+	#page-actions {
+		border-bottom: none;
+	}
 }
 
 #page-actions {
 	@verticalMargin: 8px;
 
-	padding: @verticalMargin @contentMarginRight @verticalMargin @contentMarginLeft - 8;
+	padding: @verticalMargin @contentMargin @verticalMargin @contentMargin - 8;
 	// end hacks
-	border-bottom: solid 1px #CACACA;
+	// FIXME: Remove when pre-content in cache
+	border-bottom: solid 1px @grayMediumLight;
 
 	li,
 	.watch-this-article {
 		.background-size( auto, 30px );
 	}
 	li {
+		// Needed for non-JavaScript users
+		position: relative;
 		cursor: pointer;
 		// FIXME: why is this necessary?
 		vertical-align: top;
@@ -44,9 +67,13 @@
 
 		input,
 		a {
+			// Needed for non-JavaScript users
+			position: absolute;
 			display: block;
 			width: 100%;
 			height: 100%;
+			// needed for ContentOverlay pointer arrow
+			margin: 0 0 @verticalMargin;
 		}
 	}
 }
@@ -63,11 +90,11 @@
 	margin-right: 14px;
 	// FIXME: remove in favour of using .talk class
 	background-image: url(images/pagemenu/talk.png);
+	text-indent: -999px;
 }
 
 .talk {
 	background: url(images/pagemenu/talk.png) 50% 50% no-repeat;
-	text-indent: -999px;
 	overflow: hidden;
 }
 

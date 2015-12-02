@@ -1,7 +1,8 @@
-@import "../mixins.less";
+// FIXME: some of this could be removed if we reused .page-list styling
+@import "minerva.variables";
+@import "minerva.mixins";
 
-
-.mw-mf-overlay {
+.overlay {
 	.mw-mf-notifications {
 		padding-bottom: 0;
 	}
@@ -9,25 +10,90 @@
 		width: 30px;
 		height: 30px;
 		float: left;
-		margin-right: 10px;
+		margin: 0 10px 0 0;
 	}
 	.mw-echo-content {
 		margin-left: 40px;
 	}
 	.mw-echo-notification-footer {
-		font-size: 0.75em;
+		font-size: .75em;
 	}
 	.mw-echo-notification-primary-link {
 		display: none;
 	}
-	.mw-echo-notification:hover {
-		background-color: #F9F9F9;
+	.mw-echo-notification {
+		padding: 1.2em 1em 1em;
+		border-bottom: 1px solid #eee;
+
+		&:hover {
+			// FIXME: Yet another gray..
+			background-color: #F9F9F9;
+		}
 	}
 	.mw-echo-linked-notification {
 		cursor: pointer;
 	}
-	#notifications-archive-link {
+	.notifications-archive-link {
 		display: block;
-		padding: 12px 0 20px 40px;
+		// The 1em bottom whitespace is applied as padding since Chrome and Safari ignore
+		// it otherwise. The 10px padding corresponds with the icon margin.
+		margin: 1em 1em 0 1em;
+		padding: 0 1em 1em 10px;
+	}
+}
+
+.alpha,
+.beta {
+	.notifications-overlay{
+		.mw-echo-notification {
+			// FIXME: ARgghghghg more grays - think of the children!
+			background: #F8F8F8;
+		}
+
+		.mw-mf-notifications,
+		.notifications-archive-link {
+			position: absolute;
+			right: 0;
+			left: 0;
+		}
+
+		.mw-mf-notifications {
+			bottom: @headerHeight;
+			top: @headerHeight;
+			overflow-y: scroll;
+		}
+
+		.notifications-archive-link {
+			border-top: 1px solid @grayLight;
+			background-color: #FFF;
+			text-align: center;
+			bottom: 0;
+			margin: 0;
+			padding-top: 1em;
+		}
+
+		.mw-echo-title {
+			font-size: 1em;
+			line-height: 1.4;
+		}
+		.mw-echo-content {
+			font-size: .9em;
+			line-height: 1.4;
+		}
+		.mw-echo-payload {
+			margin-top: .4em
+		}
+		.mw-echo-notification-footer {
+			margin-top: .6em;
+			font-size: .9em;
+		}
+	}
+}
+
+@media all and (min-width: @wgMFDeviceWidthTablet) {
+	.notifications-overlay {
+		.mw-echo-notification {
+			padding: 1.75em 2.75em;
+		}
 	}
 }

@@ -1,24 +1,40 @@
-( function( M ) {
-
+( function( M, $ ) {
 var
-	Overlay = M.require( 'Overlay' ),
-	popup = M.require( 'notifications' ),
+	Overlay = M.require( 'OverlayNew' ),
+	popup = M.require( 'toast' ),
 	api = M.require( 'api' ),
+	user = M.require( 'user' ),
 	TalkSectionOverlay = Overlay.extend( {
-		template: M.template.get( 'talkSection' ),
+		templatePartials: {
+			content: M.template.get( 'talkSection' )
+		},
 		defaults: {
-			closeMsg: mw.msg( 'mobile-frontend-overlay-escape' ),
 			reply: mw.msg( 'mobile-frontend-talk-reply' ),
 			confirmMsg: mw.msg( 'mobile-frontend-editor-save' ),
-			licenseMsg: mw.msg( 'mobile-frontend-editor-license' ),
 			info: mw.msg( 'mobile-frontend-talk-reply-info' )
+		},
+		initialize: function( options ) {
+			// If terms of use is enabled, include it in the licensing message
+			if ( $( '#footer-places-terms-use' ).length > 0 ) {
+				options.licenseMsg = mw.msg(
+					'mobile-frontend-editor-licensing-with-terms',
+					$( '#footer-places-terms-use' ).html(),
+					mw.config.get( 'wgMFLicenseLink' )
+				);
+			} else {
+				options.licenseMsg = mw.msg(
+					'mobile-frontend-editor-licensing',
+					mw.config.get( 'wgMFLicenseLink' )
+				);
+			}
+			this._super( options );
 		},
 		postRender: function( options ) {
 			var self = this, $comment = this.$( '.comment' ),
 				$textarea = $comment.find( 'textarea' );
 			this._super( options );
 			this.$( '.loading' ).remove();
-			if ( !M.isLoggedIn() || mw.config.get( 'wgMFMode' ) !== 'alpha' ) {
+			if ( user.isAnon() || !M.isAlphaGroupMember() ) {
 				$comment.remove();
 			} else {
 				$textarea.on( 'focus', function() {
@@ -61,6 +77,4 @@ var
 	} );
 
 	M.define( 'modules/talk/TalkSectionOverlay', TalkSectionOverlay );
-
-}( mw.mobileFrontend ) );
-
+}( mw.mobileFrontend, jQuery ) );

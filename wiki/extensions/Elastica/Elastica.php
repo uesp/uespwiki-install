@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Elasticsearch base extension.  Used by other extensions to ease working with
  * elasticsearch.
@@ -26,17 +25,14 @@ $wgExtensionCredits['other'][] = array(
 	'author'         => array( 'Nik Everett', 'Chad Horohoe' ),
 	'descriptionmsg' => 'elastica-desc',
 	'url'            => 'https://www.mediawiki.org/wiki/Extension:Elastica',
-	'version'        => '0.1'
+	'version'        => '1.0.1.2'
 );
-
 
 /**
  * Classes
  */
 $dir = __DIR__ . '/';
 $wgAutoloadClasses['ElasticaConnection'] = $dir . 'ElasticaConnection.php';
-
-
 
 $elasticaDir = $dir . 'Elastica/lib/Elastica/';
 $wgAutoloadClasses['Elastica\Bulk'] = $elasticaDir . 'Bulk.php';
@@ -58,6 +54,7 @@ $wgAutoloadClasses['Elastica\Script'] = $elasticaDir . 'Script.php';
 $wgAutoloadClasses['Elastica\ScriptFields'] = $elasticaDir . 'ScriptFields.php';
 $wgAutoloadClasses['Elastica\Search'] = $elasticaDir . 'Search.php';
 $wgAutoloadClasses['Elastica\SearchableInterface'] = $elasticaDir . 'SearchableInterface.php';
+$wgAutoloadClasses['Elastica\Snapshot'] = $elasticaDir . 'Snapshot.php';
 $wgAutoloadClasses['Elastica\Status'] = $elasticaDir . 'Status.php';
 $wgAutoloadClasses['Elastica\Type'] = $elasticaDir . 'Type.php';
 $wgAutoloadClasses['Elastica\Util'] = $elasticaDir . 'Util.php';
@@ -76,10 +73,12 @@ $wgAutoloadClasses['Elastica\Cluster\Health\Shard'] = $elasticaDir . 'Cluster/He
 $wgAutoloadClasses['Elastica\Exception\BulkException'] = $elasticaDir . 'Exception/BulkException.php';
 $wgAutoloadClasses['Elastica\Exception\ClientException'] = $elasticaDir . 'Exception/ClientException.php';
 $wgAutoloadClasses['Elastica\Exception\ConnectionException'] = $elasticaDir . 'Exception/ConnectionException.php';
+$wgAutoloadClasses['Elastica\Exception\ElasticsearchException'] = $elasticaDir . 'Exception/ElasticsearchException.php';
 $wgAutoloadClasses['Elastica\Exception\ExceptionInterface'] = $elasticaDir . 'Exception/ExceptionInterface.php';
 $wgAutoloadClasses['Elastica\Exception\InvalidException'] = $elasticaDir . 'Exception/InvalidException.php';
 $wgAutoloadClasses['Elastica\Exception\NotFoundException'] = $elasticaDir . 'Exception/NotFoundException.php';
 $wgAutoloadClasses['Elastica\Exception\NotImplementedException'] = $elasticaDir . 'Exception/NotImplementedException.php';
+$wgAutoloadClasses['Elastica\Exception\PartialShardFailureException'] = $elasticaDir . 'Exception/PartialShardFailureException.php';
 $wgAutoloadClasses['Elastica\Exception\ResponseException'] = $elasticaDir . 'Exception/ResponseException.php';
 $wgAutoloadClasses['Elastica\Exception\RuntimeException'] = $elasticaDir . 'Exception/RuntimeException.php';
 $wgAutoloadClasses['Elastica\Exception\Bulk\ResponseException'] = $elasticaDir . 'Exception/Bulk/ResponseException.php';
@@ -100,6 +99,7 @@ $wgAutoloadClasses['Elastica\Facet\Terms'] = $elasticaDir . 'Facet/Terms.php';
 $wgAutoloadClasses['Elastica\Facet\TermsStats'] = $elasticaDir . 'Facet/TermsStats.php';
 $wgAutoloadClasses['Elastica\Filter\AbstractFilter'] = $elasticaDir . 'Filter/AbstractFilter.php';
 $wgAutoloadClasses['Elastica\Filter\AbstractGeoDistance'] = $elasticaDir . 'Filter/AbstractGeoDistance.php';
+$wgAutoloadClasses['Elastica\Filter\AbstractGeoShape'] = $elasticaDir . 'Filter/AbstractGeoShape.php';
 $wgAutoloadClasses['Elastica\Filter\AbstractMulti'] = $elasticaDir . 'Filter/AbstractMulti.php';
 $wgAutoloadClasses['Elastica\Filter\Bool'] = $elasticaDir . 'Filter/Bool.php';
 $wgAutoloadClasses['Elastica\Filter\BoolAnd'] = $elasticaDir . 'Filter/BoolAnd.php';
@@ -110,10 +110,13 @@ $wgAutoloadClasses['Elastica\Filter\GeoBoundingBox'] = $elasticaDir . 'Filter/Ge
 $wgAutoloadClasses['Elastica\Filter\GeoDistance'] = $elasticaDir . 'Filter/GeoDistance.php';
 $wgAutoloadClasses['Elastica\Filter\GeoDistanceRange'] = $elasticaDir . 'Filter/GeoDistanceRange.php';
 $wgAutoloadClasses['Elastica\Filter\GeoPolygon'] = $elasticaDir . 'Filter/GeoPolygon.php';
+$wgAutoloadClasses['Elastica\Filter\GeoShapePreIndexed'] = $elasticaDir . 'Filter/GeoShapePreIndexed.php';
+$wgAutoloadClasses['Elastica\Filter\GeoShapeProvided'] = $elasticaDir . 'Filter/GeoShapeProvided.php';
 $wgAutoloadClasses['Elastica\Filter\GeohashCell'] = $elasticaDir . 'Filter/GeohashCell.php';
 $wgAutoloadClasses['Elastica\Filter\HasChild'] = $elasticaDir . 'Filter/HasChild.php';
 $wgAutoloadClasses['Elastica\Filter\HasParent'] = $elasticaDir . 'Filter/HasParent.php';
 $wgAutoloadClasses['Elastica\Filter\Ids'] = $elasticaDir . 'Filter/Ids.php';
+$wgAutoloadClasses['Elastica\Filter\Indicies'] = $elasticaDir . 'Filter/Indicies.php';
 $wgAutoloadClasses['Elastica\Filter\Limit'] = $elasticaDir . 'Filter/Limit.php';
 $wgAutoloadClasses['Elastica\Filter\MatchAll'] = $elasticaDir . 'Filter/MatchAll.php';
 $wgAutoloadClasses['Elastica\Filter\Missing'] = $elasticaDir . 'Filter/Missing.php';
@@ -163,6 +166,8 @@ $wgAutoloadClasses['Elastica\Query\Terms'] = $elasticaDir . 'Query/Terms.php';
 $wgAutoloadClasses['Elastica\Query\Text'] = $elasticaDir . 'Query/Text.php';
 $wgAutoloadClasses['Elastica\Query\TopChildren'] = $elasticaDir . 'Query/TopChildren.php';
 $wgAutoloadClasses['Elastica\Query\Wildcard'] = $elasticaDir . 'Query/Wildcard.php';
+$wgAutoloadClasses['Elastica\Rescore\AbstractRescore'] = $elasticaDir . 'Rescore/AbstractRescore.php';
+$wgAutoloadClasses['Elastica\Rescore\Query'] = $elasticaDir . 'Rescore/Query.php';
 $wgAutoloadClasses['Elastica\Suggest\AbstractSuggest'] = $elasticaDir . 'Suggest/AbstractSuggest.php';
 $wgAutoloadClasses['Elastica\Suggest\Term'] = $elasticaDir . 'Suggest/Term.php';
 $wgAutoloadClasses['Elastica\Transport\AbstractTransport'] = $elasticaDir . 'Transport/AbstractTransport.php';
@@ -174,10 +179,8 @@ $wgAutoloadClasses['Elastica\Transport\Thrift'] = $elasticaDir . 'Transport/Thri
 $wgAutoloadClasses['Elastica\Type\AbstractType'] = $elasticaDir . 'Type/AbstractType.php';
 $wgAutoloadClasses['Elastica\Type\Mapping'] = $elasticaDir . 'Type/Mapping.php';
 
-
-
-
 /**
  * i18n
  */
+$wgMessagesDirs['Elastica'] = __DIR__ . '/i18n';
 $wgExtensionMessagesFiles['Elastica'] = $dir . 'Elastica.i18n.php';

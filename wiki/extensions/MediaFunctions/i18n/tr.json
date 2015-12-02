@@ -1,0 +1,10 @@
+{
+    "@metadata": {
+        "authors": [
+            "Vito Genovese"
+        ]
+    },
+    "mediafunctions-desc": "Ortam dosyaları hakkında bilgi edinmek için ayrıştırıcı fonksiyonlar",
+    "mediafunctions-invalid-title": "\"$1\" geçerli bir başlık değil",
+    "mediafunctions-not-exist": "\"$1\" mevcut değil"
+}

@@ -1,6 +1,7 @@
 <?php
 
 use CirrusSearch\InterwikiSearcher;
+use CirrusSearch\Search\FullTextResultsType;
 use CirrusSearch\Searcher;
 
 /**
@@ -26,11 +27,17 @@ use CirrusSearch\Searcher;
  */
 class CirrusSearch extends SearchEngine {
 	const MORE_LIKE_THIS_PREFIX = 'morelike:';
+	const MORE_LIKE_THIS_JUST_WIKIBASE_PREFIX = 'morelikewithwikibase:';
 
 	/**
 	 * @var string The last prefix substituted by replacePrefixes.
 	 */
 	private $lastNamespacePrefix;
+
+	/**
+	 * @var array metrics about the last thing we searched
+	 */
+	private $lastSearchMetrics;
 
 	/**
 	 * Override supports to shut off updates to Cirrus via the SearchEngine infrastructure.  Page
@@ -42,6 +49,7 @@ class CirrusSearch extends SearchEngine {
 	public function supports( $feature ) {
 		switch ( $feature ) {
 		case 'search-update':
+		case 'list-redirects':
 			return false;
 		default:
 			return parent::supports( $feature );
@@ -51,16 +59,19 @@ class CirrusSearch extends SearchEngine {
 	/**
 	 * Overridden to delegate prefix searching to Searcher.
 	 * @param string $term text to search
-	 * @return ResultSet|null|Status results, no results, or error respectively
+	 * @return Search\ResultSet|null|Status results, no results, or error respectively
 	 */
 	public function searchText( $term ) {
+		global $wgCirrusSearchInterwikiSources;
+
 		$term = trim( $term );
 		// No searching for nothing!  That takes forever!
 		if ( !$term ) {
 			return null;
 		}
 
-		$user = RequestContext::getMain()->getUser();
+		$context = RequestContext::getMain();
+		$user = $context->getUser();
 		$searcher = new Searcher( $this->offset, $this->limit, $this->namespaces, $user );
 
 		// Ignore leading ~ because it is used to force displaying search results but not to effect them
@@ -71,6 +82,8 @@ class CirrusSearch extends SearchEngine {
 
 		if ( $this->lastNamespacePrefix ) {
 			$searcher->addSuggestPrefix( $this->lastNamespacePrefix );
+		} else {
+			$searcher->updateNamespacesFromQuery( $term );
 		}
 		// TODO remove this when we no longer have to support core versions without
 		// Ie946150c6796139201221dfa6f7750c210e97166
@@ -78,35 +91,114 @@ class CirrusSearch extends SearchEngine {
 			$searcher->setSort( $this->getSort() );
 		}
 
+		$request = $context->getRequest();
+		$dumpQuery = $request && $request->getVal( 'cirrusDumpQuery' ) === 'yes';
+		$searcher->setReturnQuery( $dumpQuery );
 		// Delegate to either searchText or moreLikeThisArticle and dump the result into $status
 		if ( substr( $term, 0, strlen( self::MORE_LIKE_THIS_PREFIX ) ) === self::MORE_LIKE_THIS_PREFIX ) {
 			$term = substr( $term, strlen( self::MORE_LIKE_THIS_PREFIX ) );
-			$title = Title::newFromText( $term );
-			if ( !$title ) {
-				$status = Status::newGood( null );
-			} else {
-				$status = $searcher->moreLikeThisArticle( $title->getArticleID() );
-			}
+			$status = $this->moreLikeThis( $term, $searcher, Searcher::MORE_LIKE_THESE_NONE );
+		} else if ( substr( $term, 0, strlen( self::MORE_LIKE_THIS_JUST_WIKIBASE_PREFIX ) ) === self::MORE_LIKE_THIS_JUST_WIKIBASE_PREFIX ) {
+			$term = substr( $term, strlen( self::MORE_LIKE_THIS_JUST_WIKIBASE_PREFIX ) );
+			$status = $this->moreLikeThis( $term, $searcher, Searcher::MORE_LIKE_THESE_ONLY_WIKIBASE );
 		} else {
-			$status = $searcher->searchText( $term, $this->showRedirects, /* 1.22 compat */ true );
+			$highlightingConfig = FullTextResultsType::HIGHLIGHT_ALL;
+			if ( $request ) {
+				if ( $request->getVal( 'cirrusSuppressSuggest' ) !== null ) {
+					$this->showSuggestion = false;
+				}
+				if ( $request->getVal( 'cirrusSuppressTitleHighlight' ) !== null ) {
+					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_TITLE;
+				}
+				if ( $request->getVal( 'cirrusSuppressAltTitle' ) !== null ) {
+					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_ALT_TITLE;
+				}
+				if ( $request->getVal( 'cirrusSuppressSnippet' ) !== null ) {
+					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_SNIPPET;
+				}
+				if ( $request->getVal( 'cirrusHighlightDefaultSimilarity' ) === 'no' ) {
+					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_WITH_DEFAULT_SIMILARITY;
+				}
+				if ( $request->getVal( 'cirrusHighlightAltTitleWithPostings' ) === 'no' ) {
+					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_ALT_TITLES_WITH_POSTINGS;
+				}
+			}
+			if ( $this->namespaces && !in_array( NS_FILE, $this->namespaces ) ) {
+				$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_FILE_TEXT;
+			}
+			$searcher->setResultsType( new FullTextResultsType( $highlightingConfig ) );
+			$status = $searcher->searchText( $term, $this->showSuggestion );
+		}
+		if ( $dumpQuery ) {
+			// When dumping the query we skip _everything_ but echoing the query.
+			$context->getOutput()->disable();
+			$request->response()->header( 'Content-type: application/json; charset=UTF-8' );
+			if ( $status->getValue() === null ) {
+				echo '{}';
+			} else {
+				echo json_encode( $status->getValue() );
+			}
+			exit();
+		}
+
+		$this->lastSearchMetrics = $searcher->getSearchMetrics();
+
+		// Add interwiki results, if we have a sane result
+		// Note that we have no way of sending warning back to the user.  In this case all warnings
+		// are logged when they are added to the status object so we just ignore them here....
+		if ( $status->isOK() && $wgCirrusSearchInterwikiSources && $status->getValue() ) {
+			// @todo @fixme: This should absolutely be a multisearch. I knew this when I
+			// wrote the code but Searcher needs some refactoring first.
+			foreach ( $wgCirrusSearchInterwikiSources as $interwiki => $index ) {
+				$iwSearch = new InterwikiSearcher( $this->namespaces, $user, $index, $interwiki );
+				$interwikiResult = $iwSearch->getInterwikiResults( $term );
+				if ( $interwikiResult ) {
+					$status->getValue()->addInterwikiResults( $interwikiResult );
+				}
+			}
 		}
 
 		// For historical reasons all callers of searchText interpret any Status return as an error
 		// so we must unwrap all OK statuses.  Note that $status can be "good" and still contain null
 		// since that is interpreted as no results.
-		if ( $status->isOK() ) {
-			$result = $status->getValue();
-			$interwiki = new InterwikiSearcher( $this->offset, $this->limit, $this->namespaces, $user );
-			$interwikiResult = $interwiki->getInterwikiResults( $term );
-			if ( $interwikiResult ) {
-				$result->setInterwikiResults( $interwikiResult );
-			}
-			return $result;
-		}
-
-		return $status;
+		return $status->isOk() ? $status->getValue() : $status;
 	}
 
+	private function moreLikeThis( $term, $searcher, $options ) {
+		// Expand titles chasing through redirects
+		$titles = array();
+		$found = array();
+		foreach ( explode( '|', $term ) as $title ) {
+			$title = Title::newFromText( trim( $title ) );
+			while ( true ) {
+				if ( !$title ) {
+					continue 2;
+				}
+				$titleText = $title->getFullText();
+				if ( in_array( $titleText, $found ) ) {
+					continue 2;
+				}
+				$found[] = $titleText;
+				if ( !$title->exists() ) {
+					continue 2;
+				}
+				if ( $title->isRedirect() ) {
+					$page = WikiPage::factory( $title );
+					if ( !$page->exists() ) {
+						continue 2;
+					}
+					$title = $page->getRedirectTarget();
+				} else {
+					break;
+				}
+			}
+			$titles[] = $title;
+		}
+		if ( count( $titles ) ) {
+			return $searcher->moreLikeTheseArticles( $titles, $options );
+		}
+		return Status::newGood( new SearchResultSet() /* empty */ );
+	}
 	/**
 	 * Merge the prefix into the query (if any).
 	 * @var string $term search term
@@ -130,7 +222,19 @@ class CirrusSearch extends SearchEngine {
 		return $parsed;
 	}
 
+	/**
+	 * Get the sort of sorts we allow
+	 * @return array
+	 */
 	public function getValidSorts() {
-		return array( 'relevance', 'title_asc', 'title_desc' );
+		return array( 'relevance', 'title_asc', 'title_desc', 'random' );
+	}
+
+	/**
+	 * Get the metrics for the last search we performed. Null if we haven't done any.
+	 * @return array
+	 */
+	public function getLastSearchMetrics() {
+		return $this->lastSearchMetrics;
 	}
 }

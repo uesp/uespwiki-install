@@ -80,7 +80,7 @@ $specialPageAliases['ce'] = array(
 	'AbuseFilter' => array( 'Зулам_литтар' ),
 );
 
-/** Czech (česky) */
+/** Czech (čeština) */
 $specialPageAliases['cs'] = array(
 	'AbuseLog' => array( 'Záznam_filtrů_zneužití' ),
 	'AbuseFilter' => array( 'Filtry_zneužití' ),
@@ -340,8 +340,8 @@ $specialPageAliases['nl'] = array(
 
 /** Norwegian Nynorsk (norsk nynorsk) */
 $specialPageAliases['nn'] = array(
-	'AbuseLog' => array( 'Misbrukslogg', 'Endringsfilterlogg' ),
-	'AbuseFilter' => array( 'Misbruksfilter', 'Endringsfilter' ),
+	'AbuseLog' => array( 'Endringsfilterlogg', 'Misbrukslogg' ),
+	'AbuseFilter' => array( 'Endringsfilter', 'Misbruksfilter' ),
 );
 
 /** Occitan (occitan) */
@@ -431,7 +431,7 @@ $specialPageAliases['tr'] = array(
 /** Ukrainian (українська) */
 $specialPageAliases['uk'] = array(
 	'AbuseLog' => array( 'Журнал_зловживань' ),
-	'AbuseFilter' => array( 'Фільтр_зловживань' ),
+	'AbuseFilter' => array( 'Фільтр_редагувань', 'Фільтр_зловживань' ),
 );
 
 /** Urdu (اردو) */

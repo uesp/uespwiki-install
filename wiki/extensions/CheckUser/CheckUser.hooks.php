@@ -3,6 +3,8 @@ class CheckUserHooks {
 	/**
 	 * Hook function for RecentChange_save
 	 * Saves user data into the cu_changes table
+	 * Note that other extensions (like AbuseFilter) may call this function directly
+	 * if they want to send data to CU without creating a recentchanges entry
 	 */
 	public static function updateCheckUserData( RecentChange $rc ) {
 		global $wgRequest;
@@ -56,6 +58,8 @@ class CheckUserHooks {
 		if ( isset( $rc_cur_id ) ) {
 			$rcRow['cuc_page_id'] = $rc_cur_id;
 		}
+
+		wfRunHooks( 'CheckUserInsertForRecentChange', array( $rc, &$rcRow ) );
 		$dbw->insert( 'cu_changes', $rcRow, __METHOD__ );
 
 		return true;

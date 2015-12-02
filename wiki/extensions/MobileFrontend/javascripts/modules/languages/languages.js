@@ -1,50 +1,48 @@
-( function( M,  $ ) {
+( function( M, $ ) {
 
-	var LanguageOverlay = M.require( 'languages/LanguageOverlay' );
-
-	/**
-	 * Takes a list of languages and transforms them into an array for use in a LanguageOverlay
-	 *
-	 * @returns {Array}
-	 */
-	function parseList( $list ) {
-		var list = [];
-		$list.find( 'li' ).each( function() {
-			var $a = $( this ).find( 'a' ), lang, pageName = $a.attr( 'title' );
-
-			lang = { lang: $a.attr( 'lang' ), langName: $a.text(), url: $a.attr( 'href' ) };
-			if ( pageName ) {
-				lang.pageName = pageName;
-			}
-			list.push( lang );
-		} );
-		return list;
+	var LanguageOverlay = M.require( 'languages/LanguageOverlay' ),
+		$cachedHeading = $( '#section_language' ), label;
+	// FIXME: Remove after 30 days.
+	if ( $cachedHeading.length > 0 ) {
+		label = $cachedHeading.text();
+		$( '<a class="mw-ui-button mw-ui-progressive button languageSelector">' ).
+			text( label ).
+			appendTo(
+				$( '<div id="page-secondary-actions"></div>' ).insertBefore( '#mw-mf-language-section' )
+			);
+		$( '#mw-mf-language-section' ).remove();
 	}
 
-	function initButton() {
-		var $section = $( '#mw-mf-language-section' ),
-			$h2 = $section.find( 'h2' ),
-			languages = parseList( $section.find( '#mw-mf-language-selection' ) ),
-			variants = parseList( $section.find( '#mw-mf-language-variant-selection' ) );
+	M.overlayManager.add( /^\/languages$/, function() {
+		var LoadingOverlay = M.require( 'LoadingOverlayNew' ),
+			loadingOverlay = new LoadingOverlay(),
+			result = $.Deferred();
 
-		// assume the current language is not present
-		if ( languages.length > 0 || variants.length > 1 ) {
-			$( '<button>' ).text( $h2.text() ).
-				addClass( 'languageSelector' ).
-				on( 'click', function() {
-					new LanguageOverlay( {
-						variants: variants,
-						languages: languages
-					} ).show();
-				} ).insertBefore( $section );
-		}
-		$section.remove();
+		loadingOverlay.show();
+
+		M.pageApi.getPageLanguages( mw.config.get( 'wgPageName' ) ).done( function ( data ) {
+			loadingOverlay.hide();
+			result.resolve( new LanguageOverlay( {
+				languages: data.languages,
+				variants: data.variants
+			} ) );
+		} );
+
+		return result;
+	} );
+
+	/**
+	 * Hijack the Special:Languages link and replace it with a trigger to a LanguageOverlay
+	 * that displays the same data
+	 */
+	function initButton() {
+		$( '#page-secondary-actions .languageSelector' ).on( M.tapEvent( 'click' ), function( ev ) {
+			ev.preventDefault();
+			M.router.navigate( '/languages' );
+		} );
 	}
 
 	$( initButton );
-	M.on( 'languages-loaded', initButton );
-	M.define( 'modules/languages', {
-		parseList: parseList
-	} );
+	M.on( 'page-loaded', initButton );
 
 }( mw.mobileFrontend, jQuery ) );

@@ -32,19 +32,23 @@ class PageDataBuilder extends ParseBuilder {
 				// Don't use parser output here. It's useless and leads
 				// to weird results. Instead, clear everything. See bug 61752.
 				$this->doc->add( 'category', array() );
+				$this->doc->add( 'external_link', array() );
+				$this->doc->add( 'heading', array() );
 				$this->doc->add( 'outgoing_link', array() );
 				$this->doc->add( 'template', array() );
-				$this->doc->add( 'file_text', array() );
-				$this->doc->add( 'heading', array() );
 				break;
 			default:
 				$this->categories();
 				$this->externalLinks();
-				$this->fileText();
 				$this->headings();
 				$this->outgoingLinks();
 				$this->templates();
+				$this->wikidataInfo();
 		}
+
+		// All content types have a language
+		$this->doc->add( 'language',
+			$this->title->getPageLanguage()->getCode() );
 
 		return $this->doc;
 	}
@@ -87,47 +91,27 @@ class PageDataBuilder extends ParseBuilder {
 		$this->doc->add( 'template', $templates );
 	}
 
-	private function fileText() {
-		// Technically this doesn't require the parserOutput but it is heavyweight
-		// so we should only do it on article change.
-		if ( $this->title->getNamespace() == NS_FILE ) {
-			$file = wfLocalFile( $this->title );
-			if ( $file && $file->exists() && $file->getHandler() ) {
-				$fileText = $this->getEntireText( $file->getHandler(), $file ); // 1.22 compat	
-				if ( $fileText ) {
-					$this->doc->add( 'file_text', $fileText );
-				}
-			}
-		}
-	}
-
-	// 1.22 compat - backported from 1.23's MediaHandler.php
-	private function getEntireText( $handler, $file ) {
-		$numPages = $file->pageCount();
-		if ( !$numPages ) {
-			// Not a multipage document
-			return $handler->getPageText( $file, 1 );
-		}
-		$document = '';
-		for ( $i = 1; $i <= $numPages; $i++ ) {
-			$curPage = $handler->getPageText( $file, $i );
-			if ( is_string( $curPage ) ) {
-				$document .= $curPage . "\n";
-			}
-		}
-		if ( $document !== '' ) {
-			return $document;
-		}
-		return false;
-	}
-
 	private function headings() {
 		$headings = array();
 		$ignoredHeadings = $this->getIgnoredHeadings();
 		foreach ( $this->parserOutput->getSections() as $heading ) {
 			$heading = $heading[ 'line' ];
+			// First strip out things that look like references.  We can't use HTML filtering becase
+			// the references come back as <sup> tags without a class.  To keep from breaking stuff like
+			//  ==Applicability of the strict mass–energy equivalence formula, ''E'' = ''mc''<sup>2</sup>==
+			// we don't remove the whole <sup> tag.  We also don't want to strip the <sup> tag and remove
+			// everything that looks like [2] because, I dunno, maybe there is a band named Word [2] Foo
+			// or something.  Whatever.  So we only strip things that look like <sup> tags wrapping a
+			// refence.  And we do it with regexes because HtmlFormatter doesn't support css selectors.
+
+			// Some wikis wrap the brackets in a span:
+			// http://en.wikipedia.org/wiki/MediaWiki:Cite_reference_link
+			$heading = preg_replace( '/<\/?span>/', '', $heading );
+			$heading = preg_replace( '/<sup>\s*\[\s*\d+\s*\]\s*<\/sup>/', '', $heading );
+
 			// Strip tags from the heading or else we'll display them (escaped) in search results
-			$heading = Sanitizer::stripAllTags( $heading );
+			$heading = trim( Sanitizer::stripAllTags( $heading ) );
+
 			// Note that we don't take the level of the heading into account - all headings are equal.
 			// Except the ones we ignore.
 			if ( !in_array( $heading, $ignoredHeadings ) ) {
@@ -141,9 +125,8 @@ class PageDataBuilder extends ParseBuilder {
 		static $ignoredHeadings = null;
 		if ( $ignoredHeadings === null ) {
 			$source = wfMessage( 'cirrussearch-ignored-headings' )->inContentLanguage();
-			if( $source->isDisabled() ) {
-				$ignoredHeadings = array();
-			} else {
+			$ignoredHeadings = array();
+			if( !$source->isDisabled() ) {
 				$lines = explode( "\n", $source->plain() );
 				$lines = preg_replace( '/#.*$/', '', $lines ); // Remove comments
 				$lines = array_map( 'trim', $lines );          // Remove extra spaces
@@ -152,5 +135,15 @@ class PageDataBuilder extends ParseBuilder {
 			}
 		}
 		return $ignoredHeadings;
+	}
+
+	/**
+	 * Add wikidata information to the index if wikibase is installed on this wiki.
+	 */
+	private function wikidataInfo() {
+		$wikibaseItem = $this->parserOutput->getProperty( 'wikibase_item' );
+		if ( $wikibaseItem !== false ) {
+			$this->doc->add( 'wikibase_item', $wikibaseItem );
+		}
 	}
 }

@@ -1,8 +1,7 @@
 ( function( M, $ ) {
 	var NearbyApi = M.require( 'modules/nearby/NearbyApi' ),
-		View = M.require( 'view' ),
+		View = M.require( 'View' ),
 		MobileWebClickTracking = M.require( 'loggingSchemas/MobileWebClickTracking' ),
-		wgMFMode = mw.config.get( 'wgMFMode' ),
 		LoadingOverlay = M.require( 'LoadingOverlay' ),
 		loader = new LoadingOverlay(),
 		Nearby;
@@ -89,7 +88,7 @@
 				this.$( '.loading' ).show();
 			} else if ( !options.pages && !options.error && options.location ) {
 				this.$( '.loading' ).show();
-				this.api.getPages( options.location, this.range ).done( function( pages ) {
+				this.api.getPages( options.location, this.range, options.exclude ).done( function( pages ) {
 					self.emit( 'searchResult', pages );
 					if ( pages.length > 0 ) {
 						self.render( { pages: pages } );
@@ -113,7 +112,7 @@
 				// name funnel for watchlists to catch subsequent uploads
 				$.cookie( 'mwUploadsFunnel', 'nearby', { expires: new Date( new Date().getTime() + 60000) } );
 				// Note router support required for page previews in beta
-				if ( wgMFMode === 'stable' || !M.router.isSupported() ) {
+				if ( !M.isBetaGroupMember() || !M.router.isSupported() ) {
 					window.location.hash = '#' + $( ev.currentTarget ).attr( 'name' );
 				} else {
 					ev.preventDefault();
@@ -121,16 +120,16 @@
 					// Trigger preview mode ensure preview code has fully loaded first!
 					MobileWebClickTracking.log( self.source + '-preview', title );
 					loader.show();
-					mw.loader.using( 'mobile.nearby.beta', function() {
+					mw.loader.using( 'mobile.special.nearby.beta', function() {
 						loader.hide();
 						// FIXME: [API] should be able to determine longitude/latitude from title
-						window.location.hash = '#preview/' + self.source + '/' + $a.data( 'latlng' ) + '/' + $a.find( 'h2' ).text();
+						window.location.hash = '#preview/' + self.source + '/' + $a.data( 'latlng' ) + '/' + $a.data( 'title' );
 					} );
 				}
 			} );
 
 			// Load watch stars in alpha
-			if ( wgMFMode === 'alpha' ) {
+			if ( M.isAlphaGroupMember() ) {
 				mw.loader.using( 'mobile.stable', function() {
 					M.require( 'watchstar' ).initWatchListIconList( self.$( 'ul' ) );
 				} );

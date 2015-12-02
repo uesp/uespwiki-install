@@ -7,9 +7,7 @@ class XMPTest extends MediaWikiTestCase {
 
 	protected function setUp() {
 		parent::setUp();
-		if ( !extension_loaded( 'xml' ) ) {
-			$this->markTestSkipped( 'Requires libxml to do XMP parsing' );
-		}
+		$this->checkPHPExtension( 'exif' ); # Requires libxml to do XMP parsing
 	}
 
 	/**
@@ -21,6 +19,8 @@ class XMPTest extends MediaWikiTestCase {
 	 *
 	 * @throws Exception
 	 * @dataProvider provideXMPParse
+	 *
+	 * @covers XMPReader::parse
 	 */
 	public function testXMPParse( $xmp, $expected, $info ) {
 		if ( !is_string( $xmp ) || !is_array( $expected ) ) {
@@ -61,6 +61,8 @@ class XMPTest extends MediaWikiTestCase {
 			array( 'gps', 'Handling of exif GPS parameters in XMP' ),
 		);
 
+		$xmpFiles[] = array( 'doctype-included', 'XMP includes doctype' );
+
 		foreach ( $xmpFiles as $file ) {
 			$xmp = file_get_contents( $xmpPath . $file[0] . '.xmp' );
 			// I'm not sure if this is the best way to handle getting the
@@ -79,6 +81,8 @@ class XMPTest extends MediaWikiTestCase {
 	 *
 	 * @todo This is based on what the standard says. Need to find a real
 	 * world example file to double check the support for this is right.
+	 *
+	 * @covers XMPReader::parseExtended
 	 */
 	public function testExtendedXMP() {
 		$xmpPath = __DIR__ . '/../../data/xmp/';
@@ -109,6 +113,8 @@ class XMPTest extends MediaWikiTestCase {
 	/**
 	 * This test has an extended XMP block with a wrong guid (md5sum)
 	 * and thus should only return the StandardXMP, not the ExtendedXMP.
+	 *
+	 * @covers XMPReader::parseExtended
 	 */
 	public function testExtendedXMPWithWrongGUID() {
 		$xmpPath = __DIR__ . '/../../data/xmp/';
@@ -138,6 +144,8 @@ class XMPTest extends MediaWikiTestCase {
 	/**
 	 * Have a high offset to simulate a missing packet,
 	 * which should cause it to ignore the ExtendedXMP packet.
+	 *
+	 * @covers XMPReader::parseExtended
 	 */
 	public function testExtendedXMPMissingPacket() {
 		$xmpPath = __DIR__ . '/../../data/xmp/';
@@ -162,5 +170,53 @@ class XMPTest extends MediaWikiTestCase {
 		);
 
 		$this->assertEquals( $expected, $actual );
+	}
+
+	/**
+	 * Test for multi-section, hostile XML
+	 * @covers checkParseSafety
+	 */
+	public function testCheckParseSafety() {
+
+		// Test for detection
+		$xmpPath = __DIR__ . '/../../data/xmp/';
+		$file = fopen( $xmpPath . 'doctype-included.xmp', 'rb' );
+		$valid = false;
+		$reader = new XMPReader();
+		do {
+			$chunk = fread( $file, 10 );
+			$valid = $reader->parse( $chunk, feof( $file ) );
+		} while ( !feof( $file ) );
+		$this->assertFalse( $valid, 'Check that doctype is detected in fragmented XML' );
+		$this->assertEquals(
+			array(),
+			$reader->getResults(),
+			'Check that doctype is detected in fragmented XML'
+		);
+		fclose( $file );
+		unset( $reader );
+
+		// Test for false positives
+		$file = fopen( $xmpPath . 'doctype-not-included.xmp', 'rb' );
+		$valid = false;
+		$reader = new XMPReader();
+		do {
+			$chunk = fread( $file, 10 );
+			$valid = $reader->parse( $chunk, feof( $file ) );
+		} while ( !feof( $file ) );
+		$this->assertTrue(
+			$valid,
+			'Check for false-positive detecting doctype in fragmented XML'
+		);
+		$this->assertEquals(
+			array(
+				'xmp-exif' => array(
+					'DigitalZoomRatio' => '0/10',
+					'Flash' => '9'
+				)
+			),
+			$reader->getResults(),
+			'Check that doctype is detected in fragmented XML'
+		);
 	}
 }

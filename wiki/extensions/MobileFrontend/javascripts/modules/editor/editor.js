@@ -1,25 +1,33 @@
 ( function( M, $ ) {
 
-	var LoadingOverlay = M.require( 'LoadingOverlay' ),
-		popup = M.require( 'notifications' ),
+	var
+		user = M.require( 'user' ),
+		popup = M.require( 'toast' ),
 		// FIXME: Disable on IE < 10 for time being
 		blacklisted = /MSIE \d\./.test( navigator.userAgent ),
 		isEditingSupported = M.router.isSupported() && !blacklisted,
+		// FIXME: Should we consider default site options and user prefs?
+		// FIXME: This also needs to check that VisualEditor is actually installed.
+		isVisualEditorEnabled = M.isWideScreen() && mw.config.get( 'wgMFMode' ) === 'alpha',
+		LoadingOverlay = M.require( 'LoadingOverlayNew' ),
 		CtaDrawer = M.require( 'CtaDrawer' ),
 		drawer = new CtaDrawer( {
 			queryParams: {
-				campaign: 'mobile_editPageActionCta'
+				campaign: 'mobile_editPageActionCta',
+				returntoquery: 'article_action=edit'
 			},
+			signupQueryParams: { returntoquery: 'article_action=signup-edit' },
 			content: mw.msg( 'mobile-frontend-editor-cta' )
 		} );
 
 	function addEditButton( section, container ) {
-		return $( '<a class="edit-page" href="#editor/' + section + '">' ).
+		return $( '<a class="edit-page">' ).
+			attr( 'href', '#editor/' + section ).
 			text( mw.msg( 'mobile-frontend-editor-edit' ) ).
 			prependTo( container );
 	}
 
-	function makeCta( $el, hash, returnToQuery ) {
+	function makeCta( $el, hash ) {
 		$el.
 			// FIXME change when micro.tap.js in stable
 			on( M.tapEvent( 'mouseup' ), function( ev ) {
@@ -28,50 +36,73 @@
 				ev.stopPropagation();
 				// need to use toggle() because we do ev.stopPropagation() (in addEditButton())
 				drawer.
-					render( { queryParams: {
-						returnto: mw.config.get( 'wgPageName' ) + hash,
-						returntoquery: returnToQuery
-					} } ).
+					render( { queryParams: { returnto: mw.config.get( 'wgPageName' ) + hash } } ).
 					toggle();
 			} ).
 			// needed until we use tap everywhere to prevent the link from being followed
 			on( 'click', false );
 	}
 
-	function init( page ) {
-		var isNew = mw.config.get( 'wgArticleId' ) === 0;
+	/**
+	 * Initialize the edit button so that it launches the editor interface when clicked.
+	 *
+	 * @param {Page} page The page to edit.
+	 */
+	function setupEditor( page ) {
+		var isNewPage = page.options.id === 0;
 		if ( M.query.undo ) {
 			window.alert( mw.msg( 'mobile-frontend-editor-undo-unsupported' ) );
 		}
-		M.router.route( /^editor\/(\d+)$/, function( sectionId ) {
-			var loadingOverlay = new LoadingOverlay();
+
+		M.overlayManager.add( /^editor\/(\d+)\/?([^\/]*)$/, function( sectionId, funnel ) {
+			var
+				loadingOverlay = new LoadingOverlay(),
+				result = $.Deferred();
 			loadingOverlay.show();
+			sectionId = page.isWikiText() ? parseInt( sectionId, 10 ) : null;
 
-			mw.loader.using( 'mobile.editor', function() {
-				var EditorOverlay = M.require( 'modules/editor/EditorOverlay' ),
-					title = page ? page.title : mw.config.get( 'wgTitle' ),
-					// Note in current implementation Page title is prefixed with namespace
-					ns = page ? '' : mw.config.get( 'wgCanonicalNamespace' );
+			// Pages that contain JavaScript and CSS are not suitable for
+			// VisualEditor so check if wikitext
+			if ( page.isWikiText() && isVisualEditorEnabled ) {
+				mw.loader.using( 'mobile.editor.ve', function () {
+					var VisualEditorOverlay = M.require( 'modules/editor/VisualEditorOverlay' );
 
-				sectionId = parseInt( sectionId, 10 );
-				loadingOverlay.hide();
-				new EditorOverlay( {
-					title: ns ? ns + ':' + title : title,
-					isNew: isNew,
-					isNewEditor: mw.config.get( 'wgUserEditCount' ) === 0,
-					sectionId: mw.config.get( 'wgPageContentModel' ) === 'wikitext' ? sectionId : null
-				} ).show();
-			} );
+					loadingOverlay.hide();
+					result.resolve( new VisualEditorOverlay( {
+						title: page.title,
+						sectionId: parseInt( sectionId, 10 )
+					} ) );
+				} );
+			} else {
+				mw.loader.using( 'mobile.editor.overlay', function() {
+					var EditorOverlay = M.require( 'modules/editor/EditorOverlay' );
+
+					loadingOverlay.hide();
+					result.resolve( new EditorOverlay( {
+						title: page.title,
+						isNewPage: isNewPage,
+						isNewEditor: user.getEditCount() === 0,
+						sectionId: sectionId,
+						oldId: M.query.oldid,
+						funnel: funnel || 'article'
+					} ) );
+				} );
+			}
+
+			return result;
 		} );
 		$( '#ca-edit' ).addClass( 'enabled' );
 
-		// FIXME: unfortunately the main page is special cased.
-		if ( mw.config.get( 'wgIsMainPage' ) || isNew || M.getLeadSection().text() ) {
-			// if lead section is not empty, open editor with lead section
-			addEditButton( 0, '#ca-edit' );
-		} else {
-			// if lead section is empty, open editor with first section
-			addEditButton( 1, '#ca-edit' );
+		// Make sure we never create two edit links by accident
+		if ( $( '#ca-edit .edit-page' ).length === 0 ) {
+			// FIXME: unfortunately the main page is special cased.
+			if ( mw.config.get( 'wgIsMainPage' ) || isNewPage || M.getLeadSection().text() ) {
+				// if lead section is not empty, open editor with lead section
+				addEditButton( 0, '#ca-edit' );
+			} else {
+				// if lead section is empty, open editor with first section
+				addEditButton( 1, '#ca-edit' );
+			}
 		}
 
 		// FIXME change when micro.tap.js in stable
@@ -81,37 +112,60 @@
 		} );
 	}
 
-	function initCta() {
-		// FIXME change when micro.tap.js in stable
-		$( '#ca-edit' ).addClass( 'enabled' ).on( M.tapEvent( 'click' ), function() {
-			drawer.render( { queryParams :{ returntoquery: 'article_action=edit' } } ).show();
-		} );
-
-		$( '.edit-page' ).each( function() {
-			var $a = $( this ), anchor = '#' + $( this ).parent().find( '[id]' ).attr( 'id' );
-
-			if ( mw.config.get( 'wgMFMode' ) === 'stable' ) {
-				makeCta( $a, anchor );
+	function init( page ) {
+		page.isEditable( user ).done( function( isEditable ) {
+			if ( isEditable ) {
+				setupEditor( page );
 			} else {
-				makeCta( $a, anchor, 'article_action=edit' );
+				showSorryToast( 'mobile-frontend-editor-disabled' );
 			}
 		} );
 	}
 
-	if ( mw.config.get( 'wgIsPageEditable' ) && isEditingSupported ) {
-		if ( mw.config.get( 'wgMFAnonymousEditing' ) || mw.config.get( 'wgUserName' ) ) {
-			init();
-			M.on( 'page-loaded', init );
-		} else {
-			initCta();
-			M.on( 'page-loaded', initCta );
-		}
-	} else {
+	/**
+	 * Initialize the edit button so that it launches a login call-to-action when clicked.
+	 */
+	function initCta() {
 		// FIXME change when micro.tap.js in stable
+		$( '#ca-edit' ).addClass( 'enabled' ).on( M.tapEvent( 'click' ), function() {
+			drawer.render().show();
+		} );
+
+		$( '.edit-page' ).each( function() {
+			var $a = $( this ), anchor = '#' + $( this ).parent().find( '[id]' ).attr( 'id' );
+			makeCta( $a, anchor );
+		} );
+	}
+
+	/**
+	 * Show a toast message with sincere condolences.
+	 *
+	 * @param {string} msg Message key for sorry message
+	 */
+	function showSorryToast( msg ) {
 		$( '#ca-edit, .edit-page' ).on( M.tapEvent( 'click' ), function( ev ) {
-			popup.show( mw.msg( isEditingSupported ? 'mobile-frontend-editor-disabled' : 'mobile-frontend-editor-unavailable' ), 'toast' );
+			popup.show( mw.msg( msg ), 'toast' );
 			ev.preventDefault();
 		} );
+	}
+
+	if ( !isEditingSupported ) {
+		// Editing is disabled (or browser is blacklisted)
+		showSorryToast( 'mobile-frontend-editor-unavailable' );
+	} else {
+		if ( user.isAnon() && !mw.config.get( 'wgMFAnonymousEditing' ) ) {
+			// Set edit button to launch login CTA
+			initCta();
+			M.on( 'page-loaded', initCta );
+		} else {
+			if ( mw.config.get( 'wgMFIsLoggedInUserBlocked' ) ) {
+				// User is blocked. Both anonymous and logged in users can be blocked.
+				showSorryToast( 'mobile-frontend-editor-blocked' );
+			} else {
+				init( M.getCurrentPage() );
+				M.on( 'page-loaded', init );
+			}
+		}
 	}
 
 }( mw.mobileFrontend, jQuery ) );

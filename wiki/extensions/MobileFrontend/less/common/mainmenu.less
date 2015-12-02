@@ -1,3 +1,6 @@
+// Component of ui.less
+// FIXME: Move to components/
+
 /* Left menu */
 @menuBorder: 12px;
 @menuBorderColor: #252525;
@@ -9,7 +12,7 @@
 
 #mw-mf-page-center {
 	width: 100%;
-	background-color: white;
+	.box-sizing(border-box);
 	position: relative;
 	z-index: 3;
 }
@@ -17,10 +20,24 @@
 #mw-mf-page-left {
 	float: left;
 	min-height: 100%;
-	display: none; /* JS only */
 	background: @mainMenuBackgroundColor;
 	border-left: solid @menuBorder @menuBorderColor;
 	.box-sizing( border-box );
+}
+
+// Kept for caching reasons
+#mw-mf-page-left,
+.navigation-drawer {
+	display: none; /* JS only */
+}
+
+// needs to be more specific than .overlay rules
+.notifications-overlay.navigation-drawer {
+	right: 0;
+
+	height: 100%;
+	width: auto;
+	box-shadow: -5px 0 0 0 rgba(0, 0, 0, 0.3);
 }
 
 #mw-mf-page-left ul {
@@ -32,7 +49,7 @@
 	&:first-child {
 		border-bottom: @menuBorder solid @menuBorderColor;
 
-		li:first-child a {
+		li:first-child {
 			border-top: none;
 		}
 	}
@@ -41,6 +58,8 @@
 		position: relative; // ensure the logout link in beta can be position absolute
 		font-size: 1.2em;
 		text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+		border-bottom: 1px solid #3e3e3e;
+		border-top: 1px solid #717171;
 
 		&:hover {
 			background-color: #5C5C5C;
@@ -64,22 +83,18 @@
 		}
 
 		.icon-profile {
-			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
 			padding-right: 40px;
 		}
 
 		a {
 			color: white;
 			display: block;
-			padding: 13px 10px 11px 42px;
+			padding: 13px 10px 11px 34px;
 			line-height: 22px;
 			background-repeat: no-repeat;
 			.background-size(24px, 24px);
-			background-position: 10px 50%;
-			border-bottom: 1px solid #3e3e3e;
-			border-top: 1px solid #717171;
+			background-position: left center;
+			margin-left: 9px;
 			&:hover {
 				text-decoration: none;
 			}
@@ -132,21 +147,16 @@
 			a {
 				color: #ccc;
 				border: none;
-				padding: .7em 14px;
+				padding: .7em 12px;
+				margin-left: 0;
 			}
 		}
 	}
 }
 
 body.navigation-enabled {
-	@menuWidth: 16em;
-	// set background and border here (#mw-mf-page-left doesn't expand height
-	// and #mw-mf-viewport has overflow: hidden and clips blue hover borders)
-	border-left: solid @menuBorder @menuBorderColor;
-	background: @mainMenuBackgroundColor;
 
 	#mw-mf-viewport {
-		margin-left: -@menuBorder;
 		// disable horizontal scrolling
 		overflow: hidden;
 		// the two following properties are needed to override the height set
@@ -156,53 +166,77 @@ body.navigation-enabled {
 	}
 
 	#mw-mf-page-center {
+		// Since we change the color of the body tag above we need to ensure the content has a white background
+		background: #fff;
 		position: absolute;
 		height: 100%;
+		// Overriden in mainmenuAnimation
+		left: @menuWidth;
 		// set border here (#mw-mf-page-left doesn't expand height)
 		border-left: solid 1px #000;
 		box-shadow: -5px 0 0 0 rgba(0, 0, 0, 0.1);
 	}
 
+	.navigation-drawer,
+	// Kept for caching reasons
 	#mw-mf-page-left {
-		width: @menuWidth;
 		display: block;
 	}
 
-	.position-fixed,
-	#mw-mf-page-center {
+	.transparent-shield {
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		position: absolute;
+		background: @semiTransparent;
+	}
+}
+
+.primary-navigation-enabled {
+	// set background and border here (#mw-mf-page-left doesn't expand height
+	// and #mw-mf-viewport has overflow: hidden and clips blue hover borders)
+	border-left: solid @menuBorder @menuBorderColor;
+	background: @mainMenuBackgroundColor;
+
+	#mw-mf-viewport {
+		margin-left: -@menuBorder;
+	}
+
+	#mw-mf-page-left {
+		width: @menuWidth;
+	}
+
+	.position-fixed {
 		left: @menuWidth !important;
 	}
 }
 
-// navigation enabled on bigger screens (tablets and desktop)
-@media (min-width: @wgMFDeviceWidthTablet) {
-	body.navigation-enabled.alpha,
-	body.navigation-enabled.beta {
-
-		background: #fff;
-
-		#mw-mf-page-center {
-			// override position: absolute from the general .navigation-enabled rule
-			// so that the main content is not clipped
-			position: relative;
-			width: 80%;
-		}
-
-		#mw-mf-page-left {
-			position: absolute;
-			width: 20%;
-		}
-
-		.position-fixed,
-		#mw-mf-page-center {
-			left: 20% !important;
-		}
-
-		#mw-mf-diffview {
-			#mw-mf-userinfo {
-				width: 80%;
+@media all and (min-width: @wgMFDeviceWidthTablet) {
+	@rightDrawerLeftOffset: 100% - @rightDrawerWidth;
+	.beta,
+	.alpha {
+		&.secondary-navigation-enabled {
+			.user-button {
+				display: none;
 			}
+
+			#mw-mf-page-center {
+				left: -@rightDrawerWidth !important;
+				right: @rightDrawerWidth !important;
+				width: auto;
+			}
+		}
+
+		.notifications-overlay.navigation-drawer {
+			left: @rightDrawerLeftOffset;
 		}
 	}
 }
 
+.beta, .alpha {
+	#mw-mf-page-left {
+		// FIXME: Move this rule when new typography in stable
+		font-size: 90%;
+	}
+}

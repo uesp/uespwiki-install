@@ -1,45 +1,50 @@
-( function( M ) {
-	var Drawer = M.require( 'Drawer' ),
+( function( M, $ ) {
+	var OverlayNew = M.require( 'OverlayNew' ),
 		ProgressBar = M.require( 'widgets/progress-bar' ),
+		AbuseFilterPanel = M.require( 'modules/editor/AbuseFilterPanel' ),
 		PhotoUploadProgress;
 
-	PhotoUploadProgress = Drawer.extend( {
+	PhotoUploadProgress = OverlayNew.extend( {
 		defaults: {
-			waitMessage: mw.msg( 'mobile-frontend-image-uploading-wait' ),
-			cancelMessage: mw.msg( 'mobile-frontend-image-uploading-cancel' ),
-			messageInterval: 10000
+			uploadingMsg: mw.msg( 'mobile-frontend-image-uploading' ),
+			saveMsg: mw.msg( 'mobile-frontend-editor-save' )
+		},
+		template: M.template.get( 'uploads/PhotoUploadProgress' ),
+		fullScreen: false,
+
+		initialize: function( options ) {
+			this._super( options );
+			this.progressBar = new ProgressBar();
 		},
 
-		template: M.template.get( 'uploads/PhotoUploadProgress' ),
-		className: 'drawer position-fixed text loading',
-		locked: true,
-
-		postRender: function( options ) {
-			var self = this, longMessage = false;
-
+		postRender: function() {
 			this._super();
+			this.$( '.submit' ).on( M.tapEvent( 'click' ), $.proxy( this, 'emit', 'submit' ) );
+		},
 
-			this.$( 'a' ).on( 'click', function() {
-				self.hide();
-				self.emit( 'cancel' );
+		showAbuseFilter: function( type, message ) {
+			new AbuseFilterPanel().appendTo( this.$( '.overlay-header-container' ) ).show( type, message );
+			this._showHidden( '.save-header' );
+		},
+
+		hide: function( force ) {
+			if ( force ) {
+				return this._super();
+			} else if ( window.confirm( mw.msg( 'mobile-frontend-image-cancel-confirm' ) ) ) {
+				this.emit( 'cancel' );
+				return this._super();
+			} else {
 				return false;
-			} );
-
-			setInterval( function() {
-				if ( longMessage ) {
-					self.$( '.wait' ).text( mw.msg( 'mobile-frontend-image-uploading-wait' ) );
-				} else {
-					self.$( '.wait' ).text( mw.msg( 'mobile-frontend-image-uploading-long' ) );
-				}
-				longMessage = !longMessage;
-			}, options.messageInterval );
+			}
 		},
 
 		setValue: function( value ) {
+			var $uploading = this.$( '.uploading' );
 			// only add progress bar if we're getting progress events
-			if ( !this.progressBar ) {
-				this.progressBar = new ProgressBar();
-				this.progressBar.appendTo( this.$el );
+			if ( $uploading.length && $uploading.text() !== '' ) {
+				$uploading.text( '' );
+				this.progressBar.appendTo( $uploading );
+				this.$( '.right' ).remove();
 			}
 			this.progressBar.setValue( value );
 		}
@@ -47,4 +52,4 @@
 
 	M.define( 'modules/uploads/PhotoUploadProgress', PhotoUploadProgress );
 
-}( mw.mobileFrontend ) );
+}( mw.mobileFrontend, jQuery ) );

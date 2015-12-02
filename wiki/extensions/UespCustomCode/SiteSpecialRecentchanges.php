@@ -223,11 +223,13 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 		$hl = implode( ' | ', $links );
 		
 		// show from this onward link
-		$now = $wgLang->timeanddate( wfTimestampNow(), true );
-		$tl =  $this->makeOptionsLink( $now, array( 'from' => wfTimestampNow() ), $nondefaults );
+		$timestamp = wfTimeStampNow();
+		$now = $wgLang->userTimeAndDate( $timestamp, $wgUser );
+		$timenow = $wgLang->userTime( $timestamp, $wgUser );
+		$datenow = $wgLang->userdate( $timestamp, $wgUser );
 		
 		$rclinks = wfMessage( 'rclinks' )->rawParams( $cl, $dl, $hl )->parse();
-		$rclistfrom = wfMessage( 'rclistfrom' )->rawParams( $tl )->parse();
+		$rclistfrom = wfMessage( 'rclistfrom' )->rawParams( $now, $timenow, $datenow )->parse();
 		return "{$note}$rclinks<br />$rclistfrom";
 	}
 	

@@ -4,6 +4,9 @@ class AbuseFilterViewTestBatch extends AbuseFilterView {
 	// Hard-coded for now.
 	static $mChangeLimit = 100;
 
+	public $mShowNegative, $mTestPeriodStart, $mTestPeriodEnd, $mTestPage,
+		$mTestUser;
+
 	function show() {
 		$out = $this->getOutput();
 
@@ -40,7 +43,7 @@ class AbuseFilterViewTestBatch extends AbuseFilterView {
 			);
 		$output = Xml::tags( 'div', array( 'id' => 'mw-abusefilter-test-editor' ), $output );
 
- 		$output .= Xml::tags( 'p', null, Xml::checkLabel(
+		$output .= Xml::tags( 'p', null, Xml::checkLabel(
 				 $this->msg( 'abusefilter-test-shownegative' )->text(),
 				 'wpShowNegative', 'wpShowNegative', $this->mShowNegative )
 		 );
@@ -100,8 +103,13 @@ class AbuseFilterViewTestBatch extends AbuseFilterView {
 		}
 		if ( $this->mTestPage ) {
 			$title = Title::newFromText( $this->mTestPage );
-			$conds['rc_namespace'] = $title->getNamespace();
-			$conds['rc_title'] = $title->getDBkey();
+			if ( $title instanceof Title ) {
+				$conds['rc_namespace'] = $title->getNamespace();
+				$conds['rc_title'] = $title->getDBkey();
+			} else {
+				$out->addWikiMsg( 'abusefilter-test-badtitle' );
+				return;
+			}
 		}
 
 		// Get our ChangesList

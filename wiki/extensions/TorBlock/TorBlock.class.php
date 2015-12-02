@@ -286,38 +286,4 @@ class TorBlock {
 		}
 		return true;
 	}
-	
-	/**
-	 * Check if the user is logged in from a Tor exit node but is not exempt.
-	 * If so, block the password reset attempt.
-	 *
-	 * @param User $user Array of User objects
-	 * @param string $data Array of data submitted by the user
-	 * @param array &$error Description of error
-	 * @return bool
-	 */
-	public static function onSpecialPasswordResetOnSubmit( $users, $data, &$error ) {
-		global $wgRequest;
-		
-		if ( TorExitNodes::isExitNode() ) {
-			wfDebugLog( 'torblock', "User detected as editing through tor." );
-
-			$ip = $wgRequest->getIP();
-			if ( Block::isWhitelistedFromAutoblocks( $ip ) ) {
-				wfDebugLog( 'torblock', "IP is in autoblock whitelist. Exempting from Tor blocks." );
-				return true;
-			}
-
-			wfDebugLog( 'torblock', "User detected as editing from Tor node. Denying email." );
-
-			// Allow site customization of blocked message.
-			$blockedMsg = 'torblock-blocked';
-			wfRunHooks( 'TorBlockBlockedMsg', array( &$blockedMsg ) );
-			$error = array( 'torblock-blocked', $ip );
-
-			return false;
-		}
-		
-		return true;
-	}		
 }

@@ -1,0 +1,12 @@
+{
+    "@metadata": {
+        "authors": [
+            "Crochet.david",
+            "Grondin",
+            "Sherbrooke"
+        ]
+    },
+    "mediafunctions-desc": "Fonction parseur pour l’obtention d‘informations concernant les fichiers médias",
+    "mediafunctions-invalid-title": "« $1 » n’est pas un titre valide.",
+    "mediafunctions-not-exist": "« $1 » n’existe pas"
+}

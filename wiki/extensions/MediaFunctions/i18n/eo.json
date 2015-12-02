@@ -1,0 +1,9 @@
+{
+    "@metadata": {
+        "authors": [
+            "Yekrats"
+        ]
+    },
+    "mediafunctions-invalid-title": "\"$1\" ne estas valida titolo",
+    "mediafunctions-not-exist": "\"$1\" ne ekzistas"
+}

@@ -2,7 +2,8 @@
 
 	function log( status, campaign, step ) {
 		var
-			username = mw.config.get( 'wgUserName' ),
+			user = M.require( 'user' ),
+			username = user.getName(),
 			data = {
 				status: status,
 				campaign: campaign || M.query.campaign,
@@ -19,10 +20,15 @@
 	}
 
 	// FIXME: Turn into common component shared with MobileWebClickTracking ?
-	function hijackLink( $el, status, campaign, step ) {
+	function hijackLink( $el, status, campaign, step, url ) {
 		function linkHandler( ev ) {
+			var href;
 			ev.preventDefault();
-			var href = $( this ).attr( 'href' );
+			if ( url !== undefined ) {
+				href = url;
+			} else {
+				href = $( this ).attr( 'href' );
+			}
 			log( status, campaign, step ).always( function() {
 				window.location.href = href;
 			} );

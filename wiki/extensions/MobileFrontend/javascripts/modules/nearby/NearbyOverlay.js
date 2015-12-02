@@ -1,16 +1,17 @@
 ( function( M ) {
-	M.assertMode( [ 'beta', 'alpha' ] );
+	M.assertMode( [ 'beta', 'alpha', 'desktop-beta' ] );
 	var Nearby = M.require( 'modules/nearby/Nearby' ),
-		Overlay = M.require( 'Overlay' ),
+		Overlay = M.require( 'OverlayNew' ),
 		NearbyOverlay;
 
 	NearbyOverlay = Overlay.extend( {
 			active: false,
 			closeOnBack: true,
-			className: 'mw-mf-overlay list-overlay',
-			template: M.template.get( 'overlays/nearby' ),
+			templatePartials: {
+				content: M.template.get( 'overlays/nearby' )
+			},
 			defaults: {
-				heading: 'Nearby'
+				heading: mw.message( 'mobile-frontend-nearby-title' )
 			},
 			initialize: function( options ) {
 				options.pretext = mw.message( 'mobile-frontend-nearby-to-page', options.title );
@@ -25,6 +26,7 @@
 					source: options.source,
 					range: 2000,
 					parentOverlay: this,
+					exclude: options.title,
 					location: { longitude: options.longitude, latitude: options.latitude },
 					el: this.$( '.container' )
 				} );
