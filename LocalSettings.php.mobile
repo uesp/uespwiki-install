@@ -16,7 +16,7 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 }
 
 	// All wiki related passwords and other secrets not intended for public release
-require '/home/uesp/secrets/wiki-new.secrets';
+require '/home/uesp/secrets/wiki.secrets';
 
 ## Uncomment this to disable output compression
 # $wgDisableOutputCompression = true;
