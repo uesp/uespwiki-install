@@ -225,7 +225,7 @@ require_once "$IP/extensions/UespMap/UespMap.php";
 require_once "$IP/extensions/UsersEditCount/UsersEditCount.php";
 require_once "$IP/extensions/WikiTextLoggedInOut/WikiTextLoggedInOut.php";
 require_once "$IP/skins/UespMonoBook/UespMonoBook.php";
-
+require_once "$IP/extensions/EsoCharData/EsoCharData.php";
 
 # Disabled Extensions
 # require_once "$IP/extensions/CategoryTree/CategoryTree.php";
