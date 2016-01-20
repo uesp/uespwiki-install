@@ -271,6 +271,7 @@ $wgAutoConfirmAge = 3600*24*4;
 $wgAutoConfirmCount = 10;
 $wgBlockAllowsUTEdit = true;
 $wgCookieDomain = ".uesp.net";
+$wgCookiePrefix = "uesp_net_wiki5";
 $wgDisableCounters = true;
 $wgExpensiveParserFunctionLimit = 1000;
 $wgFavicon = '/favicon.ico';
