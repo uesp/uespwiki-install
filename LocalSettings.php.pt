@@ -328,6 +328,7 @@ $wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 
 $wgGroupPermissions['*']['createpage'] = false;
 $wgGroupPermissions['*']['mapedit'] = false;
 $wgGroupPermissions['*']['patroller'] = false;
+$wgGroupPermissions['*']['edit'] = false;
 
 $wgGroupPermissions['user']['move'] = false;
 
@@ -378,6 +379,24 @@ $wgGroupPermissions['sysop']['patroller'] = true;
 $wgGroupPermissions['sysop']['renameuser'] = true;
 $wgGroupPermissions['sysop']['skipcaptcha'] = true;
 $wgGroupPermissions['sysop']['tboverride'] = true;
+
+$wgGroupPermissions['translator']['abusefilter-modify'] = true;
+$wgGroupPermissions['translator']['abusefilter-modify-restricted'] = true;
+$wgGroupPermissions['translator']['abusefilter-private'] = true;
+$wgGroupPermissions['translator']['abusefilter-revert'] = true;
+$wgGroupPermissions['translator']['autopatrol'] = true;
+$wgGroupPermissions['translator']['delete'] = true;
+$wgGroupPermissions['translator']['deleterevision'] = true;
+$wgGroupPermissions['translator']['editinterface'] = true;
+$wgGroupPermissions['translator']['editprotected'] = true;
+$wgGroupPermissions['translator']['editsemiprotected'] = true;
+$wgGroupPermissions['translator']['movefile'] = true;
+$wgGroupPermissions['translator']['patroller'] = true;
+$wgGroupPermissions['translator']['protectsection'] = true;
+$wgGroupPermissions['translator']['rollback'] = true;
+$wgGroupPermissions['translator']['skipcaptcha'] = true;
+$wgGroupPermissions['translator']['tboverride'] = true;
+$wgGroupPermissions['translator']['undelete'] = true;
 
 $wgGroupPermissions['userpatroller']['tboverride'] = true;
 
