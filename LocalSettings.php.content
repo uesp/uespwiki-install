@@ -245,7 +245,7 @@ require_once "$IP/extensions/EsoCharData/EsoCharData.php";
 
 require_once( "$IP/extensions/Elastica/Elastica.php");
 require_once( "$IP/extensions/CirrusSearch/CirrusSearch.php" );
-$wgDisableSearchUpdate = true;
+$wgDisableSearchUpdate = false;
 $wgCirrusSearchServers = array( $UESP_SERVER_SEARCH );
 $wgSearchType = 'CirrusSearch';
 
