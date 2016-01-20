@@ -54,7 +54,7 @@ $wgEmailAuthentication = true;
 # $wgDBadminuser = $uespWikiAdminUser; // RM: Not currently necessary
 # $wgDBadminpassword = $uespWikiAdminPW;
 # Do *not* comment out wgDBname -- it renames and resets all sessions
-$wgDBname           = "uesp_net_wiki5";
+$wgDBname           = "uesp_net_wiki5_pt";
 $wgDBservers = array(
         array(          # db1 - Write Master
                 'host' => $UESP_SERVER_DB1,
@@ -100,10 +100,6 @@ $wgMainCacheType = CACHE_MEMCACHED;
 $wgSessionsInObjectCache = true;
 $wgObjectCacheSessionExpiry = 100000;
 $wgMemCachedServers = array("10.7.143.70:11000");
-/* RM: For wgUseFileCache, false is default; uncomment whole section if we re-enable it
-$wgUseFileCache = false;
-$wgFileCacheDirectory = '/mnt/uesp/filecache';
-*/
 
 ## To enable image uploads, make sure the 'images' directory
 ## is writable, then set this to true:
@@ -145,7 +141,7 @@ $wgSharedTables[] = 'interwiki';
 ## Set $wgCacheDirectory to a writable directory on the web server
 ## to make your wiki go slightly faster. The directory should not
 ## be publically accessible from the web.
-$wgCacheDirectory = '/cache';
+$wgCacheDirectory = '/cache_pt';
 
 # Site language code, should be one of the list in ./languages/Names.php
 $wgLanguageCode = "pt";
@@ -281,6 +277,7 @@ $wgAutoConfirmAge = 3600*24*4;
 $wgAutoConfirmCount = 10;
 $wgBlockAllowsUTEdit = true;
 $wgCookieDomain = ".uesp.net";
+$wgCookiePrefix = "uesp_net_wiki5";
 $wgDisableCounters = true;
 $wgExpensiveParserFunctionLimit = 1000;
 $wgFavicon = '/favicon.ico';
