@@ -106,7 +106,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 	}
 	
 	protected function processTemplate( $title, $sortkey, $pageLength, $isRedirect = false, $isCategory=false, $curr_subset=NULL ) {
-		global $wgContLang;
+		global $wgContLang, $wgUser;
 		$subsets_found = array();
 		$origTitle = $title;
 		$origSortkey = $sortkey;
@@ -117,7 +117,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			$ttype = 'subcat';
 		else
 			$ttype = 'page';
-			
+		
 		$catparams = array('catpage', 'catlabel', 'catgroup', 'cattextpre', 'cattextpost', 'catanchor', 'catredirect', 'catsortkey', 'catskip');
 		$vals = array();
 		
@@ -137,6 +137,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 				$newFrame = self::$_templatedata[$ttype]['frame']->newChild(array(), $title);
 				$pstack = new MetaTemplateParserStack(self::$_templatedata[$ttype]['parser'], $newFrame);
 			}
+
 			$pstack->set($title->getPrefixedDBKey(), 'pagename');
 			$splitkey = explode("\n", $sortkey);
 			$pstack->set($splitkey[0], 'sortkey');
@@ -161,6 +162,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			// also not yet handling possibility that the new title might be a redlink, or that pageLength might not be relevant any more
 			$title = Title::newFromText($vals['catpage']);
 		}
+		
 		if (empty($vals['catskip'])) {
 			if (!empty($vals['catanchor'])) {
 				if ($vals['catanchor']{0}!='#')
@@ -168,15 +170,17 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 				// setFragment is deprecated, but makes more sense than generating a whole new title object
 				$title->setFragment($vals['catanchor']);
 			}
+			
 			if (empty($vals['catlabel']))
-				$vals['catlabel'] = $templateOutput;
+				$vals['catlabel'] = $title->getFullText(); // was $templateOutput - not sure what that was supposed to accomplish, though it obviously worked < MW 1.23
+			
 			if (strlen($vals['catredirect'])>0)
 				$isRedirect = $vals['catredirect'];
 		
+			$link = $this->getSkin()->link( $title, htmlspecialchars( $vals['catlabel'] ) );
 			if ($isRedirect)
-				$link = '<span class="redirect-in-category">' . $this->getSkin()->makeKnownLinkObj( $title, $vals['catlabel'] ) . '</span>';
-			else
-				$link = $this->getSkin()->makeSizeLinkObj( $pageLength, $title, $vals['catlabel'] );
+				$link = '<span class="redirect-in-category">' . $link . '</span>';
+			
 			if (!empty($vals['cattextpre']))
 				$link = $vals['cattextpre'].' '.$link;
 			if (!empty($vals['cattextpost']))
@@ -234,7 +238,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 		return $subset_list;
 	}
 	
-	function addSubcategoryObject( $cat, $sortkey, $pageLength ) {
+	function addSubcategoryObject( Category $cat, $sortkey, $pageLength ) {
 		if (!isset(self::$_templatedata['subcat'])) {
 			parent::addSubcategoryObject( $cat, $sortkey, $pageLength );
 			return;
