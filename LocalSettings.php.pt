@@ -321,8 +321,8 @@ $wgInvalidateCacheOnLocalSettingsChange = false;
 $wgAPIModules['createaccount'] = 'ApiDisabled';
 
 # Rights to add or remove user groups
-$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'map', 'patroller', 'userpatroller' );
-$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'map', 'patroller', 'userpatroller' );
+$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'map', 'patroller', 'translator', 'userpatroller' );
+$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'map', 'patroller', 'translator', 'userpatroller' );
 
 # Removed group rights
 $wgGroupPermissions['*']['createpage'] = false;
@@ -330,6 +330,7 @@ $wgGroupPermissions['*']['mapedit'] = false;
 $wgGroupPermissions['*']['patroller'] = false;
 $wgGroupPermissions['*']['edit'] = false;
 
+$wgGroupPermissions['user']['edit'] = true;
 $wgGroupPermissions['user']['move'] = false;
 
 # Added group rights
