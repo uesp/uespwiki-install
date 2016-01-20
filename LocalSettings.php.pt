@@ -58,7 +58,7 @@ $wgDBname           = "uesp_net_wiki5";
 $wgDBservers = array(
         array(          # db1 - Write Master
                 'host' => $UESP_SERVER_DB1,
-                'dbname' => $uespWikiDB . 'pt',
+                'dbname' => $uespWikiDB . '_pt',
                 'user' => $uespWikiUser,
                 'password' => $uespWikiPW,
                 'type' => "mysql",
@@ -67,7 +67,7 @@ $wgDBservers = array(
         ),
         array(          # db2 - Primary Read
                 'host' => $UESP_SERVER_DB2,
-                'dbname' => $uespWikiDB . 'pt',
+                'dbname' => $uespWikiDB . '_pt',
                 'user' => $uespWikiUser,
                 'password' => $uespWikiPW,
                 'type' => "mysql",
@@ -76,7 +76,7 @@ $wgDBservers = array(
         ),
 /*      array(          # content3 - Backup Read
                 'host' => $UESP_SERVER_CONTENT3,
-                'dbname' => $uespWikiDB . 'pt',
+                'dbname' => $uespWikiDB . '_pt',
                 'user' => $uespWikiUser,
                 'password' => $uespWikiPW,
                 'type' => "mysql",
