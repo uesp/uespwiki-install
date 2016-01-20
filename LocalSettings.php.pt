@@ -140,7 +140,6 @@ $wgUploadMissingFileUrl= "http://www.uesp.net/wiki/Special:Upload";
 $wgSharedDB = $uespWikiDB;
 $wgSharedPrefix = '';
 $wgSharedTables[] = 'ipblocks';
-$wgSharedTables[] = 'user_groups';
 $wgSharedTables[] = 'interwiki';
 
 ## Set $wgCacheDirectory to a writable directory on the web server
