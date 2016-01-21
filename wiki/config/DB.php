@@ -20,7 +20,7 @@ if ($uespIsDev)
 	$wgDBservers = array(
 		array(          # content3 is the only dev wiki database
 				'host' => $UESP_SERVER_CONTENT3,
-				'dbname' => "uesp_net_wikidev",
+				'dbname' => $uespWikiDBName,
 				'user' => $uespWikiUser,
 				'password' => $uespWikiPW,
 				'type' => "mysql",

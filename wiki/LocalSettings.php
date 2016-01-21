@@ -7,11 +7,14 @@ if ( !defined( 'MEDIAWIKI' ) )
 	exit;
 }
 
-# All wiki related passwords and other secrets not intended for public release
-require '/home/uesp/secrets/wiki.secrets';
-
 # Set global variables depending on which site is being viewed
 require './config/InitializeSettings.php';
+
+# All wiki related passwords and other secrets not intended for public release
+if ($uespIsDev)
+	require '/home/uesp/secrets/devwiki.secrets';
+else
+	require '/home/uesp/secrets/wiki.secrets';
 
 # Include dependant config files. Be *very* careful changing the order of these
 # files as some files may require global parmeters defined/set in other files.
