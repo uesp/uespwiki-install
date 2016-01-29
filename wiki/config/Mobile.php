@@ -8,7 +8,14 @@
 	# Force a mobile site display 
 if ($uespIsMobile)
 {
-	if ($_COOKIE['stopMobileRedirect'] != 'true') $_GET['useformat'] = 'mobile';
-	# $wgMobileUrlTemplate = 'mobile.uesp.com';
-	# $wgCacheDirectory = '/uesp-mobile-cache'; # Shouldn't need a different cache directory
+	if ($_COOKIE['mobileaction'] != 'toggle_view_desktop')
+	{
+		$_GET['useformat'] = 'mobile';
+	}
+	
+	//MobileContext::singleton()->setForceMobileView( true );
 }
+
+$wgMobileUrlTemplate = '%h0.m.%h1.%h2';
+
+//$wgMFContentNamespace  # Do we need to set this? 
