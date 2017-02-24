@@ -5,6 +5,11 @@
 # It is included by LocalSettings.php.
 #
 
+if (class_exists("MobileContext"))
+{
+	//if (MobileContext::singleton()->isMobileDevice()) $uespIsMobile = true; 
+}
+
 	# Force a mobile site display 
 if ($uespIsMobile)
 {

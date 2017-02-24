@@ -249,7 +249,7 @@ $wgResourceModules['ext.UespCustomCode'] = array(
 # Loads extension messages and does some other initialization that can be safely moved out of global
 
 function efSiteCustomCode() {
-	global $wgParser, $wgContLang, $wgDefaultUserOptions, $egCustomSiteID;
+	global $wgParser, $wgContLang, $wgDefaultUserOptions, $egCustomSiteID, $uespIsMobile;
 
 	// Change search type so that new search class is loaded
 	// To disable extension-specific search-related code (i.e., mechanics of how pages are looked up), this line could be commented out -- but some features will still be accessed by SiteSpecialSearch
@@ -304,6 +304,11 @@ function efSiteCustomCode() {
 		$wgDefaultUserOptions['rcNs' . $ns] = 1;
 	}
 	$wgDefaultUserOptions['rcNsTalk'] = 1;
+	
+	if (class_exists("MobileContext"))
+	{
+		if (MobileContext::singleton()->isMobileDevice()) $uespIsMobile = true;
+	}
 
 	return true;
 }
