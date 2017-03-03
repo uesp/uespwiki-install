@@ -213,6 +213,16 @@ class MinervaTemplate extends BaseTemplate {
 				?>
 			</div>
 			<div id='mw-mf-page-center'>
+			<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<!-- Mobile Banner 2 -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-3886949899853833"
+     data-ad-slot="9530993998"
+     data-ad-format="auto"></ins>
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script>
 				<?php
 					foreach( $this->data['banners'] as $banner ):
 						echo $banner;
@@ -245,6 +255,15 @@ class MinervaTemplate extends BaseTemplate {
 					$this->renderContentWrapper( $data );
 				?>
 				</div>
+				<!-- Mobile Banner 2 -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-3886949899853833"
+     data-ad-slot="9530993998"
+     data-ad-format="auto"></ins>
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script>
 				<?php
 					$this->renderFooter( $data );
 				?>
