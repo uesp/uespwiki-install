@@ -213,6 +213,7 @@ class MinervaTemplate extends BaseTemplate {
 				?>
 			</div>
 			<div id='mw-mf-page-center'>
+			<p><br/>
 			<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
 <!-- Mobile Banner 2 -->
 <ins class="adsbygoogle"
