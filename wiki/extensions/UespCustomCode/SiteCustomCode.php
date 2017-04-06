@@ -94,7 +94,7 @@ else
 $wgExtensionCredits['other'][] = array(
 	'name' => $egCustomSiteID . 'CustomCode',
 	'author' => 'Nephele',
-	'url' => 'http://www.uesp.net/wiki/UESPWiki:UespCustomCode',
+	'url' => '//www.uesp.net/wiki/UESPWiki:UespCustomCode',
 	'description' => 'Various code customizations that provide functionality specific to this site',
 	'version' => '0.9.7',
 );

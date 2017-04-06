@@ -43,11 +43,11 @@ $wgUseSharedUploads = false;
 if ($uespLanguageSuffix != "")
 {
 	$wgUseSharedUploads = true;
-	$wgSharedUploadPath = 'http://www.uesp.net/w/images';
+	$wgSharedUploadPath = '//www.uesp.net/w/images';
 	$wgSharedUploadDirectory = '/home/uesp/www/w/images/';
 	$wgHashedSharedUploadDirectory = true;
-	$wgUploadNavigationUrl = "http://www.uesp.net/wiki/Special:Upload";
-	$wgUploadMissingFileUrl= "http://www.uesp.net/wiki/Special:Upload";
+	$wgUploadNavigationUrl = "//www.uesp.net/wiki/Special:Upload";
+	$wgUploadMissingFileUrl= "//www.uesp.net/wiki/Special:Upload";
 }
 
 $wgShellLocale = "en_US.utf8";
@@ -60,7 +60,7 @@ $wgRightsPage = "UESPWiki:Copyright_and_Ownership";
 $wgRightsUrl = "http://creativecommons.org/licenses/by-sa/2.5/";
 $wgRightsText = "Attribution-ShareAlike 2.5 License";
 $wgRightsIcon = "/w/images/4/4d/Somerights.png";
-$wgCopyrightIcon = "<a href=\"http://www.uesp.net/wiki/UESPWiki:Copyright_and_Ownership\"><img src=\"http://www.uesp.net/w/images/4/4d/Somerights.png\" style=\"border: none;\" alt=\"[Content is available under Attribution-ShareAlike]\" /></a>";
+$wgCopyrightIcon = "<a href=\"//www.uesp.net/wiki/UESPWiki:Copyright_and_Ownership\"><img src=\"//www.uesp.net/w/images/4/4d/Somerights.png\" style=\"border: none;\" alt=\"[Content is available under Attribution-ShareAlike]\" /></a>";
 
 $wgDiff3 = "/usr/bin/diff3";
 $wgExternalDiffEngine = "wikidiff2";
@@ -108,5 +108,6 @@ $wgCacheEpoch = '20150522151500';
 $wgInvalidateCacheOnLocalSettingsChange = false;
 
 $wgReadOnlyFile = "$wgUploadDirectory/UESP_LOCK_DB";
+$wgApplyIpBlocksToXff = true;
 
 set_time_limit(60);
