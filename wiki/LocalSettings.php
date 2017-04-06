@@ -27,6 +27,11 @@ require './config/Search.php';
 require './config/Extensions.php';
 require './config/Mobile.php';
 
+# Fudge Content3 to think it's running on pt.uesp.net
+# $wgLanguageCode = "pt";
+# $uespLanguageSuffix = "_" . $wgLanguageCode;
+# $wgServer = "//" . $wgLanguageCode . ".uesp.net";
+
 # Optional includes (enable for testing as needed on select wikis). Be careful
 # if/when enabling on the main live sites due to performance issues and the
 # size of data collected.

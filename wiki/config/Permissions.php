@@ -68,6 +68,7 @@ $wgGroupPermissions['translator']['abusefilter-modify'] = true;
 $wgGroupPermissions['translator']['abusefilter-modify-restricted'] = true;
 $wgGroupPermissions['translator']['abusefilter-private'] = true;
 $wgGroupPermissions['translator']['abusefilter-revert'] = true;
+$wgGroupPermissions['translator']['allspacepatrol'] = true;
 $wgGroupPermissions['translator']['autopatrol'] = true;
 $wgGroupPermissions['translator']['delete'] = true;
 $wgGroupPermissions['translator']['deleterevision'] = true;

@@ -54,7 +54,7 @@ googletag.cmd.push(function() { googletag.display('div-gpt-ad-1344720487368-0');
 		<h5>Google Search</h5>
 		<div class="pBody">
 Begin SiteSearch Google
-<form method="get" action="http://www.google.com/custom" target="_top">
+<form method="get" action="//www.google.com/custom" target="_top">
 <table border="0" bgcolor="#FBEFD5">
 <tr><td nowrap="nowrap" valign="top" align="left">
 <input type="hidden" name="domains" value="uesp.net"></input>
@@ -81,7 +81,7 @@ Begin SiteSearch Google
 <input type="hidden" name="ie" value="ISO-8859-1"></input>
 <input type="hidden" name="oe" value="ISO-8859-1"></input>
 <input type="hidden" name="safe" value="active"></input>
-<input type="hidden" name="cof" value="GALT:#008000;GL:1;DIV:#CCCCCC;VLC:663399;AH:center;BGC:FBEFD5;LBGC:FCFFF0;ALC:0000ff;LC:0000ff;T:000000;GFNT:0000FF;GIMP:0000FF;LH:50;LW:189;L:http://www.uesp.net/w/images/Mainpage-logo.png;S:http://www.uesp.net;FORID:1"></input>
+<input type="hidden" name="cof" value="GALT:#008000;GL:1;DIV:#CCCCCC;VLC:663399;AH:center;BGC:FBEFD5;LBGC:FCFFF0;ALC:0000ff;LC:0000ff;T:000000;GFNT:0000FF;GIMP:0000FF;LH:50;LW:189;L://www.uesp.net/w/images/Mainpage-logo.png;S://www.uesp.net;FORID:1"></input>
 <input type="hidden" name="hl" value="en"></input>
 </td></tr></table>
 </form>

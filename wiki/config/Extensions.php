@@ -35,7 +35,7 @@ $wgCaptchaQuestions[] = array (
 $wgCaptchaTriggers['addurl'] = false;
 
 require_once "$IP/extensions/DailyEdits/DailyEdits.php";
-$wgDailyEditsGraphFile = "http://content3.uesp.net/w/extensions/UespCustomCode/files/dailyedits.png";
+$wgDailyEditsGraphFile = "//content3.uesp.net/w/extensions/UespCustomCode/files/dailyedits.png";
 
 require_once "$IP/extensions/DeleteBatch/DeleteBatch.php";
 require_once "$IP/extensions/Disambiguator/Disambiguator.php";
@@ -71,6 +71,8 @@ require_once "$IP/extensions/SpamBlacklist/SpamBlacklist.php";
 $wgSpamBlacklistFiles = array( "DB: uesp_net_wiki5 UESPWiki:Spam_Blacklist" );
 
 require_once "$IP/extensions/StringFunctions/StringFunctions.php";
+$wgStringFunctionsLimitReplace=50;
+
 require_once "$IP/extensions/TitleBlacklist/TitleBlacklist.php";
 
 require_once "$IP/extensions/TorBlock/TorBlock.php";
@@ -97,3 +99,4 @@ require_once "$IP/extensions/EsoCharData/EsoCharData.php";
 # require_once "$IP/extensions/WikiEditor/WikiEditor.php";
 
 require_once( "$IP/extensions/UespEsoItemLink/UespEsoItemLink.php" );
+require_once( "$IP/extensions/UespEsoSkills/UespEsoSkills.php" );
