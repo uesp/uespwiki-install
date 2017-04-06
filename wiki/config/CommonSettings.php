@@ -30,7 +30,7 @@ $wgUseImageMagick = true;
 $wgImageMagickTempDir = "/imagetmp";
 $wgImageMagickConvertCommand = '/usr/bin/convert';
 $wgAllowExternalImages = true;
-$wgUploadPath       = "$wgScriptPath/images";
+$wgUploadPath       = "//images.uesp.net/";
 $wgUploadDirectory  = "$IP/images";
 $wgUseInstantCommons = false;
 
@@ -43,7 +43,7 @@ $wgUseSharedUploads = false;
 if ($uespLanguageSuffix != "")
 {
 	$wgUseSharedUploads = true;
-	$wgSharedUploadPath = '//www.uesp.net/w/images';
+	$wgSharedUploadPath = '//images.uesp.net/';
 	$wgSharedUploadDirectory = '/home/uesp/www/w/images/';
 	$wgHashedSharedUploadDirectory = true;
 	$wgUploadNavigationUrl = "//www.uesp.net/wiki/Special:Upload";
@@ -59,8 +59,8 @@ $wgDefaultSkin = 'uespmonobook';
 $wgRightsPage = "UESPWiki:Copyright_and_Ownership";
 $wgRightsUrl = "http://creativecommons.org/licenses/by-sa/2.5/";
 $wgRightsText = "Attribution-ShareAlike 2.5 License";
-$wgRightsIcon = "/w/images/4/4d/Somerights.png";
-$wgCopyrightIcon = "<a href=\"//www.uesp.net/wiki/UESPWiki:Copyright_and_Ownership\"><img src=\"//www.uesp.net/w/images/4/4d/Somerights.png\" style=\"border: none;\" alt=\"[Content is available under Attribution-ShareAlike]\" /></a>";
+$wgRightsIcon = "//images.uesp.net/4/4d/Somerights.png";
+$wgCopyrightIcon = "<a href=\"//en.uesp.net/wiki/UESPWiki:Copyright_and_Ownership\"><img src=\"//en.uesp.net/w/images/4/4d/Somerights.png\" style=\"border: none;\" alt=\"[Content is available under Attribution-ShareAlike]\" /></a>";
 
 $wgDiff3 = "/usr/bin/diff3";
 $wgExternalDiffEngine = "wikidiff2";
