@@ -6,11 +6,11 @@
 global $IP;
 require_once "$IP/includes/specials/SpecialPreferences.php";
 
-function efSiteSpecialPreferences() {
+function efSiteSpecialPreferences($par) {
 	global $wgRequest;
 
 	$form = new SitePreferencesForm( $wgRequest );
-	$form->execute('');
+	$form->execute($par);
 }
 
 class SitePreferencesForm extends SpecialPreferences {
@@ -39,10 +39,27 @@ class SitePreferencesForm extends SpecialPreferences {
 		}
 	}
 	
+	public function submitReset( $formData ) {
+		
+		if ( !$this->getUser()->isAllowed( 'editmyoptions' ) ) {
+			throw new PermissionsError( 'editmyoptions' );
+		}
+		
+		$user = $this->getUser();
+		$this->resetPrefs();
+		$user->resetOptions( 'all', $this->getContext() );
+		$user->saveSettings();
+		
+		$url = $this->getPageTitle()->getFullURL( 'success' );
+		
+		$this->getOutput()->redirect( $url );
+		
+		return true;
+	}
+	
 	function resetPrefs() {
 		global $wgUser, $wgDefaultUserOptions, $wgContLang, $egCustomSiteID;
-		parent::resetPrefs();
-		
+				
 		$siteprefix = strtolower($egCustomSiteID);
 		foreach (array('searchtitles', 'searchtalk', 'searchredirects') as $tname) {
 			$this->mToggles[$siteprefix.$tname] = $wgUser->getOption( $siteprefix.$tname, $wgDefaultUserOptions[$siteprefix.$tname]);
