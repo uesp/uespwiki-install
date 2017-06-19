@@ -55,7 +55,7 @@ require_once "$IP/extensions/MetaTemplate/MetaTemplate.php";
 
 require_once( "$IP/extensions/MobileFrontend/MobileFrontend.php" );
 $wgMobileFrontendLogo = $wgScriptPath . '/extensions/MobileFrontend/stylesheets/images/uesp-mobile-logo.png';
-$wgMFAutodetectMobileView = true;
+$wgMFAutodetectMobileView = false;
 
 require_once "$IP/extensions/ParserFunctions/ParserFunctions.php";
 require_once "$IP/extensions/Patroller/Patroller.php";
