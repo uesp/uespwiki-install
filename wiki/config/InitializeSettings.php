@@ -16,6 +16,7 @@ $UESP_MOBILE_SERVERS = array(
 		'm.uesp.net',
 		'en.m.uesp.net',
 		'pt.m.uesp.net',
+		'it.m.uesp.net',
 		'www.m.uesp.net',
 		'content1.m.uesp.net',
 		'content2.m.uesp.net',
@@ -43,6 +44,10 @@ $wgLanguageCode = "en";
 if ($_SERVER['HTTP_HOST'] == "pt.uesp.net" || $_SERVER['HTTP_HOST'] == "pt.m.uesp.net") 
 {
 	$wgLanguageCode = "pt";
+}
+else if ($_SERVER['HTTP_HOST'] == "it.uesp.net" || $_SERVER['HTTP_HOST'] == "it.m.uesp.net")
+{
+	$wgLanguageCode = "it";
 }
 
 if ($wgLanguageCode != "en")
