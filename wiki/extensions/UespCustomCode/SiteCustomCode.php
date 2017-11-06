@@ -236,7 +236,7 @@ $egSiteEnableGoogleAds = true;  // UESP
 #$egSiteEnableGoogleAds = false; // ESPO
 
 $wgResourceModules['ext.UespCustomCode'] = array(
-	'loaderscripts' => 'modules/uesp.js',
+	'loaderscripts' => 'modules/uespCurse.js',
 	'position' => 'top',
 	'localBasePath' => dirname(__FILE__) . '/',
 	'remoteExtPath' => 'UespCustomCode',
@@ -316,7 +316,7 @@ function efSiteCustomCode() {
 function UESP_beforePageDisplay(&$out) {
 	global $wgScriptPath;
 
-	$out->addHeadItem("uesp", "<script src='$wgScriptPath/extensions/UespCustomCode/modules/uesp.js'></script>");
+	$out->addHeadItem("uesp", "<script src='$wgScriptPath/extensions/UespCustomCode/modules/uespCurse.js'></script>");
 
 	return true;
 }

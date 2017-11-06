@@ -20,20 +20,26 @@ class SiteMonobook {
 	if ( $wgTitle->getPrefixedText() == 'Special:WebChat') {
 		// no ads
 	}
-	else if ( ! $wgUser->isLoggedIn() ) {
+        else if ( ! $wgUser->isLoggedIn() ) {
 ?>
 <!-- WikiBottomAnonymous -->
-	<div style='width:300px; height:250px;'>
-		<div id='cdm-zone-02'></div>
-	</div>
+<div id='div-gpt-ad-1344720487368-1' style='width:300px; height:250px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1344720487368-1');
+ });
+</script>
+</div>
 <?php
-	} else {
+        } else {
 ?>
 
-<!-- Wiki_Bottom_Logged In-->
-	<div style='width:300px; height:250px;'>
-		<div id='cdm-zone-02'></div>
-	</div>
+<!-- Wiki_Bottom_Rectangle -->
+<div id='div-gpt-ad-1344720487368-0' style='width:300px; height:250px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1344720487368-0');
+ });
+</script>
+</div>
 <?php
         }
 ?>
