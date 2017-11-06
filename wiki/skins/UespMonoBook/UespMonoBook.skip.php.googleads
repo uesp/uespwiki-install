@@ -79,14 +79,20 @@ class UespMonoBookTemplate extends MonoBookTemplate
 		$this->html( 'headelement' );
 		?><div id="globalWrapper">
 	<div id="column-content"><div id="content" class="mw-body-primary" role="main">
-	<!-- BEGIN UESP Top Ad-->
+	<!-- BEGIN UESP -->
 <?php
-        //if ( ! $wgUser->isLoggedIn() ) {
-        if (true) {
+        if ( ! $wgUser->isLoggedIn() ) {
 ?>
-		<div class='center' style='margin-left: auto; margin-right: auto; width:728px; height:90px;'>
-			<div id='cdm-zone-01'></div>
-		</div>
+        <!-- WikiLeaderboardTop -->
+<div class='center' style='margin-left: auto; margin-right: auto;'>
+<div id='div-gpt-ad-1344720487368-2' style='width:728px; height:90px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1344720487368-2');
+ });
+</script>
+</div>
+</div>
+
 <?php
         }
 ?>
@@ -116,7 +122,7 @@ class UespMonoBookTemplate extends MonoBookTemplate
 			<div class="visualClear"></div>
 		</div>
 	</div>
-	<!-- BEGIN UESP Bottom Ad -->
+	<!-- BEGIN UESP -->
 	<?php wfRunHooks( 'MonoBookPageBottom', array( &$this ) ); ?>
 	<!-- End UESP -->
 	</div>
@@ -144,13 +150,19 @@ class UespMonoBookTemplate extends MonoBookTemplate
 		</div>
 	<?php
 		$this->renderPortals( $this->data['sidebar'] );
-		//BEGIN UESP Sidebar Ad
-		//if ( ! $wgUser->isLoggedIn() ) {
-		if (true) {
+		//BEGIN UESP
+		if ( ! $wgUser->isLoggedIn() ) {
 			?>
-			<div>
-				<div id='cdm-zone-07'></div>
-			</div>
+		
+			<div id="p-googlead" class="portlet" style="">
+				<!-- WikiMiddleWideSkyscraper -->
+				<div class='center' id='div-gpt-ad-1344720487368-3' style='width:160px; height:600px; margin-right: auto; margin-left: auto;'>
+					<script type='text/javascript'>
+		googletag.cmd.push(function() { googletag.display('div-gpt-ad-1344720487368-3'); });
+					</script>
+				</div>
+				</form>
+		        </div>
 		<?php
 		        }
 		//END UESP
@@ -192,28 +204,6 @@ class UespMonoBookTemplate extends MonoBookTemplate
 	?>
 	
 	</div>
-<!-- BEGIN UESP -->
-	<div id='cdm-zone-end'></div>
-	
-<!-- Begin comScore -->
-<script>
-	var _comscore = _comscore || [];
-	_comscore.push({ c1: "2", c2: "6035118" });
-	(function() {
-	   var s = document.createElement("script"), el = document.getElementsByTagName("script")[0]; s.async = true;
-	   s.src = (document.location.protocol == "https:" ? "https://sb" : "http://b") + ".scorecardresearch.com/beacon.js";
-	   el.parentNode.insertBefore(s, el);
-	})();
-</script>
-<noscript>
-   <img src="http://b.scorecardresearch.com/p?c1=2&amp;c2=6035118&amp;cv=2.0&amp;cj=1" />
-</noscript>
-<!-- End comScore -->
-
-<!-- Nielsen Online SiteCensus -->
-       <div><img src="//secure-us.imrworldwide.com/cgi-bin/m?ci=us-603339h&amp;cg=0&amp;cc=1&amp;ts=noscript" width="1" height="1" alt="" /></div>
-<!-- End Nielsen Online SiteCensus -->
-<!-- END UESP -->
 	<?php
 			$this->printTrail();
 			echo Html::closeElement( 'body' );
@@ -239,7 +229,7 @@ class UespMonoBookTemplate extends MonoBookTemplate
 	
 	<div id="p-googleplus" class="portlet" style="border: 1px solid #AAAAAA; background:#FBEFD5; margin: 0px; padding: 3px; width: 153px; overflow: hidden;">
 		<div class="g-plusone" data-annotation="inline" data-width="139"></div>
-		<script type="text/javascript">
+			<script type="text/javascript">
 (function() {
 	var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
 	po.src = 'https://apis.google.com/js/plusone.js';
