@@ -1,0 +1,8 @@
+{
+    "@metadata": {
+        "authors": [
+            "Michael Dale"
+        ]
+    },
+    "mwembed-desc": "Provides support for mwEmbed modules and extensions"
+}
