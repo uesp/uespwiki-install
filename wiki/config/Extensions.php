@@ -100,3 +100,8 @@ require_once "$IP/extensions/EsoCharData/EsoCharData.php";
 
 require_once( "$IP/extensions/UespEsoItemLink/UespEsoItemLink.php" );
 require_once( "$IP/extensions/UespEsoSkills/UespEsoSkills.php" );
+
+require( "$IP/extensions/MwEmbedSupport/MwEmbedSupport.php" );
+require( "$IP/extensions/TimedMediaHandler/TimedMediaHandler.php" );
+
+require( "$IP/extensions/UespLegendsCards/UespLegendsCards.php" );
