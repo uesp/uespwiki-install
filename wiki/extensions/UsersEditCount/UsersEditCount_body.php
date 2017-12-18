@@ -185,7 +185,7 @@ class UsersEditCountPage extends QueryPage {
 		global $wgLang, $wgContLang;
 	
 		$user = null;
-		$user = User::newFromName($result->title);
+		$user = User::newFromId($result->title);
 	
 		if (is_null($user)) {
 			if ($this->OutputEmails) return "{$result->title}, n/a, n/a, {$result->value}";
