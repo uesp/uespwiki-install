@@ -75,6 +75,7 @@ $wgGroupPermissions['translator']['deleterevision'] = true;
 $wgGroupPermissions['translator']['editinterface'] = true;
 $wgGroupPermissions['translator']['editprotected'] = true;
 $wgGroupPermissions['translator']['editsemiprotected'] = true;
+$wgGroupPermissions['translator']['import'] = true;
 $wgGroupPermissions['translator']['movefile'] = true;
 $wgGroupPermissions['translator']['patroller'] = true;
 $wgGroupPermissions['translator']['protectsection'] = true;
