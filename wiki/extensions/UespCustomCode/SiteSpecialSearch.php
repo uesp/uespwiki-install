@@ -10,7 +10,7 @@ function efSiteSpecialSearch( $par = '') {
 
 	$searchPage = new SiteSpecialSearch( $wgRequest, $wgUser );
 
-	$searchPage->execute( null );
+	$searchPage->execute( $par );
 }
 
 class SiteSpecialSearch extends SpecialSearch {
@@ -98,10 +98,12 @@ class SiteSpecialSearch extends SpecialSearch {
 		<td>&nbsp;</td>
 	</tr><tr>
 		<td><b>Other ES</b></td>
-	</tr><tr>
-		<td style="white-space: nowrap"><input name="ns130" type="checkbox" value="1" $checked_data[130] id="mw-search-ns130" />&#160;<label for="mw-search-ns130">Lore</label></td>
 	</tr><tr>		
 		<td style="white-space: nowrap"><input name="ns140" type="checkbox" value="1" $checked_data[140] id="mw-search-ns140" />&#160;<label for="mw-search-ns140">Books</label></td>
+	</tr><tr>
+		<td style="white-space: nowrap"><input name="ns150" type="checkbox" value="1" $checked_data[150] id="mw-search-ns150" />&#160;<label for="mw-search-ns150">Legends</label></td>
+	</tr><tr>
+		<td style="white-space: nowrap"><input name="ns130" type="checkbox" value="1" $checked_data[130] id="mw-search-ns130" />&#160;<label for="mw-search-ns130">Lore</label></td>
 	</tr>
 </table>
 <table cellpadding="0" cellspacing="0" border="0">
