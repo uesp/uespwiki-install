@@ -313,6 +313,8 @@ class SiteMiscFunctions {
 	}
 	
 	public static function markPatrolled($rcid, $user, $wcOnlySysopsCanPatrol) {
+		//var_dump($user->getName() == $this->getAttribute( 'rc_user_text' ) && !$user->isAllowed( 'autopatrol' ));
+		
 		$rc = RecentChange::newFromId($rcid);
 		$ns = $rc->getAttribute('rc_namespace');
 		// if it is a userspace, then patrolling must be OK
