@@ -318,7 +318,24 @@ function UESP_beforePageDisplay(&$out) {
 
 	$out->addHeadItem("uesp", "<script src='$wgScriptPath/extensions/UespCustomCode/modules/uespCurse.js'></script>");
 
+	SetUespEsoMapSessionData();
+	
 	return true;
+}
+
+
+function SetUespEsoMapSessionData()
+{
+	global $_SESSION, $wgUser;
+	
+	$_SESSION['UESP_EsoMap_canEdit'] = false;
+	
+	if ($wgUser == null) return;
+	
+	if( $wgUser->isAllowed( 'mapedit' ))
+	{
+		$_SESSION['UESP_EsoMap_canEdit'] = true;
+	}
 }
 
 /**
