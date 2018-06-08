@@ -33,6 +33,7 @@ class SiteMonobook {
 <!-- Wiki_Bottom_Logged In-->
 	<div style='width:300px; height:250px;'>
 		<div id='cdm-zone-02'></div>
+		<a href="https://www.twitch.tv/p/legal/privacy-policy/">Ads by Curse</a>
 	</div>
 <?php
         }
