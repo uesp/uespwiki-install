@@ -47,7 +47,7 @@ if ($_SERVER['HTTP_HOST'] == "pt.uesp.net" || $_SERVER['HTTP_HOST'] == "pt.m.ues
 }
 else if ($_SERVER['HTTP_HOST'] == "it.uesp.net" || $_SERVER['HTTP_HOST'] == "it.m.uesp.net")
 {
-        $wgLanguageCode = "it";
+	$wgLanguageCode = "it";
 }
 
 if ($wgLanguageCode != "en")
