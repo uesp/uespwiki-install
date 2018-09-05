@@ -84,9 +84,9 @@ class UespMonoBookTemplate extends MonoBookTemplate
         //if ( ! $wgUser->isLoggedIn() ) {
         if (true) {
 ?>
-		<div class='center' style='margin-left: auto; margin-right: auto; width:728px; height:90px;'>
+		<div id='topad'><div class='center' style='margin-left: auto; margin-right: auto; width:728px; height:90px;'>
 			<div id='cdm-zone-01'></div>
-		</div>
+		</div></div>
 <?php
         }
 ?>
@@ -260,7 +260,7 @@ class UespMonoBookTemplate extends MonoBookTemplate
 		echo '	' . Html::openElement( 'div', $portletAttribs );
 		?>
 	
-			<h5><label><?php $msg = wfMessage( $bar ); echo htmlspecialchars( $msg->exists() ? $msg->text() : $bar ); ?></label></h5>
+			<h3><label><?php $msg = wfMessage( $bar ); echo htmlspecialchars( $msg->exists() ? $msg->text() : $bar ); ?></label></h3>
 			<div class='pBody'>
 	<?php   if ( is_array( $cont ) ) { ?>
 				<ul>

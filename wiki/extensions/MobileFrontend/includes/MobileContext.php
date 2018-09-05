@@ -258,6 +258,7 @@ class MobileContext extends ContextSource {
 	 * @return bool
 	 */
 	public function shouldDisplayMobileView() {
+	
 		if ( !is_null( $this->mobileView ) ) {
 			return $this->mobileView;
 		}
@@ -607,7 +608,7 @@ class MobileContext extends ContextSource {
 	 * @return string
 	 */
 	public function getMobileUrl( $url, $forceHttps = false ) {
-
+		
 		if ( $this->shouldDisplayMobileView() ) {
 			$subdomainTokenReplacement = null;
 			if ( wfRunHooks( 'GetMobileUrl', array( &$subdomainTokenReplacement, $this ) ) ) {

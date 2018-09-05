@@ -7,8 +7,8 @@
 #
 
  $wgProfiler['class'] = 'Profiler';
- $wgDebugLogFile = "/cache/debug.log";
- $wgProfileLimit = 1.0;
+ $wgDebugLogFile = "/tmp/profile.log";
+ $wgProfileLimit = 0;
 
  // Don't put non-profiling info into log file
  $wgProfileOnly = false;

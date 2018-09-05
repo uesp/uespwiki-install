@@ -144,9 +144,15 @@ function efMetaTemplateInit() {
 	// to any request; if job queue needs to regenerate an article using one of these commands,
 	// then hook needs to be in place or else regenerated version will be useless
 	$ispreview = $wgRequest->getCheck( 'wpPreview' ) || $wgRequest->getCheck( 'wpLivePreview' );
-// $wgTitle hasn't been initialized yet... so rely on wgRequest instead
-//	$istemplate = $wgTitle->getNamespace()==NS_TEMPLATE;
-	$istemplate = substr( $wgRequest->getVal( 'title' ), 0, 9) == 'Template:' ;
+	// $wgTitle hasn't been initialized yet... so rely on wgRequest instead
+	$titleText = $wgRequest->getVal( 'title' );
+	if ($titleText) {
+		$title = Title::newFromText($wgRequest->getVal( 'title' ));
+		$istemplate = $title->getNamespace()==NS_TEMPLATE;
+	}
+	else {
+		$istemplate = false;
+	}
 	
 	if( version_compare( $wgVersion, '1.12.0', '>='))
 		$hookoption = SFH_OBJECT_ARGS;

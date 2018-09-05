@@ -1,0 +1,34 @@
+{
+	"@metadata": {
+		"authors": [
+			"Liuxinyu970226",
+			"Hudafu",
+			"NigelSoft",
+			"御坂美琴"
+		]
+	},
+	"jsonconfig-desc": "允许JSON配置存储在wiki中",
+	"jsonconfig-bad-json": "无法解析JSON配置。请检查语法。",
+	"jsonconfig-duplicate-field": "已发现多于1个值“$1”",
+	"jsonconfig-err-array": "参数“$1”必须是一个列表，例如['value1', 'value2', ...]",
+	"jsonconfig-err-assoc-array": "参数“$1”必须是关联数组（字典），例如{'key': 'value', ...}",
+	"jsonconfig-err-bool": "参数“$1”必须设置为true或false",
+	"jsonconfig-err-integer": "参数“$1”必须是整数",
+	"jsonconfig-err-array-expected": "在“$1”的值预期是被方括号“[XXX]”括住的列表",
+	"jsonconfig-err-object-expected": "在“$1”的值预期是被大括号“{XXX}”括住的对象",
+	"jsonconfig-err-root-array-expected": "JSON数据应为列表，使用方括号“[...]”括起",
+	"jsonconfig-err-root-object-expected": "JSON数据应为对象，使用大括号“{...}”括起",
+	"jsonconfig-err-string": "参数“$1”必须是字符串",
+	"jsonconfig-err-url": "参数“$1”必须是一个有效的 URL",
+	"jsonconfig-move-aborted-model": "此页面的JSON配置模块“$1”不会匹配新标题的模块“$2”",
+	"jsonconfig-move-aborted-ns": "新页面标题不会配置为兼容JSON的配置",
+	"jsonconfig-optional-field": "（可选）",
+	"right-jsonconfig-flush": "通过API操作JsonConfig",
+	"apihelp-jsonconfig-description": "允许直接访问JsonConfig子系统。",
+	"apihelp-jsonconfig-param-command": "要在JsonConfig上执行的子操作：\n;status:显示JsonConfig配置。\n;reset:从缓存中清空配置。需要$1title参数和jsonconfig-reset权限。\n;reload:从配置库中重新载入并缓存配置。需要$1title参数和jsonconfig-reset权限。",
+	"apihelp-jsonconfig-param-title": "要进行的标题。",
+	"apihelp-jsonconfig-param-content": "对于$1command=reload，使用此内容。",
+	"apihelp-jsonconfig-example-1": "显示配置",
+	"apihelp-jsonconfig-example-2": "重置[[Zero:TEST]]",
+	"apihelp-jsonconfig-example-3": "重新加载[[Zero:TEST]]"
+}

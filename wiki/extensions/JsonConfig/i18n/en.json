@@ -1,0 +1,31 @@
+{
+	"@metadata": {
+		"authors": [
+			"Yuri Astrakhan"
+		]
+	},
+	"jsonconfig-desc": "Allows JSON configuration to be stored in a wiki",
+	"jsonconfig-bad-json": "Unable to parse JSON configuration. Please check the syntax.",
+	"jsonconfig-duplicate-field": "More than one value \"$1\" found",
+	"jsonconfig-err-array": "Parameter \"$1\" must be a list, e.g. ['value1', 'value2', ...]",
+	"jsonconfig-err-assoc-array": "Parameter \"$1\" must be an associative array (dictionary), e.g. {'key': 'value', ...}",
+	"jsonconfig-err-bool": "Parameter \"$1\" must be either set to true or false",
+	"jsonconfig-err-integer": "Parameter \"$1\" must be an integer",
+	"jsonconfig-err-array-expected": "The value at \"$1\" was expected to be a list surrounded by the [...] brackets",
+	"jsonconfig-err-object-expected": "The value at \"$1\" was expected to be an object surrounded by the {...} braces",
+	"jsonconfig-err-root-array-expected": "JSON data should be a list, surrounded by the [...] brackets",
+	"jsonconfig-err-root-object-expected": "JSON data should be an object, surrounded by the {...} braces",
+	"jsonconfig-err-string": "Parameter \"$1\" must be a string",
+	"jsonconfig-err-url": "Parameter \"$1\" must be a valid URL",
+	"jsonconfig-move-aborted-model": "this page's JSON config model \"$1\" would not match the new title's model \"$2\"",
+	"jsonconfig-move-aborted-ns": "the new page title is not set up to hold JSON configuration",
+	"jsonconfig-optional-field": "(optional)",
+	"right-jsonconfig-flush": "Manipulate JsonConfig via API",
+	"apihelp-jsonconfig-description": "Allows direct access to JsonConfig subsystem.",
+	"apihelp-jsonconfig-param-command": "Which sub-action to perform on JsonConfig:\n;status:Shows JsonConfig configuration.\n;reset:Clears configurations from cache. Requires $1title parameter and jsonconfig-reset right.\n;reload:Reloads and caches configurations from config store. Requires $1title parameter and jsonconfig-reset right.",
+	"apihelp-jsonconfig-param-title": "Title to process.",
+	"apihelp-jsonconfig-param-content": "For $1command=reload, use this content instead.",
+	"apihelp-jsonconfig-example-1": "Show configuration",
+	"apihelp-jsonconfig-example-2": "Reset [[Zero:TEST]]",
+	"apihelp-jsonconfig-example-3": "Reload [[Zero:TEST]]"
+}

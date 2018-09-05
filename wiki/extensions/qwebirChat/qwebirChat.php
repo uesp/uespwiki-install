@@ -18,7 +18,7 @@ $wgSpecialPageGroups['WebChat'] = 'wiki';
 $wgExtensionMessagesFiles['WebChat'] =  dirname( __FILE__).'/qwebirChat.i18n.php';
 
 //Add "chat" tab to every article
-$wgHooks['SkinTemplateNavigation::Universal'][] = 'WebChat::addChatTab';
+//$wgHooks['SkinTemplateNavigation::Universal'][] = 'WebChat::addChatTab';
 
 class WebChat extends SpecialPage {
 
