@@ -18,8 +18,7 @@ require_once( "$IP/extensions/ConfirmEdit/ConfirmEdit.php" );
 require_once("$IP/extensions/ConfirmEdit/QuestyCaptcha.php");
 $wgCaptchaClass = 'QuestyCaptcha';
 
-# Now a more complicated one
-# Generate a random string 10 characters long
+# Generate a random string
 $myChallengeLength = rand(2, 5);
 $myChallengeIndex = rand(0, 12 - $myChallengeLength);
 $myChallengeString = md5(uniqid(mt_rand(), true));
