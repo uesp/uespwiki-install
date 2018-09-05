@@ -1,7 +1,6 @@
 <?php
 
 $magicWords = array();
-
 $magicWords['en'] = array(
 	MAG_METATEMPLATE_DEFINE => array( 0, 'define' ),
 	MAG_METATEMPLATE_PREVIEW => array( 0, 'preview' ),

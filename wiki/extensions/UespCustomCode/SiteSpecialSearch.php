@@ -22,12 +22,6 @@ class SiteSpecialSearch extends SpecialSearch {
 
 		$this->searchTalkPages = false;
         }
-		
-	public function showResults( $term )
-	{
-		$newTerm = preg_replace('/\b(eso)\b/i', '($1 OR Online)', $term);
-		return parent::showResults($newTerm);
-	}
 
 	public function load()
 	{

@@ -1,8 +1,8 @@
 <?php
 
 $wgExtensionCredits['other'][] = array(
-       'path' => __FILE__,
-       'name' => '[http://www.uesp.net/wiki/UESPWiki:JobQueue JobQueue]',
+       'name' => 'JobQueue',
+	   'url' => 'http://www.uesp.net/wiki/UESPWiki:JobQueue',
        'description' => '',
        'descriptionmsg' => 'jobqueue-desc',
        'version'  => 0.1,

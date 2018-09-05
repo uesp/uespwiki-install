@@ -33,6 +33,7 @@ $wgAllowExternalImages = true;
 $wgUploadPath       = "//images.uesp.net/";
 $wgUploadDirectory  = "$IP/images";
 $wgUseInstantCommons = false;
+$wgSVGConverters['ImageMagick'] = '$path/convert -background "#ffffff00" -thumbnail $widthx$height\! $input PNG:$output';
 
 $wgHashedUploadDirectory = true;
 array_push($wgFileExtensions, 'ogg', 'zip', 'bmp', 'pcx', 'tga', 'svg');
@@ -80,6 +81,7 @@ $wgExpensiveParserFunctionLimit = 1000;
 $wgFavicon = '/favicon.ico';
 $wgJobRunRate = 0.1;
 $wgLocaltimezone = "GMT";
+$wgMaxArticleSize = 8192;
 $wgMaxShellMemory = 1310720;
 $wgMaxShellFileSize = 1310720;
 $wgRateLimits = array(20, 360); # RM: More advanced options are supported now. Do we need/want them?
@@ -110,4 +112,9 @@ $wgInvalidateCacheOnLocalSettingsChange = false;
 $wgReadOnlyFile = "$wgUploadDirectory/UESP_LOCK_DB";
 $wgApplyIpBlocksToXff = true;
 
+$wgSkipSkins = array( 'monobook', 'vector' );
+
 set_time_limit(60);
+
+$wgCookieSecure = false;
+$wgMaxImageArea = 6e7;

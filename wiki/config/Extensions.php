@@ -19,17 +19,20 @@ require_once("$IP/extensions/ConfirmEdit/QuestyCaptcha.php");
 $wgCaptchaClass = 'QuestyCaptcha';
 
 # Now a more complicated one
-# Generate a random string 8 characters long
-$myChallengeString = substr(md5(uniqid(mt_rand(), true)), 0, 10);
-# Pick a random location in those 8 strings
-$myChallengeIndex = rand(0, 8);
-# Let's use words to describe the position, just to make it a bit more complicated
-$myChallengePositions = array ('first', 'second', 'third', 'fourth', 'fifth', 'fifth last', 'fourth last', 'third last', 'second last');
-$myChallengePositionName = $myChallengePositions[$myChallengeIndex];
+# Generate a random string 10 characters long
+$myChallengeLength = rand(2, 5);
+$myChallengeIndex = rand(0, 12 - $myChallengeLength);
+$myChallengeString = md5(uniqid(mt_rand(), true));
+$prefix = substr($myChallengeString, 0, $myChallengeIndex);
+$answer = substr($myChallengeString, $myChallengeIndex, $myChallengeLength);
+$suffix = substr($myChallengeString, $myChallengeIndex + $myChallengeLength, 12 - $myChallengeIndex + myChallengeLength);
+$myChallengeString = "<span style='background-color:white'>$prefix</span><span style='background-color:lightgreen'>$answer</span><span style='background-color:lightgrey'>$suffix</span>";
+# Pick a random location in the string
+
 # Build the question/anwer
 $wgCaptchaQuestions[] = array (
-    'question' => "Please provide the two characters, starting from the $myChallengePositionName character, in the following sequence: <code>$myChallengeString</code>",
-    'answer' => substr( $myChallengeString, $myChallengeIndex, 2 )
+    'question' => "Please enter the characters highlighted in green in the following sequence: <code>$myChallengeString</code>",
+    'answer' => $answer
 );
 // ------------------
 $wgCaptchaTriggers['addurl'] = false;
@@ -49,7 +52,7 @@ require_once "$IP/extensions/InputBox/InputBox.php";
 require_once "$IP/extensions/JobQueue/JobQueue.php";
 require_once "$IP/extensions/LabeledSectionTransclusion/lst.php";
 require_once "$IP/extensions/LabeledSectionTransclusion/lsth.php";
-require_once "$IP/extensions/LogPageRenderTimes/LogPageRenderTimes.php";
+# require_once "$IP/extensions/LogPageRenderTimes/LogPageRenderTimes.php";
 require_once "$IP/extensions/MediaFunctions/MediaFunctions.php";
 require_once "$IP/extensions/MetaTemplate/MetaTemplate.php";
 
@@ -58,6 +61,9 @@ $wgMobileFrontendLogo = $wgScriptPath . '/extensions/MobileFrontend/stylesheets/
 $wgMFAutodetectMobileView = true;
 
 require_once "$IP/extensions/ParserFunctions/ParserFunctions.php";
+$wgPFEnableStringFunctions = true;
+$wgPFStringLengthLimit = 30000;
+
 require_once "$IP/extensions/Patroller/Patroller.php";
 require_once "$IP/extensions/ProtectSection/ProtectSection.php";
 $egProtectSectionNoAddAbove = true;
@@ -70,8 +76,8 @@ require_once "$IP/extensions/Renameuser/SpecialRenameuser.php";
 require_once "$IP/extensions/SpamBlacklist/SpamBlacklist.php";
 $wgSpamBlacklistFiles = array( "DB: uesp_net_wiki5 UESPWiki:Spam_Blacklist" );
 
-require_once "$IP/extensions/StringFunctions/StringFunctions.php";
-$wgStringFunctionsLimitReplace=50;
+# require_once "$IP/extensions/StringFunctions/StringFunctions.php";
+# $wgStringFunctionsLimitReplace=50;
 
 require_once "$IP/extensions/TitleBlacklist/TitleBlacklist.php";
 
@@ -83,6 +89,7 @@ require_once "$IP/extensions/UespMap/UespMap.php";
 require_once "$IP/extensions/UsersEditCount/UsersEditCount.php";
 require_once "$IP/extensions/WikiTextLoggedInOut/WikiTextLoggedInOut.php";
 require_once "$IP/skins/UespMonoBook/UespMonoBook.php";
+require_once "$IP/skins/uespvector/UespVector.php";
 require_once "$IP/extensions/EsoCharData/EsoCharData.php";
 
 # Disabled Extensions
@@ -101,7 +108,12 @@ require_once "$IP/extensions/EsoCharData/EsoCharData.php";
 require_once( "$IP/extensions/UespEsoItemLink/UespEsoItemLink.php" );
 require_once( "$IP/extensions/UespEsoSkills/UespEsoSkills.php" );
 
-require( "$IP/extensions/MwEmbedSupport/MwEmbedSupport.php" );
-require( "$IP/extensions/TimedMediaHandler/TimedMediaHandler.php" );
+require_once( "$IP/extensions/MwEmbedSupport/MwEmbedSupport.php" );
+require_once( "$IP/extensions/TimedMediaHandler/TimedMediaHandler.php" );
+$wgEnableTranscode = false; // Disabled for now, since transcoding isn't working anyway - needs FFMPEG.
 
-require( "$IP/extensions/UespLegendsCards/UespLegendsCards.php" );
+require_once( "$IP/extensions/UespLegendsCards/UespLegendsCards.php" );
+
+require_once( "$IP/extensions/JsonConfig/JsonConfig.php" );
+require_once( "$IP/extensions/Graph/Graph.php" );
+$wgEnableGraphParserTag = true;

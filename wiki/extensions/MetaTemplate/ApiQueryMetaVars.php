@@ -80,7 +80,7 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase {
         if ( $params['var'] )
             $this->addWhereFld( 'mt_save_data.mt_save_varname', $params['var'] );
 
-        if ( $params['subset'] != null )
+		if ( $params['subset'] !== null )
             $this->addWhereFld( 'mt_save_set.mt_set_subset', $params['subset'] );
 
         $this->addOption( 'ORDER BY', 'mt_save_set.mt_set_page_id' ); // , mt_save_set.mt_set_subset, mt_save_data.mt_save_varname
@@ -147,18 +147,18 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase {
     /**
      * Add MetaTemplate saved values to the page output.
      *
-     * Assumptions: there will never be a subset named "subset".
-     *
      * @param $page int
      * @param $values array
      * @return bool True if it fits on the page.
      */
     private function addMetaValues( $page, $values ) {
         $items = array ( );
-        foreach ( $values as $key => $subset ) {
+        foreach ( $values as $key => $set ) {
+			$item = array ( );
             if ( $key !== '' )
-                $subset = array ( 'subset' => $key ) + $subset;
-            $items[] = $subset;
+                $item['subset'] = $key;
+            $item['vars'] = $set;
+			$items[] = $item;
         }
 
         return $this->addPageSubItems( $page, $items );

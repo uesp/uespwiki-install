@@ -31,9 +31,10 @@ require './config/Mobile.php';
 # $wgLanguageCode = "pt";
 # $uespLanguageSuffix = "_" . $wgLanguageCode;
 # $wgServer = "//" . $wgLanguageCode . ".uesp.net";
+# $wgServer = "//content3.uesp.net";
 
 # Optional includes (enable for testing as needed on select wikis). Be careful
 # if/when enabling on the main live sites due to performance issues and the
 # size of data collected.
 # require './config/Profiler.php';
-# require './config/Debug.php';
+require './config/Debug.php';

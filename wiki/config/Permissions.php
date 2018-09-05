@@ -6,8 +6,8 @@
 #
 
 # Rights to add or remove user groups
-$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'map', 'patroller', 'translator', 'userpatroller' );
-$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'map', 'patroller', 'translator', 'userpatroller' );
+$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller' );
+$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller' );
 
 # Removed group rights
 $wgGroupPermissions['*']['createpage'] = false;
@@ -37,11 +37,14 @@ $wgGroupPermissions['autopatrolled']['tboverride'] = true;
 $wgGroupPermissions['blockuser']['blocktalk'] = true;
 $wgGroupPermissions['blockuser']['skipcaptcha'] = true;
 
+$wgGroupPermissions['bot']['editprotected'] = true;
 $wgGroupPermissions['bot']['protect'] = true;
 $wgGroupPermissions['bot']['tboverride'] = true;
 
 $wgGroupPermissions['cartographer']['map'] = true;
 $wgGroupPermissions['cartographer']['mapedit'] = true;
+
+$wgGroupPermissions['confirmed']['autoconfirmed'] = true;
 
 $wgGroupPermissions['map']['map'] = true;
 
