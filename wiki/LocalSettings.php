@@ -37,4 +37,4 @@ require './config/Mobile.php';
 # if/when enabling on the main live sites due to performance issues and the
 # size of data collected.
 # require './config/Profiler.php';
-require './config/Debug.php';
+# require './config/Debug.php';
