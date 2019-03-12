@@ -1,8 +1,8 @@
 {
-    "@metadata": {
-        "authors": [
-            "Nghtwlkr"
-        ]
-    },
-    "mwembed-desc": "Gir støtte for mwEmbed-moduler og -utvidelser"
+	"@metadata": {
+		"authors": [
+			"Nghtwlkr"
+		]
+	},
+	"mwembed-desc": "Gir støtte for mwEmbed-moduler og -utvidelser"
 }

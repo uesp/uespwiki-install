@@ -31,7 +31,7 @@
  */
 class ApiQueryIWBacklinks extends ApiQueryGeneratorBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'iwbl' );
 	}
 
@@ -44,7 +44,7 @@ class ApiQueryIWBacklinks extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 * @return void
 	 */
 	public function run( $resultPageSet = null ) {
@@ -210,35 +210,12 @@ class ApiQueryIWBacklinks extends ApiQueryGeneratorBase {
 		);
 	}
 
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'pageid' => 'integer',
-				'ns' => 'namespace',
-				'title' => 'string',
-				'redirect' => 'boolean'
-			),
-			'iwprefix' => array(
-				'iwprefix' => 'string'
-			),
-			'iwtitle' => array(
-				'iwtitle' => 'string'
-			)
-		);
-	}
-
 	public function getDescription() {
 		return array( 'Find all pages that link to the given interwiki link.',
 			'Can be used to find all links with a prefix, or',
 			'all links to a title (with a given prefix).',
 			'Using neither parameter is effectively "All IW Links".',
 		);
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array( 'missingparam', 'prefix' ),
-		) );
 	}
 
 	public function getExamples() {

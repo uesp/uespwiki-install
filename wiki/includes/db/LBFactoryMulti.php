@@ -263,7 +263,7 @@ class LBFactoryMulti extends LBFactory {
 	}
 
 	/**
-	 * @param string $cluster external storage cluster, or false for core
+	 * @param string $cluster External storage cluster, or false for core
 	 * @param bool|string $wiki Wiki ID, or false for the current wiki
 	 * @return LoadBalancer
 	 */
@@ -286,11 +286,9 @@ class LBFactoryMulti extends LBFactory {
 	 * @return LoadBalancer
 	 */
 	function newLoadBalancer( $template, $loads, $groupLoads ) {
-		global $wgMasterWaitTimeout;
 		$servers = $this->makeServerArray( $template, $loads, $groupLoads );
 		$lb = new LoadBalancer( array(
 			'servers' => $servers,
-			'masterWaitTimeout' => $wgMasterWaitTimeout
 		) );
 
 		return $lb;

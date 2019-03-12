@@ -1,12 +1,10 @@
 <?php
 
 abstract class ResourceLoaderTestCase extends MediaWikiTestCase {
-
-	protected static function getResourceLoaderContext() {
+	protected static function getResourceLoaderContext( $lang = 'en' ) {
 		$resourceLoader = new ResourceLoader();
 		$request = new FauxRequest( array(
-				'debug' => 'true',
-				'lang' => 'en',
+				'lang' => $lang,
 				'modules' => 'startup',
 				'only' => 'scripts',
 				'skin' => 'vector',
@@ -17,6 +15,8 @@ abstract class ResourceLoaderTestCase extends MediaWikiTestCase {
 
 	protected function setUp() {
 		parent::setUp();
+
+		ResourceLoader::clearCache();
 
 		$this->setMwGlobals( array(
 			// For ResourceLoader::inDebugMode since it doesn't have context
@@ -40,16 +40,27 @@ abstract class ResourceLoaderTestCase extends MediaWikiTestCase {
 /* Stubs */
 
 class ResourceLoaderTestModule extends ResourceLoaderModule {
-
 	protected $dependencies = array();
 	protected $group = null;
 	protected $source = 'local';
+	protected $script = '';
+	protected $styles = '';
+	protected $skipFunction = null;
+	protected $isRaw = false;
 	protected $targets = array( 'test' );
 
 	public function __construct( $options = array() ) {
 		foreach ( $options as $key => $value ) {
 			$this->$key = $value;
 		}
+	}
+
+	public function getScript( ResourceLoaderContext $context ) {
+		return $this->script;
+	}
+
+	public function getStyles( ResourceLoaderContext $context ) {
+		return array( '' => $this->styles );
 	}
 
 	public function getDependencies() {
@@ -63,6 +74,22 @@ class ResourceLoaderTestModule extends ResourceLoaderModule {
 	public function getSource() {
 		return $this->source;
 	}
+
+	public function getSkipFunction() {
+		return $this->skipFunction;
+	}
+
+	public function isRaw() {
+		return $this->isRaw;
+	}
 }
 
-class ResourceLoaderFileModuleTestModule extends ResourceLoaderFileModule {}
+class ResourceLoaderFileModuleTestModule extends ResourceLoaderFileModule {
+}
+
+class ResourceLoaderWikiModuleTestModule extends ResourceLoaderWikiModule {
+	// Override expected via PHPUnit mocks and stubs
+	protected function getPages( ResourceLoaderContext $context ) {
+		return array();
+	}
+}

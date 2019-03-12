@@ -31,7 +31,7 @@
  */
 class ApiQueryAllMessages extends ApiQueryBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'am' );
 	}
 
@@ -63,14 +63,13 @@ class ApiQueryAllMessages extends ApiQueryBase {
 		if ( in_array( '*', $params['messages'] ) ) {
 			$message_names = Language::getMessageKeysFor( $langObj->getCode() );
 			if ( $params['includelocal'] ) {
-				global $wgLanguageCode;
 				$message_names = array_unique( array_merge(
 					$message_names,
 					// Pass in the content language code so we get local messages that have a
 					// MediaWiki:msgkey page. We might theoretically miss messages that have no
 					// MediaWiki:msgkey page but do have a MediaWiki:msgkey/lang page, but that's
 					// just a stupid case.
-					MessageCache::singleton()->getAllMessageKeys( $wgLanguageCode )
+					MessageCache::singleton()->getAllMessageKeys( $this->getConfig()->get( 'LanguageCode' ) )
 				) );
 			}
 			sort( $message_names );
@@ -116,7 +115,7 @@ class ApiQueryAllMessages extends ApiQueryBase {
 			global $wgContLang;
 			$lang = $langObj->getCode();
 
-			$customisedMessages = AllmessagesTablePager::getCustomisedStatuses(
+			$customisedMessages = AllMessagesTablePager::getCustomisedStatuses(
 				array_map( array( $langObj, 'ucfirst' ), $messages_target ), $lang, $lang != $wgContLang->getCode() );
 
 			$customised = $params['customised'] === 'modified';
@@ -254,33 +253,6 @@ class ApiQueryAllMessages extends ApiQueryBase {
 			'lang' => 'Return messages in this language',
 			'from' => 'Return messages starting at this message',
 			'to' => 'Return messages ending at this message',
-		);
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array( 'code' => 'invalidlang', 'info' => 'Invalid language code for parameter lang' ),
-		) );
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'name' => 'string',
-				'customised' => 'boolean',
-				'missing' => 'boolean',
-				'*' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'default' => array(
-				'defaultmissing' => 'boolean',
-				'default' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			)
 		);
 	}
 

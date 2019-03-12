@@ -1,9 +1,9 @@
 {
-    "@metadata": {
-        "authors": [
-            "Fitoschido",
-            "Locos epraix"
-        ]
-    },
-    "mwembed-desc": "Proporciona compatibilidad con los módulos y extensiones que usan mwEmbed"
+	"@metadata": {
+		"authors": [
+			"Fitoschido",
+			"Locos epraix"
+		]
+	},
+	"mwembed-desc": "Proporciona compatibilidad con los módulos y extensiones que usan mwEmbed"
 }

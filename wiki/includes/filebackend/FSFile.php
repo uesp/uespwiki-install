@@ -45,7 +45,7 @@ class FSFile {
 	/**
 	 * Returns the file system path
 	 *
-	 * @return String
+	 * @return string
 	 */
 	public function getPath() {
 		return $this->path;
@@ -98,7 +98,7 @@ class FSFile {
 	 * Get an associative array containing information about
 	 * a file with the given storage path.
 	 *
-	 * @param mixed $ext The file extension, or true to extract it from the filename.
+	 * @param string|bool $ext The file extension, or true to extract it from the filename.
 	 *             Set it to false to ignore the extension.
 	 *
 	 * @return array
@@ -118,9 +118,9 @@ class FSFile {
 				$ext = self::extensionFromPath( $this->path );
 			}
 
-			# mime type according to file contents
+			# MIME type according to file contents
 			$info['file-mime'] = $this->getMimeType();
-			# logical mime type
+			# logical MIME type
 			$info['mime'] = $magic->improveTypeFromExtension( $info['file-mime'], $ext );
 
 			list( $info['major_mime'], $info['minor_mime'] ) = File::splitMime( $info['mime'] );
@@ -237,8 +237,8 @@ class FSFile {
 	/**
 	 * Get an associative array containing information about a file in the local filesystem.
 	 *
-	 * @param string $path absolute local filesystem path
-	 * @param mixed $ext The file extension, or true to extract it from the filename.
+	 * @param string $path Absolute local filesystem path
+	 * @param string|bool $ext The file extension, or true to extract it from the filename.
 	 *   Set it to false to ignore the extension.
 	 * @return array
 	 */

@@ -27,8 +27,8 @@
  * @ingroup SpecialPage
  */
 class SpecialChangePassword extends FormSpecialPage {
-
-	protected $mUserName, $mDomain;
+	protected $mUserName;
+	protected $mDomain;
 
 	// Optional Wikitext Message to show above the password change form
 	protected $mPreTextMessage = null;
@@ -43,6 +43,7 @@ class SpecialChangePassword extends FormSpecialPage {
 
 	/**
 	 * Main execution point
+	 * @param string|null $par
 	 */
 	function execute( $par ) {
 		$this->getOutput()->disallowUserJs();
@@ -61,7 +62,7 @@ class SpecialChangePassword extends FormSpecialPage {
 	/**
 	 * Set a message at the top of the Change Password form
 	 * @since 1.23
-	 * @param Message $msg to parse and add to the form header
+	 * @param Message $msg Message to parse and add to the form header
 	 */
 	public function setChangeMessage( Message $msg ) {
 		$this->mPreTextMessage = $msg;
@@ -77,13 +78,11 @@ class SpecialChangePassword extends FormSpecialPage {
 	}
 
 	protected function getFormFields() {
-		global $wgCookieExpiration;
-
 		$user = $this->getUser();
 		$request = $this->getRequest();
 
 		$oldpassMsg = $this->mOldPassMsg;
-		if ( !isset( $oldpassMsg ) ) {
+		if ( $oldpassMsg === null ) {
 			$oldpassMsg = $user->isLoggedIn() ? 'oldpassword' : 'resetpass-temp-password';
 		}
 
@@ -134,8 +133,9 @@ class SpecialChangePassword extends FormSpecialPage {
 			$fields['Remember'] = array(
 				'type' => 'check',
 				'label' => $this->msg( 'remembermypassword' )
-						->numParams( ceil( $wgCookieExpiration / ( 3600 * 24 ) ) )
-						->text(),
+						->numParams(
+							ceil( $this->getConfig()->get( 'CookieExpiration' ) / ( 3600 * 24 ) )
+						)->text(),
 				'default' => $request->getVal( 'wpRemember' ),
 			);
 		}
@@ -177,7 +177,6 @@ class SpecialChangePassword extends FormSpecialPage {
 			// Potential CSRF (bug 62497)
 			return false;
 		}
-
 
 		if ( $request->getCheck( 'wpCancel' ) ) {
 			$titleObj = Title::newFromText( $request->getVal( 'returnto' ) );
@@ -231,11 +230,12 @@ class SpecialChangePassword extends FormSpecialPage {
 	}
 
 	/**
-	 * @throws PasswordError when cannot set the new password because requirements not met.
+	 * @param string $oldpass
+	 * @param string $newpass
+	 * @param string $retype
+	 * @throws PasswordError When cannot set the new password because requirements not met.
 	 */
 	protected function attemptReset( $oldpass, $newpass, $retype ) {
-		global $wgPasswordAttemptThrottle;
-
 		$isSelf = ( $this->mUserName === $this->getUser()->getName() );
 		if ( $isSelf ) {
 			$user = $this->getUser();
@@ -255,13 +255,14 @@ class SpecialChangePassword extends FormSpecialPage {
 		$throttleCount = LoginForm::incLoginThrottle( $this->mUserName );
 		if ( $throttleCount === true ) {
 			$lang = $this->getLanguage();
+			$throttleInfo = $this->getConfig()->get( 'PasswordAttemptThrottle' );
 			throw new PasswordError( $this->msg( 'changepassword-throttled' )
-				->params( $lang->formatDuration( $wgPasswordAttemptThrottle['seconds'] ) )
+				->params( $lang->formatDuration( $throttleInfo['seconds'] ) )
 				->text()
 			);
 		}
 
-		// @TODO Make these separate messages, since the message is written for both cases
+		// @todo Make these separate messages, since the message is written for both cases
 		if ( !$user->checkTemporaryPassword( $oldpass ) && !$user->checkPassword( $oldpass ) ) {
 			wfRunHooks( 'PrefsPasswordAudit', array( $user, $newpass, 'wrongpassword' ) );
 			throw new PasswordError( $this->msg( 'resetpass-wrong-oldpass' )->text() );
@@ -296,7 +297,8 @@ class SpecialChangePassword extends FormSpecialPage {
 		if ( $isSelf ) {
 			// This is needed to keep the user connected since
 			// changing the password also modifies the user's token.
-			$user->setCookies();
+			$remember = $this->getRequest()->getCookie( 'Token' ) !== null;
+			$user->setCookies( null, null, $remember );
 		}
 		$user->resetPasswordExpiration();
 		$user->saveSettings();

@@ -36,7 +36,7 @@ class ApiQueryPrefixSearch extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 */
 	private function run( $resultPageSet = null ) {
 		$params = $this->extractRequestParams();
@@ -93,8 +93,8 @@ class ApiQueryPrefixSearch extends ApiQueryGeneratorBase {
 					ApiBase::PARAM_DFLT => 10,
 					ApiBase::PARAM_TYPE => 'limit',
 					ApiBase::PARAM_MIN => 1,
-					ApiBase::PARAM_MAX => 100, // Non-standard value for compatibility
-					                           // with action=opensearch
+					// Non-standard value for compatibility with action=opensearch
+					ApiBase::PARAM_MAX => 100,
 					ApiBase::PARAM_MAX2 => 200,
 				),
 			);

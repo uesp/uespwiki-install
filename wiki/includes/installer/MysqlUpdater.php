@@ -250,6 +250,22 @@ class MysqlUpdater extends DatabaseUpdater {
 			array( 'addIndex', 'logging', 'log_user_text_time', 'patch-logging_user_text_time_index.sql' ),
 			array( 'addField', 'page', 'page_links_updated', 'patch-page_links_updated.sql' ),
 			array( 'addField', 'user', 'user_password_expires', 'patch-user_password_expire.sql' ),
+
+			// 1.24
+			array( 'addField', 'page_props', 'pp_sortkey', 'patch-pp_sortkey.sql' ),
+			array( 'dropField', 'recentchanges', 'rc_cur_time', 'patch-drop-rc_cur_time.sql' ),
+			array( 'addIndex', 'watchlist', 'wl_user_notificationtimestamp',
+				'patch-watchlist-user-notificationtimestamp-index.sql' ),
+			array( 'addField', 'page', 'page_lang', 'patch-page_lang.sql' ),
+			array( 'addField', 'pagelinks', 'pl_from_namespace', 'patch-pl_from_namespace.sql' ),
+			array( 'addField', 'templatelinks', 'tl_from_namespace', 'patch-tl_from_namespace.sql' ),
+			array( 'addField', 'imagelinks', 'il_from_namespace', 'patch-il_from_namespace.sql' ),
+			array( 'modifyField', 'image', 'img_major_mime',
+				'patch-img_major_mime-chemical.sql' ),
+			array( 'modifyField', 'oldimage', 'oi_major_mime',
+				'patch-oi_major_mime-chemical.sql' ),
+			array( 'modifyField', 'filearchive', 'fa_major_mime',
+				'patch-fa_major_mime-chemical.sql' ),
 		);
 	}
 
@@ -643,25 +659,23 @@ class MysqlUpdater extends DatabaseUpdater {
 		);
 
 		global $wgContLang;
-		foreach ( MWNamespace::getCanonicalNamespaces() as $ns => $name ) {
+		foreach ( $wgContLang->getNamespaces() as $ns => $name ) {
 			if ( $ns == 0 ) {
 				continue;
 			}
 
 			$this->output( "Cleaning up broken links for namespace $ns... " );
-
-			$pagelinks = $this->db->tableName( 'pagelinks' );
-			$name = $wgContLang->getNsText( $ns );
-			$prefix = $this->db->strencode( $name );
-			$likeprefix = str_replace( '_', '\\_', $prefix );
-
-			$sql = "UPDATE $pagelinks
-					   SET pl_namespace=$ns,
-						   pl_title=TRIM(LEADING '$prefix:' FROM pl_title)
-					 WHERE pl_namespace=0
-					   AND pl_title LIKE '$likeprefix:%'";
-
-			$this->db->query( $sql, __METHOD__ );
+			$this->db->update( 'pagelinks',
+				array(
+					'pl_namespace' => $ns,
+					"pl_title = TRIM(LEADING {$this->db->addQuotes( "$name:" )} FROM pl_title)",
+				),
+				array(
+					'pl_namespace' => 0,
+					'pl_title' . $this->db->buildLike( "$name:", $this->db->anyString() ),
+				),
+				__METHOD__
+			);
 			$this->output( "done.\n" );
 		}
 	}

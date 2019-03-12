@@ -1,8 +1,7 @@
 <?php
 /** Cornish (kernowek)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -111,6 +110,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'AnMoyhaAmendyansow' ),
 	'Movepage'                  => array( 'GwayaFolen' ),
 	'Mycontributions'           => array( 'OwHevrohow' ),
+	'MyLanguage'                => array( 'OwYeth' ),
 	'Mypage'                    => array( 'OwFolen' ),
 	'Mytalk'                    => array( 'OwHeskows' ),
 	'Myuploads'                 => array( 'OwUghkargansow' ),

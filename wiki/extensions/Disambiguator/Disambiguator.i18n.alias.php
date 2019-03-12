@@ -41,8 +41,8 @@ $specialPageAliases['de'] = array(
 
 /** Zazaki (Zazaki) */
 $specialPageAliases['diq'] = array(
-	'DisambiguationPages' => array( 'PeréManedébini' ),
-	'DisambiguationPageLinks' => array( 'GreyéPeréManedébini' ),
+	'DisambiguationPages' => array( 'PerréManedébini' ),
+	'DisambiguationPageLinks' => array( 'GreyéPerréManedébini' ),
 );
 
 /** Estonian (eesti) */
@@ -89,7 +89,7 @@ $specialPageAliases['ko'] = array(
 
 /** Luxembourgish (Lëtzebuergesch) */
 $specialPageAliases['lb'] = array(
-	'DisambiguationPages' => array( 'HomonymieSäiten' ),
+	'DisambiguationPages' => array( 'Homonymie-Säiten' ),
 	'DisambiguationPageLinks' => array( 'HomonymieSäitLinken' ),
 );
 
@@ -121,6 +121,11 @@ $specialPageAliases['nds-nl'] = array(
 $specialPageAliases['nl'] = array(
 	'DisambiguationPages' => array( 'Doorverwijspaginas', 'Doorverwijspagina\'s' ),
 	'DisambiguationPageLinks' => array( 'Doorverwijspaginakoppelingen' ),
+);
+
+/** Polish (polski) */
+$specialPageAliases['pl'] = array(
+	'DisambiguationPages' => array( 'Strony_ujednoznaczniające' ),
 );
 
 /** Portuguese (português) */
@@ -161,6 +166,6 @@ $specialPageAliases['zh-hans'] = array(
 
 /** Traditional Chinese (中文（繁體）‎) */
 $specialPageAliases['zh-hant'] = array(
-	'DisambiguationPages' => array( '消歧義頁' ),
-	'DisambiguationPageLinks' => array( '消歧義頁連接' ),
+	'DisambiguationPages' => array( '消歧義頁面' ),
+	'DisambiguationPageLinks' => array( '消歧義頁面連結' ),
 );

@@ -1,6 +1,6 @@
 <?php
 global $IP;
-require_once("$IP/includes/CategoryPage.php");
+require_once("$IP/includes/page/CategoryPage.php");
 
 // implement more options?
 // multisubsets = true/false? (turn off subset_list processing)
@@ -48,7 +48,7 @@ class MetaTemplateCategoryPage extends CategoryTreeCategoryPage {
 
                 unset( $reqArray["from"] );
                 unset( $reqArray["to"] );
-		
+
 // END  copied code from include/Categorypage.php
 
 		if (MetaTemplateCategoryViewer::hasTemplate())
@@ -66,7 +66,7 @@ class MetaTemplateCategoryPage extends CategoryTreeCategoryPage {
 class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 	protected static $_templatedata = array();
 	protected $_pstack = NULL;
-	
+
 	public static function catPageTemplate( $input, $args, $parser, $frame=NULL ) {
 		// page needs to be re-parsed everytime, otherwise categories get printed without the template being read
 		$parser->disableCache();
@@ -97,14 +97,14 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			self::$_templatedata['page'] = $templatedata;
 		return '';
 	}
-	
+
 	public static function hasTemplate() {
 		if (count(self::$_templatedata))
 			return true;
 		else
 			return false;
 	}
-	
+
 	protected function processTemplate( $title, $sortkey, $pageLength, $isRedirect = false, $isCategory=false, $curr_subset=NULL ) {
 		global $wgContLang, $wgUser;
 		$subsets_found = array();
@@ -117,10 +117,10 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			$ttype = 'subcat';
 		else
 			$ttype = 'page';
-		
+
 		$catparams = array('catpage', 'catlabel', 'catgroup', 'cattextpre', 'cattextpost', 'catanchor', 'catredirect', 'catsortkey', 'catskip');
 		$vals = array();
-		
+
 		if (isset(self::$_templatedata[$ttype]['template']) && isset(self::$_templatedata[$ttype]['parser'])) {
 			if (empty(self::$_templatedata[$ttype]['frame'])) {
 				// old-style template parsing... is likely to not work correctly with #load
@@ -155,14 +155,14 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 				}
 			}
 		}
-		
+
 		if (!empty($vals['catpage'])) {
 			// not bothering to see whether isCategory needs to be overridden....
 			// assume that if this really is a different page, user is responsible for specifying that?
 			// also not yet handling possibility that the new title might be a redlink, or that pageLength might not be relevant any more
 			$title = Title::newFromText($vals['catpage']);
 		}
-		
+
 		if (empty($vals['catskip'])) {
 			if (!empty($vals['catanchor'])) {
 				if ($vals['catanchor']{0}!='#')
@@ -170,36 +170,36 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 				// setFragment is deprecated, but makes more sense than generating a whole new title object
 				$title->setFragment($vals['catanchor']);
 			}
-			
+
 			if (empty($vals['catlabel']))
-				$vals['catlabel'] = $title->getFullText(); // was $templateOutput - not sure what that was supposed to accomplish, though it obviously worked < MW 1.23
-			
+				$vals['catlabel'] = $templateOutput === '' ? $title->getFullText() : $templateOutput;
+
 			if (strlen($vals['catredirect'])>0)
 				$isRedirect = $vals['catredirect'];
-		
+
 			$link = $this->getSkin()->link( $title, htmlspecialchars( $vals['catlabel'] ) );
 			if ($isRedirect)
 				$link = '<span class="redirect-in-category">' . $link . '</span>';
-			
+
 			if (!empty($vals['cattextpre']))
 				$link = $vals['cattextpre'].' '.$link;
 			if (!empty($vals['cattextpost']))
 				$link .= ' '.$vals['cattextpost'];
-		
+
 			if (isset($vals['catgroup']))
 				$start_char = $vals['catgroup'];
 			elseif ($isCategory)
 				$start_char = $this->getSubcategorySortChar( $title, $sortkey );
 			else
 				$start_char = $wgContLang->convert( $wgContLang->firstChar( $sortkey ) );
-			
+
 			$retvals = array('link' => $link, 'start_char' => $start_char, 'catlabel' => $vals['catlabel']);
 		}
 		else
 			$retvals = array();
-		
+
 		$subset_list = array();
-		
+
 		// this is where function gets called recursively to fill in multiple subsets, if need be
 		if (is_null($curr_subset) && count($subsets_found)) {
 			$curr_subset = array_shift($subsets_found);
@@ -226,7 +226,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			if (count($subset_list)>1 && empty($vals['catlabel']))
 				unset($subset_list[$curr_subset]);
 			ksort($subset_list);
-			
+
 			// NB I am NOT doing anything to warn category page that multiple objects are being added
 			// when it only expects one... there is code in the catpage that is supposed to be there
 			// to handle such surprises
@@ -237,13 +237,13 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			$subset_list[0] = $retvals;
 		return $subset_list;
 	}
-	
+
 	function addSubcategoryObject( Category $cat, $sortkey, $pageLength ) {
 		if (!isset(self::$_templatedata['subcat'])) {
 			parent::addSubcategoryObject( $cat, $sortkey, $pageLength );
 			return;
-		}		
-		
+		}
+
 		$title = $cat->getTitle();
 		$retsets = $this->processTemplate($title, $sortkey, $pageLength, false, true);
 		foreach ($retsets as $retvals) {
@@ -251,7 +251,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			$this->children_start_char[] = $retvals['start_char'];
 		}
 	}
-	
+
 	/**
 		* Add a page in the image namespace
 		* This is here mainly so I remember that the function exists
@@ -266,7 +266,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 		if ( $this->showGallery ) {
 			parent::addImage( $title, $sortkey, $pageLength, $isRedirect );
 			return;
-		}		
+		}
 
 		$retsets = $this->processTemplate($title, $sortkey, $pageLength, $isRedirect);
 		foreach ($retsets as $retvals) {
@@ -274,7 +274,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			$this->imgsNoGallery_start_char[] = $retvals['start_char'];
 		}
 	}
-	
+
 	/**
 		* Add a miscellaneous page
 		*/
@@ -290,7 +290,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			$this->articles_start_char[] = $retvals['start_char'];
 		}
 	}
-	
+
 	function finaliseCategoryState() {
 		// if I wanted to change sort order, this is where I could do it
 		// arrays to be reordered:
@@ -298,10 +298,10 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 		// $this->children_start_char
 		// $this->articles
 		// $this->articles_start_char
-	
-	
+
+
 		// let parent handle flipping
 		parent::finaliseCategoryState();
 	}
-	
+
 }

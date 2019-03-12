@@ -1,8 +1,7 @@
 <?php
 /** Min Dong Chinese (Mìng-dĕ̤ng-ngṳ̄)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -81,6 +80,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( '最稠其版本' ),
 	'Movepage'                  => array( '移動其頁面' ),
 	'Mycontributions'           => array( '我其貢獻' ),
+	'MyLanguage'                => array( '我其語言' ),
 	'Mypage'                    => array( '我其頁面' ),
 	'Mytalk'                    => array( '我其討論' ),
 	'Myuploads'                 => array( '我其上傳' ),

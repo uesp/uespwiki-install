@@ -30,14 +30,25 @@
  * @ingroup Search
  */
 class SearchEngine {
-	var $limit = 10;
-	var $offset = 0;
-	var $prefix = '';
-	var $searchTerms = array();
-	var $namespaces = array( NS_MAIN );
+	/** @var string */
+	public $prefix = '';
+
+	/** @var int[] */
+	public $namespaces = array( NS_MAIN );
+
+	/** @var int */
+	protected $limit = 10;
+
+	/** @var int */
+	protected $offset = 0;
+
+	/** @var array|string */
+	protected $searchTerms = array();
+
+	/** @var bool */
 	protected $showSuggestion = true;
 
-	/** @var Array Feature values */
+	/** @var array Feature values */
 	protected $features = array();
 
 	/**
@@ -45,7 +56,7 @@ class SearchEngine {
 	 * If title searches are not supported or disabled, return null.
 	 * STUB
 	 *
-	 * @param string $term raw search term
+	 * @param string $term Raw search term
 	 * @return SearchResultSet|Status|null
 	 */
 	function searchText( $term ) {
@@ -57,7 +68,7 @@ class SearchEngine {
 	 * If title searches are not supported or disabled, return null.
 	 * STUB
 	 *
-	 * @param string $term raw search term
+	 * @param string $term Raw search term
 	 * @return SearchResultSet|null
 	 */
 	function searchTitle( $term ) {
@@ -66,8 +77,8 @@ class SearchEngine {
 
 	/**
 	 * @since 1.18
-	 * @param $feature String
-	 * @return Boolean
+	 * @param string $feature
+	 * @return bool
 	 */
 	public function supports( $feature ) {
 		switch ( $feature ) {
@@ -82,8 +93,8 @@ class SearchEngine {
 	/**
 	 * Way to pass custom data for engines
 	 * @since 1.18
-	 * @param $feature String
-	 * @param $data Mixed
+	 * @param string $feature
+	 * @param mixed $data
 	 * @return bool
 	 */
 	public function setFeatureData( $feature, $data ) {
@@ -106,8 +117,11 @@ class SearchEngine {
 	}
 
 	/**
-	 * Transform search term in cases when parts of the query came as different GET params (when supported)
-	 * e.g. for prefix queries: search=test&prefix=Main_Page/Archive -> test prefix:Main Page/Archive
+	 * Transform search term in cases when parts of the query came as different
+	 * GET params (when supported), e.g. for prefix queries:
+	 * search=test&prefix=Main_Page/Archive -> test prefix:Main Page/Archive
+	 * @param string $term
+	 * @return string
 	 */
 	function transformSearchTerm( $term ) {
 		return $term;
@@ -117,7 +131,7 @@ class SearchEngine {
 	 * If an exact title match can be found, or a very slightly close match,
 	 * return the title. If no match, returns NULL.
 	 *
-	 * @param $searchterm String
+	 * @param string $searchterm
 	 * @return Title
 	 */
 	public static function getNearMatch( $searchterm ) {
@@ -131,7 +145,7 @@ class SearchEngine {
 	 * Do a near match (see SearchEngine::getNearMatch) and wrap it into a
 	 * SearchResultSet.
 	 *
-	 * @param $searchterm string
+	 * @param string $searchterm
 	 * @return SearchResultSet
 	 */
 	public static function getNearMatchResultSet( $searchterm ) {
@@ -140,6 +154,7 @@ class SearchEngine {
 
 	/**
 	 * Really find the title match.
+	 * @param string $searchterm
 	 * @return null|Title
 	 */
 	private static function getNearMatchInternal( $searchterm ) {
@@ -148,7 +163,10 @@ class SearchEngine {
 		$allSearchTerms = array( $searchterm );
 
 		if ( $wgContLang->hasVariants() ) {
-			$allSearchTerms = array_merge( $allSearchTerms, $wgContLang->autoConvertToAllVariants( $searchterm ) );
+			$allSearchTerms = array_merge(
+				$allSearchTerms,
+				$wgContLang->autoConvertToAllVariants( $searchterm )
+			);
 		}
 
 		$titleResult = null;
@@ -262,8 +280,8 @@ class SearchEngine {
 	 * Set the maximum number of results to return
 	 * and how many to skip before returning the first.
 	 *
-	 * @param $limit Integer
-	 * @param $offset Integer
+	 * @param int $limit
+	 * @param int $offset
 	 */
 	function setLimitOffset( $limit, $offset = 0 ) {
 		$this->limit = intval( $limit );
@@ -274,7 +292,7 @@ class SearchEngine {
 	 * Set which namespaces the search should include.
 	 * Give an array of namespace index numbers.
 	 *
-	 * @param $namespaces Array
+	 * @param array $namespaces
 	 */
 	function setNamespaces( $namespaces ) {
 		$this->namespaces = $namespaces;
@@ -285,7 +303,7 @@ class SearchEngine {
 	 * don't support building a suggestion in the first place and others don't respect
 	 * this flag.
 	 *
-	 * @param boolean $showSuggestion should the searcher try to build suggestions
+	 * @param bool $showSuggestion Should the searcher try to build suggestions
 	 */
 	function setShowSuggestion( $showSuggestion ) {
 		$this->showSuggestion = $showSuggestion;
@@ -295,7 +313,7 @@ class SearchEngine {
 	 * Parse some common prefixes: all (search everything)
 	 * or namespace names
 	 *
-	 * @param $query String
+	 * @param string $query
 	 * @return string
 	 */
 	function replacePrefixes( $query ) {
@@ -303,7 +321,6 @@ class SearchEngine {
 
 		$parsed = $query;
 		if ( strpos( $query, ':' ) === false ) { // nothing to do
-			wfRunHooks( 'SearchEngineReplacePrefixesComplete', array( $this, $query, &$parsed ) );
 			return $parsed;
 		}
 
@@ -323,14 +340,12 @@ class SearchEngine {
 			$parsed = $query; // prefix was the whole query
 		}
 
-		wfRunHooks( 'SearchEngineReplacePrefixesComplete', array( $this, $query, &$parsed ) );
-
 		return $parsed;
 	}
 
 	/**
 	 * Make a list of searchable namespaces and their canonical names.
-	 * @return Array
+	 * @return array
 	 */
 	public static function searchableNamespaces() {
 		global $wgContLang;
@@ -349,24 +364,12 @@ class SearchEngine {
 	 * Extract default namespaces to search from the given user's
 	 * settings, returning a list of index numbers.
 	 *
-	 * @param $user User
-	 * @return Array
+	 * @param user $user
+	 * @return array
 	 */
 	public static function userNamespaces( $user ) {
-		global $wgSearchEverythingOnlyLoggedIn;
-
-		$searchableNamespaces = SearchEngine::searchableNamespaces();
-
-		// get search everything preference, that can be set to be read for logged-in users
-		// it overrides other options
-		if ( !$wgSearchEverythingOnlyLoggedIn || $user->isLoggedIn() ) {
-			if ( $user->getOption( 'searcheverything' ) ) {
-				return array_keys( $searchableNamespaces );
-			}
-		}
-
 		$arr = array();
-		foreach ( $searchableNamespaces as $ns => $name ) {
+		foreach ( SearchEngine::searchableNamespaces() as $ns => $name ) {
 			if ( $user->getOption( 'searchNs' . $ns ) ) {
 				$arr[] = $ns;
 			}
@@ -378,7 +381,7 @@ class SearchEngine {
 	/**
 	 * Find snippet highlight settings for all users
 	 *
-	 * @return Array contextlines, contextchars
+	 * @return array Contextlines, contextchars
 	 */
 	public static function userHighlightPrefs() {
 		$contextlines = 2; // Hardcode this. Old defaults sucked. :)
@@ -389,7 +392,7 @@ class SearchEngine {
 	/**
 	 * An array of namespaces indexes to be searched by default
 	 *
-	 * @return Array
+	 * @return array
 	 */
 	public static function defaultNamespaces() {
 		global $wgNamespacesToBeSearchedDefault;
@@ -401,7 +404,7 @@ class SearchEngine {
 	 * Get a list of namespace names useful for showing in tooltips
 	 * and preferences
 	 *
-	 * @param $namespaces Array
+	 * @param array $namespaces
 	 * @return array
 	 */
 	public static function namespacesAsText( $namespaces ) {
@@ -417,32 +420,10 @@ class SearchEngine {
 	}
 
 	/**
-	 * Return the help namespaces to be shown on Special:Search
-	 *
-	 * @return Array
-	 */
-	public static function helpNamespaces() {
-		global $wgNamespacesToBeSearchedHelp;
-
-		return array_keys( $wgNamespacesToBeSearchedHelp, true );
-	}
-
-	/**
-	 * Return a 'cleaned up' search string
-	 *
-	 * @param $text String
-	 * @return String
-	 */
-	function filter( $text ) {
-		$lc = $this->legalSearchChars();
-		return trim( preg_replace( "/[^{$lc}]/", " ", $text ) );
-	}
-
-	/**
 	 * Load up the appropriate search engine class for the currently
 	 * active database backend, and return a configured instance.
 	 *
-	 * @param String $type Type of search backend, if not the default
+	 * @param string $type Type of search backend, if not the default
 	 * @return SearchEngine
 	 */
 	public static function create( $type = null ) {
@@ -484,9 +465,9 @@ class SearchEngine {
 	 * Title and text should be pre-processed.
 	 * STUB
 	 *
-	 * @param $id Integer
-	 * @param $title String
-	 * @param $text String
+	 * @param int $id
+	 * @param string $title
+	 * @param string $text
 	 */
 	function update( $id, $title, $text ) {
 		// no-op
@@ -497,8 +478,8 @@ class SearchEngine {
 	 * Title should be pre-processed.
 	 * STUB
 	 *
-	 * @param $id Integer
-	 * @param $title String
+	 * @param int $id
+	 * @param string $title
 	 */
 	function updateTitle( $id, $title ) {
 		// no-op
@@ -509,8 +490,8 @@ class SearchEngine {
 	 * Title should be pre-processed.
 	 * STUB
 	 *
-	 * @param Integer $id Page id that was deleted
-	 * @param String $title Title of page that was deleted
+	 * @param int $id Page id that was deleted
+	 * @param string $title Title of page that was deleted
 	 */
 	function delete( $id, $title ) {
 		// no-op
@@ -519,10 +500,11 @@ class SearchEngine {
 	/**
 	 * Get OpenSearch suggestion template
 	 *
-	 * @return String
+	 * @return string
 	 */
 	public static function getOpenSearchTemplate() {
 		global $wgOpenSearchTemplate, $wgCanonicalServer;
+
 		if ( $wgOpenSearchTemplate ) {
 			return $wgOpenSearchTemplate;
 		} else {
@@ -530,7 +512,9 @@ class SearchEngine {
 			if ( !$ns ) {
 				$ns = "0";
 			}
-			return $wgCanonicalServer . wfScript( 'api' ) . '?action=opensearch&search={searchTerms}&namespace=' . $ns;
+
+			return $wgCanonicalServer . wfScript( 'api' )
+				. '?action=opensearch&search={searchTerms}&namespace=' . $ns;
 		}
 	}
 
@@ -558,13 +542,6 @@ class SearchEngine {
 	public function textAlreadyUpdatedForIndex() {
 		return false;
 	}
-}
-
-/**
- * @ingroup Search
- */
-class SearchResultTooMany {
-	# # Some search engines may bail out if too many matches are found
 }
 
 /**

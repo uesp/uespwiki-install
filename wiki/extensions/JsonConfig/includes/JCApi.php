@@ -161,9 +161,6 @@ class JCApi extends ApiBase {
 		);
 	}
 
-	/**
-	 * @deprecated since MediaWiki core 1.25
-	 */
 	public function getParamDescription() {
 		return array(
 			'command' => array(
@@ -177,35 +174,15 @@ class JCApi extends ApiBase {
 		);
 	}
 
-	/**
-	 * @deprecated since MediaWiki core 1.25
-	 */
 	public function getDescription() {
 		return 'Allows direct access to JsonConfig subsystem';
 	}
 
-	/**
-	 * @deprecated since MediaWiki core 1.25
-	 */
 	public function getExamples() {
 		return array(
 			'api.php?action=jsonconfig&format=jsonfm',
 			'api.php?action=jsonconfig&command=reset&title=Zero:TEST&format=jsonfm',
 			'api.php?action=jsonconfig&command=reload&title=Zero:TEST&format=jsonfm',
-		);
-	}
-
-	/**
-	 * @see ApiBase::getExamplesMessages()
-	 */
-	protected function getExamplesMessages() {
-		return array(
-			'action=jsonconfig&format=jsonfm'
-				=> 'apihelp-jsonconfig-example-1',
-			'action=jsonconfig&command=reset&title=Zero:TEST&format=jsonfm'
-				=> 'apihelp-jsonconfig-example-2',
-			'action=jsonconfig&command=reload&title=Zero:TEST&format=jsonfm'
-				=> 'apihelp-jsonconfig-example-3',
 		);
 	}
 }

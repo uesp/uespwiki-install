@@ -34,7 +34,7 @@ class MessageTest extends MediaWikiLangTestCase {
 		$this->assertEquals( $expectedLang, $langProperty->getValue( $message ) );
 	}
 
-	public function provideConstructor() {
+	public static function provideConstructor() {
 		$langDe = Language::factory( 'de' );
 		$langEn = Language::factory( 'en' );
 
@@ -45,7 +45,7 @@ class MessageTest extends MediaWikiLangTestCase {
 		);
 	}
 
-	public function provideTestParams() {
+	public static function provideTestParams() {
 		return array(
 			array( array() ),
 			array( array( 'foo' ), 'foo' ),
@@ -119,9 +119,16 @@ class MessageTest extends MediaWikiLangTestCase {
 	 */
 	public function testInLanguage() {
 		$this->assertEquals( 'Main Page', wfMessage( 'mainpage' )->inLanguage( 'en' )->text() );
-		$this->assertEquals( 'Заглавная страница', wfMessage( 'mainpage' )->inLanguage( 'ru' )->text() );
-		$this->assertEquals( 'Main Page', wfMessage( 'mainpage' )->inLanguage( Language::factory( 'en' ) )->text() );
-		$this->assertEquals( 'Заглавная страница', wfMessage( 'mainpage' )->inLanguage( Language::factory( 'ru' ) )->text() );
+		$this->assertEquals( 'Заглавная страница',
+			wfMessage( 'mainpage' )->inLanguage( 'ru' )->text() );
+
+		// NOTE: make sure internal caching of the message text is reset appropriately
+		$msg = wfMessage( 'mainpage' );
+		$this->assertEquals( 'Main Page', $msg->inLanguage( Language::factory( 'en' ) )->text() );
+		$this->assertEquals(
+			'Заглавная страница',
+			$msg->inLanguage( Language::factory( 'ru' ) )->text()
+		);
 	}
 
 	/**
@@ -130,8 +137,14 @@ class MessageTest extends MediaWikiLangTestCase {
 	public function testMessageParams() {
 		$this->assertEquals( 'Return to $1.', wfMessage( 'returnto' )->text() );
 		$this->assertEquals( 'Return to $1.', wfMessage( 'returnto', array() )->text() );
-		$this->assertEquals( 'You have foo (bar).', wfMessage( 'youhavenewmessages', 'foo', 'bar' )->text() );
-		$this->assertEquals( 'You have foo (bar).', wfMessage( 'youhavenewmessages', array( 'foo', 'bar' ) )->text() );
+		$this->assertEquals(
+			'You have foo (bar).',
+			wfMessage( 'youhavenewmessages', 'foo', 'bar' )->text()
+		);
+		$this->assertEquals(
+			'You have foo (bar).',
+			wfMessage( 'youhavenewmessages', array( 'foo', 'bar' ) )->text()
+		);
 	}
 
 	/**
@@ -139,10 +152,22 @@ class MessageTest extends MediaWikiLangTestCase {
 	 * @covers Message::rawParams
 	 */
 	public function testMessageParamSubstitution() {
-		$this->assertEquals( '(Заглавная страница)', wfMessage( 'parentheses', 'Заглавная страница' )->plain() );
-		$this->assertEquals( '(Заглавная страница $1)', wfMessage( 'parentheses', 'Заглавная страница $1' )->plain() );
-		$this->assertEquals( '(Заглавная страница)', wfMessage( 'parentheses' )->rawParams( 'Заглавная страница' )->plain() );
-		$this->assertEquals( '(Заглавная страница $1)', wfMessage( 'parentheses' )->rawParams( 'Заглавная страница $1' )->plain() );
+		$this->assertEquals(
+			'(Заглавная страница)',
+			wfMessage( 'parentheses', 'Заглавная страница' )->plain()
+		);
+		$this->assertEquals(
+			'(Заглавная страница $1)',
+			wfMessage( 'parentheses', 'Заглавная страница $1' )->plain()
+		);
+		$this->assertEquals(
+			'(Заглавная страница)',
+			wfMessage( 'parentheses' )->rawParams( 'Заглавная страница' )->plain()
+		);
+		$this->assertEquals(
+			'(Заглавная страница $1)',
+			wfMessage( 'parentheses' )->rawParams( 'Заглавная страница $1' )->plain()
+		);
 	}
 
 	/**
@@ -153,7 +178,11 @@ class MessageTest extends MediaWikiLangTestCase {
 		$msg = new RawMessage( '$1$2$3$4$5$6$7$8$9$10$11$12' );
 		// One less than above has placeholders
 		$params = array( 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k' );
-		$this->assertEquals( 'abcdefghijka2', $msg->params( $params )->plain(), 'Params > 9 are replaced correctly' );
+		$this->assertEquals(
+			'abcdefghijka2',
+			$msg->params( $params )->plain(),
+			'Params > 9 are replaced correctly'
+		);
 	}
 
 	/**
@@ -245,22 +274,40 @@ class MessageTest extends MediaWikiLangTestCase {
 	/**
 	 * @covers Message::inContentLanguage
 	 */
-	public function testInContentLanguageDisabled() {
+	public function testInContentLanguage() {
 		$this->setMwGlobals( 'wgLang', Language::factory( 'fr' ) );
 
-		$this->assertEquals( 'Main Page', wfMessage( 'mainpage' )->inContentLanguage()->plain(), 'ForceUIMsg disabled' );
+		// NOTE: make sure internal caching of the message text is reset appropriately
+		$msg = wfMessage( 'mainpage' );
+		$this->assertEquals( 'Hauptseite', $msg->inLanguage( 'de' )->plain(), "inLanguage( 'de' )" );
+		$this->assertEquals( 'Main Page', $msg->inContentLanguage()->plain(), "inContentLanguage()" );
+		$this->assertEquals( 'Accueil', $msg->inLanguage( 'fr' )->plain(), "inLanguage( 'fr' )" );
 	}
 
 	/**
 	 * @covers Message::inContentLanguage
 	 */
-	public function testInContentLanguageEnabled() {
+	public function testInContentLanguageOverride() {
 		$this->setMwGlobals( array(
 			'wgLang' => Language::factory( 'fr' ),
 			'wgForceUIMsgAsContentMsg' => array( 'mainpage' ),
 		) );
 
-		$this->assertEquals( 'Accueil', wfMessage( 'mainpage' )->inContentLanguage()->plain(), 'ForceUIMsg enabled' );
+		// NOTE: make sure internal caching of the message text is reset appropriately.
+		// NOTE: wgForceUIMsgAsContentMsg forces the messages *current* language to be used.
+		$msg = wfMessage( 'mainpage' );
+		$this->assertEquals(
+			'Accueil',
+			$msg->inContentLanguage()->plain(),
+			'inContentLanguage() with ForceUIMsg override enabled'
+		);
+		$this->assertEquals( 'Main Page', $msg->inLanguage( 'en' )->plain(), "inLanguage( 'en' )" );
+		$this->assertEquals(
+			'Main Page',
+			$msg->inContentLanguage()->plain(),
+			'inContentLanguage() with ForceUIMsg override enabled'
+		);
+		$this->assertEquals( 'Hauptseite', $msg->inLanguage( 'de' )->plain(), "inLanguage( 'de' )" );
 	}
 
 	/**
@@ -269,5 +316,53 @@ class MessageTest extends MediaWikiLangTestCase {
 	 */
 	public function testInLanguageThrows() {
 		wfMessage( 'foo' )->inLanguage( 123 );
+	}
+
+	public function keyProvider() {
+		return array(
+			'string' => array(
+				'key' => 'mainpage',
+				'expected' => array( 'mainpage' ),
+			),
+			'single' => array(
+				'key' => array( 'mainpage' ),
+				'expected' => array( 'mainpage' ),
+			),
+			'multi' => array(
+				'key' => array( 'mainpage-foo', 'mainpage-bar', 'mainpage' ),
+				'expected' => array( 'mainpage-foo', 'mainpage-bar', 'mainpage' ),
+			),
+			'empty' => array(
+				'key' => array(),
+				'expected' => null,
+				'exception' => 'InvalidArgumentException',
+			),
+			'null' => array(
+				'key' => null,
+				'expected' => null,
+				'exception' => 'InvalidArgumentException',
+			),
+			'bad type' => array(
+				'key' => 17,
+				'expected' => null,
+				'exception' => 'InvalidArgumentException',
+			),
+		);
+	}
+
+	/**
+	 * @dataProvider keyProvider()
+	 *
+	 * @covers Message::getKey
+	 */
+	public function testGetKey( $key, $expected, $exception = null ) {
+		if ( $exception ) {
+			$this->setExpectedException( $exception );
+		}
+
+		$msg = new Message( $key );
+		$this->assertEquals( $expected, $msg->getKeysToTry() );
+		$this->assertEquals( count( $expected ) > 1, $msg->isMultiKey() );
+		$this->assertContains( $msg->getKey(), $expected );
 	}
 }

@@ -37,14 +37,11 @@ class SpecialTrackingCategories extends SpecialPage {
 	}
 
 	function execute( $par ) {
-		// Global array containing names of tracking categories
-		global $wgTrackingCategories;
-
 		$this->setHeaders();
 		$this->outputHeader();
 		$this->getOutput()->allowClickjacking();
 		$this->getOutput()->addHTML(
-			Html::openElement( 'table', array( 'class' => 'mw-datatable TablePager',
+			Html::openElement( 'table', array( 'class' => 'mw-datatable',
 				'id' => 'mw-trackingcategories-table' ) ) . "\n" .
 			"<thead><tr>
 			<th>" .
@@ -59,7 +56,7 @@ class SpecialTrackingCategories extends SpecialPage {
 			</tr></thead>"
 		);
 
-		foreach( $wgTrackingCategories as $catMsg ) {
+		foreach ( $this->getConfig()->get( 'TrackingCategories' ) as $catMsg ) {
 			/*
 			 * Check if the tracking category varies by namespace
 			 * Otherwise only pages in the current namespace will be displayed
@@ -69,18 +66,42 @@ class SpecialTrackingCategories extends SpecialPage {
 			$allMsgs = array();
 			$catDesc = $catMsg . '-desc';
 			$catMsgTitle = Title::makeTitleSafe( NS_MEDIAWIKI, $catMsg );
+			if ( !$catMsgTitle ) {
+				continue;
+			}
 			$catMsgTitleText = Linker::link(
 				$catMsgTitle,
 				htmlspecialchars( $catMsg )
 			);
 
-			if ( strpos( $msgObj->plain(), '{{NAMESPACE}}' ) !== false ) {
+			// Match things like {{NAMESPACE}} and {{NAMESPACENUMBER}}.
+			// False positives are ok, this is just an efficiency shortcut
+			if ( strpos( $msgObj->plain(), '{{' ) !== false ) {
 				$ns = MWNamespace::getValidNamespaces();
 				foreach ( $ns as $namesp ) {
 					$tempTitle = Title::makeTitleSafe( $namesp, $catMsg );
+					if ( !$tempTitle ) {
+						continue;
+					}
 					$catName = $msgObj->title( $tempTitle )->text();
-					if ( !$msgObj->isDisabled() ) {
+					# Allow tracking categories to be disabled by setting them to "-"
+					if ( $catName !== '-' ) {
 						$catTitle = Title::makeTitleSafe( NS_CATEGORY, $catName );
+						if ( $catTitle ) {
+							$catTitleText = Linker::link(
+								$catTitle,
+								htmlspecialchars( $catName )
+							);
+							$allMsgs[] = $catTitleText;
+						}
+					}
+				}
+			} else {
+				$catName = $msgObj->text();
+				# Allow tracking categories to be disabled by setting them to "-"
+				if ( $catName !== '-' ) {
+					$catTitle = Title::makeTitleSafe( NS_CATEGORY, $catName );
+					if ( $catTitle ) {
 						$catTitleText = Linker::link(
 							$catTitle,
 							htmlspecialchars( $catName )
@@ -88,19 +109,11 @@ class SpecialTrackingCategories extends SpecialPage {
 						$allMsgs[] = $catTitleText;
 					}
 				}
-			} else {
-				$catName = $msgObj->text();
-				if ( !$msgObj->isDisabled() ) {
-					$catTitle = Title::makeTitleSafe( NS_CATEGORY, $catName );
-					$catTitleText = Linker::link(
-						$catTitle,
-						htmlspecialchars( $catName )
-					);
-					$classes = array();
-				} else {
-					$catTitleText = $this->msg( 'trackingcategories-disabled' )->parse();
-				}
-				$allMsgs[] = $catTitleText;
+			}
+
+			# Extra message, when no category was found
+			if ( !count( $allMsgs ) ) {
+				$allMsgs[] = $this->msg( 'trackingcategories-disabled' )->parse();
 			}
 
 			/*

@@ -1,9 +1,3 @@
 {
-	"@metadata": {
-		"authors": [
-			"Stam.nikos"
-		]
-	},
-	"jsonconfig-err-string": "πρέπει να είναι μια συμβολοσειρά (προαιρετικό)",
-	"right-jsonconfig-flush": "Χειριστείτε το JsonConfig μέσω API"
+	"jsonconfig-err-string": "πρέπει να είναι μια συμβολοσειρά (προαιρετικό)"
 }

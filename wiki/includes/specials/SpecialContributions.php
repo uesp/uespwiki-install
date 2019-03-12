@@ -163,7 +163,7 @@ class SpecialContributions extends IncludableSpecialPage {
 		}
 
 		if ( $feedType ) {
-			// Maintain some level of backwards compatability
+			// Maintain some level of backwards compatibility
 			// If people request feeds using the old parameters, redirect to API
 			$feedParams['feedformat'] = $feedType;
 			$url = wfAppendQuery( wfScript( 'api' ), $feedParams );
@@ -203,11 +203,13 @@ class SpecialContributions extends IncludableSpecialPage {
 					$out->showLagWarning( $lag );
 				}
 
-				$out->addHTML(
-					'<p>' . $pager->getNavigationBar() . '</p>' .
-						$pager->getBody() .
-						'<p>' . $pager->getNavigationBar() . '</p>'
-				);
+				$output = $pager->getBody();
+				if ( !$this->including() ) {
+					$output = '<p>' . $pager->getNavigationBar() . '</p>' .
+						$output .
+						'<p>' . $pager->getNavigationBar() . '</p>';
+				}
+				$out->addHTML( $output );
 			}
 			$out->preventClickjacking( $pager->getPreventClickjacking() );
 
@@ -237,15 +239,15 @@ class SpecialContributions extends IncludableSpecialPage {
 
 	/**
 	 * Generates the subheading with links
-	 * @param $userObj User object for the target
-	 * @return String: appropriately-escaped HTML to be output literally
+	 * @param User $userObj User object for the target
+	 * @return string Appropriately-escaped HTML to be output literally
 	 * @todo FIXME: Almost the same as getSubTitle in SpecialDeletedContributions.php.
 	 * Could be combined.
 	 */
 	protected function contributionsSub( $userObj ) {
 		if ( $userObj->isAnon() ) {
 			// Show a warning message that the user being searched for doesn't exists
-			if ( !User::isIP( $userObj ) ) {
+			if ( !User::isIP( $userObj->getName() ) ) {
 				$this->getOutput()->wrapWikiMsg(
 					"<div class=\"mw-userpage-userdoesnotexist error\">\n\$1\n</div>",
 					array(
@@ -253,6 +255,9 @@ class SpecialContributions extends IncludableSpecialPage {
 						wfEscapeWikiText( $userObj->getName() ),
 					)
 				);
+				if ( !$this->including() ) {
+					$this->getOutput()->setStatusCode( 404 );
+				}
 			}
 			$user = htmlspecialchars( $userObj->getName() );
 		} else {
@@ -268,25 +273,32 @@ class SpecialContributions extends IncludableSpecialPage {
 			// Show a note if the user is blocked and display the last block log entry.
 			// Do not expose the autoblocks, since that may lead to a leak of accounts' IPs,
 			// and also this will display a totally irrelevant log entry as a current block.
-			if ( $userObj->isBlocked() && $userObj->getBlock()->getType() != Block::TYPE_AUTO ) {
-				$out = $this->getOutput(); // showLogExtract() wants first parameter by reference
-				LogEventsList::showLogExtract(
-					$out,
-					'block',
-					$nt,
-					'',
-					array(
-						'lim' => 1,
-						'showIfEmpty' => false,
-						'msgKey' => array(
-							$userObj->isAnon() ?
-								'sp-contributions-blocked-notice-anon' :
-								'sp-contributions-blocked-notice',
-							$userObj->getName() # Support GENDER in 'sp-contributions-blocked-notice'
-						),
-						'offset' => '' # don't use WebRequest parameter offset
-					)
-				);
+			if ( !$this->including() ) {
+				$block = Block::newFromTarget( $userObj, $userObj );
+				if ( !is_null( $block ) && $block->getType() != Block::TYPE_AUTO ) {
+					if ( $block->getType() == Block::TYPE_RANGE ) {
+						$nt = MWNamespace::getCanonicalName( NS_USER ) . ':' . $block->getTarget();
+					}
+
+					$out = $this->getOutput(); // showLogExtract() wants first parameter by reference
+					LogEventsList::showLogExtract(
+						$out,
+						'block',
+						$nt,
+						'',
+						array(
+							'lim' => 1,
+							'showIfEmpty' => false,
+							'msgKey' => array(
+								$userObj->isAnon() ?
+									'sp-contributions-blocked-notice-anon' :
+									'sp-contributions-blocked-notice',
+								$userObj->getName() # Support GENDER in 'sp-contributions-blocked-notice'
+							),
+							'offset' => '' # don't use WebRequest parameter offset
+						)
+					);
+				}
 			}
 		}
 
@@ -295,9 +307,9 @@ class SpecialContributions extends IncludableSpecialPage {
 
 	/**
 	 * Links to different places.
-	 * @param $userpage Title: Target user page
-	 * @param $talkpage Title: Talk page
-	 * @param $target User: Target user object
+	 * @param Title $userpage Target user page
+	 * @param Title $talkpage Talk page
+	 * @param User $target Target user object
 	 * @return array
 	 */
 	public function getUserLinks( Title $userpage, Title $talkpage, User $target ) {
@@ -381,11 +393,9 @@ class SpecialContributions extends IncludableSpecialPage {
 
 	/**
 	 * Generates the namespace selector form with hidden attributes.
-	 * @return String: HTML fragment
+	 * @return string HTML fragment
 	 */
 	protected function getForm() {
-		global $wgScript;
-
 		$this->opts['title'] = $this->getPageTitle()->getPrefixedText();
 		if ( !isset( $this->opts['target'] ) ) {
 			$this->opts['target'] = '';
@@ -437,7 +447,7 @@ class SpecialContributions extends IncludableSpecialPage {
 			'form',
 			array(
 				'method' => 'get',
-				'action' => $wgScript,
+				'action' => wfScript(),
 				'class' => 'mw-contributions-form'
 			)
 		);
@@ -642,7 +652,7 @@ class SpecialContributions extends IncludableSpecialPage {
  * @ingroup SpecialPage Pager
  */
 class ContribsPager extends ReverseChronologicalPager {
-	public $mDefaultDirection = true;
+	public $mDefaultDirection = IndexPager::DIR_DESCENDING;
 	public $messages;
 	public $target;
 	public $namespace = '';
@@ -707,9 +717,9 @@ class ContribsPager extends ReverseChronologicalPager {
 	 * This method basically executes the exact same code as the parent class, though with
 	 * a hook added, to allow extentions to add additional queries.
 	 *
-	 * @param string $offset index offset, inclusive
-	 * @param $limit Integer: exact query limit
-	 * @param $descending Boolean: query direction, false for ascending, true for descending
+	 * @param string $offset Index offset, inclusive
+	 * @param int $limit Exact query limit
+	 * @param bool $descending Query direction, false for ascending, true for descending
 	 * @return ResultWrapper
 	 */
 	function reallyDoQuery( $offset, $limit, $descending ) {
@@ -781,7 +791,7 @@ class ContribsPager extends ReverseChronologicalPager {
 		// Paranoia: avoid brute force searches (bug 17342)
 		if ( !$user->isAllowed( 'deletedhistory' ) ) {
 			$conds[] = $this->mDb->bitAnd( 'rev_deleted', Revision::DELETED_USER ) . ' = 0';
-		} elseif ( !$user->isAllowed( 'suppressrevision' ) ) {
+		} elseif ( !$user->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
 			$conds[] = $this->mDb->bitAnd( 'rev_deleted', Revision::SUPPRESSED_USER ) .
 				' != ' . Revision::SUPPRESSED_USER;
 		}
@@ -944,7 +954,7 @@ class ContribsPager extends ReverseChronologicalPager {
 	 * was not written by the target user.
 	 *
 	 * @todo This would probably look a lot nicer in a table.
-	 * @param $row
+	 * @param object $row
 	 * @return string
 	 */
 	function formatRow( $row ) {
@@ -1055,7 +1065,8 @@ class ContribsPager extends ReverseChronologicalPager {
 			# Show user names for /newbies as there may be different users.
 			# Note that we already excluded rows with hidden user names.
 			if ( $this->contribs == 'newbie' ) {
-				$userlink = ' . . ' . $lang->getDirMark() . Linker::userLink( $rev->getUser(), $rev->getUserText() );
+				$userlink = ' . . ' . $lang->getDirMark()
+					. Linker::userLink( $rev->getUser(), $rev->getUserText() );
 				$userlink .= ' ' . $this->msg( 'parentheses' )->rawParams(
 					Linker::userTalkLink( $rev->getUser(), $rev->getUserText() ) )->escaped() . ' ';
 			} else {

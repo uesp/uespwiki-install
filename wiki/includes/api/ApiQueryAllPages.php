@@ -31,7 +31,7 @@
  */
 class ApiQueryAllPages extends ApiQueryGeneratorBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'ap' );
 	}
 
@@ -44,7 +44,7 @@ class ApiQueryAllPages extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 * @return void
 	 */
 	public function executeGenerator( $resultPageSet ) {
@@ -60,7 +60,7 @@ class ApiQueryAllPages extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 * @return void
 	 */
 	private function run( $resultPageSet = null ) {
@@ -225,8 +225,6 @@ class ApiQueryAllPages extends ApiQueryGeneratorBase {
 	}
 
 	public function getAllowedParams() {
-		global $wgRestrictionLevels;
-
 		return array(
 			'from' => null,
 			'continue' => null,
@@ -255,7 +253,7 @@ class ApiQueryAllPages extends ApiQueryGeneratorBase {
 				ApiBase::PARAM_ISMULTI => true
 			),
 			'prlevel' => array(
-				ApiBase::PARAM_TYPE => $wgRestrictionLevels,
+				ApiBase::PARAM_TYPE => $this->getConfig()->get( 'RestrictionLevels' ),
 				ApiBase::PARAM_ISMULTI => true
 			),
 			'prfiltercascade' => array(
@@ -330,29 +328,8 @@ class ApiQueryAllPages extends ApiQueryGeneratorBase {
 		);
 	}
 
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'pageid' => 'integer',
-				'ns' => 'namespace',
-				'title' => 'string'
-			)
-		);
-	}
-
 	public function getDescription() {
 		return 'Enumerate all pages sequentially in a given namespace.';
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array(
-				'code' => 'params',
-				'info' => 'Use "gapfilterredir=nonredirects" option instead of ' .
-					'"redirects" when using allpages as a generator'
-			),
-			array( 'code' => 'params', 'info' => 'prlevel may not be used without prtype' ),
-		) );
 	}
 
 	public function getExamples() {

@@ -52,7 +52,7 @@ class FileRepo {
 	/** @var FileBackend */
 	protected $backend;
 
-	/** @var Array Map of zones to config */
+	/** @var array Map of zones to config */
 	protected $zones = array();
 
 	/** @var string URL of thumb.php */
@@ -296,26 +296,10 @@ class FileRepo {
 	}
 
 	/**
-	 * Get the thumb zone URL configured to be handled by scripts like thumb_handler.php.
-	 * This is probably only useful for internal requests, such as from a fast frontend server
-	 * to a slower backend server.
-	 *
-	 * Large sites may use a different host name for uploads than for wikis. In any case, the
-	 * wiki configuration is needed in order to use thumb.php. To avoid extracting the wiki ID
-	 * from the URL path, one can configure thumb_handler.php to recognize a special path on the
-	 * same host name as the wiki that is used for viewing thumbnails.
-	 *
-	 * @param string $zone one of: public, deleted, temp, thumb
-	 * @return string|bool String or false
+	 * @return bool Whether non-ASCII path characters are allowed
 	 */
-	public function getZoneHandlerUrl( $zone ) {
-		if ( isset( $this->zones[$zone]['handlerUrl'] )
-			&& in_array( $zone, array( 'public', 'temp', 'thumb', 'transcoded' ) )
-		) {
-			return $this->zones[$zone]['handlerUrl'];
-		}
-
-		return false;
+	public function backendSupportsUnicodePaths() {
+		return ( $this->getBackend()->getFeatures() & FileBackend::ATTR_UNICODE_PATHS );
 	}
 
 	/**
@@ -562,7 +546,7 @@ class FileRepo {
 	 *
 	 * STUB
 	 * @param string $hash SHA-1 hash
-	 * @return array
+	 * @return File[]
 	 */
 	public function findBySha1( $hash ) {
 		return array();
@@ -966,7 +950,7 @@ class FileRepo {
 	 *
 	 * @param string $src Source file system path, storage path, or virtual URL
 	 * @param string $dst Virtual URL or storage path
-	 * @param Array|string|null $options An array consisting of a key named headers
+	 * @param array|string|null $options An array consisting of a key named headers
 	 *   listing extra headers. If a string, taken as content-disposition header.
 	 *   (Support for array of options new in 1.23)
 	 * @return FileRepoStatus
@@ -1030,6 +1014,7 @@ class FileRepo {
 			} elseif ( is_array( $triple[2] ) && isset( $triple[2]['headers'] ) ) {
 				$headers = $triple[2]['headers'];
 			}
+			// @fixme: $headers might not be defined
 			$operations[] = array(
 				'op' => FileBackend::isStoragePath( $src ) ? 'copy' : 'store',
 				'src' => $src,
@@ -1071,7 +1056,7 @@ class FileRepo {
 	 * Returns a FileRepoStatus object with the file Virtual URL in the value,
 	 * file can later be disposed using FileRepo::freeTemp().
 	 *
-	 * @param string $originalName the base name of the file as specified
+	 * @param string $originalName The base name of the file as specified
 	 *   by the user. The file extension will be maintained.
 	 * @param string $srcPath The current location of the file.
 	 * @return FileRepoStatus Object with the URL in the value.
@@ -1244,7 +1229,7 @@ class FileRepo {
 			// This will check if the archive file also exists and fail if does.
 			// This is a sanity check to avoid data loss. On Windows and Linux,
 			// copy() will overwrite, so the existence check is vulnerable to
-			// race conditions unless an functioning LockManager is used.
+			// race conditions unless a functioning LockManager is used.
 			// LocalFile also uses SELECT FOR UPDATE for synchronization.
 			$operations[] = array(
 				'op' => 'copy',
@@ -1361,13 +1346,16 @@ class FileRepo {
 	 * Checks existence of an array of files.
 	 *
 	 * @param array $files Virtual URLs (or storage paths) of files to check
-	 * @return array|bool Either array of files and existence flags, or false
+	 * @return array Map of files and existence flags, or false
 	 */
 	public function fileExistsBatch( array $files ) {
+		$paths = array_map( array( $this, 'resolveToStoragePath' ), $files );
+		$this->backend->preloadFileStat( array( 'srcs' => $paths ) );
+
 		$result = array();
 		foreach ( $files as $key => $file ) {
-			$file = $this->resolveToStoragePath( $file );
-			$result[$key] = $this->backend->fileExists( array( 'src' => $file ) );
+			$path = $this->resolveToStoragePath( $file );
+			$result[$key] = $this->backend->fileExists( array( 'src' => $path ) );
 		}
 
 		return $result;
@@ -1381,7 +1369,7 @@ class FileRepo {
 	 * @param mixed $srcRel Relative path for the file to be deleted
 	 * @param mixed $archiveRel Relative path for the archive location.
 	 *   Relative to a private archive directory.
-	 * @return FileRepoStatus object
+	 * @return FileRepoStatus
 	 */
 	public function delete( $srcRel, $archiveRel ) {
 		$this->assertWritableRepo(); // fail out if read-only
@@ -1463,6 +1451,7 @@ class FileRepo {
 	 * Delete files in the deleted directory if they are not referenced in the filearchive table
 	 *
 	 * STUB
+	 * @param array $storageKeys
 	 */
 	public function cleanupDeletedBatch( array $storageKeys ) {
 		$this->assertWritableRepo();
@@ -1536,7 +1525,7 @@ class FileRepo {
 	 * Properties should ultimately be obtained via FSFile::getProps().
 	 *
 	 * @param string $virtualUrl
-	 * @return Array
+	 * @return array
 	 */
 	public function getFileProps( $virtualUrl ) {
 		$path = $this->resolveToStoragePath( $virtualUrl );
@@ -1560,7 +1549,7 @@ class FileRepo {
 	 * Get the size of a file with a given virtual URL/storage path
 	 *
 	 * @param string $virtualUrl
-	 * @return integer|bool False on failure
+	 * @return int|bool False on failure
 	 */
 	public function getFileSize( $virtualUrl ) {
 		$path = $this->resolveToStoragePath( $virtualUrl );
@@ -1599,7 +1588,7 @@ class FileRepo {
 	 * This only acts on the current version of files, not any old versions.
 	 * May use either the database or the filesystem.
 	 *
-	 * @param array|string $callback
+	 * @param callable $callback
 	 * @return void
 	 */
 	public function enumFiles( $callback ) {
@@ -1610,7 +1599,7 @@ class FileRepo {
 	 * Call a callback function for every public file in the repository.
 	 * May use either the database or the filesystem.
 	 *
-	 * @param array|string $callback
+	 * @param callable $callback
 	 * @return void
 	 */
 	protected function enumFilesInStorage( $callback ) {
@@ -1635,7 +1624,7 @@ class FileRepo {
 	/**
 	 * Determine if a relative path is valid, i.e. not blank or involving directory traveral
 	 *
-	 * @param $filename string
+	 * @param string $filename
 	 * @return bool
 	 */
 	public function validateFilename( $filename ) {
@@ -1686,7 +1675,7 @@ class FileRepo {
 	/**
 	 * Create a new fatal error
 	 *
-	 * @param $message
+	 * @param string $message
 	 * @return FileRepoStatus
 	 */
 	public function newFatal( $message /*, parameters...*/ ) {
@@ -1734,9 +1723,10 @@ class FileRepo {
 	 * @return string
 	 */
 	public function getDisplayName() {
-		// We don't name our own repo, return nothing
+		global $wgSitename;
+
 		if ( $this->isLocal() ) {
-			return null;
+			return $wgSitename;
 		}
 
 		// 'shared-repo-name-wikimediacommons' is used when $wgUseInstantCommons = true
@@ -1747,7 +1737,7 @@ class FileRepo {
 	 * Get the portion of the file that contains the origin file name.
 	 * If that name is too long, then the name "thumbnail.<ext>" will be given.
 	 *
-	 * @param $name string
+	 * @param string $name
 	 * @return string
 	 */
 	public function nameForThumb( $name ) {

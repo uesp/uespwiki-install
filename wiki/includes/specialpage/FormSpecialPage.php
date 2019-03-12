@@ -37,13 +37,13 @@ abstract class FormSpecialPage extends SpecialPage {
 
 	/**
 	 * Get an HTMLForm descriptor array
-	 * @return Array
+	 * @return array
 	 */
 	abstract protected function getFormFields();
 
 	/**
 	 * Add pre-text to the form
-	 * @return String HTML which will be sent to $form->addPreText()
+	 * @return string HTML which will be sent to $form->addPreText()
 	 */
 	protected function preText() {
 		return '';
@@ -51,7 +51,7 @@ abstract class FormSpecialPage extends SpecialPage {
 
 	/**
 	 * Add post-text to the form
-	 * @return String HTML which will be sent to $form->addPostText()
+	 * @return string HTML which will be sent to $form->addPostText()
 	 */
 	protected function postText() {
 		return '';
@@ -59,7 +59,7 @@ abstract class FormSpecialPage extends SpecialPage {
 
 	/**
 	 * Play with the HTMLForm if you need to more substantially
-	 * @param $form HTMLForm
+	 * @param HTMLForm $form
 	 */
 	protected function alterForm( HTMLForm $form ) {
 	}
@@ -106,17 +106,18 @@ abstract class FormSpecialPage extends SpecialPage {
 		$this->alterForm( $form );
 
 		// Give hooks a chance to alter the form, adding extra fields or text etc
-		wfRunHooks( "Special{$this->getName()}BeforeFormDisplay", array( &$form ) );
+		wfRunHooks( 'SpecialPageBeforeFormDisplay', array( $this->getName(), &$form ) );
 
 		return $form;
 	}
 
 	/**
 	 * Process the form on POST submission.
-	 * @param $data Array
-	 * @return Bool|Array true for success, false for didn't-try, array of errors on failure
+	 * @param array $data
+	 * @param HTMLForm $form
+	 * @return bool|string|array|Status As documented for HTMLForm::trySubmit.
 	 */
-	abstract public function onSubmit( array $data );
+	abstract public function onSubmit( array $data /* $form = null */ );
 
 	/**
 	 * Do something exciting on successful processing of the form, most likely to show a
@@ -155,9 +156,9 @@ abstract class FormSpecialPage extends SpecialPage {
 	/**
 	 * Called from execute() to check if the given user can perform this action.
 	 * Failures here must throw subclasses of ErrorPageError.
-	 * @param $user User
+	 * @param User $user
 	 * @throws UserBlockedError
-	 * @return Bool true
+	 * @return bool True
 	 */
 	protected function checkExecutePermissions( User $user ) {
 		$this->checkPermissions();
@@ -176,7 +177,7 @@ abstract class FormSpecialPage extends SpecialPage {
 
 	/**
 	 * Whether this action requires the wiki not to be locked
-	 * @return Bool
+	 * @return bool
 	 */
 	public function requiresWrite() {
 		return true;
@@ -184,7 +185,7 @@ abstract class FormSpecialPage extends SpecialPage {
 
 	/**
 	 * Whether this action cannot be executed by a blocked user
-	 * @return Bool
+	 * @return bool
 	 */
 	public function requiresUnblock() {
 		return true;

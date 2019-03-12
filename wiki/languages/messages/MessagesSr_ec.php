@@ -1,8 +1,7 @@
 <?php
 /** Serbian (Cyrillic script) (српски (ћирилица)‎)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -52,7 +51,7 @@ $namespaceNames = array(
 );
 
 $namespaceAliases = array(
-        # Aliases for Latin script namespaces
+	# Aliases for Latin script namespaces
 	"Medija"                  => NS_MEDIA,
 	"Posebno"                 => NS_SPECIAL,
 	"Razgovor"                => NS_TALK,
@@ -131,6 +130,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'ЧланциСаНајвишеРевизија' ),
 	'Movepage'                  => array( 'Преусмери', 'Премести_страницу' ),
 	'Mycontributions'           => array( 'МојиДоприноси', 'Моји_доприноси', 'Моји_прилози' ),
+	'MyLanguage'                => array( 'Мој_језик' ),
 	'Mypage'                    => array( 'МојаСтраница', 'Моја_страница' ),
 	'Mytalk'                    => array( 'МојРазговор', 'Мој_разговор' ),
 	'Myuploads'                 => array( 'Моја_слања' ),

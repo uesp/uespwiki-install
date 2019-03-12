@@ -61,7 +61,7 @@
 		 */
 		switchPane: function ( e ) {
 			var currentPaneId = debug.$container.data( 'currentPane' ),
-				requestedPaneId = $( this ).prop( 'id' ).substr( 9 ),
+				requestedPaneId = $( this ).prop( 'id' ).slice( 9 ),
 				$currentPane = $( '#mw-debug-pane-' + currentPaneId ),
 				$requestedPane = $( '#mw-debug-pane-' + requestedPaneId ),
 				hovDone = false;
@@ -174,7 +174,7 @@
 
 			gitInfo = '';
 			if ( this.data.gitRevision !== false ) {
-				gitInfo = '(' + this.data.gitRevision.substring( 0, 7 ) + ')';
+				gitInfo = '(' + this.data.gitRevision.slice( 0, 7 ) + ')';
 				if ( this.data.gitViewUrl !== false ) {
 					gitInfo = $( '<a>' )
 						.attr( 'href', this.data.gitViewUrl )
@@ -192,7 +192,10 @@
 			}
 
 			bitDiv( 'phpversion' )
-				.append( $( '<a href="//www.php.net/"></a>' ).text( 'PHP' ) )
+				.append( $( this.data.phpEngine === 'HHVM'
+					? '<a href="http://hhvm.com/">HHVM</a>'
+					: '<a href="https://php.net/">PHP</a>'
+				) )
 				.append( ': ' + this.data.phpVersion );
 
 			bitDiv( 'time' )

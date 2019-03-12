@@ -6,21 +6,19 @@
 global $IP;
 require_once "$IP/includes/specials/SpecialPreferences.php";
 
-function efSiteSpecialPreferences($par) {
-	global $wgRequest;
-
-	$form = new SitePreferencesForm( $wgRequest );
-	$form->execute($par);
-}
 
 class SitePreferencesForm extends SpecialPreferences {
 	protected $mRcNs = array();
 	protected $mRcNsTalk = NULL;
 	protected $mPosted = false;
 	
-	function __construct( &$request ) {
+	function __construct( ) {
 		global $wgContLang;
-		parent::__construct($request);
+		global $wgRequest;
+		
+		$request = $wgRequest;
+		
+		parent::__construct();
 		
 		$this->mRcNs = array();
 		$this->mPosted = $request->wasPosted();
@@ -232,5 +230,5 @@ class SitePreferencesForm extends SpecialPreferences {
 		}
 		
 		parent::savePreferences();
-	}
+	} 
 }

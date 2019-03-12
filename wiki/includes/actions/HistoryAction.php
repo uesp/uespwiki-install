@@ -92,8 +92,6 @@ class HistoryAction extends FormlessAction {
 	 * Print the history page for an article.
 	 */
 	function onView() {
-		global $wgScript, $wgUseFileCache;
-
 		$out = $this->getOutput();
 		$request = $this->getRequest();
 
@@ -107,10 +105,12 @@ class HistoryAction extends FormlessAction {
 		wfProfileIn( __METHOD__ );
 
 		$this->preCacheMessages();
+		$config = $this->context->getConfig();
 
 		# Fill in the file cache if not set already
-		if ( $wgUseFileCache && HTMLFileCache::useFileCache( $this->getContext() ) ) {
-			$cache = HTMLFileCache::newFromTitle( $this->getTitle(), 'history' );
+		$useFileCache = $config->get( 'UseFileCache' );
+		if ( $useFileCache && HTMLFileCache::useFileCache( $this->getContext() ) ) {
+			$cache = new HTMLFileCache( $this->getTitle(), 'history' );
 			if ( !$cache->isCacheGood( /* Assume up to date */ ) ) {
 				ob_start( array( &$cache, 'saveToFileCache' ) );
 			}
@@ -119,6 +119,13 @@ class HistoryAction extends FormlessAction {
 		// Setup page variables.
 		$out->setFeedAppendQuery( 'action=history' );
 		$out->addModules( 'mediawiki.action.history' );
+		if ( $config->get( 'UseMediaWikiUIEverywhere' ) ) {
+			$out = $this->getOutput();
+			$out->addModuleStyles( array(
+				'mediawiki.ui.input',
+				'mediawiki.ui.checkbox',
+			) );
+		}
 
 		// Handle atom/RSS feeds.
 		$feedType = $request->getVal( 'feed' );
@@ -173,7 +180,7 @@ class HistoryAction extends FormlessAction {
 		}
 
 		// Add the general form
-		$action = htmlspecialchars( $wgScript );
+		$action = htmlspecialchars( wfScript() );
 		$out->addHTML(
 			"<form action=\"$action\" method=\"get\" id=\"mw-history-searchform\">" .
 			Xml::fieldset(
@@ -214,7 +221,7 @@ class HistoryAction extends FormlessAction {
 	 *
 	 * @param int $limit The limit number of revisions to get
 	 * @param int $offset
-	 * @param int $direction Either HistoryPage::DIR_PREV or HistoryPage::DIR_NEXT
+	 * @param int $direction Either self::DIR_PREV or self::DIR_NEXT
 	 * @return ResultWrapper
 	 */
 	function fetchRevisions( $limit, $offset, $direction ) {
@@ -225,9 +232,9 @@ class HistoryAction extends FormlessAction {
 
 		$dbr = wfGetDB( DB_SLAVE );
 
-		if ( $direction == HistoryPage::DIR_PREV ) {
+		if ( $direction === self::DIR_PREV ) {
 			list( $dirs, $oper ) = array( "ASC", ">=" );
-		} else { /* $direction == HistoryPage::DIR_NEXT */
+		} else { /* $direction === self::DIR_NEXT */
 			list( $dirs, $oper ) = array( "DESC", "<=" );
 		}
 
@@ -251,17 +258,17 @@ class HistoryAction extends FormlessAction {
 	/**
 	 * Output a subscription feed listing recent edits to this page.
 	 *
-	 * @param string $type feed type
+	 * @param string $type Feed type
 	 */
 	function feed( $type ) {
-		global $wgFeedClasses, $wgFeedLimit;
 		if ( !FeedUtils::checkFeedOutput( $type ) ) {
 			return;
 		}
 		$request = $this->getRequest();
 
+		$feedClasses = $this->context->getConfig()->get( 'FeedClasses' );
 		/** @var RSSFeed|AtomFeed $feed */
-		$feed = new $wgFeedClasses[$type](
+		$feed = new $feedClasses[$type](
 			$this->getTitle()->getPrefixedText() . ' - ' .
 			$this->msg( 'history-feed-title' )->inContentLanguage()->text(),
 			$this->msg( 'history-feed-description' )->inContentLanguage()->text(),
@@ -271,9 +278,12 @@ class HistoryAction extends FormlessAction {
 		// Get a limit on number of feed entries. Provide a sane default
 		// of 10 if none is defined (but limit to $wgFeedLimit max)
 		$limit = $request->getInt( 'limit', 10 );
-		$limit = min( max( $limit, 1 ), $wgFeedLimit );
+		$limit = min(
+			max( $limit, 1 ),
+			$this->context->getConfig()->get( 'FeedLimit' )
+		);
 
-		$items = $this->fetchRevisions( $limit, 0, HistoryPage::DIR_NEXT );
+		$items = $this->fetchRevisions( $limit, 0, self::DIR_NEXT );
 
 		// Generate feed elements enclosed between header and footer.
 		$feed->outHeader();
@@ -303,7 +313,7 @@ class HistoryAction extends FormlessAction {
 	 * Borrows Recent Changes' feed generation functions for formatting;
 	 * includes a diff to the previous revision (if any).
 	 *
-	 * @param stdClass|array $row database row
+	 * @param stdClass|array $row Database row
 	 * @return FeedItem
 	 */
 	function feedItem( $row ) {
@@ -462,21 +472,24 @@ class HistoryPager extends ReverseChronologicalPager {
 	 * @return string HTML output
 	 */
 	function getStartBody() {
-		global $wgScript;
 		$this->lastRow = false;
 		$this->counter = 1;
 		$this->oldIdChecked = 0;
 
 		$this->getOutput()->wrapWikiMsg( "<div class='mw-history-legend'>\n$1\n</div>", 'histlegend' );
-		$s = Html::openElement( 'form', array( 'action' => $wgScript,
+		$s = Html::openElement( 'form', array( 'action' => wfScript(),
 			'id' => 'mw-history-compare' ) ) . "\n";
 		$s .= Html::hidden( 'title', $this->getTitle()->getPrefixedDBkey() ) . "\n";
 		$s .= Html::hidden( 'action', 'historysubmit' ) . "\n";
 
 		// Button container stored in $this->buttons for re-use in getEndBody()
 		$this->buttons = '<div>';
+		$className = 'historysubmit mw-history-compareselectedversions-button';
+		if ( $this->getConfig()->get( 'UseMediaWikiUIEverywhere' ) ) {
+			$className .= ' mw-ui-button mw-ui-constructive';
+		}
 		$this->buttons .= $this->submitButton( $this->msg( 'compareselectedversions' )->text(),
-			array( 'class' => 'historysubmit mw-history-compareselectedversions-button' )
+			array( 'class' => $className )
 				+ Linker::tooltipAndAccesskeyAttribs( 'compareselectedversions' )
 		) . "\n";
 
@@ -776,18 +789,21 @@ class HistoryPager extends ReverseChronologicalPager {
 	/**
 	 * Create a diff-to-previous link for this revision for this page.
 	 *
-	 * @param Revision $prevRev The previous revision
-	 * @param mixed $next The newer revision
+	 * @param Revision $prevRev The revision being displayed
+	 * @param stdClass|string|null $next The next revision in list (that is
+	 *        the previous one in chronological order).
+	 *        May either be a row, "unknown" or null.
 	 * @return string
 	 */
 	function lastLink( $prevRev, $next ) {
 		$last = $this->historyPage->message['last'];
-		# $next may either be a Row, null, or "unkown"
-		$nextRev = is_object( $next ) ? new Revision( $next ) : $next;
-		if ( is_null( $next ) ) {
+
+		if ( $next === null ) {
 			# Probably no next row
 			return $last;
-		} elseif ( $next === 'unknown' ) {
+		}
+
+		if ( $next === 'unknown' ) {
 			# Next row probably exists but is unknown, use an oldid=prev link
 			return Linker::linkKnown(
 				$this->getTitle(),
@@ -798,21 +814,25 @@ class HistoryPager extends ReverseChronologicalPager {
 					'oldid' => 'prev'
 				)
 			);
-		} elseif ( !$prevRev->userCan( Revision::DELETED_TEXT, $this->getUser() )
+		}
+
+		$nextRev = new Revision( $next );
+
+		if ( !$prevRev->userCan( Revision::DELETED_TEXT, $this->getUser() )
 			|| !$nextRev->userCan( Revision::DELETED_TEXT, $this->getUser() )
 		) {
 			return $last;
-		} else {
-			return Linker::linkKnown(
-				$this->getTitle(),
-				$last,
-				array(),
-				array(
-					'diff' => $prevRev->getId(),
-					'oldid' => $next->rev_id
-				)
-			);
 		}
+
+		return Linker::linkKnown(
+			$this->getTitle(),
+			$last,
+			array(),
+			array(
+				'diff' => $prevRev->getId(),
+				'oldid' => $next->rev_id
+			)
+		);
 	}
 
 	/**
@@ -866,6 +886,7 @@ class HistoryPager extends ReverseChronologicalPager {
 
 	/**
 	 * This is called if a write operation is possible from the generated HTML
+	 * @param bool $enable
 	 */
 	function preventClickjacking( $enable = true ) {
 		$this->preventClickjacking = $enable;
@@ -877,20 +898,5 @@ class HistoryPager extends ReverseChronologicalPager {
 	 */
 	function getPreventClickjacking() {
 		return $this->preventClickjacking;
-	}
-}
-
-/**
- * Backwards-compatibility alias
- */
-class HistoryPage extends HistoryAction {
-	// @codingStandardsIgnoreStart Needed "useless" override to make it public.
-	public function __construct( Page $article ) {
-		parent::__construct( $article );
-	}
-	// @codingStandardsIgnoreEnd
-
-	public function history() {
-		$this->onView();
 	}
 }

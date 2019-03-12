@@ -1,8 +1,7 @@
 <?php
 /** Low Saxon (Netherlands) (Nedersaksies)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -71,7 +70,7 @@ $dateFormats = array(
 );
 
 $bookstoreList = array(
-        'Koninklijke Bibliotheek' => 'http://opc4.kb.nl/DB=1/SET=5/TTL=1/CMD?ACT=SRCH&IKT=1007&SRT=RLV&TRM=$1'
+	'Koninklijke Bibliotheek' => 'http://opc4.kb.nl/DB=1/SET=5/TTL=1/CMD?ACT=SRCH&IKT=1007&SRT=RLV&TRM=$1'
 );
 
 #!!# Translation <b>HLEERSTE:</b> is used more than once for <a href="#mw-sp-magic-lcfirst">lcfirst</a> and <a href="#mw-sp-magic-ucfirst">ucfirst</a>.
@@ -272,6 +271,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Meeste_bewarkingen' ),
 	'Movepage'                  => array( 'Zied_herneumen' ),
 	'Mycontributions'           => array( 'Mien_biedragen' ),
+	'MyLanguage'                => array( 'Mien_taal' ),
 	'Mypage'                    => array( 'Mien_gebrukerszied' ),
 	'Mytalk'                    => array( 'Mien_overleg' ),
 	'Myuploads'                 => array( 'Mien_in-elaojen_bestaanden' ),

@@ -60,6 +60,11 @@ class PdfHandler extends ImageHandler {
 	 * @return bool
 	 */
 	function validateParam( $name, $value ) {
+		if ( $name === 'page' && trim( $value ) !== (string) intval( $value ) ) {
+			// Extra junk on the end of page, probably actually a caption
+			// e.g. [[File:Foo.pdf|thumb|Page 3 of the document shows foo]]
+			return false;
+		}
 		if ( in_array( $name, array( 'width', 'height', 'page' ) ) ) {
 			return ( $value > 0 );
 		}
@@ -133,7 +138,7 @@ class PdfHandler extends ImageHandler {
 	 * @return MediaTransformError|MediaTransformOutput|ThumbnailImage|TransformParameterError
 	 */
 	function doTransform( $image, $dstPath, $dstUrl, $params, $flags = 0 ) {
-		global $wgPdfProcessor, $wgPdfPostProcessor, $wgPdfHandlerDpi;
+		global $wgPdfProcessor, $wgPdfPostProcessor, $wgPdfHandlerDpi, $wgPdfHandlerJpegQuality;
 
 		$metadata = $image->getMetadata();
 
@@ -200,6 +205,8 @@ class PdfHandler extends ImageHandler {
 			$wgPdfPostProcessor,
 			"-depth",
 			"8",
+			"-quality",
+			$wgPdfHandlerJpegQuality,
 			"-resize",
 			$width,
 			"-",

@@ -32,26 +32,35 @@
  *   - index.php
  *   - load.php
  *   - api.php
+ *   - mw-config/index.php
  *   - cli
  *
  * @note Since we can't rely on anything, the minimum PHP versions and MW current
  * version are hardcoded here
  */
 function wfPHPVersionError( $type ) {
-	$mwVersion = '1.23';
+	$mwVersion = '1.24';
 	$minimumVersionPHP = '5.3.2';
 
-	$phpVersion = phpversion();
+	$phpVersion = PHP_VERSION;
 	$protocol = isset( $_SERVER['SERVER_PROTOCOL'] ) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0';
-	$message = "MediaWiki $mwVersion requires at least PHP version $minimumVersionPHP, you are using PHP $phpVersion.";
+	$message = "MediaWiki $mwVersion requires at least "
+		. "PHP version $minimumVersionPHP, you are using PHP $phpVersion.";
+
 	if ( $type == 'cli' ) {
-		$finalOutput = "You are using PHP version $phpVersion but MediaWiki $mwVersion needs PHP $minimumVersionPHP or higher. ABORTING.\n" .
-		"Check if you have a newer php executable with a different name, such as php5.\n";
-	} elseif ( $type == 'index.php' ) {
+		$finalOutput = "You are using PHP version $phpVersion "
+			. "but MediaWiki $mwVersion needs PHP $minimumVersionPHP or higher. ABORTING.\n"
+			. "Check if you have a newer php executable with a different name, such as php5.\n";
+	} elseif ( $type == 'index.php' || $type == 'mw-config/index.php' ) {
 		$pathinfo = pathinfo( $_SERVER['SCRIPT_NAME'] );
+		if ( $type == 'mw-config/index.php' ) {
+			$dirname = dirname( $pathinfo['dirname'] );
+		} else {
+			$dirname = $pathinfo['dirname'];
+		}
 		$encLogo = htmlspecialchars(
-			str_replace( '//', '/', $pathinfo['dirname'] . '/' ) .
-			'skins/common/images/mediawiki.png'
+			str_replace( '//', '/', $dirname . '/' ) .
+			'resources/assets/mediawiki.png'
 		);
 
 		header( "$protocol 500 MediaWiki configuration Error" );

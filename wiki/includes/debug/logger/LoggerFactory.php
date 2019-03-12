@@ -29,7 +29,7 @@ namespace MediaWiki\Logger;
  * maintain backwards compatibility with the 1.23 LTS releases to migrate to
  * the new logging system.
  *
- * @since 1.23.10
+ * @since 1.24.4
  * @author Bryan Davis <bd808@wikimedia.org>
  * @copyright © 2015 Bryan Davis and Wikimedia Foundation.
  */

@@ -42,7 +42,7 @@
 			var request = {
 				'prop': 'imageinfo',
 				// In case the user added File: or Image: to the apiKey:
-				'titles': 'File:' + unescape( apiTitleKey ).replace( /^(File:|Image:)/ , '' ),
+				'titles': 'File:' + decodeURIComponent( apiTitleKey ).replace( /^(File:|Image:)/ , '' ),
 				'iiprop': 'url|size|dimensions|metadata',
 				'iiurlwidth': embedPlayer.getWidth(),
 				'redirects' : true // automatically resolve redirects
@@ -207,7 +207,7 @@
 			}
 			// Setup shortcuts:
 			var apiUrl = mw.getApiProviderURL( apiProvider );
-			var fileTitle = 'File:' + unescape( apiTitleKey).replace(/^File:|^Image:/, '');
+			var fileTitle = 'File:' + decodeURIComponent( apiTitleKey).replace(/^File:|^Image:/, '');
 
 			// Get the image page ( cache for 1 hour )
 			var request = {
@@ -236,7 +236,7 @@
 		 */
 
 		// Show credits when requested
-		$( embedPlayer ).bind('showCredits', function( event, $target, callback){
+		$( embedPlayer ).bindQueueCallback( 'showCredits', function( $target, callback ) {
 			if( $target.data('playerId') != embedPlayer.id ){
 				// bad event trigger
 				return ;
@@ -316,7 +316,7 @@
 			}
 		});
 
-		$( embedPlayer ).bind( 'checkPlayerSourcesEvent', function(event, callback){
+		$( embedPlayer ).bindQueueCallback( 'checkPlayerSourcesEvent', function( callback ) {
 			// Only load source if none are available:
 			if( embedPlayer.mediaElement.sources.length == 0 ){
 				loadPlayerSources( callback );
@@ -325,7 +325,7 @@
 				callback();
 			}
 		});
-		$( mw ).bind( 'TimedText_LoadTextSource', function( event, source, callback ){
+		$( mw ).bindQueueCallback( 'TimedText_LoadTextSource', function( source, callback ) {
 			if( !source['mwtitle'] || !source['mwprovider'] ){
 				callback();
 				return ;
@@ -360,13 +360,13 @@
 			var iframeUrl = false;
 			// Do a special check for wikimediacommons provider as a known shared reop
 			if( embedPlayer['data-mwprovider'] == 'wikimediacommons' ){
-				iframeUrl = '//commons.wikimedia.org/wiki/File:' + unescape( embedPlayer.apiTitleKey ).replace( /^(File:|Image:)/ , '' );
+				iframeUrl = '//commons.wikimedia.org/wiki/File:' + decodeURIComponent( embedPlayer.apiTitleKey ).replace( /^(File:|Image:)/ , '' );
 			} else {
 				// use the local wiki:
 				if( mw.config.get('wgServer') && mw.config.get('wgArticlePath') ){
 					iframeUrl =  mw.config.get('wgServer') +
 						mw.config.get('wgArticlePath').replace( /\$1/, 'File:' +
-							unescape( embedPlayer.apiTitleKey ).replace( /^(File:|Image:)/ , '' ) )
+							decodeURIComponent( embedPlayer.apiTitleKey ).replace( /^(File:|Image:)/ , '' ) )
 				}
 			}
 			if( iframeUrl ){

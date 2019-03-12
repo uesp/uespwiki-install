@@ -9,10 +9,7 @@ class ResourceLoaderStartupModuleTest extends ResourceLoaderTestCase {
 				'modules' => array(),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    }
+    "local": "/w/load.php"
 } );mw.loader.register( [] );'
 			) ),
 			array( array(
@@ -22,10 +19,7 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    }
+    "local": "/w/load.php"
 } );mw.loader.register( [
     [
         "test.blank",
@@ -42,10 +36,7 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    }
+    "local": "/w/load.php"
 } );mw.loader.register( [
     [
         "test.blank",
@@ -73,10 +64,7 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    }
+    "local": "/w/load.php"
 } );mw.loader.register( [
     [
         "test.blank",
@@ -97,14 +85,8 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    },
-    "example": {
-        "loadScript": "http://example.org/w/load.php",
-        "apiScript": "http://example.org/w/api.php"
-    }
+    "local": "/w/load.php",
+    "example": "http://example.org/w/load.php"
 } );mw.loader.register( [
     [
         "test.blank",
@@ -114,6 +96,64 @@ mw.loader.addSource( {
         "example"
     ]
 ] );'
+			) ),
+			array( array(
+				'msg' => 'Conditional dependency function',
+				'modules' => array(
+					'test.x.core' => new ResourceLoaderTestModule(),
+					'test.x.polyfill' => new ResourceLoaderTestModule( array(
+						'skipFunction' => 'return true;'
+					) ),
+					'test.y.polyfill' => new ResourceLoaderTestModule( array(
+						'skipFunction' =>
+							'return !!(' .
+							'    window.JSON &&' .
+							'    JSON.parse &&' .
+							'    JSON.stringify' .
+							');'
+					) ),
+					'test.z.foo' => new ResourceLoaderTestModule( array(
+						'dependencies' => array(
+							'test.x.core',
+							'test.x.polyfil',
+							'test.y.polyfil',
+						),
+					) ),
+				),
+				'out' => '
+mw.loader.addSource( {
+    "local": "/w/load.php"
+} );mw.loader.register( [
+    [
+        "test.x.core",
+        "1388534400"
+    ],
+    [
+        "test.x.polyfill",
+        "1388534400",
+        [],
+        null,
+        "local",
+        "return true;"
+    ],
+    [
+        "test.y.polyfill",
+        "1388534400",
+        [],
+        null,
+        "local",
+        "return !!(    window.JSON \u0026\u0026    JSON.parse \u0026\u0026    JSON.stringify);"
+    ],
+    [
+        "test.z.foo",
+        "1388534400",
+        [
+            "test.x.core",
+            "test.x.polyfil",
+            "test.y.polyfil"
+        ]
+    ]
+] );',
 			) ),
 			array( array(
 				// This may seem like an edge case, but a plain MediaWiki core install
@@ -151,6 +191,7 @@ mw.loader.addSource( {
 							'test.x.foo',
 							'test.x.bar',
 							'test.x.util',
+							'test.x.unknown',
 						),
 					) ),
 					'test.group.foo.1' => new ResourceLoaderTestModule( array(
@@ -176,14 +217,8 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    },
-    "example": {
-        "loadScript": "http://example.org/w/load.php",
-        "apiScript": "http://example.org/w/api.php"
-    }
+    "local": "/w/load.php",
+    "example": "http://example.org/w/load.php"
 } );mw.loader.register( [
     [
         "test.blank",
@@ -211,7 +246,6 @@ mw.loader.addSource( {
         "test.x.bar",
         "1388534400",
         [
-            "test.x.core",
             "test.x.util"
         ]
     ],
@@ -221,7 +255,7 @@ mw.loader.addSource( {
         [
             "test.x.foo",
             "test.x.bar",
-            "test.x.util"
+            "test.x.unknown"
         ]
     ],
     [
@@ -256,7 +290,10 @@ mw.loader.addSource( {
 
 	/**
 	 * @dataProvider provideGetModuleRegistrations
+	 * @covers ResourceLoaderStartupModule::optimizeDependencies
 	 * @covers ResourceLoaderStartUpModule::getModuleRegistrations
+	 * @covers ResourceLoader::makeLoaderSourcesScript
+	 * @covers ResourceLoader::makeLoaderRegisterScript
 	 */
 	public function testGetModuleRegistrations( $case ) {
 		if ( isset( $case['sources'] ) ) {
@@ -268,10 +305,83 @@ mw.loader.addSource( {
 
 		$rl->register( $case['modules'] );
 
+		$module = new ResourceLoaderStartUpModule();
 		$this->assertEquals(
 			ltrim( $case['out'], "\n" ),
-			ResourceLoaderStartUpModule::getModuleRegistrations( $context ),
+			$module->getModuleRegistrations( $context ),
 			$case['msg']
+		);
+	}
+
+	public static function provideRegistrations() {
+		return array(
+			array( array(
+				'test.blank' => new ResourceLoaderTestModule(),
+				'test.min' => new ResourceLoaderTestModule( array(
+					'skipFunction' =>
+						'return !!(' .
+						'    window.JSON &&' .
+						'    JSON.parse &&' .
+						'    JSON.stringify' .
+						');',
+					'dependencies' => array(
+						'test.blank',
+					),
+				) ),
+			) )
+		);
+	}
+	/**
+	 * @dataProvider provideRegistrations
+	 */
+	public function testRegistrationsMinified( $modules ) {
+		$this->setMwGlobals( 'wgResourceLoaderDebug', false );
+
+		$context = self::getResourceLoaderContext();
+		$rl = $context->getResourceLoader();
+		$rl->register( $modules );
+		$module = new ResourceLoaderStartUpModule();
+		$this->assertEquals(
+'mw.loader.addSource({"local":"/w/load.php"});'
+. 'mw.loader.register(['
+. '["test.blank","1388534400"],'
+. '["test.min","1388534400",["test.blank"],null,"local",'
+. '"return!!(window.JSON\u0026\u0026JSON.parse\u0026\u0026JSON.stringify);"'
+. ']]);',
+			$module->getModuleRegistrations( $context ),
+			'Minified output'
+		);
+	}
+
+	/**
+	 * @dataProvider provideRegistrations
+	 */
+	public function testRegistrationsUnminified( $modules ) {
+		$context = self::getResourceLoaderContext();
+		$rl = $context->getResourceLoader();
+		$rl->register( $modules );
+		$module = new ResourceLoaderStartUpModule();
+		$this->assertEquals(
+'mw.loader.addSource( {
+    "local": "/w/load.php"
+} );mw.loader.register( [
+    [
+        "test.blank",
+        "1388534400"
+    ],
+    [
+        "test.min",
+        "1388534400",
+        [
+            "test.blank"
+        ],
+        null,
+        "local",
+        "return !!(    window.JSON \u0026\u0026    JSON.parse \u0026\u0026    JSON.stringify);"
+    ]
+] );',
+			$module->getModuleRegistrations( $context ),
+			'Unminified output'
 		);
 	}
 

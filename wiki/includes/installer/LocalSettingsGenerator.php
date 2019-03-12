@@ -43,12 +43,13 @@ class LocalSettingsGenerator {
 	/**
 	 * Constructor.
 	 *
-	 * @param $installer Installer subclass
+	 * @param Installer $installer
 	 */
 	public function __construct( Installer $installer ) {
 		$this->installer = $installer;
 
 		$this->extensions = $installer->getVar( '_Extensions' );
+		$this->skins = $installer->getVar( '_Skins' );
 
 		$db = $installer->getDBInstaller( $installer->getVar( 'wgDBtype' ) );
 
@@ -105,9 +106,9 @@ class LocalSettingsGenerator {
 	/**
 	 * Returns the escaped version of a string of php code.
 	 *
-	 * @param $string String
+	 * @param string $string
 	 *
-	 * @return String
+	 * @return string
 	 */
 	public static function escapePhpString( $string ) {
 		if ( is_array( $string ) || is_object( $string ) ) {
@@ -129,12 +130,25 @@ class LocalSettingsGenerator {
 
 	/**
 	 * Return the full text of the generated LocalSettings.php file,
-	 * including the extensions
+	 * including the extensions and skins.
 	 *
-	 * @return String
+	 * @return string
 	 */
 	public function getText() {
 		$localSettings = $this->getDefaultText();
+
+		if ( count( $this->skins ) ) {
+			$localSettings .= "
+# Enabled skins.
+# The following skins were automatically enabled:\n";
+
+			foreach ( $this->skins as $skinName ) {
+				$encSkinName = self::escapePhpString( $skinName );
+				$localSettings .= "require_once \"\$IP/skins/$encSkinName/$encSkinName.php\";\n";
+			}
+
+			$localSettings .= "\n";
+		}
 
 		if ( count( $this->extensions ) ) {
 			$localSettings .= "
@@ -146,9 +160,12 @@ class LocalSettingsGenerator {
 				$encExtName = self::escapePhpString( $extName );
 				$localSettings .= "require_once \"\$IP/extensions/$encExtName/$encExtName.php\";\n";
 			}
+
+			$localSettings .= "\n";
 		}
 
-		$localSettings .= "\n\n# End of automatically generated settings.
+		$localSettings .= "
+# End of automatically generated settings.
 # Add more configuration options below.\n\n";
 
 		return $localSettings;
@@ -164,7 +181,7 @@ class LocalSettingsGenerator {
 	}
 
 	/**
-	 * @return String
+	 * @return string
 	 */
 	protected function buildMemcachedServerList() {
 		$servers = $this->values['_MemCachedServers'];
@@ -185,7 +202,7 @@ class LocalSettingsGenerator {
 	}
 
 	/**
-	 * @return String
+	 * @return string
 	 */
 	protected function getDefaultText() {
 		if ( !$this->values['wgImageMagickConvertCommand'] ) {
@@ -202,7 +219,6 @@ class LocalSettingsGenerator {
 			$locale = '';
 		}
 
-		//$rightsUrl = $this->values['wgRightsUrl'] ? '' : '#'; // @todo FIXME: I'm unused!
 		$hashedUploads = $this->safeMode ? '' : '#';
 		$metaNamespace = '';
 		if ( $this->values['wgMetaNamespace'] !== $this->values['wgSitename'] ) {
@@ -221,6 +237,8 @@ class LocalSettingsGenerator {
 						wfBoolToStr( $perm ) . ";\n";
 				}
 			}
+			$groupRights .= "\n";
+
 			if ( ( isset( $this->groupPermissions['*']['edit'] ) &&
 					$this->groupPermissions['*']['edit'] === false )
 				&& ( isset( $this->groupPermissions['*']['createaccount'] ) &&
@@ -228,12 +246,12 @@ class LocalSettingsGenerator {
 				&& ( isset( $this->groupPermissions['*']['read'] ) &&
 					$this->groupPermissions['*']['read'] !== false )
 			) {
-				$noFollow = "\n# Set \$wgNoFollowLinks to true if you open up your wiki to editing by\n"
+				$noFollow = "# Set \$wgNoFollowLinks to true if you open up your wiki to editing by\n"
 					. "# the general public and wish to apply nofollow to external links as a\n"
 					. "# deterrent to spammers. Nofollow is not a comprehensive anti-spam solution\n"
 					. "# and open wikis will generally require other anti-spam measures; for more\n"
 					. "# information, see https://www.mediawiki.org/wiki/Manual:Combating_spam\n"
-					. "\$wgNoFollowLinks = false;";
+					. "\$wgNoFollowLinks = false;\n\n";
 			}
 		}
 
@@ -353,10 +371,6 @@ ${serverSetting}
 # web installer while LocalSettings.php is in place
 \$wgUpgradeKey = \"{$this->values['wgUpgradeKey']}\";
 
-## Default skin: you can change the default skin. Use the internal symbolic
-## names, ie 'cologneblue', 'monobook', 'vector':
-\$wgDefaultSkin = \"{$this->values['wgDefaultSkin']}\";
-
 ## For attaching licensing metadata to pages, and displaying an
 ## appropriate copyright notice / icon. GNU Free Documentation
 ## License and Creative Commons licenses are supported so far.
@@ -368,6 +382,9 @@ ${serverSetting}
 # Path to the GNU diff3 utility. Used for conflict resolution.
 \$wgDiff3 = \"{$this->values['wgDiff3']}\";
 
-{$groupRights}{$noFollow}";
+{$groupRights}{$noFollow}## Default skin: you can change the default skin. Use the internal symbolic
+## names, ie 'vector', 'monobook':
+\$wgDefaultSkin = \"{$this->values['wgDefaultSkin']}\";
+";
 	}
 }

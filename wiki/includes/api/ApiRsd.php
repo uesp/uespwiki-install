@@ -69,6 +69,10 @@ class ApiRsd extends ApiBase {
 		);
 	}
 
+	public function isReadMode() {
+		return false;
+	}
+
 	/**
 	 * Builds an internal list of APIs to expose information about.
 	 * Normally this only lists the MediaWiki API, with its base URL,
@@ -156,7 +160,7 @@ class ApiRsd extends ApiBase {
 }
 
 class ApiFormatXmlRsd extends ApiFormatXml {
-	public function __construct( $main, $format ) {
+	public function __construct( ApiMain $main, $format ) {
 		parent::__construct( $main, $format );
 		$this->setRootElement( 'rsd' );
 	}

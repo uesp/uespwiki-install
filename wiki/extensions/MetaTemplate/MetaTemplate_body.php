@@ -285,7 +285,10 @@ function efMetaTemplateImplementSplitargs(&$parser) {
 				$currargs = '';
 				$currbase = $nbase;
 			}
-			$currargs .= '|' . $nnew . '=' . $value;
+			// RH70 (2019-02-03): The str_replace was added as a hack for doubly-parsed {{!}} pipes in the original parameter.
+			// It would probably be better to actually parse the named and numbered values using PPTemplate_Hash methods, but
+			// this seems to work well enough.
+			$currargs .= '|' . $nnew . '=' . str_replace('|', '{{!}}', $value);
 		}
 		if( $currargs != '' ) {
 			$output .= '{{' . $pagename . $currargs . $nonnum . '}}';
@@ -848,6 +851,7 @@ function efMetaTemplatePreprocessTemplateName(&$parser, $args, $nametype) {
 function efMetaTemplateImplementTemplateName(&$parser, $frame, $nametype, $level=0) {
 	global $wgContLang;
 	$pstack = new MetaTemplateParserStack($parser, $frame);
+	$frame->setVolatile();
 	$title = $pstack->get_template_title($level);
 	if (!is_object($title))
 		return $title;

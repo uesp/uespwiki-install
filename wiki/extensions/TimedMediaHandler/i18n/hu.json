@@ -3,7 +3,9 @@
 		"authors": [
 			"Dani",
 			"Glanthor Reviol",
-			"Tgr"
+			"Tgr",
+			"Csega",
+			"Samat"
 		]
 	},
 	"timedmedia-desc": "JavaScript nyelven írt lejátszó Ogg Theora és Vorbis fájlokhoz",
@@ -15,7 +17,7 @@
 	"timedmedia-ogg-long-multiplexed": "Ogg egyesített audió- és videófájl, $1, hossz: $2, $4×$5 képpont, $3 összesen",
 	"timedmedia-ogg-long-general": "Ogg médiafájl, hossza: $2, $3",
 	"timedmedia-ogg-long-error": "Érvénytelen ogg fájl: $1",
-	"timedmedia-no-player-js": "Sajnáljuk, a böngésződben vagy le van tiltva a JavaScript, vagy nincs egyetlen támogatott lejátszója sem.<br />\n<a href=\"$1\">Letöltheted a klipet</a>, vagy <a href=\"//www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download\">letölthetsz egy lejátszót</a> a böngészőben való megtekintéshez.",
+	"timedmedia-no-player-js": "Sajnáljuk, a böngésződben vagy le van tiltva a JavaScript, vagy nincs egyetlen támogatott lejátszója sem.<br />\n<a href=\"$1\">Letöltheted a klipet</a>, vagy <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">letölthetsz egy lejátszót</a> a böngészőben való megtekintéshez.",
 	"timedmedia-more": "Tovább...",
 	"timedmedia-dismiss": "Bezárás",
 	"timedmedia-download": "Fájl letöltése",
@@ -26,5 +28,7 @@
 	"timedmedia-source-file-desc": "Eredeti $1, $2 × $3 ($4)",
 	"timedmedia-derivative-desc-160p.ogv": "Alacsony sávszélességű Ogg videó (160P)",
 	"timedmedia-derivative-desc-720p.ogv": "Magas minőségű, letölthető Ogg videó (720P)",
-	"timedmedia-derivative-desc-720p.webm": "Magas minőségű, letölthető WebM (720P)"
+	"timedmedia-derivative-desc-720p.webm": "Magas minőségű, letölthető WebM (720P)",
+	"right-transcode-status": "[[Special:TimedMediaHandler|a legutóbbi átkódolási események információinak]] megtekintése",
+	"orphanedtimedtext": "Árva TimedText lapok"
 }

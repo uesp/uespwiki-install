@@ -621,7 +621,7 @@ class DatabaseOracle extends DatabaseBase {
 
 	/**
 	 * @param string $table
-	 * @param $row
+	 * @param array $row
 	 * @param string $fname
 	 * @return bool
 	 * @throws DBUnexpectedError
@@ -977,7 +977,7 @@ class DatabaseOracle extends DatabaseBase {
 	/**
 	 * Return aggregated value function call
 	 *
-	 * @param $valuedata
+	 * @param array $valuedata
 	 * @param string $valuename
 	 * @return mixed
 	 */
@@ -1000,7 +1000,7 @@ class DatabaseOracle extends DatabaseBase {
 	}
 
 	/**
-	 * @return string wikitext of a link to the server software's web site
+	 * @return string Wikitext of a link to the server software's web site
 	 */
 	public function getSoftwareLink() {
 		return '[{{int:version-db-oracle-url}} Oracle]';

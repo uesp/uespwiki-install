@@ -32,7 +32,7 @@
  */
 class ApiQueryImages extends ApiQueryGeneratorBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'im' );
 	}
 
@@ -45,7 +45,7 @@ class ApiQueryImages extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 */
 	private function run( $resultPageSet = null ) {
 		if ( $this->getPageSet()->getGoodTitleCount() == 0 ) {
@@ -167,15 +167,6 @@ class ApiQueryImages extends ApiQueryGeneratorBase {
 			'images' => 'Only list these images. Useful for checking whether a ' .
 				'certain page has a certain Image.',
 			'dir' => 'The direction in which to list',
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'ns' => 'namespace',
-				'title' => 'string'
-			)
 		);
 	}
 

@@ -109,7 +109,9 @@ class ArrayUtils {
 	 * @return int|bool The item index of the lower bound, or false if the target value
 	 *     sorts before all items.
 	 */
-	public static function findLowerBound( $valueCallback, $valueCount, $comparisonCallback, $target ) {
+	public static function findLowerBound( $valueCallback, $valueCount,
+		$comparisonCallback, $target
+	) {
 		if ( $valueCount === 0 ) {
 			return false;
 		}
@@ -149,8 +151,7 @@ class ArrayUtils {
 	 * @since 1.23
 	 *
 	 * @param array $array1 The array to compare from
-	 * @param array $array2 An array to compare against
-	 * @param array ... More arrays to compare against
+	 * @param array $array2,... More arrays to compare against
 	 * @return array An array containing all the values from array1
 	 *               that are not present in any of the other arrays.
 	 */

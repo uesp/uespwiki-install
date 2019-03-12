@@ -31,7 +31,7 @@
  */
 class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'cm' );
 	}
 
@@ -48,7 +48,7 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 * @return void
 	 */
 	private function run( $resultPageSet = null ) {
@@ -86,9 +86,8 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 
 		// Scanning large datasets for rare categories sucks, and I already told
 		// how to have efficient subcategory access :-) ~~~~ (oh well, domas)
-		global $wgMiserMode;
 		$miser_ns = array();
-		if ( $wgMiserMode ) {
+		if ( $this->getConfig()->get( 'MiserMode' ) ) {
 			$miser_ns = $params['namespace'];
 		} else {
 			$this->addWhereFld( 'page_namespace', $params['namespace'] );
@@ -141,12 +140,22 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 				$this->addWhereRange( 'cl_sortkey', $dir, null, null );
 				$this->addWhereRange( 'cl_from', $dir, null, null );
 			} else {
-				$startsortkey = $params['startsortkeyprefix'] !== null ?
-					Collation::singleton()->getSortkey( $params['startsortkeyprefix'] ) :
-					$params['startsortkey'];
-				$endsortkey = $params['endsortkeyprefix'] !== null ?
-					Collation::singleton()->getSortkey( $params['endsortkeyprefix'] ) :
-					$params['endsortkey'];
+				if ( $params['startsortkeyprefix'] !== null ) {
+					$startsortkey = Collation::singleton()->getSortkey( $params['startsortkeyprefix'] );
+				} elseif ( $params['starthexsortkey'] !== null ) {
+					$startsortkey = pack( 'H*', $params['starthexsortkey'] );
+				} else {
+					$this->logFeatureUsage( 'list=categorymembers&cmstartsortkey' );
+					$startsortkey = $params['startsortkey'];
+				}
+				if ( $params['endsortkeyprefix'] !== null ) {
+					$endsortkey = Collation::singleton()->getSortkey( $params['endsortkeyprefix'] );
+				} elseif ( $params['endhexsortkey'] !== null ) {
+					$endsortkey = pack( 'H*', $params['endhexsortkey'] );
+				} else {
+					$this->logFeatureUsage( 'list=categorymembers&cmendsortkey' );
+					$endsortkey = $params['endsortkey'];
+				}
 
 				// The below produces ORDER BY cl_sortkey, cl_from, possibly with DESC added to each of them
 				$this->addWhereRange( 'cl_sortkey',
@@ -331,15 +340,20 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 			'end' => array(
 				ApiBase::PARAM_TYPE => 'timestamp'
 			),
-			'startsortkey' => null,
-			'endsortkey' => null,
+			'starthexsortkey' => null,
+			'endhexsortkey' => null,
 			'startsortkeyprefix' => null,
 			'endsortkeyprefix' => null,
+			'startsortkey' => array(
+				ApiBase::PARAM_DEPRECATED => true,
+			),
+			'endsortkey' => array(
+				ApiBase::PARAM_DEPRECATED => true,
+			),
 		);
 	}
 
 	public function getParamDescription() {
-		global $wgMiserMode;
 		$p = $this->getModulePrefix();
 		$desc = array(
 			'title' => "Which category to enumerate (required). Must include " .
@@ -361,20 +375,22 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 			'dir' => 'In which direction to sort',
 			'start' => "Timestamp to start listing from. Can only be used with {$p}sort=timestamp",
 			'end' => "Timestamp to end listing at. Can only be used with {$p}sort=timestamp",
-			'startsortkey' => "Sortkey to start listing from. Must be given in " .
-				"binary format. Can only be used with {$p}sort=sortkey",
-			'endsortkey' => "Sortkey to end listing at. Must be given in binary " .
-				"format. Can only be used with {$p}sort=sortkey",
+			'starthexsortkey' => "Sortkey to start listing from, as returned by prop=sortkey. " .
+				"Can only be used with {$p}sort=sortkey",
+			'endhexsortkey' => "Sortkey to end listing from, as returned by prop=sortkey. " .
+				"Can only be used with {$p}sort=sortkey",
 			'startsortkeyprefix' => "Sortkey prefix to start listing from. Can " .
-				"only be used with {$p}sort=sortkey. Overrides {$p}startsortkey",
+				"only be used with {$p}sort=sortkey. Overrides {$p}starthexsortkey",
 			'endsortkeyprefix' => "Sortkey prefix to end listing BEFORE (not at, " .
 				"if this value occurs it will not be included!). Can only be used with " .
-				"{$p}sort=sortkey. Overrides {$p}endsortkey",
+				"{$p}sort=sortkey. Overrides {$p}endhexsortkey",
+			'startsortkey' => "Use starthexsortkey instead",
+			'endsortkey' => "Use endhexsortkey instead",
 			'continue' => 'For large categories, give the value returned from previous query',
 			'limit' => 'The maximum number of pages to return.',
 		);
 
-		if ( $wgMiserMode ) {
+		if ( $this->getConfig()->get( 'MiserMode' ) ) {
 			$desc['namespace'] = array(
 				$desc['namespace'],
 				"NOTE: Due to \$wgMiserMode, using this may result in fewer than \"{$p}limit\" results",
@@ -386,47 +402,8 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 		return $desc;
 	}
 
-	public function getResultProperties() {
-		return array(
-			'ids' => array(
-				'pageid' => 'integer'
-			),
-			'title' => array(
-				'ns' => 'namespace',
-				'title' => 'string'
-			),
-			'sortkey' => array(
-				'sortkey' => 'string'
-			),
-			'sortkeyprefix' => array(
-				'sortkeyprefix' => 'string'
-			),
-			'type' => array(
-				'type' => array(
-					ApiBase::PROP_TYPE => array(
-						'page',
-						'subcat',
-						'file'
-					)
-				)
-			),
-			'timestamp' => array(
-				'timestamp' => 'timestamp'
-			)
-		);
-	}
-
 	public function getDescription() {
 		return 'List all pages in a given category.';
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(),
-			$this->getTitleOrPageIdErrorMessage(),
-			array(
-				array( 'code' => 'invalidcategory', 'info' => 'The category name you entered is not valid' ),
-			)
-		);
 	}
 
 	public function getExamples() {

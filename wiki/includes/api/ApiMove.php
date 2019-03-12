@@ -134,8 +134,10 @@ class ApiMove extends ApiBase {
 			$watch = $params['watchlist'];
 		} elseif ( $params['watch'] ) {
 			$watch = 'watch';
+			$this->logFeatureUsage( 'action=move&watch' );
 		} elseif ( $params['unwatch'] ) {
 			$watch = 'unwatch';
+			$this->logFeatureUsage( 'action=move&unwatch' );
 		}
 
 		// Watch pages
@@ -148,8 +150,8 @@ class ApiMove extends ApiBase {
 	/**
 	 * @param Title $fromTitle
 	 * @param Title $toTitle
-	 * @param $reason
-	 * @param $noredirect
+	 * @param string $reason
+	 * @param bool $noredirect
 	 * @return array
 	 */
 	public function moveSubpages( $fromTitle, $toTitle, $reason, $noredirect ) {
@@ -193,10 +195,6 @@ class ApiMove extends ApiBase {
 				ApiBase::PARAM_TYPE => 'string',
 				ApiBase::PARAM_REQUIRED => true
 			),
-			'token' => array(
-				ApiBase::PARAM_TYPE => 'string',
-				ApiBase::PARAM_REQUIRED => true
-			),
 			'reason' => '',
 			'movetalk' => false,
 			'movesubpages' => false,
@@ -229,7 +227,6 @@ class ApiMove extends ApiBase {
 			'from' => "Title of the page you want to move. Cannot be used together with {$p}fromid",
 			'fromid' => "Page ID of the page you want to move. Cannot be used together with {$p}from",
 			'to' => 'Title you want to rename the page to',
-			'token' => 'A move token previously retrieved through prop=info',
 			'reason' => 'Reason for the move',
 			'movetalk' => 'Move the talk page, if it exists',
 			'movesubpages' => 'Move subpages, if applicable',
@@ -242,58 +239,12 @@ class ApiMove extends ApiBase {
 		);
 	}
 
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'from' => 'string',
-				'to' => 'string',
-				'reason' => 'string',
-				'redirectcreated' => 'boolean',
-				'moveoverredirect' => 'boolean',
-				'talkfrom' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'talkto' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'talkmoveoverredirect' => 'boolean',
-				'talkmove-error-code' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'talkmove-error-info' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			)
-		);
-	}
-
 	public function getDescription() {
 		return 'Move a page.';
 	}
 
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(),
-			$this->getRequireOnlyOneParameterErrorMessages( array( 'from', 'fromid' ) ),
-			array(
-				array( 'invalidtitle', 'from' ),
-				array( 'nosuchpageid', 'fromid' ),
-				array( 'notanarticle' ),
-				array( 'invalidtitle', 'to' ),
-				array( 'sharedfile-exists' ),
-			)
-		);
-	}
-
 	public function needsToken() {
-		return true;
-	}
-
-	public function getTokenSalt() {
-		return '';
+		return 'csrf';
 	}
 
 	public function getExamples() {

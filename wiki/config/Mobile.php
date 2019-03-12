@@ -29,8 +29,17 @@ $wgMobileUrlTemplate = '%h0.m.%h1.%h2';
 $wgHooks['BeforeInitialize'][] = 'uespMobileInit';
 
 
+if ($uespIsApp)
+{
+	MobileContext::singleton()->setForceMobileView( true );
+	$wgMobileUrlTemplate = 'app.uesp.net';
+}
+
+
 function uespMobileInit (&$title, &$article, &$output, &$user, $request, $mediaWiki)
 {
+	global $uespIsApp;
+	
 	$mobileContext = MobileContext::singleton();
 	$displayMobile = $mobileContext->shouldDisplayMobileView();
 	$host = $_SERVER['HTTP_HOST'];
@@ -41,8 +50,12 @@ function uespMobileInit (&$title, &$article, &$output, &$user, $request, $mediaW
 
 	$match = preg_match("#^([A-Za-z0-9]+)\.uesp\.net$#", $host, $matches);
 	if (!$match) return;
-
-	if ($matches[1] == "m" || $matches[1] == "www")
+	
+	if ($uespIsApp)
+	{
+		return;
+	}
+	elseif ($matches[1] == "m" || $matches[1] == "www")
 		$redirectUrl = "//en.m.uesp.net" . $_SERVER['REQUEST_URI'];
 	else
 		$redirectUrl = "//" . $matches[1] . ".m.uesp.net" . $_SERVER['REQUEST_URI'];

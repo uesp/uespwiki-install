@@ -43,7 +43,7 @@ class TimedMediaIframeOutput {
 	 * @throws MWException
 	 */
 	static function outputIframe( $title ) {
-		global $wgEnableIframeEmbed, $wgOut, $wgUser;
+		global $wgEnableIframeEmbed, $wgOut, $wgUser, $wgBreakFrames;
 
 		if( !$wgEnableIframeEmbed ){
 			return false;
@@ -60,7 +60,11 @@ class TimedMediaIframeOutput {
 		);
 		$videoTransform = $file->transform( $params );
 
-		$wgOut->addModules( array( 'embedPlayerIframeStyle') );
+		// Definitely do not want to break frames
+		$wgBreakFrames = false;
+		$wgOut->allowClickjacking();
+
+		$wgOut->addModules( array( 'embedPlayerIframeStyle', 'mw.EmbedPlayer', 'mw.MwEmbedSupport' ) );
 		$wgOut->sendCacheControl();
 	?>
 <!DOCTYPE html>
@@ -72,8 +76,8 @@ class TimedMediaIframeOutput {
 		echo Html::element( 'meta', array( 'name' => 'ResourceLoaderDynamicStyles', 'content' => '' ) );
 	?>
 	<?php
-		echo $wgOut->getHeadLinks();
-		echo $wgOut->getHeadItems();
+		echo implode( "\n", $wgOut->getHeadLinksArray() );
+		echo implode( "\n", $wgOut->getHeadLinksArray() );
 	?>
 	<style type="text/css">
 		html, body {
@@ -95,43 +99,44 @@ class TimedMediaIframeOutput {
 		}
 	</style>
 	<?php echo $wgOut->getHeadScripts(); ?>
-	<?php
-	echo Html::inlineScript(
-	ResourceLoader::makeLoaderConditionalScript(
-			Xml::encodeJsCall( 'mw.loader.go', array() )
-		)
-	);
-	?>
+	<script>
+		mw.loader.using( 'mw.MwEmbedSupport', function() {
+			mw.setConfig('EmbedPlayer.RewriteSelector', '');
+		} );
+		// Turn off rewrite selector. This prevents automatic conversion of
+		// <video> tags, since we are going to do that ourselves later.
+	</script>
 	</head>
 <body>
 	<img src="<?php echo $videoTransform->getUrl() ?>" id="bgimage" ></img>
 	<div id="videoContainer" style="visibility:hidden">
 		<?php echo $videoTransform->toHtml(); ?>
 	</div>
+	<?php echo $wgOut->getBottomScripts(); ?>
 	<script>
-		// Turn off rewrite selector
-		mw.setConfig('EmbedPlayer.RewriteSelector', '');
-		// only enable fullscreen if enabled in iframe
-		mw.setConfig('EmbedPlayer.EnableFullscreen', document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || false );
-		$('#bgimage').remove();
+		mw.loader.using( 'mw.MwEmbedSupport', function() {
+			// only enable fullscreen if enabled in iframe
+			mw.setConfig('EmbedPlayer.EnableFullscreen', document.fullscreenEnabled || document.webkitFullscreenEnabled || document.mozFullScreenEnabled || false );
+			$('#bgimage').remove();
 
-		mw.setConfig( 'EmbedPlayer.IsIframeServer', true );
+			mw.setConfig( 'EmbedPlayer.IsIframeServer', true );
 
-		// rewrite player
-		$( '#<?php echo TimedMediaTransformOutput::PLAYER_ID_PREFIX . '0' ?>' ).embedPlayer(function(){
+			// rewrite player
+			$( '#<?php echo TimedMediaTransformOutput::PLAYER_ID_PREFIX . '0' ?>' ).embedPlayer(function(){
 
-			// Bind window resize to reize the player:
-			var fitPlayer = function(){
-				$( '#<?php echo TimedMediaTransformOutput::PLAYER_ID_PREFIX . '0' ?>' )
-				[0].updateLayout();
-			}
+				// Bind window resize to reize the player:
+				var fitPlayer = function(){
+					$( '#<?php echo TimedMediaTransformOutput::PLAYER_ID_PREFIX . '0' ?>' )
+					[0].updateLayout();
+				}
 
-			$( window ).resize( fitPlayer );
-			$('#videoContainer').css({
-				'visibility':'visible'
-			});
-			fitPlayer();
-		});
+				$( window ).resize( fitPlayer );
+				$('#videoContainer').css({
+					'visibility':'visible'
+				} );
+				fitPlayer();
+			} );
+		} );
 	</script>
 </body>
 </html>

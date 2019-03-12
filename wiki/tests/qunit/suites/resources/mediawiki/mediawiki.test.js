@@ -9,28 +9,31 @@
 
 	QUnit.module( 'mediawiki', QUnit.newMwEnvironment( {
 		setup: function () {
-			// Messages used in multiple tests
-			mw.messages.set( {
-				'other-message': 'Other Message',
-				'mediawiki-test-pagetriage-del-talk-page-notify-summary': 'Notifying author of deletion nomination for [[$1]]',
-				'gender-plural-msg': '{{GENDER:$1|he|she|they}} {{PLURAL:$2|is|are}} awesome',
-				'grammar-msg': 'Przeszukaj {{GRAMMAR:grammar_case_foo|{{SITENAME}}}}',
-				'formatnum-msg': '{{formatnum:$1}}',
-				'int-msg': 'Some {{int:other-message}}',
-				'mediawiki-test-version-entrypoints-index-php': '[https://www.mediawiki.org/wiki/Manual:index.php index.php]',
-				'external-link-replace': 'Foo [$1 bar]'
-			} );
-
-			mw.config.set( {
-				wgArticlePath: '/wiki/$1',
-
-				// For formatnum tests
-				wgUserLanguage: 'en'
-			} );
-
 			specialCharactersPageName = '"Who" wants to be a millionaire & live on \'Exotic Island\'?';
+		},
+		config: {
+			wgArticlePath: '/wiki/$1',
+
+			// For formatnum tests
+			wgUserLanguage: 'en'
+		},
+		// Messages used in multiple tests
+		messages: {
+			'other-message': 'Other Message',
+			'mediawiki-test-pagetriage-del-talk-page-notify-summary': 'Notifying author of deletion nomination for [[$1]]',
+			'gender-plural-msg': '{{GENDER:$1|he|she|they}} {{PLURAL:$2|is|are}} awesome',
+			'grammar-msg': 'Przeszukaj {{GRAMMAR:grammar_case_foo|{{SITENAME}}}}',
+			'formatnum-msg': '{{formatnum:$1}}',
+			'int-msg': 'Some {{int:other-message}}',
+			'mediawiki-test-version-entrypoints-index-php': '[https://www.mediawiki.org/wiki/Manual:index.php index.php]',
+			'external-link-replace': 'Foo [$1 bar]'
 		}
 	} ) );
+
+	mw.loader.addSource(
+		'testloader',
+		QUnit.fixurl( mw.config.get( 'wgScriptPath' ) + '/tests/qunit/data/load.mock.php' )
+	);
 
 	QUnit.test( 'Initial check', 8, function ( assert ) {
 		assert.ok( window.jQuery, 'jQuery defined' );
@@ -42,9 +45,14 @@
 		assert.strictEqual( window.$j, window.jQuery, '$j alias to jQuery' );
 		this.restoreWarnings();
 
+		// window.mw and window.mediaWiki are not deprecated, but for some reason
+		// PhantomJS is triggerring the accessors on all mw.* properties in this test,
+		// and with that lots of unrelated deprecation notices.
+		this.suppressWarnings();
 		assert.ok( window.mediaWiki, 'mediaWiki defined' );
 		assert.ok( window.mw, 'mw defined' );
 		assert.strictEqual( window.mw, window.mediaWiki, 'mw alias to mediaWiki' );
+		this.restoreWarnings();
 	} );
 
 	QUnit.test( 'mw.Map', 28, function ( assert ) {
@@ -717,13 +725,6 @@
 	} );
 
 	QUnit.asyncTest( 'mw.loader dependency handling', 5, function ( assert ) {
-		mw.loader.addSource(
-			'testloader',
-			{
-				loadScript: QUnit.fixurl( mw.config.get( 'wgScriptPath' ) + '/tests/qunit/data/load.mock.php' )
-			}
-		);
-
 		mw.loader.register( [
 			// [module, version, dependencies, group, source]
 			['testMissing', '1', [], null, 'testloader'],
@@ -760,6 +761,40 @@
 		);
 	} );
 
+	QUnit.asyncTest( 'mw.loader skin-function handling', 5, function ( assert ) {
+		mw.loader.register( [
+			// [module, version, dependencies, group, source, skip]
+			['testSkipped', '1', [], null, 'testloader', 'return true;'],
+			['testNotSkipped', '1', [], null, 'testloader', 'return false;'],
+			['testUsesSkippable', '1', ['testSkipped', 'testNotSkipped'], null, 'testloader']
+		] );
+
+		function verifyModuleStates() {
+			assert.equal( mw.loader.getState( 'testSkipped' ), 'ready', 'Module is ready when skipped' );
+			assert.equal( mw.loader.getState( 'testNotSkipped' ), 'ready', 'Module is ready when not skipped but loaded' );
+			assert.equal( mw.loader.getState( 'testUsesSkippable' ), 'ready', 'Module is ready when skippable dependencies are ready' );
+		}
+
+		mw.loader.using( ['testUsesSkippable'],
+			function () {
+				assert.ok( true, 'Success handler should be invoked.' );
+				assert.ok( true ); // Dummy to match error handler and reach QUnit expect()
+
+				verifyModuleStates();
+
+				QUnit.start();
+			},
+			function ( e, badmodules ) {
+				assert.ok( false, 'Error handler should not be invoked.' );
+				assert.deepEqual( badmodules, [], 'Bad modules as expected.' );
+
+				verifyModuleStates();
+
+				QUnit.start();
+			}
+		);
+	} );
+
 	QUnit.asyncTest( 'mw.loader( "//protocol-relative" ) (bug 30825)', 2, function ( assert ) {
 		// This bug was actually already fixed in 1.18 and later when discovered in 1.17.
 		// Test is for regressions!
@@ -772,7 +807,7 @@
 		// Confirm that mw.loader.load() works with protocol-relative URLs
 		target = target.replace( /https?:/, '' );
 
-		assert.equal( target.substr( 0, 2 ), '//',
+		assert.equal( target.slice( 0, 2 ), '//',
 			'URL must be relative to test relative URLs!'
 		);
 

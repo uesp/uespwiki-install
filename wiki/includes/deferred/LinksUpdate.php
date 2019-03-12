@@ -31,7 +31,7 @@ class LinksUpdate extends SqlDataUpdate {
 	/** @var int Page ID of the article linked from */
 	public $mId;
 
-	/** @var Title object of the article linked from */
+	/** @var Title Title object of the article linked from */
 	public $mTitle;
 
 	/** @var ParserOutput */
@@ -52,7 +52,7 @@ class LinksUpdate extends SqlDataUpdate {
 	/** @var array Map of category names to sort keys */
 	public $mCategories;
 
-	/** @var array ap of language codes to titles */
+	/** @var array Map of language codes to titles */
 	public $mInterlangs;
 
 	/** @var array Map of arbitrary name to value */
@@ -269,7 +269,7 @@ class LinksUpdate extends SqlDataUpdate {
 	}
 
 	/**
-	 * @param $cats
+	 * @param array $cats
 	 */
 	function invalidateCategories( $cats ) {
 		$this->invalidatePages( NS_CATEGORY, array_keys( $cats ) );
@@ -288,7 +288,7 @@ class LinksUpdate extends SqlDataUpdate {
 	}
 
 	/**
-	 * @param $images
+	 * @param array $images
 	 */
 	function invalidateImageDescriptions( $images ) {
 		$this->invalidatePages( NS_FILE, array_keys( $images ) );
@@ -358,6 +358,7 @@ class LinksUpdate extends SqlDataUpdate {
 			foreach ( $diffs as $dbk => $id ) {
 				$arr[] = array(
 					'pl_from' => $this->mId,
+					'pl_from_namespace' => $this->mTitle->getNamespace(),
 					'pl_namespace' => $ns,
 					'pl_title' => $dbk
 				);
@@ -379,6 +380,7 @@ class LinksUpdate extends SqlDataUpdate {
 			foreach ( $diffs as $dbk => $id ) {
 				$arr[] = array(
 					'tl_from' => $this->mId,
+					'tl_from_namespace' => $this->mTitle->getNamespace(),
 					'tl_namespace' => $ns,
 					'tl_title' => $dbk
 				);
@@ -400,6 +402,7 @@ class LinksUpdate extends SqlDataUpdate {
 		foreach ( $diffs as $iname => $dummy ) {
 			$arr[] = array(
 				'il_from' => $this->mId,
+				'il_from_namespace' => $this->mTitle->getNamespace(),
 				'il_to' => $iname
 			);
 		}
@@ -432,7 +435,7 @@ class LinksUpdate extends SqlDataUpdate {
 	/**
 	 * Get an array of category insertions
 	 *
-	 * @param array $existing mapping existing category names to sort keys. If both
+	 * @param array $existing Mapping existing category names to sort keys. If both
 	 * match a link in $this, the link will be omitted from the output
 	 *
 	 * @return array
@@ -477,7 +480,7 @@ class LinksUpdate extends SqlDataUpdate {
 	/**
 	 * Get an array of interlanguage link insertions
 	 *
-	 * @param array $existing mapping existing language codes to titles
+	 * @param array $existing Mapping existing language codes to titles
 	 *
 	 * @return array
 	 */
@@ -502,16 +505,67 @@ class LinksUpdate extends SqlDataUpdate {
 	 */
 	function getPropertyInsertions( $existing = array() ) {
 		$diffs = array_diff_assoc( $this->mProperties, $existing );
+
 		$arr = array();
-		foreach ( $diffs as $name => $value ) {
-			$arr[] = array(
-				'pp_page' => $this->mId,
-				'pp_propname' => $name,
-				'pp_value' => $value,
-			);
+		foreach ( array_keys( $diffs ) as $name ) {
+			$arr[] = $this->getPagePropRowData( $name );
 		}
 
 		return $arr;
+	}
+
+	/**
+	 * Returns an associative array to be used for inserting a row into
+	 * the page_props table. Besides the given property name, this will
+	 * include the page id from $this->mId and any property value from
+	 * $this->mProperties.
+	 *
+	 * The array returned will include the pp_sortkey field if this
+	 * is present in the database (as indicated by $wgPagePropsHaveSortkey).
+	 * The sortkey value is currently determined by getPropertySortKeyValue().
+	 *
+	 * @note this assumes that $this->mProperties[$prop] is defined.
+	 *
+	 * @param string $prop The name of the property.
+	 *
+	 * @return array
+	 */
+	private function getPagePropRowData( $prop ) {
+		global $wgPagePropsHaveSortkey;
+
+		$value = $this->mProperties[$prop];
+
+		$row = array(
+			'pp_page' => $this->mId,
+			'pp_propname' => $prop,
+			'pp_value' => $value,
+		);
+
+		if ( $wgPagePropsHaveSortkey ) {
+			$row['pp_sortkey'] = $this->getPropertySortKeyValue( $value );
+		}
+
+		return $row;
+	}
+
+	/**
+	 * Determines the sort key for the given property value.
+	 * This will return $value if it is a float or int,
+	 * 1 or resp. 0 if it is a bool, and null otherwise.
+	 *
+	 * @note In the future, we may allow the sortkey to be specified explicitly
+	 *       in ParserOutput::setProperty.
+	 *
+	 * @param mixed $value
+	 *
+	 * @return float|null
+	 */
+	private function getPropertySortKeyValue( $value ) {
+		if ( is_int( $value ) || is_float( $value ) || is_bool( $value ) ) {
+			return floatval( $value );
+		}
+
+		return null;
 	}
 
 	/**
@@ -769,7 +823,7 @@ class LinksUpdate extends SqlDataUpdate {
 	/**
 	 * Get an array of existing categories, with the name in the key and sort key in the value.
 	 *
-	 * @return array of property names and values
+	 * @return array Array of property names and values
 	 */
 	private function getExistingProperties() {
 		$res = $this->mDb->select( 'page_props', array( 'pp_propname', 'pp_value' ),
@@ -831,7 +885,7 @@ class LinksUpdate extends SqlDataUpdate {
 	/**
 	 * Fetch page links added by this LinksUpdate.  Only available after the update is complete.
 	 * @since 1.22
-	 * @return null|array of Titles
+	 * @return null|array Array of Titles
 	 */
 	public function getAddedLinks() {
 		if ( $this->linkInsertions === null ) {
@@ -848,7 +902,7 @@ class LinksUpdate extends SqlDataUpdate {
 	/**
 	 * Fetch page links removed by this LinksUpdate.  Only available after the update is complete.
 	 * @since 1.22
-	 * @return null|array of Titles
+	 * @return null|array Array of Titles
 	 */
 	public function getRemovedLinks() {
 		if ( $this->linkDeletions === null ) {

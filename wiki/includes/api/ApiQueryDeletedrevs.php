@@ -31,7 +31,7 @@
  */
 class ApiQueryDeletedrevs extends ApiQueryBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'dr' );
 	}
 
@@ -60,6 +60,13 @@ class ApiQueryDeletedrevs extends ApiQueryBase {
 		$fld_content = isset( $prop['content'] );
 		$fld_token = isset( $prop['token'] );
 		$fld_tags = isset( $prop['tags'] );
+
+		if ( isset( $prop['token'] ) ) {
+			$p = $this->getModulePrefix();
+			$this->setWarning(
+				"{$p}prop=token has been deprecated. Please use action=query&meta=tokens instead."
+			);
+		}
 
 		// If we're in JSON callback mode, no tokens can be obtained
 		if ( !is_null( $this->getMain()->getRequest()->getVal( 'callback' ) ) ) {
@@ -134,11 +141,17 @@ class ApiQueryDeletedrevs extends ApiQueryBase {
 		}
 
 		if ( $fld_content ) {
+			// Modern MediaWiki has the content for deleted revs in the 'text'
+			// table using fields old_text and old_flags. But revisions deleted
+			// pre-1.5 store the content in the 'archive' table directly using
+			// fields ar_text and ar_flags, and no corresponding 'text' row. So
+			// we have to LEFT JOIN and fetch all four fields, plus ar_text_id
+			// to be able to tell the difference.
 			$this->addTables( 'text' );
 			$this->addJoinConds(
-				array( 'text' => array( 'INNER JOIN', array( 'ar_text_id=old_id' ) ) )
+				array( 'text' => array( 'LEFT JOIN', array( 'ar_text_id=old_id' ) ) )
 			);
-			$this->addFields( array( 'ar_text', 'ar_text_id', 'old_text', 'old_flags' ) );
+			$this->addFields( array( 'ar_text', 'ar_flags', 'ar_text_id', 'old_text', 'old_flags' ) );
 
 			// This also means stricter restrictions
 			if ( !$user->isAllowedAny( 'undelete', 'deletedtext' ) ) {
@@ -204,7 +217,7 @@ class ApiQueryDeletedrevs extends ApiQueryBase {
 			// check it again just in case)
 			if ( !$user->isAllowed( 'deletedhistory' ) ) {
 				$bitmask = Revision::DELETED_USER;
-			} elseif ( !$user->isAllowed( 'suppressrevision' ) ) {
+			} elseif ( !$user->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
 				$bitmask = Revision::DELETED_USER | Revision::DELETED_RESTRICTED;
 			} else {
 				$bitmask = 0;
@@ -353,7 +366,12 @@ class ApiQueryDeletedrevs extends ApiQueryBase {
 					$anyHidden = true;
 				}
 				if ( Revision::userCanBitfield( $row->ar_deleted, Revision::DELETED_TEXT, $user ) ) {
-					ApiResult::setContent( $rev, Revision::getRevisionText( $row ) );
+					if ( isset( $row->ar_text ) && !$row->ar_text_id ) {
+						// Pre-1.5 ar_text row (if condition from Revision::newFromArchiveRow)
+						ApiResult::setContent( $rev, Revision::getRevisionText( $row, 'ar_' ) );
+					} else {
+						ApiResult::setContent( $rev, Revision::getRevisionText( $row ) );
+					}
 				}
 			}
 
@@ -482,7 +500,7 @@ class ApiQueryDeletedrevs extends ApiQueryBase {
 				' len            - Adds the length (bytes) of the revision',
 				' sha1           - Adds the SHA-1 (base 16) of the revision',
 				' content        - Adds the content of the revision',
-				' token          - Gives the edit token',
+				' token          - DEPRECATED! Gives the edit token',
 				' tags           - Tags for the revision',
 			),
 			'namespace' => 'Only list pages in this namespace (3)',
@@ -491,18 +509,6 @@ class ApiQueryDeletedrevs extends ApiQueryBase {
 			'continue' => 'When more results are available, use this to continue',
 			'unique' => 'List only one revision for each page (3)',
 			'tag' => 'Only list revisions tagged with this tag',
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'ns' => 'namespace',
-				'title' => 'string'
-			),
-			'token' => array(
-				'token' => 'string'
-			)
 		);
 	}
 
@@ -519,29 +525,6 @@ class ApiQueryDeletedrevs extends ApiQueryBase {
 			'Certain parameters only apply to some modes and are ignored in others.',
 			'For instance, a parameter marked (1) only applies to mode 1 and is ignored in modes 2 and 3.',
 		);
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array(
-				'code' => 'permissiondenied',
-				'info' => 'You don\'t have permission to view deleted revision information'
-			),
-			array( 'code' => 'badparams', 'info' => 'user and excludeuser cannot be used together'
-			),
-			array(
-				'code' => 'permissiondenied',
-				'info' => 'You don\'t have permission to view deleted revision content'
-			),
-			array( 'code' => 'badparams', 'info' => "The 'from' parameter cannot be used in modes 1 or 2" ),
-			array( 'code' => 'badparams', 'info' => "The 'to' parameter cannot be used in modes 1 or 2" ),
-			array(
-				'code' => 'badparams',
-				'info' => "The 'prefix' parameter cannot be used in modes 1 or 2"
-			),
-			array( 'code' => 'badparams', 'info' => "The 'start' parameter cannot be used in mode 3" ),
-			array( 'code' => 'badparams', 'info' => "The 'end' parameter cannot be used in mode 3" ),
-		) );
 	}
 
 	public function getExamples() {

@@ -6,12 +6,13 @@
 #
 
 # Rights to add or remove user groups
-$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller' );
-$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller' );
+$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller', 'esocartographer' );
+$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller', 'esocartographer' );
 
 # Removed group rights
 $wgGroupPermissions['*']['createpage'] = false;
 $wgGroupPermissions['*']['mapedit'] = false;
+$wgGroupPermissions['*']['esomapedit'] = false;
 $wgGroupPermissions['*']['patroller'] = false;
 
 $wgGroupPermissions['user']['move'] = false;
@@ -43,6 +44,11 @@ $wgGroupPermissions['bot']['tboverride'] = true;
 
 $wgGroupPermissions['cartographer']['map'] = true;
 $wgGroupPermissions['cartographer']['mapedit'] = true;
+$wgGroupPermissions['cartographer']['esomapedit'] = true;
+
+$wgGroupPermissions['esocartographer']['map'] = true;
+$wgGroupPermissions['esocartographer']['mapedit'] = false;
+$wgGroupPermissions['esocartographer']['esomapedit'] = true;
 
 $wgGroupPermissions['confirmed']['autoconfirmed'] = true;
 
@@ -92,6 +98,7 @@ $wgGroupPermissions['userpatroller']['tboverride'] = true;
 # Right to create an account via the API (completely disabled for all users)
 $wgAPIModules['createaccount'] = 'ApiDisabled';
 
+/* old code to prevent non-bots from accessing API edits
 $wgHooks['APIEditBeforeSave'][] = 'onAPIEditBeforeSave';
 function onAPIEditBeforeSave( $editPage, $text, &$resultArr ) {
 	global $wgUser;
@@ -104,7 +111,7 @@ function onAPIEditBeforeSave( $editPage, $text, &$resultArr ) {
 	}
 
 	return true;
-}
+} */
 
 # Special permissions for translation wikis
 if ($uespLanguageSuffix != "")

@@ -32,7 +32,7 @@
  */
 class ApiQueryCategoryInfo extends ApiQueryBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'ci' );
 	}
 
@@ -111,34 +111,6 @@ class ApiQueryCategoryInfo extends ApiQueryBase {
 	public function getParamDescription() {
 		return array(
 			'continue' => 'When more results are available, use this to continue',
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			ApiBase::PROP_LIST => false,
-			'' => array(
-				'size' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => false
-				),
-				'pages' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => false
-				),
-				'files' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => false
-				),
-				'subcats' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => false
-				),
-				'hidden' => array(
-					ApiBase::PROP_TYPE => 'boolean',
-					ApiBase::PROP_NULLABLE => false
-				)
-			)
 		);
 	}
 

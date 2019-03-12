@@ -22,7 +22,7 @@
 
 // Check environment
 if ( !defined( 'MEDIAWIKI' ) ) {
-	echo( "This is an extension to the MediaWiki package and cannot be run standalone.\n" );
+	echo "This is an extension to the MediaWiki package and cannot be run standalone.\n";
 	die( -1 );
 }
 
@@ -54,3 +54,9 @@ $wgAutoloadClasses['InputBox'] = $dir . 'InputBox.classes.php';
 $wgHooks['ParserFirstCallInit'][] = 'InputBoxHooks::register';
 $wgHooks['MediaWikiPerformAction'][] = 'InputBoxHooks::onMediaWikiPerformAction';
 $wgHooks['SpecialPageBeforeExecute'][] = 'InputBoxHooks::onSpecialPageBeforeExecute';
+
+$wgResourceModules['ext.inputBox.styles'] = array(
+	'localBasePath' => dirname( __FILE__ ) . '/resources',
+	'remoteExtPath' => 'InputBox/resources',
+	'styles' => 'ext.inputBox.styles.css',
+);

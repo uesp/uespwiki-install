@@ -2,10 +2,7 @@
 	"@metadata": {
 		"authors": [
 			"Sherbrooke",
-			"Gomoko",
-			"0x010C",
-			"Wladek92",
-			"Hpetit"
+			"Gomoko"
 		]
 	},
 	"jsonconfig-desc": "Permet de stocker une configuration JSON dans un wiki",
@@ -23,13 +20,5 @@
 	"jsonconfig-err-url": "Le paramètre « $1 » doit être une URL valide",
 	"jsonconfig-move-aborted-model": "le modèle de configuration JSON de cette page, « $1 », ne correspondra pas au modèle du nouveau titre, « $2 »",
 	"jsonconfig-move-aborted-ns": "le titre de la nouvelle page n’est pas configuré pour contenir une configuration JSON",
-	"jsonconfig-optional-field": "(facultatif)",
-	"right-jsonconfig-flush": "Manipuler JsonConfig par API",
-	"apihelp-jsonconfig-description": "Permet l'accès direct au sous-système JsonConfig.",
-	"apihelp-jsonconfig-param-command": "Quelle sous-action effectuer sur JsonConfig :\n;status : affiche la configuration de JsonConfig.\n;reset : efface les configurations du cache. Nécessite  le paramètre de titre $1 et les droits de réinitialiser Jsonconfig.\n;reload : recharge et met en cache des configurations du dépôt config. Nécessite le paramètre de titre $1 et les droits de réinitialiser Jsonconfig.",
-	"apihelp-jsonconfig-param-title": "Titre à traiter.",
-	"apihelp-jsonconfig-param-content": "Pour la commande $1=recharger, utiliser ce contenu à la place.",
-	"apihelp-jsonconfig-example-1": "Afficher la configuration",
-	"apihelp-jsonconfig-example-2": "Reinitialiser [[Zero:TEST]]",
-	"apihelp-jsonconfig-example-3": "Recharger [[Zero:TEST]]"
+	"jsonconfig-optional-field": "(facultatif)"
 }

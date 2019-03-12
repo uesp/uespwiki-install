@@ -34,15 +34,17 @@ $wgAutoloadClasses += array(
 	'TestFileIterator' => "$testDir/testHelpers.inc",
 	'TestRecorder' => "$testDir/testHelpers.inc",
 	'ITestRecorder' => "$testDir/testHelpers.inc",
+	'DjVuSupport' => "$testDir/testHelpers.inc",
+	'TidySupport' => "$testDir/testHelpers.inc",
 
 	# tests/phpunit
 	'MediaWikiTestCase' => "$testDir/phpunit/MediaWikiTestCase.php",
-	'MediaWikiPHPUnitCommand' => "$testDir/phpunit/MediaWikiPHPUnitCommand.php",
 	'MediaWikiPHPUnitTestListener' => "$testDir/phpunit/MediaWikiPHPUnitTestListener.php",
 	'MediaWikiLangTestCase' => "$testDir/phpunit/MediaWikiLangTestCase.php",
 	'ResourceLoaderTestCase' => "$testDir/phpunit/ResourceLoaderTestCase.php",
 	'ResourceLoaderTestModule' => "$testDir/phpunit/ResourceLoaderTestCase.php",
 	'ResourceLoaderFileModuleTestModule' => "$testDir/phpunit/ResourceLoaderTestCase.php",
+	'ResourceLoaderWikiModuleTestModule' => "$testDir/phpunit/ResourceLoaderTestCase.php",
 	'TestUser' => "$testDir/phpunit/includes/TestUser.php",
 	'LessFileCompilationTest' => "$testDir/phpunit/LessFileCompilationTest.php",
 
@@ -60,6 +62,9 @@ $wgAutoloadClasses += array(
 	'UserWrapper' => "$testDir/phpunit/includes/api/UserWrapper.php",
 	'RandomImageGenerator' => "$testDir/phpunit/includes/api/RandomImageGenerator.php",
 
+	# tests/phpunit/includes/changes
+	'TestRecentChangesHelper' => "$testDir/phpunit/includes/changes/TestRecentChangesHelper.php",
+
 	# tests/phpunit/includes/content
 	'DummyContentHandlerForTesting' => "$testDir/phpunit/includes/content/ContentHandlerTest.php",
 	'DummyContentForTesting' => "$testDir/phpunit/includes/content/ContentHandlerTest.php",
@@ -74,6 +79,9 @@ $wgAutoloadClasses += array(
 	'PageORMTableForTesting' => "$testDir/phpunit/includes/db/ORMTableTest.php",
 	'DatabaseTestHelper' => "$testDir/phpunit/includes/db/DatabaseTestHelper.php",
 
+	# tests/phpunit/includes/passwords
+	'PasswordTestCase' => "$testDir/phpunit/includes/password/PasswordTestCase.php",
+
 	# tests/phpunit/languages
 	'LanguageClassesTestCase' => "$testDir/phpunit/languages/LanguageClassesTestCase.php",
 
@@ -85,6 +93,7 @@ $wgAutoloadClasses += array(
 
 	# tests/phpunit/media
 	'FakeDimensionFile' => "$testDir/phpunit/includes/media/FakeDimensionFile.php",
+	'MediaWikiMediaTestCase' => "$testDir/phpunit/includes/media/MediaWikiMediaTestCase.php",
 
 	# tests/phpunit/mocks
 	'MockFSFile' => "$testDir/phpunit/mocks/filebackend/MockFSFile.php",
@@ -92,6 +101,7 @@ $wgAutoloadClasses += array(
 	'MockBitmapHandler' => "$testDir/phpunit/mocks/media/MockBitmapHandler.php",
 	'MockImageHandler' => "$testDir/phpunit/mocks/media/MockImageHandler.php",
 	'MockSvgHandler' => "$testDir/phpunit/mocks/media/MockSvgHandler.php",
+	'MockDjVuHandler' => "$testDir/phpunit/mocks/media/MockDjVuHandler.php",
 
 	# tests/parser
 	'NewParserTest' => "$testDir/phpunit/includes/parser/NewParserTest.php",

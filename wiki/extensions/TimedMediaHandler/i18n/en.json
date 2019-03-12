@@ -11,6 +11,7 @@
     "timedmedia-ogg-long-multiplexed": "Ogg multiplexed audio/video file, $1, length $2, $4 × $5 pixels, $3 overall",
     "timedmedia-ogg-long-general": "Ogg media file, length $2, $3",
     "timedmedia-ogg-long-error": "Invalid Ogg file: $1",
+    "timedmedia-ogg-long-no-streams": "Ogg media file. Warning: None of the codecs used in this file are recognized.",
     "timedmedia-webm-short-video": "WebM $1 video file, $2",
     "timedmedia-webm-long-video": "WebM audio/video file, $1, length $2, $4 × $5 pixels, $3 overall",
     "timedmedia-flac-short-audio": "FLAC audio file, $1",
@@ -20,7 +21,7 @@
     "timedmedia-wav-pcm-required": "You can only upload PCM (Pulse Code Modulation) WAV.",
     "timedmedia-mp4-short-video": "MP4 $1 video file, $2",
     "timedmedia-mp4-long-video": "MP4 audio/video file, $1, length $2, $4 × $5 pixels, $3 overall",
-    "timedmedia-no-player-js": "Sorry, your browser either has JavaScript disabled or does not have any supported player.<br />\nYou can <a href=\"$1\">download the clip</a> or <a href=\"//www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download\">download a player</a> to play the clip in your browser.",
+    "timedmedia-no-player-js": "Sorry, your browser either has JavaScript disabled or does not have any supported player.<br />\nYou can <a href=\"$1\">download the clip</a> or <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">download a player</a> to play the clip in your browser.",
     "timedmedia-more": "More…",
     "timedmedia-dismiss": "Close",
     "timedmedia-download": "Download file",
@@ -110,5 +111,9 @@
     "timedmedia-wav-audios": "{{PLURAL:$1|$1 WAV audio file|$1 WAV audio files}}",
     "right-transcode-reset": "Reset failed or transcoded videos so they are inserted into the job queue again",
     "right-transcode-status": "View [[Special:TimedMediaHandler|information about the current transcode activity]]",
-    "action-transcode-status": "view the current transcoding status"
+    "action-transcode-status": "view the current transcoding status",
+    "orphanedtimedtext": "Orphaned TimedText pages",
+    "orphanedtimedtext-summary": "List of [[{{#special:AllPages/TimedText:}}|{{ns:TimedText}}]] pages which do not have a corresponding file.",
+    "orphanedtimedtext-unsupported": "This special page is only supported on MySQL databases.",
+    "orphanedtimedtext-notimedtext": "TimedText is not enabled on this wiki."
 }

@@ -15,10 +15,9 @@
 	 *
 	 * @private
 	 * @param {string} info One of 'groups' or 'rights'
-	 * @param {Function} [callback]
 	 * @return {jQuery.Promise}
 	 */
-	function getUserInfo( info, callback ) {
+	function getUserInfo( info ) {
 		var api;
 		if ( !deferreds[info] ) {
 
@@ -42,7 +41,7 @@
 
 		}
 
-		return deferreds[info].done( callback ).promise();
+		return deferreds[info].promise();
 	}
 
 	mw.user = user = {
@@ -63,7 +62,7 @@
 				seed = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 			for ( i = 0; i < 32; i++ ) {
 				r = Math.floor( Math.random() * seed.length );
-				id += seed.substring( r, r + 1 );
+				id += seed.charAt( r );
 			}
 			return id;
 		},
@@ -86,14 +85,6 @@
 		 */
 		getName: function () {
 			return mw.config.get( 'wgUserName' );
-		},
-
-		/**
-		 * @inheritdoc #getName
-		 * @deprecated since 1.20 use #getName instead
-		 */
-		name: function () {
-			return user.getName();
 		},
 
 		/**
@@ -122,14 +113,6 @@
 		 */
 		isAnon: function () {
 			return user.getName() === null;
-		},
-
-		/**
-		 * @inheritdoc #isAnon
-		 * @deprecated since 1.20 use #isAnon instead
-		 */
-		anonymous: function () {
-			return user.isAnon();
 		},
 
 		/**
@@ -244,7 +227,7 @@
 		 * @return {jQuery.Promise}
 		 */
 		getGroups: function ( callback ) {
-			return getUserInfo( 'groups', callback );
+			return getUserInfo( 'groups' ).done( callback );
 		},
 
 		/**
@@ -254,8 +237,22 @@
 		 * @return {jQuery.Promise}
 		 */
 		getRights: function ( callback ) {
-			return getUserInfo( 'rights', callback );
+			return getUserInfo( 'rights' ).done( callback );
 		}
 	};
+
+	/**
+	 * @method name
+	 * @inheritdoc #getName
+	 * @deprecated since 1.20 Use #getName instead
+	 */
+	mw.log.deprecate( user, 'name', user.getName, 'Use mw.user.getName instead.' );
+
+	/**
+	 * @method anonymous
+	 * @inheritdoc #isAnon
+	 * @deprecated since 1.20 Use #isAnon instead
+	 */
+	mw.log.deprecate( user, 'anonymous', user.isAnon, 'Use mw.user.isAnon instead.' );
 
 }( mediaWiki, jQuery ) );

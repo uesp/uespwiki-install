@@ -40,10 +40,11 @@ class CSSMin {
 	const EMBED_SIZE_LIMIT = 24576;
 	const URL_REGEX = 'url\(\s*[\'"]?(?P<file>[^\?\)\'"]*?)(?P<query>\?[^\)\'"]*?|)[\'"]?\s*\)';
 	const EMBED_REGEX = '\/\*\s*\@embed\s*\*\/';
+	const COMMENT_REGEX = '\/\*.*?\*\/';
 
 	/* Protected Static Members */
 
-	/** @var array List of common image files extensions and mime-types */
+	/** @var array List of common image files extensions and MIME-types */
 	protected static $mimeTypes = array(
 		'gif' => 'image/gif',
 		'jpe' => 'image/jpeg',
@@ -112,7 +113,9 @@ class CSSMin {
 	 *     instead. If $sizeLimit is false, no limit is enforced.
 	 * @return string|bool: Image contents encoded as a data URI or false.
 	 */
-	public static function encodeImageAsDataURI( $file, $type = null, $sizeLimit = self::EMBED_SIZE_LIMIT ) {
+	public static function encodeImageAsDataURI( $file, $type = null,
+		$sizeLimit = self::EMBED_SIZE_LIMIT
+	) {
 		if ( $sizeLimit !== false && filesize( $file ) >= $sizeLimit ) {
 			return false;
 		}
@@ -132,33 +135,29 @@ class CSSMin {
 	 */
 	public static function getMimeType( $file ) {
 		$realpath = realpath( $file );
-		// Try a couple of different ways to get the mime-type of a file, in order of
-		// preference
 		if (
 			$realpath
 			&& function_exists( 'finfo_file' )
 			&& function_exists( 'finfo_open' )
 			&& defined( 'FILEINFO_MIME_TYPE' )
 		) {
-			// As of PHP 5.3, this is how you get the mime-type of a file; it uses the Fileinfo
-			// PECL extension
 			return finfo_file( finfo_open( FILEINFO_MIME_TYPE ), $realpath );
-		} elseif ( function_exists( 'mime_content_type' ) ) {
-			// Before this was deprecated in PHP 5.3, this was how you got the mime-type of a file
-			return mime_content_type( $file );
-		} else {
-			// Worst-case scenario has happened, use the file extension to infer the mime-type
-			$ext = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
-			if ( isset( self::$mimeTypes[$ext] ) ) {
-				return self::$mimeTypes[$ext];
-			}
 		}
+
+		// Infer the MIME-type from the file extension
+		$ext = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
+		if ( isset( self::$mimeTypes[$ext] ) ) {
+			return self::$mimeTypes[$ext];
+		}
+
 		return false;
 	}
 
 	/**
 	 * Build a CSS 'url()' value for the given URL, quoting parentheses (and other funny characters)
 	 * and escaping quotes as necessary.
+	 *
+	 * See http://www.w3.org/TR/css-syntax-3/#consume-a-url-token
 	 *
 	 * @param string $url URL to process
 	 * @return string 'url()' value, usually just `"url($url)"`, quoted/escaped if necessary
@@ -175,13 +174,14 @@ class CSSMin {
 	}
 
 	/**
-	 * Remaps CSS URL paths and automatically embeds data URIs for CSS rules or url() values
-	 * preceded by an / * @embed * / comment.
+	 * Remaps CSS URL paths and automatically embeds data URIs for CSS rules
+	 * or url() values preceded by an / * @embed * / comment.
 	 *
 	 * @param string $source CSS data to remap
 	 * @param string $local File path where the source was read from
 	 * @param string $remote URL path to the file
-	 * @param bool $embedData If false, never do any data URI embedding, even if / * @embed * / is found
+	 * @param bool $embedData If false, never do any data URI embedding,
+	 *   even if / * @embed * / is found.
 	 * @return string Remapped CSS data
 	 */
 	public static function remap( $source, $local, $remote, $embedData = true ) {
@@ -200,44 +200,92 @@ class CSSMin {
 			$remote = substr( $remote, 0, -1 );
 		}
 
-		// Note: This will not correctly handle cases where ';', '{' or '}' appears in the rule itself,
-		// e.g. in a quoted string. You are advised not to use such characters in file names.
-		// We also match start/end of the string to be consistent in edge-cases ('@import url(…)').
+		// Replace all comments by a placeholder so they will not interfere with the remapping.
+		// Warning: This will also catch on anything looking like the start of a comment between
+		// quotation marks (e.g. "foo /* bar").
+		$comments = array();
+		$placeholder = uniqid( '', true );
+
+		$pattern = '/(?!' . CSSMin::EMBED_REGEX . ')(' . CSSMin::COMMENT_REGEX . ')/s';
+
+		$source = preg_replace_callback(
+			$pattern,
+			function ( $match ) use ( &$comments, $placeholder ) {
+				$comments[] = $match[ 0 ];
+				return $placeholder . ( count( $comments ) - 1 ) . 'x';
+			},
+			$source
+		);
+
+		// Note: This will not correctly handle cases where ';', '{' or '}'
+		// appears in the rule itself, e.g. in a quoted string. You are advised
+		// not to use such characters in file names. We also match start/end of
+		// the string to be consistent in edge-cases ('@import url(…)').
 		$pattern = '/(?:^|[;{])\K[^;{}]*' . CSSMin::URL_REGEX . '[^;}]*(?=[;}]|$)/';
-		return preg_replace_callback( $pattern, function ( $matchOuter ) use ( $local, $remote, $embedData ) {
-			$rule = $matchOuter[0];
 
-			// Check for global @embed comment and remove it
-			$embedAll = false;
-			$rule = preg_replace( '/^(\s*)' . CSSMin::EMBED_REGEX . '\s*/', '$1', $rule, 1, $embedAll );
+		$source = preg_replace_callback(
+			$pattern,
+			function ( $matchOuter ) use ( $local, $remote, $embedData, $placeholder ) {
+				$rule = $matchOuter[0];
 
-			// Build two versions of current rule: with remapped URLs and with embedded data: URIs (where possible)
-			$pattern = '/(?P<embed>' . CSSMin::EMBED_REGEX . '\s*|)' . CSSMin::URL_REGEX . '/';
+				// Check for global @embed comment and remove it. Allow other comments to be present
+				// before @embed (they have been replaced with placeholders at this point).
+				$embedAll = false;
+				$rule = preg_replace( '/^((?:\s+|' . $placeholder . '(\d+)x)*)' . CSSMin::EMBED_REGEX . '\s*/', '$1', $rule, 1, $embedAll );
 
-			$ruleWithRemapped = preg_replace_callback( $pattern, function ( $match ) use ( $local, $remote ) {
-				$remapped = CSSMin::remapOne( $match['file'], $match['query'], $local, $remote, false );
-				return CSSMin::buildUrlValue( $remapped );
-			}, $rule );
+				// Build two versions of current rule: with remapped URLs
+				// and with embedded data: URIs (where possible).
+				$pattern = '/(?P<embed>' . CSSMin::EMBED_REGEX . '\s*|)' . CSSMin::URL_REGEX . '/';
 
-			if ( $embedData ) {
-				$ruleWithEmbedded = preg_replace_callback( $pattern, function ( $match ) use ( $embedAll, $local, $remote ) {
-					$embed = $embedAll || $match['embed'];
-					$embedded = CSSMin::remapOne( $match['file'], $match['query'], $local, $remote, $embed );
-					return CSSMin::buildUrlValue( $embedded );
-				}, $rule );
-			}
+				$ruleWithRemapped = preg_replace_callback(
+					$pattern,
+					function ( $match ) use ( $local, $remote ) {
+						$remapped = CSSMin::remapOne( $match['file'], $match['query'], $local, $remote, false );
 
-			if ( $embedData && $ruleWithEmbedded !== $ruleWithRemapped ) {
-				// Build 2 CSS properties; one which uses a base64 encoded data URI in place
-				// of the @embed comment to try and retain line-number integrity, and the
-				// other with a remapped an versioned URL and an Internet Explorer hack
-				// making it ignored in all browsers that support data URIs
-				return "$ruleWithEmbedded;$ruleWithRemapped!ie";
-			} else {
-				// No reason to repeat twice
-				return $ruleWithRemapped;
-			}
+						return CSSMin::buildUrlValue( $remapped );
+					},
+					$rule
+				);
+
+				if ( $embedData ) {
+					$ruleWithEmbedded = preg_replace_callback(
+						$pattern,
+						function ( $match ) use ( $embedAll, $local, $remote ) {
+							$embed = $embedAll || $match['embed'];
+							$embedded = CSSMin::remapOne(
+								$match['file'],
+								$match['query'],
+								$local,
+								$remote,
+								$embed
+							);
+
+							return CSSMin::buildUrlValue( $embedded );
+						},
+						$rule
+					);
+				}
+
+				if ( $embedData && $ruleWithEmbedded !== $ruleWithRemapped ) {
+					// Build 2 CSS properties; one which uses a base64 encoded data URI in place
+					// of the @embed comment to try and retain line-number integrity, and the
+					// other with a remapped an versioned URL and an Internet Explorer hack
+					// making it ignored in all browsers that support data URIs
+					return "$ruleWithEmbedded;$ruleWithRemapped!ie";
+				} else {
+					// No reason to repeat twice
+					return $ruleWithRemapped;
+				}
+			}, $source );
+
+		// Re-insert comments
+		$pattern = '/' . $placeholder . '(\d+)x/';
+		$source = preg_replace_callback( $pattern, function( $match ) use ( &$comments ) {
+			return $comments[ $match[1] ];
 		}, $source );
+
+		return $source;
+
 	}
 
 	/**

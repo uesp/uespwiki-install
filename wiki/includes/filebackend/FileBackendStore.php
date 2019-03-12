@@ -46,7 +46,7 @@ abstract class FileBackendStore extends FileBackend {
 	/** @var array Map of container names to sharding config */
 	protected $shardViaHashLevels = array();
 
-	/** @var callback Method to get the MIME type of files */
+	/** @var callable Method to get the MIME type of files */
 	protected $mimeCallback;
 
 	protected $maxFileSize = 4294967296; // integer bytes (4GiB)
@@ -69,7 +69,7 @@ abstract class FileBackendStore extends FileBackend {
 		$this->mimeCallback = isset( $config['mimeCallback'] )
 			? $config['mimeCallback']
 			: function ( $storagePath, $content, $fsPath ) {
-				// @TODO: handle the case of extension-less files using the contents
+				// @todo handle the case of extension-less files using the contents
 				return StreamFile::contentTypeFromPath( $storagePath ) ?: 'unknown/unknown';
 			};
 		$this->memCache = new EmptyBagOStuff(); // disabled by default
@@ -357,8 +357,8 @@ abstract class FileBackendStore extends FileBackend {
 			$status->merge( $this->doConcatenate( $params ) );
 			$sec = microtime( true ) - $start_time;
 			if ( !$status->isOK() ) {
-				wfDebugLog( 'FileOperation', get_class( $this ) . " failed to concatenate " .
-					count( $params['srcs'] ) . " file(s) [$sec sec]" );
+				wfDebugLog( 'FileOperation', get_class( $this ) . "-{$this->name}" .
+					" failed to concatenate " . count( $params['srcs'] ) . " file(s) [$sec sec]" );
 			}
 		}
 
@@ -464,7 +464,7 @@ abstract class FileBackendStore extends FileBackend {
 
 	/**
 	 * @see FileBackendStore::doPrepare()
-	 * @param $container
+	 * @param string $container
 	 * @param string $dir
 	 * @param array $params
 	 * @return Status
@@ -499,7 +499,7 @@ abstract class FileBackendStore extends FileBackend {
 
 	/**
 	 * @see FileBackendStore::doSecure()
-	 * @param $container
+	 * @param string $container
 	 * @param string $dir
 	 * @param array $params
 	 * @return Status
@@ -534,7 +534,7 @@ abstract class FileBackendStore extends FileBackend {
 
 	/**
 	 * @see FileBackendStore::doPublish()
-	 * @param $container
+	 * @param string $container
 	 * @param string $dir
 	 * @param array $params
 	 * @return Status
@@ -590,7 +590,7 @@ abstract class FileBackendStore extends FileBackend {
 
 	/**
 	 * @see FileBackendStore::doClean()
-	 * @param $container
+	 * @param string $container
 	 * @param string $dir
 	 * @param array $params
 	 * @return Status
@@ -962,7 +962,7 @@ abstract class FileBackendStore extends FileBackend {
 	 * @param string $container Resolved container name
 	 * @param string $dir Resolved path relative to container
 	 * @param array $params
-	 * @return Traversable|Array|null Returns null on failure
+	 * @return Traversable|array|null Returns null on failure
 	 */
 	abstract public function getDirectoryListInternal( $container, $dir, array $params );
 
@@ -992,7 +992,7 @@ abstract class FileBackendStore extends FileBackend {
 	 * @param string $container Resolved container name
 	 * @param string $dir Resolved path relative to container
 	 * @param array $params
-	 * @return Traversable|Array|null Returns null on failure
+	 * @return Traversable|array|null Returns null on failure
 	 */
 	abstract public function getFileListInternal( $container, $dir, array $params );
 
@@ -1102,18 +1102,36 @@ abstract class FileBackendStore extends FileBackend {
 			$paths = array_merge( $paths, $op->storagePathsRead() );
 			$paths = array_merge( $paths, $op->storagePathsChanged() );
 		}
+
+		// Enlarge the cache to fit the stat entries of these files
+		$this->cheapCache->resize( max( 2 * count( $paths ), self::CACHE_CHEAP_SIZE ) );
+
 		// Load from the persistent container caches
 		$this->primeContainerCache( $paths );
 		// Get the latest stat info for all the files (having locked them)
-		$this->preloadFileStat( array( 'srcs' => $paths, 'latest' => true ) );
+		$ok = $this->preloadFileStat( array( 'srcs' => $paths, 'latest' => true ) );
 
-		// Actually attempt the operation batch...
-		$opts = $this->setConcurrencyFlags( $opts );
-		$subStatus = FileOpBatch::attempt( $performOps, $opts, $this->fileJournal );
+		if ( $ok ) {
+			// Actually attempt the operation batch...
+			$opts = $this->setConcurrencyFlags( $opts );
+			$subStatus = FileOpBatch::attempt( $performOps, $opts, $this->fileJournal );
+		} else {
+			// If we could not even stat some files, then bail out...
+			$subStatus = Status::newFatal( 'backend-fail-internal', $this->name );
+			foreach ( $ops as $i => $op ) { // mark each op as failed
+				$subStatus->success[$i] = false;
+				++$subStatus->failCount;
+			}
+			wfDebugLog( 'FileOperation', get_class( $this ) . "-{$this->name} " .
+				" stat failure; aborted operations: " . FormatJson::encode( $ops ) );
+		}
 
 		// Merge errors into status fields
 		$status->merge( $subStatus );
 		$status->success = $subStatus->success; // not done in merge()
+
+		// Shrink the stat cache back to normal size
+		$this->cheapCache->resize( self::CACHE_CHEAP_SIZE );
 
 		return $status;
 	}
@@ -1283,11 +1301,12 @@ abstract class FileBackendStore extends FileBackend {
 
 	final public function preloadFileStat( array $params ) {
 		$section = new ProfileSection( __METHOD__ . "-{$this->name}" );
+		$success = true; // no network errors
 
 		$params['concurrency'] = ( $this->parallelize !== 'off' ) ? $this->concurrency : 1;
 		$stats = $this->doGetFileStatMulti( $params );
 		if ( $stats === null ) {
-			return; // not supported
+			return true; // not supported
 		}
 
 		$latest = !empty( $params['latest'] ); // use latest data?
@@ -1319,9 +1338,12 @@ abstract class FileBackendStore extends FileBackend {
 					array( 'hash' => false, 'latest' => $latest ) );
 				wfDebug( __METHOD__ . ": File $path does not exist.\n" );
 			} else { // an error occurred
+				$success = false;
 				wfDebug( __METHOD__ . ": Could not stat file $path.\n" );
 			}
 		}
+
+		return $success;
 	}
 
 	/**
@@ -1674,7 +1696,7 @@ abstract class FileBackendStore extends FileBackend {
 		if ( !$this->memCache->add( $key, $val, $ttl ) && !empty( $val['latest'] ) ) {
 			$this->memCache->merge(
 				$key,
-				function( BagOStuff $cache, $key, $cValue ) use ( $val ) {
+				function ( BagOStuff $cache, $key, $cValue ) use ( $val ) {
 					return ( is_array( $cValue ) && empty( $cValue['latest'] ) )
 						? $val // update the stat cache with the lastest info
 						: false; // do nothing (cache is salted or some error happened)
@@ -1797,7 +1819,7 @@ abstract class FileBackendStore extends FileBackend {
 	 * @param string $storagePath
 	 * @param string|null $content File data
 	 * @param string|null $fsPath File system path
-	 * @return MIME type
+	 * @return string MIME type
 	 */
 	protected function getContentType( $storagePath, $content, $fsPath ) {
 		return call_user_func_array( $this->mimeCallback, func_get_args() );

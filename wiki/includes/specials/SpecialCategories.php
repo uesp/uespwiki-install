@@ -43,7 +43,7 @@ class SpecialCategories extends SpecialPage {
 	 * Initialize or override the PageLinkRenderer SpecialCategories collaborates with.
 	 * Useful mainly for testing.
 	 *
-	 * @todo: the pager should also be injected, and de-coupled from the rendering logic.
+	 * @todo the pager should also be injected, and de-coupled from the rendering logic.
 	 *
 	 * @param PageLinkRenderer $linkRenderer
 	 */
@@ -180,11 +180,9 @@ class CategoryPager extends AlphabeticPager {
 	}
 
 	public function getStartForm( $from ) {
-		global $wgScript;
-
 		return Xml::tags(
 			'form',
-			array( 'method' => 'get', 'action' => $wgScript ),
+			array( 'method' => 'get', 'action' => wfScript() ),
 			Html::hidden( 'title', $this->getTitle()->getPrefixedText() ) .
 				Xml::fieldset(
 					$this->msg( 'categories' )->text(),

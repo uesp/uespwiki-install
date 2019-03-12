@@ -30,7 +30,7 @@
  * @ingroup API
  */
 class ApiQueryAllUsers extends ApiQueryBase {
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'au' );
 	}
 
@@ -38,15 +38,22 @@ class ApiQueryAllUsers extends ApiQueryBase {
 	 * This function converts the user name to a canonical form
 	 * which is stored in the database.
 	 * @param string $name
-	 * @return String
+	 * @return string
 	 */
 	private function getCanonicalUserName( $name ) {
 		return str_replace( '_', ' ', $name );
 	}
 
 	public function execute() {
-		$db = $this->getDB();
 		$params = $this->extractRequestParams();
+		$activeUserDays = $this->getConfig()->get( 'ActiveUserDays' );
+
+		if ( $params['activeusers'] ) {
+			// Update active user cache
+			SpecialActiveUsers::mergeActiveUsers( 600, $activeUserDays );
+		}
+
+		$db = $this->getDB();
 
 		$prop = $params['prop'];
 		if ( !is_null( $prop ) ) {
@@ -71,9 +78,9 @@ class ApiQueryAllUsers extends ApiQueryBase {
 		$from = is_null( $params['from'] ) ? null : $this->getCanonicalUserName( $params['from'] );
 		$to = is_null( $params['to'] ) ? null : $this->getCanonicalUserName( $params['to'] );
 
-		# MySQL doesn't seem to use 'equality propagation' here, so like the
-		# ActiveUsers special page, we have to use rc_user_text for some cases.
-		$userFieldToSort = $params['activeusers'] ? 'rc_user_text' : 'user_name';
+		# MySQL can't figure out that 'user_name' and 'qcc_title' are the same
+		# despite the JOIN condition, so manually sort on the correct one.
+		$userFieldToSort = $params['activeusers'] ? 'qcc_title' : 'user_name';
 
 		$this->addWhereRange( $userFieldToSort, $dir, $from, $to );
 
@@ -149,26 +156,38 @@ class ApiQueryAllUsers extends ApiQueryBase {
 
 			$this->addTables( 'user_groups', 'ug2' );
 			$this->addJoinConds( array( 'ug2' => array( 'LEFT JOIN', 'ug2.ug_user=user_id' ) ) );
-			$this->addFields( 'ug2.ug_group ug_group2' );
+			$this->addFields( array( 'ug_group2' => 'ug2.ug_group' ) );
 		} else {
 			$sqlLimit = $limit + 1;
 		}
 
 		if ( $params['activeusers'] ) {
-			global $wgActiveUserDays;
-			$this->addTables( 'recentchanges' );
+			$activeUserSeconds = $activeUserDays * 86400;
 
-			$this->addJoinConds( array( 'recentchanges' => array(
-				'INNER JOIN', 'rc_user_text=user_name'
+			// Filter query to only include users in the active users cache
+			$this->addTables( 'querycachetwo' );
+			$this->addJoinConds( array( 'querycachetwo' => array(
+				'INNER JOIN', array(
+					'qcc_type' => 'activeusers',
+					'qcc_namespace' => NS_USER,
+					'qcc_title=user_name',
+				),
 			) ) );
 
-			$this->addFields( array( 'recentedits' => 'COUNT(*)' ) );
-
-			$this->addWhere( 'rc_log_type IS NULL OR rc_log_type != ' . $db->addQuotes( 'newusers' ) );
-			$timestamp = $db->timestamp( wfTimestamp( TS_UNIX ) - $wgActiveUserDays * 24 * 3600 );
-			$this->addWhere( 'rc_timestamp >= ' . $db->addQuotes( $timestamp ) );
-
-			$this->addOption( 'GROUP BY', $userFieldToSort );
+			// Actually count the actions using a subquery (bug 64505 and bug 64507)
+			$timestamp = $db->timestamp( wfTimestamp( TS_UNIX ) - $activeUserSeconds );
+			$this->addFields( array(
+				'recentactions' => '(' . $db->selectSQLText(
+					'recentchanges',
+					'COUNT(*)',
+					array(
+						'rc_user_text = user_name',
+						'rc_type != ' . $db->addQuotes( RC_EXTERNAL ), // no wikidata
+						'rc_log_type IS NULL OR rc_log_type != ' . $db->addQuotes( 'newusers' ),
+						'rc_timestamp >= ' . $db->addQuotes( $timestamp ),
+					)
+				) . ')'
+			) );
 		}
 
 		$this->addOption( 'LIMIT', $sqlLimit );
@@ -204,8 +223,13 @@ class ApiQueryAllUsers extends ApiQueryBase {
 			if ( $lastUser !== $row->user_name ) {
 				// Save the last pass's user data
 				if ( is_array( $lastUserData ) ) {
-					$fit = $result->addValue( array( 'query', $this->getModuleName() ),
-						null, $lastUserData );
+					if ( $params['activeusers'] && $lastUserData['recentactions'] === 0 ) {
+						// activeusers cache was out of date
+						$fit = true;
+					} else {
+						$fit = $result->addValue( array( 'query', $this->getModuleName() ),
+							null, $lastUserData );
+					}
 
 					$lastUserData = null;
 
@@ -232,6 +256,7 @@ class ApiQueryAllUsers extends ApiQueryBase {
 					$lastUserData['blockid'] = $row->ipb_id;
 					$lastUserData['blockedby'] = $row->ipb_by_text;
 					$lastUserData['blockedbyid'] = $row->ipb_by;
+					$lastUserData['blockedtimestamp'] = wfTimestamp( TS_ISO_8601, $row->ipb_timestamp );
 					$lastUserData['blockreason'] = $row->ipb_reason;
 					$lastUserData['blockexpiry'] = $row->ipb_expiry;
 				}
@@ -242,7 +267,9 @@ class ApiQueryAllUsers extends ApiQueryBase {
 					$lastUserData['editcount'] = intval( $row->user_editcount );
 				}
 				if ( $params['activeusers'] ) {
-					$lastUserData['recenteditcount'] = intval( $row->recentedits );
+					$lastUserData['recentactions'] = intval( $row->recentactions );
+					// @todo 'recenteditcount' is set for BC, remove in 1.25
+					$lastUserData['recenteditcount'] = $lastUserData['recentactions'];
 				}
 				if ( $fld_registration ) {
 					$lastUserData['registration'] = $row->user_registration ?
@@ -303,7 +330,9 @@ class ApiQueryAllUsers extends ApiQueryBase {
 			}
 		}
 
-		if ( is_array( $lastUserData ) ) {
+		if ( is_array( $lastUserData ) &&
+			!( $params['activeusers'] && $lastUserData['recentactions'] === 0 )
+		) {
 			$fit = $result->addValue( array( 'query', $this->getModuleName() ),
 				null, $lastUserData );
 			if ( !$fit ) {
@@ -368,8 +397,6 @@ class ApiQueryAllUsers extends ApiQueryBase {
 	}
 
 	public function getParamDescription() {
-		global $wgActiveUserDays;
-
 		return array(
 			'from' => 'The user name to start enumerating from',
 			'to' => 'The user name to stop enumerating at',
@@ -391,63 +418,12 @@ class ApiQueryAllUsers extends ApiQueryBase {
 			),
 			'limit' => 'How many total user names to return',
 			'witheditsonly' => 'Only list users who have made edits',
-			'activeusers' => "Only list users active in the last {$wgActiveUserDays} days(s)"
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'userid' => 'integer',
-				'name' => 'string',
-				'recenteditcount' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'blockinfo' => array(
-				'blockid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'blockedby' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'blockedbyid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'blockedreason' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'blockedexpiry' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'hidden' => 'boolean'
-			),
-			'editcount' => array(
-				'editcount' => 'integer'
-			),
-			'registration' => array(
-				'registration' => 'string'
-			)
+			'activeusers' => "Only list users active in the last {$this->getConfig()->get( 'ActiveUserDays' )} days(s)"
 		);
 	}
 
 	public function getDescription() {
 		return 'Enumerate all registered users.';
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array(
-				'code' => 'group-excludegroup',
-				'info' => 'group and excludegroup cannot be used together'
-			),
-		) );
 	}
 
 	public function getExamples() {

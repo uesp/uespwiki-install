@@ -38,7 +38,7 @@ class ApiQueryContributors extends ApiQueryBase {
 	 */
 	const MAX_PAGES = 100;
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		// "pc" is short for "page contributors", "co" was already taken by the
 		// GeoData extension's prop=coordinates.
 		parent::__construct( $query, $moduleName, 'pc' );
@@ -262,14 +262,6 @@ class ApiQueryContributors extends ApiQueryBase {
 			),
 			'limit' => 'How many contributors to return',
 			'continue' => 'When more results are available, use this to continue',
-		);
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(),
-			$this->getRequireMaxOneParameterErrorMessages(
-				array( 'group', 'excludegroup', 'rights', 'excluderights' )
-			)
 		);
 	}
 

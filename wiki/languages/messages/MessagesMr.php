@@ -1,8 +1,7 @@
 <?php
 /** Marathi (मराठी)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -124,6 +123,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'सर्वाधिकआवर्तने' ),
 	'Movepage'                  => array( 'पान_हलवा' ),
 	'Mycontributions'           => array( 'माझे_योगदान' ),
+	'MyLanguage'                => array( 'माझीभाषा' ),
 	'Mypage'                    => array( 'माझे_पान' ),
 	'Mytalk'                    => array( 'माझ्या_चर्चा' ),
 	'Newimages'                 => array( 'नवीन_संचिका', 'नवीन_चित्रे' ),

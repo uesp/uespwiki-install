@@ -71,7 +71,7 @@ class ApiFileRevert extends ApiBase {
 	/**
 	 * Checks that the user has permissions to perform this revert.
 	 * Dies with usage message on inadequate permissions.
-	 * @param $user User The user to check.
+	 * @param User $user The user to check.
 	 */
 	protected function checkPermissions( $user ) {
 		$title = $this->file->getTitle();
@@ -132,36 +132,14 @@ class ApiFileRevert extends ApiBase {
 				ApiBase::PARAM_TYPE => 'string',
 				ApiBase::PARAM_REQUIRED => true,
 			),
-			'token' => array(
-				ApiBase::PARAM_TYPE => 'string',
-				ApiBase::PARAM_REQUIRED => true
-			),
 		);
 	}
 
 	public function getParamDescription() {
 		return array(
 			'filename' => 'Target filename without the File: prefix',
-			'token' => 'Edit token. You can get one of these through prop=info',
 			'comment' => 'Upload comment',
 			'archivename' => 'Archive name of the revision to revert to',
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'result' => array(
-					ApiBase::PROP_TYPE => array(
-						'Success',
-						'Failure'
-					)
-				),
-				'errors' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			)
 		);
 	}
 
@@ -171,24 +149,8 @@ class ApiFileRevert extends ApiBase {
 		);
 	}
 
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(),
-			array(
-				array( 'mustbeloggedin', 'upload' ),
-				array( 'badaccess-groups' ),
-				array( 'invalidtitle', 'title' ),
-				array( 'notanarticle' ),
-				array( 'filerevert-badversion' ),
-			)
-		);
-	}
-
 	public function needsToken() {
-		return true;
-	}
-
-	public function getTokenSalt() {
-		return '';
+		return 'csrf';
 	}
 
 	public function getExamples() {

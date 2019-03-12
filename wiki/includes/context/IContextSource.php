@@ -37,7 +37,7 @@ interface IContextSource {
 	/**
 	 * Get the Title object
 	 *
-	 * @return Title
+	 * @return Title|null
 	 */
 	public function getTitle();
 
@@ -79,14 +79,6 @@ interface IContextSource {
 	/**
 	 * Get the Language object
 	 *
-	 * @deprecated since 1.19 Use getLanguage instead
-	 * @return Language
-	 */
-	public function getLang();
-
-	/**
-	 * Get the Language object
-	 *
 	 * @return Language
 	 * @since 1.19
 	 */
@@ -118,7 +110,7 @@ interface IContextSource {
 	 * Export the resolved user IP, HTTP headers, user ID, and session ID.
 	 * The result will be reasonably sized to allow for serialization.
 	 *
-	 * @return Array
+	 * @return array
 	 * @since 1.21
 	 */
 	public function exportSession();

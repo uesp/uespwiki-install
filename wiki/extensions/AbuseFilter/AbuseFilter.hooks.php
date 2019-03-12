@@ -139,9 +139,7 @@ class AbuseFilterHooks {
 
 		$user = $context->getUser();
 
-		// Check for null edits.
 		$oldtext = '';
-		$oldcontent = null;
 
 		if ( ( $title instanceof Title ) && $title->canExist() && $title->exists() ) {
 			// Make sure we load the latest text saved in database (bug 31656)
@@ -161,17 +159,17 @@ class AbuseFilterHooks {
 			// Cache article object so we can share a parse operation
 			$articleCacheKey = $title->getNamespace() . ':' . $title->getText();
 			AFComputedVariable::$articleCache[$articleCacheKey] = $page;
+
+			// Don't trigger for null edits.
+			if ( $content && isset( $oldcontent ) && $content->equals( $oldcontent ) ) {
+				// Compare Content objects if available
+				return true;
+			} elseif ( strcmp( $oldtext, $text ) == 0 ) {
+				// Otherwise, compare strings
+				return true;
+			}
 		} else {
 			$page = null;
-		}
-
-		// Don't trigger for null edits.
-		if ( $content && $oldcontent && $oldcontent->equals( $content ) ) {
-			// Compare Content objects if available
-			return true;
-		} else if ( strcmp( $oldtext, $text ) == 0 ) {
-			// Otherwise, compare strings
-			return true;
 		}
 
 		$vars->addHolders(
@@ -302,6 +300,14 @@ class AbuseFilterHooks {
 		$vars = new AbuseFilterVariableHolder;
 
 		global $wgUser;
+		// HACK: This is a secret userright so system actions
+		// can bypass AbuseFilter. Should not be assigned to
+		// normal users. This should be turned into a proper
+		// userright in bug 67936.
+		if ( $wgUser->isAllowed( 'abusefilter-bypass' ) ) {
+			return true;
+		}
+
 		$vars->addHolders(
 			AbuseFilter::generateUserVars( $wgUser ),
 			AbuseFilter::generateTitleVars( $oldTitle, 'MOVED_FROM' ),
@@ -630,6 +636,20 @@ class AbuseFilterHooks {
 				'id' => AbuseFilterViewExamine::$examineId,
 			);
 		}
+		return true;
+	}
+
+	/**
+	 * Tables that Extension:UserMerge needs to update
+	 *
+	 * @param array $updateFields
+	 * @return bool
+	 */
+	public static function onUserMergeAccountFields( array &$updateFields ) {
+		$updateFields[] = array( 'abuse_filter', 'af_user', 'af_user_text' );
+		$updateFields[] = array( 'abuse_filter_log', 'afl_user', 'afl_user_text' );
+		$updateFields[] = array( 'abuse_filter_history', 'afh_user', 'afh_user_text' );
+
 		return true;
 	}
 

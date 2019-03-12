@@ -31,7 +31,7 @@
  */
 class ApiQueryContributions extends ApiQueryBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'uc' );
 	}
 
@@ -130,7 +130,7 @@ class ApiQueryContributions extends ApiQueryBase {
 	 * Validate the 'user' parameter and set the value to compare
 	 * against `revision`.`rev_user_text`
 	 *
-	 * @param $user string
+	 * @param string $user
 	 */
 	private function prepareUsername( $user ) {
 		if ( !is_null( $user ) && $user !== '' ) {
@@ -193,7 +193,7 @@ class ApiQueryContributions extends ApiQueryBase {
 		// see the username.
 		if ( !$user->isAllowed( 'deletedhistory' ) ) {
 			$bitmask = Revision::DELETED_USER;
-		} elseif ( !$user->isAllowed( 'suppressrevision' ) ) {
+		} elseif ( !$user->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
 			$bitmask = Revision::DELETED_USER | Revision::DELETED_RESTRICTED;
 		} else {
 			$bitmask = 0;
@@ -224,6 +224,7 @@ class ApiQueryContributions extends ApiQueryBase {
 
 		$show = $this->params['show'];
 		if ( $this->params['toponly'] ) { // deprecated/old param
+			$this->logFeatureUsage( 'list=usercontribs&uctoponly' );
 			$show[] = 'top';
 		}
 		if ( !is_null( $show ) ) {
@@ -326,7 +327,7 @@ class ApiQueryContributions extends ApiQueryBase {
 	/**
 	 * Extract fields from the database row and append them to a result array
 	 *
-	 * @param $row
+	 * @param stdClass $row
 	 * @return array
 	 */
 	private function extractRowInfo( $row ) {
@@ -517,8 +518,8 @@ class ApiQueryContributions extends ApiQueryBase {
 	}
 
 	public function getParamDescription() {
-		global $wgRCMaxAge;
 		$p = $this->getModulePrefix();
+		$RCMaxAge = $this->getConfig()->get( 'RCMaxAge' );
 
 		return array(
 			'limit' => 'The maximum number of contributions to return',
@@ -548,86 +549,15 @@ class ApiQueryContributions extends ApiQueryBase {
 			'show' => array(
 				"Show only items that meet thse criteria, e.g. non minor edits only: {$p}show=!minor",
 				"NOTE: If {$p}show=patrolled or {$p}show=!patrolled is set, revisions older than",
-				"\$wgRCMaxAge ($wgRCMaxAge) won't be shown",
+				"\$wgRCMaxAge ($RCMaxAge) won't be shown",
 			),
 			'tag' => 'Only list revisions tagged with this tag',
 			'toponly' => 'Only list changes which are the latest revision',
 		);
 	}
 
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'userid' => 'integer',
-				'user' => 'string',
-				'userhidden' => 'boolean'
-			),
-			'ids' => array(
-				'pageid' => 'integer',
-				'revid' => 'integer',
-				'parentid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'title' => array(
-				'ns' => 'namespace',
-				'title' => 'string'
-			),
-			'timestamp' => array(
-				'timestamp' => 'timestamp'
-			),
-			'flags' => array(
-				'new' => 'boolean',
-				'minor' => 'boolean',
-				'top' => 'boolean'
-			),
-			'comment' => array(
-				'commenthidden' => 'boolean',
-				'comment' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'parsedcomment' => array(
-				'commenthidden' => 'boolean',
-				'parsedcomment' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'patrolled' => array(
-				'patrolled' => 'boolean'
-			),
-			'size' => array(
-				'size' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'sizediff' => array(
-				'sizediff' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				)
-			)
-		);
-	}
-
 	public function getDescription() {
 		return 'Get all edits by a user.';
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array( 'code' => 'param_user', 'info' => 'User parameter may not be empty.' ),
-			array( 'code' => 'param_user', 'info' => 'User name user is not valid' ),
-			array( 'show' ),
-			array(
-				'code' => 'permissiondenied',
-				'info' => 'You need the patrol right to request the patrolled flag'
-			),
-		) );
 	}
 
 	public function getExamples() {

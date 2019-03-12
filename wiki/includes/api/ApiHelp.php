@@ -51,6 +51,7 @@ class ApiHelp extends ApiBase {
 		}
 
 		if ( is_array( $params['querymodules'] ) ) {
+			$this->logFeatureUsage( 'action=help&querymodules' );
 			$queryModules = $params['querymodules'];
 			foreach ( $queryModules as $m ) {
 				$modules[] = 'query+' . $m;
@@ -107,8 +108,8 @@ class ApiHelp extends ApiBase {
 	}
 
 	/**
-	 * @param $module ApiBase
-	 * @param $type String What type of request is this? e.g. action, query, list, prop, meta, format
+	 * @param ApiBase $module
+	 * @param string $type What type of request is this? e.g. action, query, list, prop, meta, format
 	 * @return string
 	 */
 	private function buildModuleHelp( $module, $type ) {

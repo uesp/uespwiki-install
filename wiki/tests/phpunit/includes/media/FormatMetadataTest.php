@@ -1,28 +1,14 @@
 <?php
 
-class FormatMetadataTest extends MediaWikiTestCase {
-
-	/** @var FSFileBackend */
-	protected $backend;
-	/** @var FSRepo */
-	protected $repo;
+/**
+ * @group Media
+ */
+class FormatMetadataTest extends MediaWikiMediaTestCase {
 
 	protected function setUp() {
 		parent::setUp();
 
 		$this->checkPHPExtension( 'exif' );
-		$filePath = __DIR__ . '/../../data/media';
-		$this->backend = new FSFileBackend( array(
-			'name' => 'localtesting',
-			'wikiId' => wfWikiId(),
-			'containerPaths' => array( 'data' => $filePath )
-		) );
-		$this->repo = new FSRepo( array(
-			'name' => 'temp',
-			'url' => 'http://localhost/thumbtest',
-			'backend' => $this->backend
-		) );
-
 		$this->setMwGlobals( 'wgShowEXIF', true );
 	}
 
@@ -51,8 +37,8 @@ class FormatMetadataTest extends MediaWikiTestCase {
 	}
 
 	/**
-	 * @param $filename String
-	 * @param $expected Integer Total image area
+	 * @param string $filename
+	 * @param int $expected Total image area
 	 * @dataProvider provideFlattenArray
 	 * @covers FormatMetadata::flattenArray
 	 */
@@ -81,10 +67,5 @@ class FormatMetadataTest extends MediaWikiTestCase {
 			),
 			// TODO: more test cases
 		);
-	}
-
-	private function dataFile( $name, $type ) {
-		return new UnregisteredLocalFile( false, $this->repo,
-			"mwstore://localtesting/data/$name", $type );
 	}
 }

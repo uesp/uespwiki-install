@@ -1,11 +1,7 @@
 ( function ( mw ) {
 	QUnit.module( 'mediawiki.api', QUnit.newMwEnvironment( {
 		setup: function () {
-			this.clock = this.sandbox.useFakeTimers();
 			this.server = this.sandbox.useFakeServer();
-		},
-		teardown: function () {
-			this.clock.tick( 1 );
 		}
 	} ) );
 
@@ -103,7 +99,7 @@
 		this.server.respond();
 	} );
 
-	QUnit.test( 'getToken( cached )', function ( assert ) {
+	QUnit.test( 'getToken( pre-populated )', function ( assert ) {
 		QUnit.expect( 2 );
 
 		var api = new mw.Api();
@@ -121,32 +117,65 @@
 		assert.equal( this.server.requests.length, 0, 'Requests made' );
 	} );
 
-	QUnit.test( 'getToken( uncached )', function ( assert ) {
-		QUnit.expect( 2 );
+	QUnit.test( 'getToken()', function ( assert ) {
+		QUnit.expect( 5 );
 
-		var api = new mw.Api();
+		var test = this,
+			api = new mw.Api();
 
 		// Get a token of a type that isn't prepopulated by user.tokens.
 		// Could use "block" or "delete" here, but those could in theory
 		// be added to user.tokens, use a fake one instead.
 		api.getToken( 'testaction' )
 			.done( function ( token ) {
-				assert.ok( token.length, 'Got a token' );
+				assert.ok( token.length, 'Got testaction token' );
 			} )
 			.fail( function ( err ) {
-				assert.equal( '', err, 'API error' );
+				assert.equal( err, '', 'API error' );
+			} );
+		api.getToken( 'testaction' )
+			.done( function ( token ) {
+				assert.ok( token.length, 'Got testaction token (cached)' );
+			} )
+			.fail( function ( err ) {
+				assert.equal( err, '', 'API error' );
 			} );
 
-		assert.equal( this.server.requests.length, 1, 'Requests made' );
+		// Don't cache error (bug 65268)
+		api.getToken( 'testaction2' )
+			.fail( function ( err ) {
+				assert.equal( err, 'bite-me', 'Expected error' );
+			} )
+			.always( function () {
+				// Make this request after the first one has finished.
+				// If we make it simultaneously we still want it to share
+				// the cache, but as soon as it is fulfilled as error we
+				// reject it so that the next one tries fresh.
+				api.getToken( 'testaction2' )
+					.done( function ( token ) {
+						assert.ok( token.length, 'Got testaction2 token (error was not be cached)' );
+					} )
+					.fail( function ( err ) {
+						assert.equal( err, '', 'API error' );
+					} );
 
-		this.server.respond( function ( request ) {
-			request.respond( 200, { 'Content-Type': 'application/json' },
-				'{ "tokens": { "testactiontoken": "0123abc" } }'
-			);
-		} );
+				assert.equal( test.server.requests.length, 3, 'Requests made' );
+
+				test.server.requests[2].respond( 200, { 'Content-Type': 'application/json' },
+					'{ "tokens": { "testaction2token": "0123abc" } }'
+				);
+			} );
+
+		this.server.requests[0].respond( 200, { 'Content-Type': 'application/json' },
+			'{ "tokens": { "testactiontoken": "0123abc" } }'
+		);
+
+		this.server.requests[1].respond( 200, { 'Content-Type': 'application/json' },
+			'{ "error": { "code": "bite-me", "info": "Smite me, O Mighty Smiter" } }'
+		);
 	} );
 
-	QUnit.test( 'postWithToken()', function ( assert ) {
+	QUnit.test( 'postWithToken( tokenType, params )', function ( assert ) {
 		QUnit.expect( 1 );
 
 		var api = new mw.Api( { ajax: { url: '/postWithToken/api.php' } } );
@@ -165,6 +194,44 @@
 		this.server.requests[1].respond( 200, { 'Content-Type': 'application/json' },
 			'{ "example": { "foo": "quux" } }'
 		);
+	} );
+
+	QUnit.test( 'postWithToken( tokenType, params, ajaxOptions )', function ( assert ) {
+		QUnit.expect( 3 );
+
+		var api = new mw.Api();
+
+		api.postWithToken(
+			'edit',
+			{
+				action: 'example'
+			},
+			{
+				headers: {
+					'X-Foo': 'Bar'
+				}
+			}
+		);
+
+		api.postWithToken(
+			'edit',
+			{
+				action: 'example'
+			},
+			function () {
+				assert.ok( false, 'This parameter cannot be a callback' );
+			}
+		)
+		.always( function ( data ) {
+			assert.equal( data.example, 'quux' );
+		} );
+
+		assert.equal( this.server.requests.length, 2, 'Request made' );
+		assert.equal( this.server.requests[0].requestHeaders['X-Foo'], 'Bar', 'Header sent' );
+
+		this.server.respond( function ( request ) {
+			request.respond( 200, { 'Content-Type': 'application/json' }, '{ "example": "quux" }' );
+		} );
 	} );
 
 	QUnit.test( 'postWithToken() - badtoken', function ( assert ) {

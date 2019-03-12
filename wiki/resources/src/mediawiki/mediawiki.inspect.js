@@ -142,7 +142,7 @@
 				return;
 			} catch ( e ) {}
 			try {
-				console.log( $.toJSON( data, null, 2 ) );
+				console.log( JSON.stringify( data, null, 2 ) );
 				return;
 			} catch ( e ) {}
 			mw.log( data );
@@ -240,7 +240,7 @@
 		},
 
 		/**
-		 * Perform a substring search across the JavaScript and CSS source code
+		 * Perform a string search across the JavaScript and CSS source code
 		 * of all loaded modules and return an array of the names of the
 		 * modules that matched.
 		 *

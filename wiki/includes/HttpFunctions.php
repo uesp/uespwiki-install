@@ -38,8 +38,8 @@ class Http {
 	 * Perform an HTTP request
 	 *
 	 * @param string $method HTTP method. Usually GET/POST
-	 * @param string $url full URL to act on. If protocol-relative, will be expanded to an http:// URL
-	 * @param array $options options to pass to MWHttpRequest object.
+	 * @param string $url Full URL to act on. If protocol-relative, will be expanded to an http:// URL
+	 * @param array $options Options to pass to MWHttpRequest object.
 	 *	Possible keys for the array:
 	 *    - timeout             Timeout length in seconds
 	 *    - connectTimeout      Timeout for connection, in seconds (curl only)
@@ -57,7 +57,7 @@ class Http {
 	 *		                    to avoid attacks on intranet services accessible by HTTP.
 	 *    - userAgent           A user agent, if you want to override the default
 	 *                          MediaWiki/$wgVersion
-	 * @return Mixed: (bool)false on failure or a string on success
+	 * @return string|bool (bool)false on failure or a string on success
 	 */
 	public static function request( $method, $url, $options = array() ) {
 		wfDebug( "HTTP: $method: $url\n" );
@@ -91,9 +91,9 @@ class Http {
 	 * Simple wrapper for Http::request( 'GET' )
 	 * @see Http::request()
 	 *
-	 * @param $url
-	 * @param $timeout string
-	 * @param $options array
+	 * @param string $url
+	 * @param string $timeout
+	 * @param array $options
 	 * @return string
 	 */
 	public static function get( $url, $timeout = 'default', $options = array() ) {
@@ -105,8 +105,8 @@ class Http {
 	 * Simple wrapper for Http::request( 'POST' )
 	 * @see Http::request()
 	 *
-	 * @param $url
-	 * @param $options array
+	 * @param string $url
+	 * @param array $options
 	 * @return string
 	 */
 	public static function post( $url, $options = array() ) {
@@ -116,8 +116,8 @@ class Http {
 	/**
 	 * Check if the URL can be served by localhost
 	 *
-	 * @param string $url full url to check
-	 * @return Boolean
+	 * @param string $url Full url to check
+	 * @return bool
 	 */
 	public static function isLocalURL( $url ) {
 		global $wgCommandLineMode, $wgConf;
@@ -156,7 +156,7 @@ class Http {
 
 	/**
 	 * A standard user-agent we can use for external requests.
-	 * @return String
+	 * @return string
 	 */
 	public static function userAgent() {
 		global $wgVersion;
@@ -172,8 +172,8 @@ class Http {
 	 *
 	 * @todo FIXME this is wildly inaccurate and fails to actually check most stuff
 	 *
-	 * @param $uri Mixed: URI to check for validity
-	 * @return Boolean
+	 * @param string $uri URI to check for validity
+	 * @return bool
 	 */
 	public static function isValidURI( $uri ) {
 		return preg_match(
@@ -223,7 +223,7 @@ class MWHttpRequest {
 	public $status;
 
 	/**
-	 * @param string $url url to use. If protocol-relative, will be expanded to an http:// URL
+	 * @param string $url Url to use. If protocol-relative, will be expanded to an http:// URL
 	 * @param array $options (optional) extra params to pass (see Http::request())
 	 */
 	protected function __construct( $url, $options = array() ) {
@@ -282,7 +282,7 @@ class MWHttpRequest {
 
 	/**
 	 * Generate a new request object
-	 * @param string $url url to use
+	 * @param string $url Url to use
 	 * @param array $options (optional) extra params to pass (see Http::request())
 	 * @throws MWException
 	 * @return CurlHttpRequest|PhpHttpRequest
@@ -316,7 +316,7 @@ class MWHttpRequest {
 	/**
 	 * Get the body, or content, of the response to the request
 	 *
-	 * @return String
+	 * @return string
 	 */
 	public function getContent() {
 		return $this->content;
@@ -325,7 +325,7 @@ class MWHttpRequest {
 	/**
 	 * Set the parameters of the request
 	 *
-	 * @param $args Array
+	 * @param array $args
 	 * @todo overload the args param
 	 */
 	public function setData( $args ) {
@@ -358,7 +358,7 @@ class MWHttpRequest {
 
 	/**
 	 * Set the user agent
-	 * @param $UA string
+	 * @param string $UA
 	 */
 	public function setUserAgent( $UA ) {
 		$this->setHeader( 'User-Agent', $UA );
@@ -366,8 +366,8 @@ class MWHttpRequest {
 
 	/**
 	 * Set an arbitrary header
-	 * @param $name
-	 * @param $value
+	 * @param string $name
+	 * @param string $value
 	 */
 	public function setHeader( $name, $value ) {
 		// I feel like I should normalize the case here...
@@ -411,7 +411,7 @@ class MWHttpRequest {
 	 * bytes are reported handled than were passed to you, the HTTP fetch
 	 * will be aborted.
 	 *
-	 * @param $callback Callback
+	 * @param callable $callback
 	 * @throws MWException
 	 */
 	public function setCallback( $callback ) {
@@ -425,8 +425,8 @@ class MWHttpRequest {
 	 * A generic callback to read the body of the response from a remote
 	 * server.
 	 *
-	 * @param $fh handle
-	 * @param $content String
+	 * @param resource $fh
+	 * @param string $content
 	 * @return int
 	 */
 	public function read( $fh, $content ) {
@@ -513,7 +513,7 @@ class MWHttpRequest {
 	 * (see RFC2616, section 10, http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
 	 * for a list of status codes.)
 	 *
-	 * @return Integer
+	 * @return int
 	 */
 	public function getStatus() {
 		if ( !$this->respHeaders ) {
@@ -526,7 +526,7 @@ class MWHttpRequest {
 	/**
 	 * Returns true if the last status code was a redirect.
 	 *
-	 * @return Boolean
+	 * @return bool
 	 */
 	public function isRedirect() {
 		if ( !$this->respHeaders ) {
@@ -548,7 +548,7 @@ class MWHttpRequest {
 	 * (e.g. Set-Cookie) can appear more than once the, each value of
 	 * the associative array is an array of the values given.
 	 *
-	 * @return Array
+	 * @return array
 	 */
 	public function getResponseHeaders() {
 		if ( !$this->respHeaders ) {
@@ -561,8 +561,8 @@ class MWHttpRequest {
 	/**
 	 * Returns the value of the given response header.
 	 *
-	 * @param $header String
-	 * @return String
+	 * @param string $header
+	 * @return string
 	 */
 	public function getResponseHeader( $header ) {
 		if ( !$this->respHeaders ) {
@@ -580,7 +580,7 @@ class MWHttpRequest {
 	/**
 	 * Tells the MWHttpRequest object to use this pre-loaded CookieJar.
 	 *
-	 * @param $jar CookieJar
+	 * @param CookieJar $jar
 	 */
 	public function setCookieJar( $jar ) {
 		$this->cookieJar = $jar;
@@ -604,9 +604,9 @@ class MWHttpRequest {
 	 * cookies. Used internally after a request to parse the
 	 * Set-Cookie headers.
 	 * @see Cookie::set
-	 * @param $name
-	 * @param $value null
-	 * @param $attr null
+	 * @param string $name
+	 * @param mixed $value
+	 * @param array $attr
 	 */
 	public function setCookie( $name, $value = null, $attr = null ) {
 		if ( !$this->cookieJar ) {
@@ -711,8 +711,8 @@ class CurlHttpRequest extends MWHttpRequest {
 	protected $headerText = "";
 
 	/**
-	 * @param $fh
-	 * @param $content
+	 * @param resource $fh
+	 * @param string $content
 	 * @return int
 	 */
 	protected function readHeader( $fh, $content ) {
@@ -758,7 +758,22 @@ class CurlHttpRequest extends MWHttpRequest {
 			$this->curlOptions[CURLOPT_HEADER] = true;
 		} elseif ( $this->method == 'POST' ) {
 			$this->curlOptions[CURLOPT_POST] = true;
-			$this->curlOptions[CURLOPT_POSTFIELDS] = $this->postData;
+			$postData = $this->postData;
+			// Don't interpret POST parameters starting with '@' as file uploads, because this
+			// makes it impossible to POST plain values starting with '@' (and causes security
+			// issues potentially exposing the contents of local files).
+			// The PHP manual says this option was introduced in PHP 5.5 defaults to true in PHP 5.6,
+			// but we support lower versions, and the option doesn't exist in HHVM 5.6.99.
+			if ( defined( 'CURLOPT_SAFE_UPLOAD' ) ) {
+				$this->curlOptions[CURLOPT_SAFE_UPLOAD] = true;
+			} else if ( is_array( $postData ) ) {
+				// In PHP 5.2 and later, '@' is interpreted as a file upload if POSTFIELDS
+				// is an array, but not if it's a string. So convert $req['body'] to a string
+				// for safety.
+				$postData = wfArrayToCgi( $postData );
+			}
+			$this->curlOptions[CURLOPT_POSTFIELDS] = $postData;
+
 			// Suppress 'Expect: 100-continue' header, as some servers
 			// will reject it with a 417 and Curl won't auto retry
 			// with HTTP 1.0 fallback
@@ -778,7 +793,7 @@ class CurlHttpRequest extends MWHttpRequest {
 
 		if ( $this->followRedirects && $this->canFollowRedirects() ) {
 			wfSuppressWarnings();
-			if ( ! curl_setopt( $curlHandle, CURLOPT_FOLLOWLOCATION, true ) ) {
+			if ( !curl_setopt( $curlHandle, CURLOPT_FOLLOWLOCATION, true ) ) {
 				wfDebug( __METHOD__ . ": Couldn't set CURLOPT_FOLLOWLOCATION. " .
 					"Probably safe_mode or open_basedir is set.\n" );
 				// Continue the processing. If it were in curl_setopt_array,
@@ -815,7 +830,8 @@ class CurlHttpRequest extends MWHttpRequest {
 			return false;
 		}
 
-		if ( !defined( 'CURLOPT_REDIR_PROTOCOLS' ) ) {
+		$curlVersionInfo = curl_version();
+		if ( $curlVersionInfo['version_number'] < 0x071304 ) {
 			wfDebug( "Cannot follow redirects with libcurl < 7.19.4 due to CVE-2009-0037\n" );
 			return false;
 		}
@@ -829,7 +845,7 @@ class PhpHttpRequest extends MWHttpRequest {
 	private $fopenErrors = array();
 
 	/**
-	 * @param $url string
+	 * @param string $url
 	 * @return string
 	 */
 	protected function urlToTcp( $url ) {

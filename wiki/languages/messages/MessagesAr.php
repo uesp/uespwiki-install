@@ -1,8 +1,7 @@
 <?php
 /** Arabic (العربية)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -30,6 +29,7 @@ $datePreferences = array(
 	'ymd',
 	'hijri',
 	'ISO 8601',
+	'jMY',
 );
 
 /**
@@ -79,6 +79,10 @@ $dateFormats = array(
 	'ISO 8601 time' => 'xnH:xni:xns',
 	'ISO 8601 date' => 'xnY-xnm-xnd',
 	'ISO 8601 both' => 'xnY-xnm-xnd"T"xnH:xni:xns',
+
+	'jMY time' => 'H:i',
+	'jMY date' => 'j M Y',
+	'jMY both' => 'H:i، j M Y', # Arabic comma
 );
 
 $digitTransformTable = array(
@@ -353,6 +357,7 @@ $specialPageAliases = array(
 	'Mycontributions'           => array( 'مساهماتي' ),
 	'Mypage'                    => array( 'صفحتي' ),
 	'Mytalk'                    => array( 'نقاشي' ),
+	'MyLanguage'                => array( 'لغتي' ),
 	'Myuploads'                 => array( 'رفوعاتي' ),
 	'Newimages'                 => array( 'ملفات_جديدة', 'صور_جديدة' ),
 	'Newpages'                  => array( 'صفحات_جديدة' ),

@@ -43,6 +43,9 @@ class ApiWatch extends ApiBase {
 		}
 
 		$params = $this->extractRequestParams();
+
+		$this->getResult()->beginContinuation( $params['continue'], array(), array() );
+
 		$pageSet = $this->getPageSet();
 		// by default we use pageset to extract the page to work on.
 		// title is still supported for backward compatibility
@@ -81,6 +84,7 @@ class ApiWatch extends ApiBase {
 				);
 			}
 
+			$this->logFeatureUsage( 'action=watch&title' );
 			$title = Title::newFromText( $params['title'] );
 			if ( !$title || !$title->isWatchable() ) {
 				$this->dieUsageMsg( array( 'invalidtitle', $params['title'] ) );
@@ -88,6 +92,7 @@ class ApiWatch extends ApiBase {
 			$res = $this->watchTitle( $title, $user, $params, true );
 		}
 		$this->getResult()->addValue( null, $this->getModuleName(), $res );
+		$this->getResult()->endContinuation();
 	}
 
 	private function watchTitle( Title $title, User $user, array $params,
@@ -161,10 +166,6 @@ class ApiWatch extends ApiBase {
 	}
 
 	public function needsToken() {
-		return true;
-	}
-
-	public function getTokenSalt() {
 		return 'watch';
 	}
 
@@ -176,10 +177,7 @@ class ApiWatch extends ApiBase {
 			),
 			'unwatch' => false,
 			'uselang' => null,
-			'token' => array(
-				ApiBase::PARAM_TYPE => 'string',
-				ApiBase::PARAM_REQUIRED => true
-			),
+			'continue' => '',
 		);
 		if ( $flags ) {
 			$result += $this->getPageSet()->getFinalParams( $flags );
@@ -195,31 +193,12 @@ class ApiWatch extends ApiBase {
 			'title' => 'The page to (un)watch. use titles instead',
 			'unwatch' => 'If set the page will be unwatched rather than watched',
 			'uselang' => 'Language to show the message in',
-			'token' => 'A token previously acquired via prop=info',
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'title' => 'string',
-				'unwatched' => 'boolean',
-				'watched' => 'boolean',
-				'message' => 'string'
-			)
+			'continue' => 'When more results are available, use this to continue',
 		);
 	}
 
 	public function getDescription() {
 		return 'Add or remove pages from/to the current user\'s watchlist.';
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array( 'code' => 'notloggedin', 'info' => 'You must be logged-in to have a watchlist' ),
-			array( 'invalidtitle', 'title' ),
-			array( 'hookaborted' ),
-		) );
 	}
 
 	public function getExamples() {

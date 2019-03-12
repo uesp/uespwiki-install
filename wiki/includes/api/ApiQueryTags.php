@@ -40,7 +40,7 @@ class ApiQueryTags extends ApiQueryBase {
 	private $fld_displayname = false, $fld_description = false,
 		$fld_hitcount = false;
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'tg' );
 	}
 
@@ -167,23 +167,6 @@ class ApiQueryTags extends ApiQueryBase {
 				' description  - Adds description of the tag',
 				' hitcount     - Adds the amount of revisions that have this tag',
 			),
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'name' => 'string'
-			),
-			'displayname' => array(
-				'displayname' => 'string'
-			),
-			'description' => array(
-				'description' => 'string'
-			),
-			'hitcount' => array(
-				'hitcount' => 'integer'
-			)
 		);
 	}
 

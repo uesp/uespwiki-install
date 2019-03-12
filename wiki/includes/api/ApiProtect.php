@@ -29,7 +29,6 @@
  */
 class ApiProtect extends ApiBase {
 	public function execute() {
-		global $wgRestrictionLevels;
 		$params = $this->extractRequestParams();
 
 		$pageObj = $this->getTitleOrPageId( $params, 'fromdbmaster' );
@@ -74,11 +73,11 @@ class ApiProtect extends ApiBase {
 			if ( !in_array( $p[0], $restrictionTypes ) && $p[0] != 'create' ) {
 				$this->dieUsageMsg( array( 'protect-invalidaction', $p[0] ) );
 			}
-			if ( !in_array( $p[1], $wgRestrictionLevels ) && $p[1] != 'all' ) {
+			if ( !in_array( $p[1], $this->getConfig()->get( 'RestrictionLevels' ) ) && $p[1] != 'all' ) {
 				$this->dieUsageMsg( array( 'protect-invalidlevel', $p[1] ) );
 			}
 
-			if ( in_array( $expiry[$i], array( 'infinite', 'indefinite', 'never' ) ) ) {
+			if ( in_array( $expiry[$i], array( 'infinite', 'indefinite', 'infinity', 'never' ) ) ) {
 				$expiryarray[$p[0]] = $db->getInfinity();
 			} else {
 				$exp = strtotime( $expiry[$i] );
@@ -103,6 +102,9 @@ class ApiProtect extends ApiBase {
 
 		$cascade = $params['cascade'];
 
+		if ( $params['watch'] ) {
+			$this->logFeatureUsage( 'action=protect&watch' );
+		}
 		$watch = $params['watch'] ? 'watch' : $params['watchlist'];
 		$this->setWatch( $watch, $titleObj, 'watchdefault' );
 
@@ -146,10 +148,6 @@ class ApiProtect extends ApiBase {
 			'pageid' => array(
 				ApiBase::PARAM_TYPE => 'integer',
 			),
-			'token' => array(
-				ApiBase::PARAM_TYPE => 'string',
-				ApiBase::PARAM_REQUIRED => true
-			),
 			'protections' => array(
 				ApiBase::PARAM_ISMULTI => true,
 				ApiBase::PARAM_REQUIRED => true,
@@ -183,12 +181,11 @@ class ApiProtect extends ApiBase {
 		return array(
 			'title' => "Title of the page you want to (un)protect. Cannot be used together with {$p}pageid",
 			'pageid' => "ID of the page you want to (un)protect. Cannot be used together with {$p}title",
-			'token' => 'A protect token previously retrieved through prop=info',
 			'protections' => 'List of protection levels, formatted action=group (e.g. edit=sysop)',
 			'expiry' => array(
 				'Expiry timestamps. If only one timestamp is ' .
 					'set, it\'ll be used for all protections.',
-				'Use \'infinite\', \'indefinite\' or \'never\', for a never-expiring protection.'
+				'Use \'infinite\', \'indefinite\', \'infinity\' or \'never\', for a never-expiring protection.'
 			),
 			'reason' => 'Reason for (un)protecting',
 			'cascade' => array(
@@ -201,41 +198,12 @@ class ApiProtect extends ApiBase {
 		);
 	}
 
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'title' => 'string',
-				'reason' => 'string',
-				'cascade' => 'boolean'
-			)
-		);
-	}
-
 	public function getDescription() {
 		return 'Change the protection level of a page.';
 	}
 
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(),
-			$this->getTitleOrPageIdErrorMessage(),
-			array(
-				array( 'toofewexpiries', 'noofexpiries', 'noofprotections' ),
-				array( 'create-titleexists' ),
-				array( 'missingtitle-createonly' ),
-				array( 'protect-invalidaction', 'action' ),
-				array( 'protect-invalidlevel', 'level' ),
-				array( 'invalidexpiry', 'expiry' ),
-				array( 'pastexpiry', 'expiry' ),
-			)
-		);
-	}
-
 	public function needsToken() {
-		return true;
-	}
-
-	public function getTokenSalt() {
-		return '';
+		return 'csrf';
 	}
 
 	public function getExamples() {

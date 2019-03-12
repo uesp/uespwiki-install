@@ -33,7 +33,24 @@ class ApiQueryUsers extends ApiQueryBase {
 
 	private $tokenFunctions, $prop;
 
-	public function __construct( $query, $moduleName ) {
+	/**
+	 * Properties whose contents does not depend on who is looking at them. If the usprops field
+	 * contains anything not listed here, the cache mode will never be public for logged-in users.
+	 * @var array
+	 */
+	protected static $publicProps = array(
+		// everything except 'blockinfo' which might show hidden records if the user
+		// making the request has the appropriate permissions
+		'groups',
+		'implicitgroups',
+		'rights',
+		'editcount',
+		'registration',
+		'emailable',
+		'gender',
+	);
+
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'us' );
 	}
 
@@ -41,7 +58,8 @@ class ApiQueryUsers extends ApiQueryBase {
 	 * Get an array mapping token names to their handler functions.
 	 * The prototype for a token function is func($user)
 	 * it should return a token or false (permission denied)
-	 * @return Array tokenname => function
+	 * @deprecated since 1.24
+	 * @return array Array of tokenname => function
 	 */
 	protected function getTokenFunctions() {
 		// Don't call the hooks twice
@@ -63,8 +81,9 @@ class ApiQueryUsers extends ApiQueryBase {
 	}
 
 	/**
-	 * @param $user User
-	 * @return String
+	 * @deprecated since 1.24
+	 * @param User $user
+	 * @return string
 	 */
 	public static function getUserrightsToken( $user ) {
 		global $wgUser;
@@ -176,6 +195,7 @@ class ApiQueryUsers extends ApiQueryBase {
 					$data[$name]['blockid'] = $row->ipb_id;
 					$data[$name]['blockedby'] = $row->ipb_by_text;
 					$data[$name]['blockedbyid'] = $row->ipb_by;
+					$data[$name]['blockedtimestamp'] = wfTimestamp( TS_ISO_8601, $row->ipb_timestamp );
 					$data[$name]['blockreason'] = $row->ipb_reason;
 					$data[$name]['blockexpiry'] = $row->ipb_expiry;
 				}
@@ -261,7 +281,7 @@ class ApiQueryUsers extends ApiQueryBase {
 	 * Gets all the groups that a user is automatically a member of (implicit groups)
 	 *
 	 * @deprecated since 1.20; call User::getAutomaticGroups() directly.
-	 * @param $user User
+	 * @param User $user
 	 * @return array
 	 */
 	public static function getAutoGroups( $user ) {
@@ -271,7 +291,13 @@ class ApiQueryUsers extends ApiQueryBase {
 	}
 
 	public function getCacheMode( $params ) {
-		return isset( $params['token'] ) ? 'private' : 'anon-public-user-private';
+		if ( isset( $params['token'] ) ) {
+			return 'private';
+		} elseif ( array_diff( (array)$params['prop'], static::$publicProps ) ) {
+			return 'anon-public-user-private';
+		} else {
+			return 'public';
+		}
 	}
 
 	public function getAllowedParams() {
@@ -294,6 +320,7 @@ class ApiQueryUsers extends ApiQueryBase {
 				ApiBase::PARAM_ISMULTI => true
 			),
 			'token' => array(
+				ApiBase::PARAM_DEPRECATED => true,
 				ApiBase::PARAM_TYPE => array_keys( $this->getTokenFunctions() ),
 				ApiBase::PARAM_ISMULTI => true
 			),
@@ -317,73 +344,6 @@ class ApiQueryUsers extends ApiQueryBase {
 			'users' => 'A list of users to obtain the same information for',
 			'token' => 'Which tokens to obtain for each user',
 		);
-	}
-
-	public function getResultProperties() {
-		$props = array(
-			'' => array(
-				'userid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'name' => 'string',
-				'invalid' => 'boolean',
-				'hidden' => 'boolean',
-				'interwiki' => 'boolean',
-				'missing' => 'boolean'
-			),
-			'editcount' => array(
-				'editcount' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'registration' => array(
-				'registration' => array(
-					ApiBase::PROP_TYPE => 'timestamp',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'blockinfo' => array(
-				'blockid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'blockedby' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'blockedbyid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'blockedreason' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'blockedexpiry' => array(
-					ApiBase::PROP_TYPE => 'timestamp',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'emailable' => array(
-				'emailable' => 'boolean'
-			),
-			'gender' => array(
-				'gender' => array(
-					ApiBase::PROP_TYPE => array(
-						'male',
-						'female',
-						'unknown'
-					),
-					ApiBase::PROP_NULLABLE => true
-				)
-			)
-		);
-
-		self::addTokenProperties( $props, $this->getTokenFunctions() );
-
-		return $props;
 	}
 
 	public function getDescription() {

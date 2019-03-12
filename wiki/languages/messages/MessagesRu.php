@@ -1,8 +1,7 @@
 <?php
 /** Russian (русский)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -185,6 +184,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Наибольшее_количество_версий' ),
 	'Movepage'                  => array( 'Переименовать_страницу', 'Переименование', 'Переименовать' ),
 	'Mycontributions'           => array( 'Мой_вклад' ),
+	'MyLanguage'                => array( 'Мой_язык' ),
 	'Mypage'                    => array( 'Моя_страница' ),
 	'Mytalk'                    => array( 'Моё_обсуждение' ),
 	'Myuploads'                 => array( 'Мои_загрузки' ),
@@ -434,9 +434,9 @@ $fallback8bitEncoding = 'windows-1251';
 $linkPrefixExtension = false;
 
 $imageFiles = array(
-	'button-bold'   => 'cyrl/button_bold.png',
-	'button-italic' => 'cyrl/button_italic.png',
-	'button-link'   => 'cyrl/button_link.png',
+	'button-bold'   => 'ru/button_bold.png',
+	'button-italic' => 'ru/button_italic.png',
+	'button-link'   => 'ru/button_link.png',
 );
 
 $linkTrail = '/^([a-zабвгдеёжзийклмнопрстуфхцчшщъыьэюя]+)(.*)$/sDu';

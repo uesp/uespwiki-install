@@ -34,7 +34,7 @@ class ApiParamInfo extends ApiBase {
 	 */
 	protected $queryObj;
 
-	public function __construct( $main, $action ) {
+	public function __construct( ApiMain $main, $action ) {
 		parent::__construct( $main, $action );
 		$this->queryObj = new ApiQuery( $this->getMain(), 'query' );
 	}
@@ -66,10 +66,10 @@ class ApiParamInfo extends ApiBase {
 
 	/**
 	 * If the type is requested in parameters, adds a section to res with module info.
-	 * @param array $params user parameters array
-	 * @param string $type parameter name
-	 * @param array $res store results in this array
-	 * @param ApiResult $resultObj results object to set indexed tag.
+	 * @param array $params User parameters array
+	 * @param string $type Parameter name
+	 * @param array $res Store results in this array
+	 * @param ApiResult $resultObj Results object to set indexed tag.
 	 */
 	private function addModulesInfo( $params, $type, &$res, $resultObj ) {
 		if ( !is_array( $params[$type] ) ) {
@@ -99,7 +99,7 @@ class ApiParamInfo extends ApiBase {
 	}
 
 	/**
-	 * @param $obj ApiBase
+	 * @param ApiBase $obj
 	 * @return ApiResult
 	 */
 	private function getClassInfo( $obj ) {
@@ -198,6 +198,10 @@ class ApiParamInfo extends ApiBase {
 				$a['required'] = '';
 			}
 
+			if ( $n === 'token' && $obj->needsToken() ) {
+				$a['tokentype'] = $obj->needsToken();
+			}
+
 			if ( isset( $p[ApiBase::PARAM_DFLT] ) ) {
 				$type = $p[ApiBase::PARAM_TYPE];
 				if ( $type === 'boolean' ) {
@@ -224,7 +228,13 @@ class ApiParamInfo extends ApiBase {
 			}
 
 			if ( isset( $p[ApiBase::PARAM_TYPE] ) ) {
-				$a['type'] = $p[ApiBase::PARAM_TYPE];
+				if ( $p[ApiBase::PARAM_TYPE] === 'submodule' ) {
+					$a['type'] = $obj->getModuleManager()->getNames( $n );
+					sort( $a['type'] );
+					$a['submodules'] = '';
+				} else {
+					$a['type'] = $p[ApiBase::PARAM_TYPE];
+				}
 				if ( is_array( $a['type'] ) ) {
 					// To prevent sparse arrays from being serialized to JSON as objects
 					$a['type'] = array_values( $a['type'] );
@@ -243,66 +253,6 @@ class ApiParamInfo extends ApiBase {
 			$retval['parameters'][] = $a;
 		}
 		$result->setIndexedTagName( $retval['parameters'], 'param' );
-
-		$props = $obj->getFinalResultProperties();
-		$listResult = null;
-		if ( $props !== false ) {
-			$retval['props'] = array();
-
-			foreach ( $props as $prop => $properties ) {
-				$propResult = array();
-				if ( $prop == ApiBase::PROP_LIST ) {
-					$listResult = $properties;
-					continue;
-				}
-				if ( $prop != ApiBase::PROP_ROOT ) {
-					$propResult['name'] = $prop;
-				}
-				$propResult['properties'] = array();
-
-				foreach ( $properties as $name => $p ) {
-					$propertyResult = array();
-
-					$propertyResult['name'] = $name;
-
-					if ( !is_array( $p ) ) {
-						$p = array( ApiBase::PROP_TYPE => $p );
-					}
-
-					$propertyResult['type'] = $p[ApiBase::PROP_TYPE];
-
-					if ( is_array( $propertyResult['type'] ) ) {
-						$propertyResult['type'] = array_values( $propertyResult['type'] );
-						$result->setIndexedTagName( $propertyResult['type'], 't' );
-					}
-
-					$nullable = null;
-					if ( isset( $p[ApiBase::PROP_NULLABLE] ) ) {
-						$nullable = $p[ApiBase::PROP_NULLABLE];
-					}
-
-					if ( $nullable === true ) {
-						$propertyResult['nullable'] = '';
-					}
-
-					$propResult['properties'][] = $propertyResult;
-				}
-
-				$result->setIndexedTagName( $propResult['properties'], 'property' );
-				$retval['props'][] = $propResult;
-			}
-
-			// default is true for query modules, false for other modules, overridden by ApiBase::PROP_LIST
-			if ( $listResult === true || ( $listResult !== false && $obj instanceof ApiQueryBase ) ) {
-				$retval['listresult'] = '';
-			}
-
-			$result->setIndexedTagName( $retval['props'], 'prop' );
-		}
-
-		// Errors
-		$retval['errors'] = $this->parseErrors( $obj->getFinalPossibleErrors() );
-		$result->setIndexedTagName( $retval['errors'], 'error' );
 
 		return $retval;
 	}

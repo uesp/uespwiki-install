@@ -26,6 +26,7 @@
 
 /**
  * API WDDX output formatter
+ * @deprecated since 1.24
  * @ingroup API
  */
 class ApiFormatWddx extends ApiFormatBase {
@@ -35,15 +36,9 @@ class ApiFormatWddx extends ApiFormatBase {
 	}
 
 	public function execute() {
-		// Some versions of PHP have a broken wddx_serialize_value, see
-		// PHP bug 45314. Test encoding an affected character (U+00A0)
-		// to avoid this.
-		$expected =
-			"<wddxPacket version='1.0'><header/><data><string>\xc2\xa0</string></data></wddxPacket>";
-		if ( function_exists( 'wddx_serialize_value' )
-			&& !$this->getIsHtml()
-			&& wddx_serialize_value( "\xc2\xa0" ) == $expected
-		) {
+		$this->markDeprecated();
+
+		if ( !$this->getIsHtml() && !static::useSlowPrinter() ) {
 			$this->printText( wddx_serialize_value( $this->getResultData() ) );
 		} else {
 			// Don't do newlines and indentation if we weren't asked
@@ -60,10 +55,48 @@ class ApiFormatWddx extends ApiFormatBase {
 		}
 	}
 
+	public static function useSlowPrinter() {
+		if ( !function_exists( 'wddx_serialize_value' ) ) {
+			return true;
+		}
+
+		// Some versions of PHP have a broken wddx_serialize_value, see
+		// PHP bug 45314. Test encoding an affected character (U+00A0)
+		// to avoid this.
+		$expected =
+			"<wddxPacket version='1.0'><header/><data><string>\xc2\xa0</string></data></wddxPacket>";
+		if ( wddx_serialize_value( "\xc2\xa0" ) !== $expected ) {
+			return true;
+		}
+
+		// Some versions of HHVM don't correctly encode ampersands.
+		$expected =
+			"<wddxPacket version='1.0'><header/><data><string>&amp;</string></data></wddxPacket>";
+		if ( wddx_serialize_value( '&' ) !== $expected ) {
+			return true;
+		}
+
+		// Some versions of HHVM don't correctly encode empty arrays as subvalues.
+		$expected =
+			"<wddxPacket version='1.0'><header/><data><array length='1'><array length='0'></array></array></data></wddxPacket>";
+		if ( wddx_serialize_value( array( array() ) ) !== $expected ) {
+			return true;
+		}
+
+		// Some versions of HHVM don't correctly encode associative arrays with numeric keys.
+		$expected =
+			"<wddxPacket version='1.0'><header/><data><struct><var name='2'><number>1</number></var></struct></data></wddxPacket>";
+		if ( wddx_serialize_value( array( 2 => 1 ) ) !== $expected ) {
+			return true;
+		}
+
+		return false;
+	}
+
 	/**
 	 * Recursively go through the object and output its data in WDDX format.
-	 * @param $elemValue
-	 * @param $indent int
+	 * @param mixed $elemValue
+	 * @param int $indent
 	 */
 	function slowWddxPrinter( $elemValue, $indent = 0 ) {
 		$indstr = ( $this->getIsHtml() ? str_repeat( ' ', $indent ) : '' );
@@ -107,6 +140,6 @@ class ApiFormatWddx extends ApiFormatBase {
 	}
 
 	public function getDescription() {
-		return 'Output data in WDDX format' . parent::getDescription();
+		return 'DEPRECATED! Output data in WDDX format' . parent::getDescription();
 	}
 }

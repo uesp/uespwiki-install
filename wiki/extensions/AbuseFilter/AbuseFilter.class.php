@@ -105,6 +105,7 @@ class AbuseFilter {
 			'user_age' => 'user-age',
 			'user_name' => 'user-name',
 			'user_groups' => 'user-groups',
+			'user_rights' => 'user-rights',
 			'user_blocked' => 'user-blocked',
 			'user_emailconfirm' => 'user-emailconfirm',
 			'old_wikitext' => 'old-text',
@@ -219,6 +220,12 @@ class AbuseFilter {
 			'user_groups',
 			'simple-user-accessor',
 			array( 'user' => $user, 'method' => 'getEffectiveGroups' )
+		);
+
+		$vars->setLazyLoadVar(
+			'user_rights',
+			'simple-user-accessor',
+			array( 'user' => $user, 'method' => 'getRights' )
 		);
 
 		$vars->setLazyLoadVar(
@@ -902,7 +909,7 @@ class AbuseFilter {
 		if ( $wgTitle !== $oldWgTitle ) {
 			$wgTitle = $oldWgTitle;
 		}
-		if ( $context->getTitle() !== $oldContextTitle ) {
+		if ( $context->getTitle() !== $oldContextTitle && $oldContextTitle instanceof Title ) {
 			$context->setTitle( $oldContextTitle );
 		}
 
@@ -1393,7 +1400,11 @@ class AbuseFilter {
 							$vars->getVar( 'ACTION' )->toString()
 					) );
 
-				AbuseFilter::$tagsToSet[$actionID] = $parameters;
+				if ( !isset( AbuseFilter::$tagsToSet[$actionID] ) ) {
+					AbuseFilter::$tagsToSet[$actionID] = $parameters;
+				} else {
+					AbuseFilter::$tagsToSet[$actionID] = array_merge( AbuseFilter::$tagsToSet[$actionID], $parameters );
+				}
 				break;
 			default:
 				if( isset( $wgAbuseFilterCustomActionsHandlers[$action] ) ) {

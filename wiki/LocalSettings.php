@@ -28,13 +28,13 @@ require './config/Extensions.php';
 require './config/Mobile.php';
 
 # Fudge Content3 to think it's running on pt.uesp.net
-# $wgLanguageCode = "pt";
+# $wgLanguageCode = "it";
 # $uespLanguageSuffix = "_" . $wgLanguageCode;
 # $wgServer = "//" . $wgLanguageCode . ".uesp.net";
-# $wgServer = "//content3.uesp.net";
+# $wgServer = "//dev.uesp.net";
 
 # Optional includes (enable for testing as needed on select wikis). Be careful
 # if/when enabling on the main live sites due to performance issues and the
 # size of data collected.
 # require './config/Profiler.php';
-# require './config/Debug.php';
+require './config/Debug.php';

@@ -1,8 +1,7 @@
 <?php
 /** Ukrainian (українська)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -166,6 +165,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Найбільш_редаговані' ),
 	'Movepage'                  => array( 'Перейменувати' ),
 	'Mycontributions'           => array( 'Мій_внесок' ),
+	'MyLanguage'                => array( 'Моя_мова' ),
 	'Mypage'                    => array( 'Моя_сторінка' ),
 	'Mytalk'                    => array( 'Моє_обговорення' ),
 	'Myuploads'                 => array( 'Мої_завантаження' ),

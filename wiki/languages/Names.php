@@ -33,7 +33,7 @@
  * Some writing systems require some line-height fixes. This includes
  * most Indic scripts, like Devanagari.
  * If you are adding support for such a language, add it also to
- * the relevant section in skins/common/shared.css.
+ * the relevant section in shared.css.
  *
  * @ingroup Language
  */
@@ -52,7 +52,7 @@
 	'ar' => 'العربية',	# Arabic
 	'arc' => 'ܐܪܡܝܐ',	# Aramaic
 	'arn' => 'mapudungun',	# Mapuche, Mapudungu, Araucanian (Araucano)
-	'arq' => 'جزائري', # Algerian Spoken Arabic
+	'arq' => 'جازايرية', # Algerian Spoken Arabic
 	'ary' => 'Maġribi',	# Moroccan Spoken Arabic
 	'arz' => 'مصرى',	# Egyptian Spoken Arabic
 	'as' => 'অসমীয়া',	# Assamese
@@ -393,8 +393,9 @@
 	'tt-latn' => 'tatarça',	# Tatar (Latin script)
 	'tum' => 'chiTumbuka',  # Tumbuka
 	'tw' => 'Twi',			# Twi, (FIXME!)
-	'ty' => 'Reo Mā`ohi',	# Tahitian
+	'ty' => 'reo tahiti',	# Tahitian
 	'tyv' => 'тыва дыл',	# Tyvan
+	'tzm' => 'ⵜⴰⵎⴰⵣⵉⵖⵜ',	# Tamazight
 	'udm' => 'удмурт',	# Udmurt
 	'ug' => 'ئۇيغۇرچە / Uyghurche',	# Uyghur (multiple scripts - defaults to Arabic)
 	'ug-arab' => 'ئۇيغۇرچە', # Uyghur (Arabic script) (default)

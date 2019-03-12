@@ -72,7 +72,7 @@ class FormatMetadata extends ContextSource {
 	 *
 	 * This is the usual entry point for this class.
 	 *
-	 * @param array $tags the Exif data to format ( as returned by
+	 * @param array $tags The Exif data to format ( as returned by
 	 *   Exif::getFilteredData() or BitmapMetadataHandler )
 	 * @param bool|IContextSource $context Context to use (optional)
 	 * @return array
@@ -92,7 +92,7 @@ class FormatMetadata extends ContextSource {
 	 * value which most of the time are plain integers. This function
 	 * formats Exif (and other metadata) values into human readable form.
 	 *
-	 * @param array $tags the Exif data to format ( as returned by
+	 * @param array $tags The Exif data to format ( as returned by
 	 *   Exif::getFilteredData() or BitmapMetadataHandler )
 	 * @return array
 	 * @since 1.23
@@ -985,7 +985,7 @@ class FormatMetadata extends ContextSource {
 	 * @param bool $noHtml If to avoid returning anything resembling HTML.
 	 *   (Ugly hack for backwards compatibility with old MediaWiki).
 	 * @param bool|IContextSource $context
-	 * @return String single value (in wiki-syntax).
+	 * @return string Single value (in wiki-syntax).
 	 * @since 1.23
 	 */
 	public static function flattenArrayContentLang( $vals, $type = 'ul',
@@ -1006,7 +1006,7 @@ class FormatMetadata extends ContextSource {
 	/**
 	 * Flatten an array, using the user language for any messages.
 	 *
-	 * @param array $vals array of values
+	 * @param array $vals Array of values
 	 * @param string $type Type of array (either lang, ul, ol).
 	 *   lang = language assoc array with keys being the lang code
 	 *   ul = unordered list, ol = ordered list
@@ -1031,14 +1031,14 @@ class FormatMetadata extends ContextSource {
 	 *
 	 * This is public on the basis it might be useful outside of this class.
 	 *
-	 * @param array $vals array of values
+	 * @param array $vals Array of values
 	 * @param string $type Type of array (either lang, ul, ol).
 	 *     lang = language assoc array with keys being the lang code
 	 *     ul = unordered list, ol = ordered list
 	 *     type can also come from the '_type' member of $vals.
-	 * @param $noHtml Boolean If to avoid returning anything resembling HTML.
+	 * @param bool $noHtml If to avoid returning anything resembling HTML.
 	 *   (Ugly hack for backwards compatibility with old mediawiki).
-	 * @return String single value (in wiki-syntax).
+	 * @return string Single value (in wiki-syntax).
 	 * @since 1.23
 	 */
 	public function flattenArrayReal( $vals, $type = 'ul', $noHtml = false ) {
@@ -1156,8 +1156,8 @@ class FormatMetadata extends ContextSource {
 
 	/** Helper function for creating lists of translations.
 	 *
-	 * @param string $value value (this is not escaped)
-	 * @param string $lang lang code of item or false
+	 * @param string $value Value (this is not escaped)
+	 * @param string $lang Lang code of item or false
 	 * @param bool $default If it is default value.
 	 * @param bool $noHtml If to avoid html (for back-compat)
 	 * @throws MWException
@@ -1302,7 +1302,6 @@ class FormatMetadata extends ContextSource {
 	 * @param int $a Numerator
 	 * @param int $b Denominator
 	 * @return int
-	 * @private
 	 */
 	private function gcd( $a, $b ) {
 		/*
@@ -1707,7 +1706,7 @@ class FormatMetadata extends ContextSource {
 	 *
 	 * @param File $file File to use
 	 * @param array $extendedMetadata
-	 * @param int $maxCacheTime hook handlers might use this parameter to override cache time
+	 * @param int $maxCacheTime Hook handlers might use this parameter to override cache time
 	 *
 	 * @return array [<property name> => ['value' => <value>]], or [] on error
 	 * @since 1.23
@@ -1742,7 +1741,7 @@ class FormatMetadata extends ContextSource {
 	 * If the value is not a multilang array, it is returned unchanged.
 	 * See mediawiki.org/wiki/Manual:File_metadata_handling#Multi-language_array_format
 	 * @param mixed $value
-	 * @return mixed value in best language, null if there were no languages at all
+	 * @return mixed Value in best language, null if there were no languages at all
 	 * @since 1.23
 	 */
 	protected function resolveMultilangValue( $value ) {
@@ -1869,31 +1868,5 @@ class FormatMetadata extends ContextSource {
 		);
 
 		return $priorityLanguages;
-	}
-}
-
-/** For compatability with old FormatExif class
- * which some extensions use.
- *
- * @deprecated since 1.18
- *
- */
-class FormatExif {
-	/** @var array */
-	private $meta;
-
-	/**
-	 * @param array $meta
-	 */
-	function __construct( $meta ) {
-		wfDeprecated( __METHOD__, '1.18' );
-		$this->meta = $meta;
-	}
-
-	/**
-	 * @return array
-	 */
-	function getFormattedData() {
-		return FormatMetadata::getFormattedData( $this->meta );
 	}
 }

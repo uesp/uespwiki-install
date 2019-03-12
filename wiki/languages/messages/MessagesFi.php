@@ -1,8 +1,7 @@
 <?php
 /** Finnish (suomi)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -85,6 +84,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Muokatuimmat_sivut' ),
 	'Movepage'                  => array( 'Siirrä_sivu' ),
 	'Mycontributions'           => array( 'Omat_muokkaukset' ),
+	'MyLanguage'                => array( 'Oma_kieli' ),
 	'Mypage'                    => array( 'Oma_sivu' ),
 	'Mytalk'                    => array( 'Oma_keskustelu' ),
 	'Myuploads'                 => array( 'Omat_tiedostot' ),

@@ -1,0 +1,6 @@
+@import "../../../resources/src/mediawiki.ui/default/buttons"; // Layer Vector on top of the default settings.
+@import "../../../resources/src/mixins/type";
+
+.mw-ui-button {
+	.vector-type();
+}

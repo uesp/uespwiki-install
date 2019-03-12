@@ -1,8 +1,10 @@
 {
-    "@metadata": {
-        "authors": [
-            "Amdf"
-        ]
-    },
-    "antispoof-empty": "Чаво пикске"
+	"@metadata": {
+		"authors": [
+			"Amdf",
+			"Botuzhaleny-sodamo"
+		]
+	},
+	"antispoof-badtype": "Датань аволь истямо типесь",
+	"antispoof-empty": "Чаво пикске"
 }

@@ -1,8 +1,7 @@
 <?php
 /** Esperanto (Esperanto)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -102,6 +101,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Plej_multaj_revizioj' ),
 	'Movepage'                  => array( 'Alinomigi_paĝon' ),
 	'Mycontributions'           => array( 'Miaj_kontribuoj', 'MiajKontribuoj' ),
+	'MyLanguage'                => array( 'Mia_lingvo' ),
 	'Mypage'                    => array( 'Mia_paĝo', 'MiaPaĝo' ),
 	'Mytalk'                    => array( 'Mia_diskutpaĝo', 'MiaDiskutpaĝo' ),
 	'Myuploads'                 => array( 'Miaj_alŝutaĵoj' ),

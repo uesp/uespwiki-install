@@ -40,7 +40,7 @@ class EnhancedChangesList extends ChangesList {
 			// @todo: deprecate constructing with Skin
 			$context = $obj->getContext();
 		} else {
-			if ( ! $obj instanceof IContextSource ) {
+			if ( !$obj instanceof IContextSource ) {
 				throw new MWException( 'EnhancedChangesList must be constructed with a '
 					. 'context source or skin.' );
 			}
@@ -90,7 +90,6 @@ class EnhancedChangesList extends ChangesList {
 	public function recentChangesLine( &$baseRC, $watched = false ) {
 		wfProfileIn( __METHOD__ );
 
-		# If it's a new day, add the headline and flush the cache
 		$date = $this->getLanguage()->userDate(
 			$baseRC->mAttribs['rc_timestamp'],
 			$this->getUser()
@@ -98,6 +97,7 @@ class EnhancedChangesList extends ChangesList {
 
 		$ret = '';
 
+		# If it's a new day, add the headline and flush the cache
 		if ( $date != $this->lastdate ) {
 			# Process current cache
 			$ret = $this->recentChangesBlock();
@@ -121,28 +121,37 @@ class EnhancedChangesList extends ChangesList {
 	 * @param RCCacheEntry $cacheEntry
 	 */
 	protected function addCacheEntry( RCCacheEntry $cacheEntry ) {
+		$cacheGroupingKey = $this->makeCacheGroupingKey( $cacheEntry );
+
+		if ( !isset( $this->rc_cache[$cacheGroupingKey] ) ) {
+			$this->rc_cache[$cacheGroupingKey] = array();
+		}
+
+		array_push( $this->rc_cache[$cacheGroupingKey], $cacheEntry );
+	}
+
+	/**
+	 * @todo use rc_source to group, if set; fallback to rc_type
+	 *
+	 * @param RCCacheEntry $cacheEntry
+	 *
+	 * @return string
+	 */
+	protected function makeCacheGroupingKey( RCCacheEntry $cacheEntry ) {
 		$title = $cacheEntry->getTitle();
-		$secureName = $title->getPrefixedDBkey();
+		$cacheGroupingKey = $title->getPrefixedDBkey();
 
 		$type = $cacheEntry->mAttribs['rc_type'];
 
-		if ( $type == RC_MOVE || $type == RC_MOVE_OVER_REDIRECT ) {
-			# Use an @ character to prevent collision with page names
-			$this->rc_cache['@@' . ( $this->rcMoveIndex++ )] = array( $cacheEntry );
-		} else {
-			# Logs are grouped by type
-			if ( $type == RC_LOG ) {
-				$secureName = SpecialPage::getTitleFor(
-					'Log',
-					$cacheEntry->mAttribs['rc_log_type']
-				)->getPrefixedDBkey();
-			}
-			if ( !isset( $this->rc_cache[$secureName] ) ) {
-				$this->rc_cache[$secureName] = array();
-			}
-
-			array_push( $this->rc_cache[$secureName], $cacheEntry );
+		if ( $type == RC_LOG ) {
+			// Group by log type
+			$cacheGroupingKey = SpecialPage::getTitleFor(
+				'Log',
+				$cacheEntry->mAttribs['rc_log_type']
+			)->getPrefixedDBkey();
 		}
+
+		return $cacheGroupingKey;
 	}
 
 	/**
@@ -151,8 +160,6 @@ class EnhancedChangesList extends ChangesList {
 	 * @return string
 	 */
 	protected function recentChangesBlockGroup( $block ) {
-		global $wgRCShowChangedSize;
-
 		wfProfileIn( __METHOD__ );
 
 		# Add the namespace and title of the block as part of the class
@@ -182,6 +189,7 @@ class EnhancedChangesList extends ChangesList {
 		$namehidden = true;
 		$allLogs = true;
 		$oldid = '';
+		$RCShowChangedSize = $this->getConfig()->get( 'RCShowChangedSize' );
 		foreach ( $block as $rcObj ) {
 			$oldid = $rcObj->mAttribs['rc_last_oldid'];
 			if ( $rcObj->mAttribs['rc_type'] == RC_NEW ) {
@@ -355,7 +363,7 @@ class EnhancedChangesList extends ChangesList {
 		$r .= ' <span class="mw-changeslist-separator">. .</span> ';
 
 		# Character difference (does not apply if only log items)
-		if ( $wgRCShowChangedSize && !$allLogs ) {
+		if ( $RCShowChangedSize && !$allLogs ) {
 			$last = 0;
 			$first = count( $block ) - 1;
 			# Some events (like logs) have an "empty" size, so we need to skip those...
@@ -433,7 +441,7 @@ class EnhancedChangesList extends ChangesList {
 			$r .= ' <span class="mw-changeslist-separator">. .</span> ';
 
 			# Character diff
-			if ( $wgRCShowChangedSize ) {
+			if ( $RCShowChangedSize ) {
 				$cd = $this->formatCharacterDifference( $rcObj );
 				if ( $cd !== '' ) {
 					$r .= $cd . ' <span class="mw-changeslist-separator">. .</span> ';
@@ -466,58 +474,12 @@ class EnhancedChangesList extends ChangesList {
 	}
 
 	/**
-	 * Generate HTML for an arrow or placeholder graphic
-	 * @param string $dir One of '', 'd', 'l', 'r'
-	 * @param string $alt
-	 * @param string $title
-	 * @return string HTML "<img>" tag
-	 */
-	protected function arrow( $dir, $alt = '', $title = '' ) {
-		global $wgStylePath;
-		$encUrl = htmlspecialchars( $wgStylePath . '/common/images/Arr_' . $dir . '.png' );
-		$encAlt = htmlspecialchars( $alt );
-		$encTitle = htmlspecialchars( $title );
-
-		return "<img src=\"$encUrl\" width=\"12\" height=\"12\" alt=\"$encAlt\" title=\"$encTitle\" />";
-	}
-
-	/**
-	 * Generate HTML for a right- or left-facing arrow,
-	 * depending on language direction.
-	 * @return string HTML "<img>" tag
-	 */
-	protected function sideArrow() {
-		$dir = $this->getLanguage()->isRTL() ? 'l' : 'r';
-
-		return $this->arrow( $dir, '+', $this->msg( 'rc-enhanced-expand' )->text() );
-	}
-
-	/**
-	 * Generate HTML for a down-facing arrow
-	 * depending on language direction.
-	 * @return string HTML "<img>" tag
-	 */
-	protected function downArrow() {
-		return $this->arrow( 'd', '-', $this->msg( 'rc-enhanced-hide' )->text() );
-	}
-
-	/**
-	 * Generate HTML for a spacer image
-	 * @return string HTML "<img>" tag
-	 */
-	protected function spacerArrow() {
-		return $this->arrow( '', codepointToUtf8( 0xa0 ) ); // non-breaking space
-	}
-
-	/**
 	 * Enhanced RC ungrouped line.
 	 *
 	 * @param RecentChange|RCCacheEntry $rcObj
 	 * @return string A HTML formatted line (generated using $r)
 	 */
 	protected function recentChangesBlockLine( $rcObj ) {
-		global $wgRCShowChangedSize;
-
 		wfProfileIn( __METHOD__ );
 		$query['curid'] = $rcObj->mAttribs['rc_cur_id'];
 
@@ -538,16 +500,12 @@ class EnhancedChangesList extends ChangesList {
 
 		$r .= '<td class="mw-enhanced-rc"><span class="mw-enhancedchanges-arrow-space"></span>';
 		# Flag and Timestamp
-		if ( $type == RC_MOVE || $type == RC_MOVE_OVER_REDIRECT ) {
-			$r .= $this->recentChangesFlags( array() ); // no flags, but need the placeholders
-		} else {
-			$r .= $this->recentChangesFlags( array(
-				'newpage' => $type == RC_NEW,
-				'minor' => $rcObj->mAttribs['rc_minor'],
-				'unpatrolled' => $rcObj->unpatrolled,
-				'bot' => $rcObj->mAttribs['rc_bot'],
-			) );
-		}
+		$r .= $this->recentChangesFlags( array(
+			'newpage' => $type == RC_NEW,
+			'minor' => $rcObj->mAttribs['rc_minor'],
+			'unpatrolled' => $rcObj->unpatrolled,
+			'bot' => $rcObj->mAttribs['rc_bot'],
+		) );
 		$r .= '&#160;' . $rcObj->timestamp . '&#160;</td><td>';
 		# Article or log link
 		if ( $logType ) {
@@ -572,7 +530,7 @@ class EnhancedChangesList extends ChangesList {
 		}
 		$r .= ' <span class="mw-changeslist-separator">. .</span> ';
 		# Character diff
-		if ( $wgRCShowChangedSize ) {
+		if ( $this->getConfig()->get( 'RCShowChangedSize' ) ) {
 			$cd = $this->formatCharacterDifference( $rcObj );
 			if ( $cd !== '' ) {
 				$r .= $cd . ' <span class="mw-changeslist-separator">. .</span> ';

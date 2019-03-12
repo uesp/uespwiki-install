@@ -36,8 +36,11 @@ class ApiQueryTest extends ApiTestCase {
 	}
 
 	public function testTitlesGetNormalized() {
-
 		global $wgMetaNamespace;
+
+		$this->setMwGlobals( array(
+			'wgCapitalLinks' => true,
+		) );
 
 		$data = $this->doApiRequest( array(
 			'action' => 'query',
@@ -93,10 +96,14 @@ class ApiQueryTest extends ApiTestCase {
 	 * @param string $titlePart
 	 * @param int $namespace
 	 * @param string $expected
-	 * @param string $description
+	 * @param string $expectException
 	 * @dataProvider provideTestTitlePartToKey
 	 */
 	function testTitlePartToKey( $titlePart, $namespace, $expected, $expectException ) {
+		$this->setMwGlobals( array(
+			'wgCapitalLinks' => true,
+		) );
+
 		$api = new MockApiQueryBase();
 		$exceptionCaught = false;
 		try {

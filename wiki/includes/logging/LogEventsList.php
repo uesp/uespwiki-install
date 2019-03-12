@@ -31,7 +31,7 @@ class LogEventsList extends ContextSource {
 	public $flags;
 
 	/**
-	 * @var Array
+	 * @var array
 	 */
 	protected $mDefaultQuery;
 
@@ -60,31 +60,12 @@ class LogEventsList extends ContextSource {
 	/**
 	 * Deprecated alias for getTitle(); do not use.
 	 *
-	 * @deprecated in 1.20; use getTitle() instead.
+	 * @deprecated since 1.20; use getTitle() instead.
 	 * @return Title
 	 */
 	public function getDisplayTitle() {
 		wfDeprecated( __METHOD__, '1.20' );
 		return $this->getTitle();
-	}
-
-	/**
-	 * Set page title and show header for this log type
-	 * @param array $type
-	 * @deprecated in 1.19
-	 */
-	public function showHeader( $type ) {
-		wfDeprecated( __METHOD__, '1.19' );
-		// If only one log type is used, then show a special message...
-		$headerType = count( $type ) == 1 ? $type[0] : '';
-		$out = $this->getOutput();
-		if ( LogPage::isLogType( $headerType ) ) {
-			$page = new LogPage( $headerType );
-			$out->setPageTitle( $page->getName()->text() );
-			$out->addHTML( $page->getDescription()->parseAsBlock() );
-		} else {
-			$out->addHTML( $this->msg( 'alllogstext' )->parse() );
-		}
 	}
 
 	/**
@@ -276,7 +257,7 @@ class LogEventsList extends ContextSource {
 	}
 
 	/**
-	 * @param $pattern
+	 * @param string $pattern
 	 * @return string Checkbox
 	 */
 	private function getTitlePattern( $pattern ) {
@@ -374,9 +355,13 @@ class LogEventsList extends ContextSource {
 		// Don't show useless checkbox to people who cannot hide log entries
 		if ( $user->isAllowed( 'deletedhistory' ) ) {
 			$canHide = $user->isAllowed( 'deletelogentry' );
+			$canViewSuppressedOnly = $user->isAllowed( 'viewsuppressed' ) &&
+				!$user->isAllowed( 'suppressrevision' );
+			$entryIsSuppressed = self::isDeleted( $row, LogPage::DELETED_RESTRICTED );
+			$canViewThisSuppressedEntry = $canViewSuppressedOnly && $entryIsSuppressed;
 			if ( $row->log_deleted || $canHide ) {
 				// Show checkboxes instead of links.
-				if ( $canHide && $this->flags & self::USE_REVDEL_CHECKBOXES ) {
+				if ( $canHide && $this->flags & self::USE_REVDEL_CHECKBOXES && !$canViewThisSuppressedEntry ) {
 					// If event was hidden from sysops
 					if ( !self::userCan( $row, LogPage::DELETED_RESTRICTED, $user ) ) {
 						$del = Xml::check( 'deleterevisions', false, array( 'disabled' => 'disabled' ) );
@@ -399,8 +384,8 @@ class LogEventsList extends ContextSource {
 						);
 						$del = Linker::revDeleteLink(
 							$query,
-							self::isDeleted( $row, LogPage::DELETED_RESTRICTED ),
-							$canHide
+							$entryIsSuppressed,
+							$canHide && !$canViewThisSuppressedEntry
 						);
 					}
 				}
@@ -456,20 +441,19 @@ class LogEventsList extends ContextSource {
 	 */
 	public static function userCanBitfield( $bitfield, $field, User $user = null ) {
 		if ( $bitfield & $field ) {
-			if ( $bitfield & LogPage::DELETED_RESTRICTED ) {
-				$permission = 'suppressrevision';
-			} else {
-				$permission = 'deletedhistory';
-			}
-			wfDebug( "Checking for $permission due to $field match on $bitfield\n" );
 			if ( $user === null ) {
 				global $wgUser;
 				$user = $wgUser;
 			}
-
-			return $user->isAllowed( $permission );
+			if ( $bitfield & LogPage::DELETED_RESTRICTED ) {
+				$permissions = array( 'suppressrevision', 'viewsuppressed' );
+			} else {
+				$permissions = array( 'deletedhistory' );
+			}
+			$permissionlist = implode( ', ', $permissions );
+			wfDebug( "Checking for $permissionlist due to $field match on $bitfield\n" );
+			return call_user_func_array( array( $user, 'isAllowedAny' ), $permissions );
 		}
-
 		return true;
 	}
 

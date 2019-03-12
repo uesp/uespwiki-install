@@ -1,8 +1,7 @@
 <?php
 /** Tuvinian (тыва дыл)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -47,6 +46,10 @@ $namespaceAliases = array(
 	'Дуза_чугаазы'       => NS_HELP_TALK,
 	'Категория'          => NS_CATEGORY,
 	'Категория_чугаазы'  => NS_CATEGORY_TALK,
+);
+
+$specialPageAliases = array(
+	'MyLanguage'                => array( 'Дылым' ),
 );
 
 $magicWords = array(
@@ -101,7 +104,6 @@ $bookstoreList = array(
 	'Яндекс.Маркет' => 'http://market.yandex.ru/search.xml?text=$1',
 	'Amazon.com' => 'http://www.amazon.com/exec/obidos/ISBN=$1',
 	'AddALL' => 'http://www.addall.com/New/Partner.cgi?query=$1&type=ISBN',
-	'PriceSCAN' => 'http://www.pricescan.com/books/bookDetail.asp?isbn=$1',
 	'Barnes & Noble' => 'http://shop.barnesandnoble.com/bookSearch/isbnInquiry.asp?isbn=$1'
 );
 

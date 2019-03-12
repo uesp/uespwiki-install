@@ -36,8 +36,8 @@ class ResourceLoaderUserCSSPrefsModule extends ResourceLoaderModule {
 	/* Methods */
 
 	/**
-	 * @param $context ResourceLoaderContext
-	 * @return array|int|Mixed
+	 * @param ResourceLoaderContext $context
+	 * @return array|int|mixed
 	 */
 	public function getModifiedTime( ResourceLoaderContext $context ) {
 		$hash = $context->getHash();
@@ -50,13 +50,13 @@ class ResourceLoaderUserCSSPrefsModule extends ResourceLoaderModule {
 	}
 
 	/**
-	 * @param $context ResourceLoaderContext
+	 * @param ResourceLoaderContext $context
 	 * @return array
 	 */
 	public function getStyles( ResourceLoaderContext $context ) {
-		global $wgAllowUserCssPrefs, $wgUser;
+		global $wgUser;
 
-		if ( !$wgAllowUserCssPrefs ) {
+		if ( !$this->getConfig()->get( 'AllowUserCssPrefs' ) ) {
 			return array();
 		}
 

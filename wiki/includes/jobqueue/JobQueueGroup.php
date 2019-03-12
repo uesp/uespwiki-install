@@ -106,12 +106,12 @@ class JobQueueGroup {
 	 *
 	 * @param Job|array $jobs A single Job or a list of Jobs
 	 * @throws MWException
-	 * @return bool
+	 * @return void
 	 */
 	public function push( $jobs ) {
 		$jobs = is_array( $jobs ) ? $jobs : array( $jobs );
 		if ( !count( $jobs ) ) {
-			return true;
+			return;
 		}
 
 		$jobsByType = array(); // (job type => list of jobs)
@@ -123,13 +123,9 @@ class JobQueueGroup {
 			}
 		}
 
-		$ok = true;
 		foreach ( $jobsByType as $type => $jobs ) {
-			if ( $this->get( $type )->push( $jobs ) ) {
-				JobQueueAggregator::singleton()->notifyQueueNonEmpty( $this->wiki, $type );
-			} else {
-				$ok = false;
-			}
+			$this->get( $type )->push( $jobs );
+			JobQueueAggregator::singleton()->notifyQueueNonEmpty( $this->wiki, $type );
 		}
 
 		if ( $this->cache->has( 'queues-ready', 'list' ) ) {
@@ -138,8 +134,6 @@ class JobQueueGroup {
 				$this->cache->clear( 'queues-ready' );
 			}
 		}
-
-		return $ok;
 	}
 
 	/**
@@ -257,7 +251,7 @@ class JobQueueGroup {
 	/**
 	 * Check if there are any queues with jobs (this is cached)
 	 *
-	 * @param integer $type JobQueueGroup::TYPE_* constant
+	 * @param int $type JobQueueGroup::TYPE_* constant
 	 * @return bool
 	 * @since 1.23
 	 */
@@ -395,6 +389,10 @@ class JobQueueGroup {
 			}
 		}
 
+		if ( $count === 0 ) {
+			return $count; // nothing to update
+		}
+
 		$wgMemc->merge( $key, function ( $cache, $key, $lastRuns ) use ( $tasksRun ) {
 			if ( is_array( $lastRuns ) ) {
 				foreach ( $tasksRun as $type => $tasks ) {
@@ -417,7 +415,7 @@ class JobQueueGroup {
 	}
 
 	/**
-	 * @param $name string
+	 * @param string $name
 	 * @return mixed
 	 */
 	private function getCachedConfigVar( $name ) {

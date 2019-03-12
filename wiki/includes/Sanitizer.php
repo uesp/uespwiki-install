@@ -328,6 +328,7 @@ class Sanitizer {
 	 * Regular expression to match HTML/XML attribute pairs within a tag.
 	 * Allows some... latitude.
 	 * Used in Sanitizer::fixTagAttributes and Sanitizer::decodeTagAttributes
+	 * @return string
 	 */
 	static function getAttribsRegex() {
 		if ( self::$attribsRegex === null ) {
@@ -358,7 +359,7 @@ class Sanitizer {
 	 * @param string $text
 	 * @param callable $processCallback Callback to do any variable or parameter
 	 *   replacements in HTML attribute values
-	 * @param array $args Arguments for the processing callback
+	 * @param array|bool $args Arguments for the processing callback
 	 * @param array $extratags For any extra tags to include
 	 * @param array $removetags For any tags (default or extra) to exclude
 	 * @return string
@@ -383,7 +384,7 @@ class Sanitizer {
 				'h2', 'h3', 'h4', 'h5', 'h6', 'cite', 'code', 'em', 's',
 				'strike', 'strong', 'tt', 'var', 'div', 'center',
 				'blockquote', 'ol', 'ul', 'dl', 'table', 'caption', 'pre',
-				'ruby', 'rt', 'rb', 'rp', 'p', 'span', 'abbr', 'dfn',
+				'ruby', 'rb', 'rp', 'rt', 'rtc', 'p', 'span', 'abbr', 'dfn',
 				'kbd', 'samp', 'data', 'time', 'mark'
 			);
 			$htmlsingle = array(
@@ -459,7 +460,10 @@ class Sanitizer {
 						$badtag = true;
 					} elseif ( $slash ) {
 						# Closing a tag... is it the one we just opened?
-						$ot = @array_pop( $tagstack );
+						wfSuppressWarnings();
+						$ot = array_pop( $tagstack );
+						wfRestoreWarnings();
+
 						if ( $ot != $t ) {
 							if ( isset( $htmlsingleallowed[$ot] ) ) {
 								# Pop all elements with an optional close tag
@@ -489,7 +493,10 @@ class Sanitizer {
 									}
 								}
 							} else {
-								@array_push( $tagstack, $ot );
+								wfSuppressWarnings();
+								array_push( $tagstack, $ot );
+								wfRestoreWarnings();
+
 								# <li> can be nested in <ul> or <ol>, skip those cases:
 								if ( !isset( $htmllist[$ot] ) || !isset( $listtags[$t] ) ) {
 									$badtag = true;
@@ -567,9 +574,16 @@ class Sanitizer {
 		} else {
 			# this might be possible using tidy itself
 			foreach ( $bits as $x ) {
-				preg_match( '/^(\\/?)(\\w+)([^>]*?)(\\/{0,1}>)([^<]*)$/',
-				$x, $regs );
-				@list( /* $qbar */, $slash, $t, $params, $brace, $rest ) = $regs;
+				preg_match(
+					'/^(\\/?)(\\w+)([^>]*?)(\\/{0,1}>)([^<]*)$/',
+					$x,
+					$regs
+				);
+
+				wfSuppressWarnings();
+				list( /* $qbar */, $slash, $t, $params, $brace, $rest ) = $regs;
+				wfRestoreWarnings();
+
 				$badtag = false;
 				if ( isset( $htmlelements[$t = strtolower( $t )] ) ) {
 					if ( is_callable( $processCallback ) ) {
@@ -702,7 +716,7 @@ class Sanitizer {
 	 * - Invalid id attributes are re-encoded
 	 *
 	 * @param array $attribs
-	 * @param array $whitelist list of allowed attribute names
+	 * @param array $whitelist List of allowed attribute names
 	 * @return array
 	 *
 	 * @todo Check for legal values where the DTD limits things.
@@ -1085,8 +1099,8 @@ class Sanitizer {
 	 * @see http://www.whatwg.org/html/elements.html#the-id-attribute
 	 *   HTML5 definition of id attribute
 	 *
-	 * @param string $id id to escape
-	 * @param $options Mixed: string or array of strings (default is array()):
+	 * @param string $id Id to escape
+	 * @param string|array $options String or array of strings (default is array()):
 	 *   'noninitial': This is a non-initial fragment of an id, not a full id,
 	 *       so don't pay attention if the first character isn't valid at the
 	 *       beginning of an id.  Only matters if $wgExperimentalHtmlIds is
@@ -1100,8 +1114,9 @@ class Sanitizer {
 		global $wgExperimentalHtmlIds;
 		$options = (array)$options;
 
+		$id = Sanitizer::decodeCharReferences( $id );
+
 		if ( $wgExperimentalHtmlIds && !in_array( 'legacy', $options ) ) {
-			$id = Sanitizer::decodeCharReferences( $id );
 			$id = preg_replace( '/[ \t\n\r\f_\'"&#%]+/', '_', $id );
 			$id = trim( $id, '_' );
 			if ( $id === '' ) {
@@ -1118,7 +1133,7 @@ class Sanitizer {
 			'%' => '.'
 		);
 
-		$id = urlencode( Sanitizer::decodeCharReferences( strtr( $id, ' ', '_' ) ) );
+		$id = urlencode( strtr( $id, ' ', '_' ) );
 		$id = str_replace( array_keys( $replace ), array_values( $replace ), $id );
 
 		if ( !preg_match( '/^[a-zA-Z]/', $id )
@@ -1153,7 +1168,7 @@ class Sanitizer {
 	 * This allows (generally harmless) entities like &#160; to survive.
 	 *
 	 * @param string $html HTML to escape
-	 * @return string: escaped input
+	 * @return string Escaped input
 	 */
 	static function escapeHtmlAllowEntities( $html ) {
 		$html = Sanitizer::decodeCharReferences( $html );
@@ -1232,7 +1247,7 @@ class Sanitizer {
 	 * attribs regex matches.
 	 *
 	 * @param array $set
-	 * @throws MWException when tag conditions are not met.
+	 * @throws MWException When tag conditions are not met.
 	 * @return string
 	 */
 	private static function getTagAttributeCallback( $set ) {
@@ -1511,11 +1526,11 @@ class Sanitizer {
 	 */
 	static function setupAttributeWhitelist() {
 		global $wgAllowRdfaAttributes, $wgAllowMicrodataAttributes;
-
 		static $whitelist, $staticInitialised;
+
 		$globalContext = implode( '-', compact( 'wgAllowRdfaAttributes', 'wgAllowMicrodataAttributes' ) );
 
-		if ( isset( $whitelist ) && $staticInitialised == $globalContext ) {
+		if ( $whitelist !== null && $staticInitialised == $globalContext ) {
 			return $whitelist;
 		}
 
@@ -1689,10 +1704,10 @@ class Sanitizer {
 			# http://www.whatwg.org/html/text-level-semantics.html#the-ruby-element
 			'ruby'       => $common,
 			# rbc
-			# rtc
 			'rb'         => $common,
-			'rt'         => $common, #array_merge( $common, array( 'rbspan' ) ),
 			'rp'         => $common,
+			'rt'         => $common, #array_merge( $common, array( 'rbspan' ) ),
+			'rtc'         => $common,
 
 			# MathML root element, where used for extensions
 			# 'title' may not be 100% valid here; it's XHTML

@@ -1,8 +1,7 @@
 <?php
 /** Egyptian Spoken Arabic (مصرى)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -84,6 +83,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'اكتر_مراجعات' ),
 	'Movepage'                  => array( 'نقل_صفحه' ),
 	'Mycontributions'           => array( 'مساهماتى' ),
+	'MyLanguage'                => array( 'اللغة_بتاعتى' ),
 	'Mypage'                    => array( 'صفحتى' ),
 	'Mytalk'                    => array( 'مناقشتى' ),
 	'Newimages'                 => array( 'فايلات_جديده', 'صور_جديده' ),

@@ -27,7 +27,7 @@
  */
 class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'sii' );
 	}
 
@@ -47,6 +47,7 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 
 		// Alias sessionkey to filekey, but give an existing filekey precedence.
 		if ( !$params['filekey'] && $params['sessionkey'] ) {
+			$this->logFeatureUsage( 'prop=stashimageinfo&siisessionkey' );
 			$params['filekey'] = $params['sessionkey'];
 		}
 
@@ -108,7 +109,7 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 
 	/**
 	 * Return the API documentation for the parameters.
-	 * @return Array parameter documentation.
+	 * @return array Parameter documentation.
 	 */
 	public function getParamDescription() {
 		$p = $this->getModulePrefix();
@@ -122,10 +123,6 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 			'urlparam' => array( "A handler specific parameter string. For example, pdf's ",
 				"might use 'page15-100px'. {$p}urlwidth must be used and be consistent with {$p}urlparam" ),
 		);
-	}
-
-	public function getResultProperties() {
-		return ApiQueryImageInfo::getResultPropertiesFiltered( $this->propertyFilter );
 	}
 
 	public function getDescription() {

@@ -1,7 +1,5 @@
 {
-    "@metadata": {
-        "authors": []
-    },
-    "mediafunctions-invalid-title": "\"$1\" 唔係一個有效嘅標題",
-    "mediafunctions-not-exist": "\"$1\" 唔存在"
+	"@metadata": [],
+	"mediafunctions-invalid-title": "\"$1\" 唔係一個有效嘅標題",
+	"mediafunctions-not-exist": "\"$1\" 唔存在"
 }

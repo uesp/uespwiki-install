@@ -34,7 +34,7 @@
 define( 'MW_API', true );
 
 // Bail if PHP is too low
-if ( !function_exists( 'version_compare' ) || version_compare( phpversion(), '5.3.2' ) < 0 ) {
+if ( !function_exists( 'version_compare' ) || version_compare( PHP_VERSION, '5.3.2' ) < 0 ) {
 	// We need to use dirname( __FILE__ ) here cause __DIR__ is PHP5.3+
 	require dirname( __FILE__ ) . '/includes/PHPVersionError.php';
 	wfPHPVersionError( 'api.php' );
@@ -104,12 +104,17 @@ if ( $wgAPIRequestLog ) {
 		wfTimestamp( TS_MW ),
 		$endtime - $starttime,
 		$wgRequest->getIP(),
-		$_SERVER['HTTP_USER_AGENT']
+		$wgRequest->getHeader( 'User-agent' )
 	);
 	$items[] = $wgRequest->wasPosted() ? 'POST' : 'GET';
 	if ( $processor ) {
-		$module = $processor->getModule();
-		if ( $module->mustBePosted() ) {
+		try {
+			$manager = $processor->getModuleManager();
+			$module = $manager->getModule( $wgRequest->getVal( 'action' ), 'action' );
+		} catch ( Exception $ex ) {
+			$module = null;
+		}
+		if ( !$module || $module->mustBePosted() ) {
 			$items[] = "action=" . $wgRequest->getVal( 'action' );
 		} else {
 			$items[] = wfArrayToCgi( $wgRequest->getValues() );

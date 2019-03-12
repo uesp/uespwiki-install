@@ -1,8 +1,7 @@
 <?php
 /** Malayalam (മലയാളം)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -137,6 +136,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'കൂടുതൽ_പുനരവലോകനങ്ങൾ' ),
 	'Movepage'                  => array( 'താൾ_മാറ്റുക' ),
 	'Mycontributions'           => array( 'എന്റെസംഭാവനകൾ' ),
+	'MyLanguage'                => array( 'എന്റെഭാഷ' ),
 	'Mypage'                    => array( 'എന്റെതാൾ' ),
 	'Mytalk'                    => array( 'എന്റെസംവാദം' ),
 	'Myuploads'                 => array( 'ഞാൻഅപ്‌ലോഡ്‌ചെയ്തവ' ),

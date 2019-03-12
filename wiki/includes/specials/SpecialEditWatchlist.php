@@ -56,7 +56,7 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	/**
 	 * Main execution point
 	 *
-	 * @param $mode int
+	 * @param int $mode
 	 */
 	public function execute( $mode ) {
 		$this->setHeaders();
@@ -70,9 +70,7 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 		$this->checkReadOnly();
 
 		$this->outputHeader();
-
-		$out->addSubtitle( $this->msg( 'watchlistfor2', $this->getUser()->getName() )
-			->rawParams( SpecialEditWatchlist::buildTools( null ) ) );
+		$this->outputSubtitle();
 
 		# B/C: $mode used to be waaay down the parameter list, and the first parameter
 		# was $wgUser
@@ -104,23 +102,62 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 
 			case self::EDIT_NORMAL:
 			default:
-				$out->setPageTitle( $this->msg( 'watchlistedit-normal-title' ) );
-				$form = $this->getNormalForm();
-				if ( $form->show() ) {
-					$out->addHTML( $this->successMessage );
-					$out->addReturnTo( SpecialPage::getTitleFor( 'Watchlist' ) );
-				} elseif ( $this->toc !== false ) {
-					$out->prependHTML( $this->toc );
-				}
+			$this->executeViewEditWatchlist();
 				break;
 		}
+	}
+
+	/**
+	 * Renders a subheader on the watchlist page.
+	 */
+	protected function outputSubtitle() {
+		$out = $this->getOutput();
+		$out->addSubtitle( $this->msg( 'watchlistfor2', $this->getUser()->getName() )
+			->rawParams( SpecialEditWatchlist::buildTools( null ) ) );
+	}
+
+	/**
+	 * Executes an edit mode for the watchlist view, from which you can manage your watchlist
+	 *
+	 */
+	protected function executeViewEditWatchlist() {
+		$out = $this->getOutput();
+		$out->setPageTitle( $this->msg( 'watchlistedit-normal-title' ) );
+		$form = $this->getNormalForm();
+		if ( $form->show() ) {
+			$out->addHTML( $this->successMessage );
+			$out->addReturnTo( SpecialPage::getTitleFor( 'Watchlist' ) );
+		} elseif ( $this->toc !== false ) {
+			$out->prependHTML( $this->toc );
+			$out->addModules( 'mediawiki.toc' );
+		}
+	}
+
+	/**
+	 * Return an array of subpages beginning with $search that this special page will accept.
+	 *
+	 * @param string $search Prefix to search for
+	 * @param int $limit Maximum number of results to return
+	 * @return string[] Matching subpages
+	 */
+	public function prefixSearchSubpages( $search, $limit = 10 ) {
+		return self::prefixSearchArray(
+			$search,
+			$limit,
+			// SpecialWatchlist uses SpecialEditWatchlist::getMode, so new types should be added
+			// here and there - no 'edit' here, because that the default for this page
+			array(
+				'clear',
+				'raw',
+			)
+		);
 	}
 
 	/**
 	 * Extract a list of titles from a blob of text, returning
 	 * (prefixed) strings; unwatchable titles are ignored
 	 *
-	 * @param $list String
+	 * @param string $list
 	 * @return array
 	 */
 	private function extractTitles( $list ) {
@@ -198,17 +235,17 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 		return true;
 	}
 
-      public function submitClear( $data ) {
+	public function submitClear( $data ) {
 		$current = $this->getWatchlist();
 		$this->clearWatchlist();
 		$this->getUser()->invalidateCache();
-			$this->successMessage = $this->msg( 'watchlistedit-clear-done' )->parse();
+		$this->successMessage = $this->msg( 'watchlistedit-clear-done' )->parse();
 		$this->successMessage .= ' ' . $this->msg( 'watchlistedit-clear-removed' )
 			->numParams( count( $current ) )->parse();
 		$this->showTitles( $current, $this->successMessage );
 
 		return true;
-}
+	}
 
 	/**
 	 * Print out a list of linked titles
@@ -216,14 +253,14 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	 * $titles can be an array of strings or Title objects; the former
 	 * is preferred, since Titles are very memory-heavy
 	 *
-	 * @param array $titles of strings, or Title objects
-	 * @param $output String
+	 * @param array $titles Array of strings, or Title objects
+	 * @param string $output
 	 */
 	private function showTitles( $titles, &$output ) {
 		$talk = $this->msg( 'talkpagelinktext' )->escaped();
 		// Do a batch existence check
 		$batch = new LinkBatch();
-		if (count($titles) >= 100) {
+		if ( count( $titles ) >= 100 ) {
 			$output = wfMessage( 'watchlistedit-too-many' )->parse();
 			return;
 		}
@@ -310,7 +347,7 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	 *
 	 * @return array
 	 */
-	private function getWatchlistInfo() {
+	protected function getWatchlistInfo() {
 		$titles = array();
 		$dbr = wfGetDB( DB_MASTER );
 
@@ -342,7 +379,7 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	 * @param Title $title
 	 * @param int $namespace
 	 * @param string $dbKey
-	 * @return bool: Whether this item is valid
+	 * @return bool Whether this item is valid
 	 */
 	private function checkTitle( $title, $namespace, $dbKey ) {
 		if ( $title
@@ -413,7 +450,7 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	 * $titles can be an array of strings or Title objects; the former
 	 * is preferred, since Titles are very memory-heavy
 	 *
-	 * @param array $titles of strings, or Title objects
+	 * @param array $titles Array of strings, or Title objects
 	 */
 	private function watchTitles( $titles ) {
 		$dbw = wfGetDB( DB_MASTER );
@@ -449,7 +486,7 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	 * $titles can be an array of strings or Title objects; the former
 	 * is preferred, since Titles are very memory-heavy
 	 *
-	 * @param array $titles of strings, or Title objects
+	 * @param array $titles Array of strings, or Title objects
 	 */
 	private function unwatchTitles( $titles ) {
 		$dbw = wfGetDB( DB_MASTER );
@@ -516,23 +553,34 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 		$fields = array();
 		$count = 0;
 
-		foreach ( $this->getWatchlistInfo() as $namespace => $pages ) {
-			if ( $namespace >= 0 ) {
-				$fields['TitlesNs' . $namespace] = array(
-					'class' => 'EditWatchlistCheckboxSeriesField',
-					'options' => array(),
-					'section' => "ns$namespace",
-				);
-			}
+		// Allow subscribers to manipulate the list of watched pages (or use it
+		// to preload lots of details at once)
+		$watchlistInfo = $this->getWatchlistInfo();
+		wfRunHooks(
+			'WatchlistEditorBeforeFormRender',
+			array( &$watchlistInfo )
+		);
+
+		foreach ( $watchlistInfo as $namespace => $pages ) {
+			$options = array();
 
 			foreach ( array_keys( $pages ) as $dbkey ) {
 				$title = Title::makeTitleSafe( $namespace, $dbkey );
 
 				if ( $this->checkTitle( $title, $namespace, $dbkey ) ) {
 					$text = $this->buildRemoveLine( $title );
-					$fields['TitlesNs' . $namespace]['options'][$text] = $title->getPrefixedText();
+					$options[$text] = $title->getPrefixedText();
 					$count++;
 				}
+			}
+
+			// checkTitle can filter some options out, avoid empty sections
+			if ( count( $options ) > 0 ) {
+				$fields['TitlesNs' . $namespace] = array(
+					'class' => 'EditWatchlistCheckboxSeriesField',
+					'options' => $options,
+					'section' => "ns$namespace",
+				);
 			}
 		}
 		$this->cleanupWatchlist();
@@ -561,7 +609,8 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 		$context->setTitle( $this->getPageTitle() ); // Remove subpage
 		$form = new EditWatchlistNormalHTMLForm( $fields, $context );
 		$form->setSubmitTextMsg( 'watchlistedit-normal-submit' );
-		# Used message keys: 'accesskey-watchlistedit-normal-submit', 'tooltip-watchlistedit-normal-submit'
+		# Used message keys:
+		# 'accesskey-watchlistedit-normal-submit', 'tooltip-watchlistedit-normal-submit'
 		$form->setSubmitTooltip( 'watchlistedit-normal-submit' );
 		$form->setWrapperLegendMsg( 'watchlistedit-normal-legend' );
 		$form->addHeaderText( $this->msg( 'watchlistedit-normal-explain' )->parse() );
@@ -573,21 +622,16 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	/**
 	 * Build the label for a checkbox, with a link to the title, and various additional bits
 	 *
-	 * @param $title Title
+	 * @param Title $title
 	 * @return string
 	 */
 	private function buildRemoveLine( $title ) {
 		$link = Linker::link( $title );
 
-		if ( $title->isRedirect() ) {
-			// Linker already makes class mw-redirect, so this is redundant
-			$link = '<span class="watchlistredir">' . $link . '</span>';
-		}
-
-		$tools[] = Linker::link( $title->getTalkPage(), $this->msg( 'talkpagelinktext' )->escaped() );
+		$tools['talk'] = Linker::link( $title->getTalkPage(), $this->msg( 'talkpagelinktext' )->escaped() );
 
 		if ( $title->exists() ) {
-			$tools[] = Linker::linkKnown(
+			$tools['history'] = Linker::linkKnown(
 				$title,
 				$this->msg( 'history_short' )->escaped(),
 				array(),
@@ -596,13 +640,21 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 		}
 
 		if ( $title->getNamespace() == NS_USER && !$title->isSubpage() ) {
-			$tools[] = Linker::linkKnown(
+			$tools['contributions'] = Linker::linkKnown(
 				SpecialPage::getTitleFor( 'Contributions', $title->getText() ),
 				$this->msg( 'contributions' )->escaped()
 			);
 		}
 
-		wfRunHooks( 'WatchlistEditorBuildRemoveLine', array( &$tools, $title, $title->isRedirect(), $this->getSkin() ) );
+		wfRunHooks(
+			'WatchlistEditorBuildRemoveLine',
+			array( &$tools, $title, $title->isRedirect(), $this->getSkin(), &$link )
+		);
+
+		if ( $title->isRedirect() ) {
+			// Linker already makes class mw-redirect, so this is redundant
+			$link = '<span class="watchlistredir">' . $link . '</span>';
+		}
 
 		return $link . " (" . $this->getLanguage()->pipeList( $tools ) . ")";
 	}
@@ -657,8 +709,8 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	 * Determine whether we are editing the watchlist, and if so, what
 	 * kind of editing operation
 	 *
-	 * @param $request WebRequest
-	 * @param $par mixed
+	 * @param WebRequest $request
+	 * @param string $par
 	 * @return int
 	 */
 	public static function getMode( $request, $par ) {
@@ -683,7 +735,7 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	 * Build a set of links for convenient navigation
 	 * between watchlist viewing and editing modes
 	 *
-	 * @param $unused
+	 * @param null $unused
 	 * @return string
 	 */
 	public static function buildTools( $unused ) {
@@ -713,10 +765,6 @@ class SpecialEditWatchlist extends UnlistedSpecialPage {
 	}
 }
 
-# B/C since 1.18
-class WatchlistEditor extends SpecialEditWatchlist {
-}
-
 /**
  * Extend HTMLForm purely so we can have a more sane way of getting the section headers
  */
@@ -742,9 +790,9 @@ class EditWatchlistCheckboxSeriesField extends HTMLMultiSelectField {
 	 * form is open (bug 32126), but we know that invalid items will
 	 * be harmless so we can override it here.
 	 *
-	 * @param string $value the value the field was submitted with
-	 * @param array $alldata the data collected from the form
-	 * @return Mixed Bool true on success, or String error to display.
+	 * @param string $value The value the field was submitted with
+	 * @param array $alldata The data collected from the form
+	 * @return bool|string Bool true on success, or String error to display.
 	 */
 	function validate( $value, $alldata ) {
 		// Need to call into grandparent to be a good citizen. :)

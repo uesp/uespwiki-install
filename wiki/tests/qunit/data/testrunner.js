@@ -164,6 +164,12 @@
 				return true;
 			}
 
+			// Don't iterate over the module registry (the 'script' references would
+			// be listed as untested methods otherwise)
+			if ( val === mw.loader.moduleRegistry ) {
+				return true;
+			}
+
 			return false;
 		};
 
@@ -262,6 +268,19 @@
 					// As a convenience feature, automatically restore warnings if they're
 					// still suppressed by the end of the test.
 					restoreWarnings();
+
+					// Check for incomplete animations/requests/etc and throw
+					// error if there are any.
+					if ( $.timers && $.timers.length !== 0 ) {
+						// Test may need to use fake timers, wait for animations or
+						// call $.fx.stop().
+						throw new Error( 'Unfinished animations: ' + $.timers.length );
+					}
+					if ( $.active !== undefined && $.active !== 0 ) {
+						// Test may need to use fake XHR, wait for requests or
+						// call abort().
+						throw new Error( 'Unfinished AJAX requests: ' + $.active );
+					}
 				}
 			};
 		};

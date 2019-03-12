@@ -1,8 +1,7 @@
 <?php
 /** Luxembourgish (Lëtzebuergesch)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -48,6 +47,9 @@ $namespaceAliases = array(
 	'Bild' => NS_FILE,
 	'Bild_Diskussioun' => NS_FILE_TALK,
 );
+
+// Remove German aliases
+$namespaceGenderAliases = array();
 
 $specialPageAliases = array(
 	'Activeusers'               => array( 'Aktiv_Benotzer' ),
@@ -102,6 +104,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Säite_mat_de_meeschten_Ännerungen' ),
 	'Movepage'                  => array( 'Säit_réckelen' ),
 	'Mycontributions'           => array( 'Meng_Kontributiounen' ),
+	'MyLanguage'                => array( 'Meng_Sprooch' ),
 	'Mypage'                    => array( 'Meng_Benotzersäit' ),
 	'Mytalk'                    => array( 'Meng_Diskussiounssäit' ),
 	'Myuploads'                 => array( 'Meng_eropgeluede_Fichieren' ),

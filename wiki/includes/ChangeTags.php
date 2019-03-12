@@ -63,10 +63,10 @@ class ChangeTags {
 	/**
 	 * Get a short description for a tag
 	 *
-	 * @param string $tag tag
+	 * @param string $tag Tag
 	 *
-	 * @return String: Short description of the tag from "mediawiki:tag-$tag" if this message exists,
-	 *                 html-escaped version of $tag otherwise
+	 * @return string Short description of the tag from "mediawiki:tag-$tag" if this message exists,
+	 *   html-escaped version of $tag otherwise
 	 */
 	public static function tagDescription( $tag ) {
 		$msg = wfMessage( "tag-$tag" );
@@ -77,15 +77,15 @@ class ChangeTags {
 	 * Add tags to a change given its rc_id, rev_id and/or log_id
 	 *
 	 * @param string|array $tags Tags to add to the change
-	 * @param $rc_id int: rc_id of the change to add the tags to
-	 * @param $rev_id int: rev_id of the change to add the tags to
-	 * @param $log_id int: log_id of the change to add the tags to
-	 * @param string $params params to put in the ct_params field of table 'change_tag'
+	 * @param int|null $rc_id The rc_id of the change to add the tags to
+	 * @param int|null $rev_id The rev_id of the change to add the tags to
+	 * @param int|null $log_id The log_id of the change to add the tags to
+	 * @param string $params Params to put in the ct_params field of table 'change_tag'
 	 *
 	 * @throws MWException
-	 * @return bool: false if no changes are made, otherwise true
+	 * @return bool False if no changes are made, otherwise true
 	 *
-	 * @exception MWException when $rc_id, $rev_id and $log_id are all null
+	 * @exception MWException When $rc_id, $rev_id and $log_id are all null
 	 */
 	public static function addTags( $tags, $rc_id = null, $rev_id = null,
 		$log_id = null, $params = null
@@ -101,21 +101,20 @@ class ChangeTags {
 				'specified when adding a tag to a change!' );
 		}
 
-		$dbr = wfGetDB( DB_SLAVE );
+		$dbw = wfGetDB( DB_MASTER );
 
 		// Might as well look for rcids and so on.
 		if ( !$rc_id ) {
 			// Info might be out of date, somewhat fractionally, on slave.
-			$dbr = wfGetDB( DB_MASTER );
 			if ( $log_id ) {
-				$rc_id = $dbr->selectField(
+				$rc_id = $dbw->selectField(
 					'recentchanges',
 					'rc_id',
 					array( 'rc_logid' => $log_id ),
 					__METHOD__
 				);
 			} elseif ( $rev_id ) {
-				$rc_id = $dbr->selectField(
+				$rc_id = $dbw->selectField(
 					'recentchanges',
 					'rc_id',
 					array( 'rc_this_oldid' => $rev_id ),
@@ -124,14 +123,13 @@ class ChangeTags {
 			}
 		} elseif ( !$log_id && !$rev_id ) {
 			// Info might be out of date, somewhat fractionally, on slave.
-			$dbr = wfGetDB( DB_MASTER );
-			$log_id = $dbr->selectField(
+			$log_id = $dbw->selectField(
 				'recentchanges',
 				'rc_logid',
 				array( 'rc_id' => $rc_id ),
 				__METHOD__
 			);
-			$rev_id = $dbr->selectField(
+			$rev_id = $dbw->selectField(
 				'recentchanges',
 				'rc_this_oldid',
 				array( 'rc_id' => $rc_id ),
@@ -145,8 +143,10 @@ class ChangeTags {
 			'ts_log_id' => $log_id )
 		);
 
-		## Update the summary row.
-		$prevTags = $dbr->selectField( 'tag_summary', 'ts_tags', $tsConds, __METHOD__ );
+		// Update the summary row.
+		// $prevTags can be out of date on slaves, especially when addTags is called consecutively,
+		// causing loss of tags added recently in tag_summary table.
+		$prevTags = $dbw->selectField( 'tag_summary', 'ts_tags', $tsConds, __METHOD__ );
 		$prevTags = $prevTags ? $prevTags : '';
 		$prevTags = array_filter( explode( ',', $prevTags ) );
 		$newTags = array_unique( array_merge( $prevTags, $tags ) );
@@ -158,7 +158,6 @@ class ChangeTags {
 			return false;
 		}
 
-		$dbw = wfGetDB( DB_MASTER );
 		$dbw->replace(
 			'tag_summary',
 			array( 'ts_rev_id', 'ts_rc_id', 'ts_log_id' ),
@@ -192,9 +191,9 @@ class ChangeTags {
 	 *
 	 * @param string|array $tables Table names, see DatabaseBase::select
 	 * @param string|array $fields Fields used in query, see DatabaseBase::select
-	 * @param string|array $conds conditions used in query, see DatabaseBase::select
-	 * @param $join_conds Array: join conditions, see DatabaseBase::select
-	 * @param array $options options, see Database::select
+	 * @param string|array $conds Conditions used in query, see DatabaseBase::select
+	 * @param array $join_conds Join conditions, see DatabaseBase::select
+	 * @param array $options Options, see Database::select
 	 * @param bool|string $filter_tag Tag to select on
 	 *
 	 * @throws MWException When unable to determine appropriate JOIN condition for tagging
@@ -237,13 +236,13 @@ class ChangeTags {
 	/**
 	 * Build a text box to select a change tag
 	 *
-	 * @param string $selected tag to select by default
-	 * @param $fullForm Boolean:
+	 * @param string $selected Tag to select by default
+	 * @param bool $fullForm
 	 *        - if false, then it returns an array of (label, form).
 	 *        - if true, it returns an entire form around the selector.
-	 * @param $title Title object to send the form to.
+	 * @param Title $title Title object to send the form to.
 	 *        Used when, and only when $fullForm is true.
-	 * @return String or array:
+	 * @return string|array
 	 *        - if $fullForm is false: Array with
 	 *        - if $fullForm is true: String, html fragment
 	 */
@@ -297,7 +296,7 @@ class ChangeTags {
 	 *
 	 * Tries memcached first.
 	 *
-	 * @return Array of strings: tags
+	 * @return string[] Array of strings: tags
 	 */
 	public static function listDefinedTags() {
 		// Caching...

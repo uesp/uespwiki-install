@@ -26,6 +26,7 @@
  * @todo document
  */
 class ParserCache {
+	/** @var MWMemcached */
 	private $mMemc;
 	/**
 	 * Get an instance of this object
@@ -45,7 +46,7 @@ class ParserCache {
 	 * Setup a cache pathway with a given back-end storage mechanism.
 	 * May be a memcached client or a BagOStuff derivative.
 	 *
-	 * @param $memCached Object
+	 * @param MWMemcached $memCached
 	 * @throws MWException
 	 */
 	protected function __construct( $memCached ) {
@@ -56,8 +57,8 @@ class ParserCache {
 	}
 
 	/**
-	 * @param $article Article
-	 * @param $hash string
+	 * @param Article $article
+	 * @param string $hash
 	 * @return mixed|string
 	 */
 	protected function getParserOutputKey( $article, $hash ) {
@@ -72,7 +73,7 @@ class ParserCache {
 	}
 
 	/**
-	 * @param $article Article
+	 * @param Article $article
 	 * @return mixed|string
 	 */
 	protected function getOptionsKey( $article ) {
@@ -90,11 +91,11 @@ class ParserCache {
 	 * English preferences. That's why we take into account *all* user
 	 * options. (r70809 CR)
 	 *
-	 * @param $article Article
-	 * @param $popts ParserOptions
+	 * @param Article $article
+	 * @param ParserOptions $popts
 	 * @return string
 	 */
-	function getETag( $article, $popts ) {
+	public function getETag( $article, $popts ) {
 		return 'W/"' . $this->getParserOutputKey( $article,
 			$popts->optionsHash( ParserOptions::legacyOptions(), $article->getTitle() ) ) .
 				"--" . $article->getTouched() . '"';
@@ -102,8 +103,8 @@ class ParserCache {
 
 	/**
 	 * Retrieve the ParserOutput from ParserCache, even if it's outdated.
-	 * @param $article Article
-	 * @param $popts ParserOptions
+	 * @param Article $article
+	 * @param ParserOptions $popts
 	 * @return ParserOutput|bool False on failure
 	 */
 	public function getDirty( $article, $popts ) {
@@ -144,7 +145,8 @@ class ParserCache {
 			if ( !$useOutdated && $optionsKey->expired( $article->getTouched() ) ) {
 				wfIncrStats( "pcache_miss_expired" );
 				$cacheTime = $optionsKey->getCacheTime();
-				wfDebug( "Parser options key expired, touched " . $article->getTouched() . ", epoch $wgCacheEpoch, cached $cacheTime\n" );
+				wfDebug( "Parser options key expired, touched " . $article->getTouched()
+					. ", epoch $wgCacheEpoch, cached $cacheTime\n" );
 				return false;
 			} elseif ( $optionsKey->isDifferentRevision( $article->getLatest() ) ) {
 				wfIncrStats( "pcache_miss_revid" );
@@ -164,7 +166,10 @@ class ParserCache {
 			$usedOptions = ParserOptions::legacyOptions();
 		}
 
-		return $this->getParserOutputKey( $article, $popts->optionsHash( $usedOptions, $article->getTitle() ) );
+		return $this->getParserOutputKey(
+			$article,
+			$popts->optionsHash( $usedOptions, $article->getTitle() )
+		);
 	}
 
 	/**
@@ -215,7 +220,8 @@ class ParserCache {
 		if ( !$useOutdated && $value->expired( $touched ) ) {
 			wfIncrStats( "pcache_miss_expired" );
 			$cacheTime = $value->getCacheTime();
-			wfDebug( "ParserOutput key expired, touched $touched, epoch $wgCacheEpoch, cached $cacheTime\n" );
+			wfDebug( "ParserOutput key expired, touched $touched, "
+				. "epoch $wgCacheEpoch, cached $cacheTime\n" );
 			$value = false;
 		} elseif ( $value->isDifferentRevision( $article->getLatest() ) ) {
 			wfIncrStats( "pcache_miss_revid" );

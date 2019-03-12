@@ -1,8 +1,7 @@
 <?php
 /** Hebrew (עברית)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -96,6 +95,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'הגרסאות_הרבות_ביותר', 'הדפים_בעלי_מספר_העריכות_הגבוה_ביותר' ),
 	'Movepage'                  => array( 'העברת_דף', 'העברה' ),
 	'Mycontributions'           => array( 'התרומות_שלי' ),
+	'MyLanguage'                => array( 'השפה_שלי' ),
 	'Mypage'                    => array( 'הדף_שלי', 'דף_המשתמש_שלי' ),
 	'Mytalk'                    => array( 'השיחה_שלי', 'דף_השיחה_שלי' ),
 	'Myuploads'                 => array( 'ההעלאות_שלי' ),

@@ -32,7 +32,7 @@ class CacheTime {
 	 */
 	public $mUsedOptions;
 
-	var	$mVersion = Parser::VERSION,  # Compatibility check
+	public $mVersion = Parser::VERSION,  # Compatibility check
 		$mCacheTime = '',             # Time when this object was generated, or -1 for uncacheable. Used in ParserCache.
 		$mCacheExpiry = null,         # Seconds after which the object should expire, use 0 for uncachable. Used in ParserCache.
 		$mContainsOldMagic,           # Boolean variable indicating if the input contained variables like {{CURRENTDAY}}
@@ -41,32 +41,32 @@ class CacheTime {
 	/**
 	 * @return string TS_MW timestamp
 	 */
-	function getCacheTime() {
+	public function getCacheTime() {
 		return wfTimestamp( TS_MW, $this->mCacheTime );
 	}
 
 	/**
 	 * @return bool
 	 */
-	function containsOldMagic() {
+	public function containsOldMagic() {
 		return $this->mContainsOldMagic;
 	}
 
 	/**
-	 * @param $com bool
+	 * @param bool $com
 	 * @return bool
 	 */
-	function setContainsOldMagic( $com ) {
+	public function setContainsOldMagic( $com ) {
 		return wfSetVar( $this->mContainsOldMagic, $com );
 	}
 
 	/**
 	 * setCacheTime() sets the timestamp expressing when the page has been rendered.
 	 * This does not control expiry, see updateCacheExpiry() for that!
-	 * @param $t string
+	 * @param string $t
 	 * @return string
 	 */
-	function setCacheTime( $t ) {
+	public function setCacheTime( $t ) {
 		return wfSetVar( $this->mCacheTime, $t );
 	}
 
@@ -74,15 +74,15 @@ class CacheTime {
 	 * @since 1.23
 	 * @return int|null Revision id, if any was set
 	 */
-	function getCacheRevisionId() {
+	public function getCacheRevisionId() {
 		return $this->mCacheRevisionId;
 	}
 
 	/**
 	 * @since 1.23
-	 * @param $id int Revision id
+	 * @param int $id Revision id
 	 */
-	function setCacheRevisionId( $id ) {
+	public function setCacheRevisionId( $id ) {
 		$this->mCacheRevisionId = $id;
 	}
 
@@ -94,9 +94,9 @@ class CacheTime {
 	 * or equal to the smallest number that was provided as an argument to
 	 * updateCacheExpiry().
 	 *
-	 * @param $seconds number
+	 * @param int $seconds
 	 */
-	function updateCacheExpiry( $seconds ) {
+	public function updateCacheExpiry( $seconds ) {
 		$seconds = (int)$seconds;
 
 		if ( $this->mCacheExpiry === null || $this->mCacheExpiry > $seconds ) {
@@ -118,7 +118,7 @@ class CacheTime {
 	 * value of $wgParserCacheExpireTime.
 	 * @return int|mixed|null
 	 */
-	function getCacheExpiry() {
+	public function getCacheExpiry() {
 		global $wgParserCacheExpireTime;
 
 		if ( $this->mCacheTime < 0 ) {
@@ -147,7 +147,7 @@ class CacheTime {
 	/**
 	 * @return bool
 	 */
-	function isCacheable() {
+	public function isCacheable() {
 		return $this->getCacheExpiry() > 0;
 	}
 
@@ -156,17 +156,19 @@ class CacheTime {
 	 * per-article cache invalidation timestamps, or if it comes from
 	 * an incompatible older version.
 	 *
-	 * @param string $touched the affected article's last touched timestamp
-	 * @return Boolean
+	 * @param string $touched The affected article's last touched timestamp
+	 * @return bool
 	 */
 	public function expired( $touched ) {
 		global $wgCacheEpoch;
-		return !$this->isCacheable() || // parser says it's uncacheable
-			$this->getCacheTime() < $touched ||
-			$this->getCacheTime() <= $wgCacheEpoch ||
-			$this->getCacheTime() < wfTimestamp( TS_MW, time() - $this->getCacheExpiry() ) || // expiry period has passed
-			!isset( $this->mVersion ) ||
-			version_compare( $this->mVersion, Parser::VERSION, "lt" );
+
+		return !$this->isCacheable() // parser says it's uncacheable
+			|| $this->getCacheTime() < $touched
+			|| $this->getCacheTime() <= $wgCacheEpoch
+			|| $this->getCacheTime() <
+				wfTimestamp( TS_MW, time() - $this->getCacheExpiry() ) // expiry period has passed
+			|| !isset( $this->mVersion )
+			|| version_compare( $this->mVersion, Parser::VERSION, "lt" );
 	}
 
 	/**
@@ -178,8 +180,8 @@ class CacheTime {
 	 * deployed. Someday that should probably be changed.
 	 *
 	 * @since 1.23
-	 * @param int $id the affected article's current revision id
-	 * @return Boolean
+	 * @param int $id The affected article's current revision id
+	 * @return bool
 	 */
 	public function isDifferentRevision( $id ) {
 		$cached = $this->getCacheRevisionId();

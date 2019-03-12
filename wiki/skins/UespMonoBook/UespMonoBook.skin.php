@@ -25,6 +25,8 @@
  * @ingroup Skins
  */
 
+require_once "skins/MonoBook/MonoBookTemplate.php";
+
 if ( !defined( 'MEDIAWIKI' ) ) {
 	die( -1 );
 }
@@ -44,14 +46,15 @@ class SkinUespMonoBook extends SkinTemplate {
 	 */
 	function setupSkinUserCss( OutputPage $out ) {
 		parent::setupSkinUserCss( $out );
-
-		$out->addModuleStyles( 'skins.uespmonobook' );
+		
+		$out->addModuleStyles( array('mediawiki.skinning.elements', 'mediawiki.skinning.content', 'mediawiki.skinning.interface', 'skins.uespmonobook' ));
 
 		// TODO: Migrate all of these
 		$out->addStyle( 'uespmonobook/IE60Fixes.css', 'screen', 'IE 6' );
 		$out->addStyle( 'uespmonobook/IE70Fixes.css', 'screen', 'IE 7' );
 
 	}
+
 }
 
 
@@ -84,7 +87,7 @@ class UespMonoBookTemplate extends MonoBookTemplate
         //if ( ! $wgUser->isLoggedIn() ) {
         if (true) {
 ?>
-		<div id='topad'><div class='center' style='margin-left: auto; margin-right: auto; width:728px; height:90px;'>
+		<div id='topad'><div class='center' id='uespTopBannerAd'>
 			<div id='cdm-zone-01'></div>
 		</div></div>
 <?php
@@ -235,17 +238,6 @@ class UespMonoBookTemplate extends MonoBookTemplate
 				</button>
 			</form>
 		</div>
-	</div>
-	
-	<div id="p-googleplus" class="portlet" style="border: 1px solid #AAAAAA; background:#FBEFD5; margin: 0px; padding: 3px; width: 153px; overflow: hidden;">
-		<div class="g-plusone" data-annotation="inline" data-width="139"></div>
-		<script type="text/javascript">
-(function() {
-	var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
-	po.src = 'https://apis.google.com/js/plusone.js';
-	var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
-})();
-		</script>
 	</div>
 <?php
 	}

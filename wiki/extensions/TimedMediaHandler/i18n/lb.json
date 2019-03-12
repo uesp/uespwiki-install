@@ -20,7 +20,7 @@
 	"timedmedia-flac-long-audio": "FLAC-audiofichier, Längt $1, $2 am Ganzen",
 	"timedmedia-wav-short-audio": "WAV-Audiofichier, $1",
 	"timedmedia-mp4-short-video": "MP4 $1 Videofichier, $2",
-	"timedmedia-no-player-js": "Pardon, Äre Browser huet entweder JavaScript ausgeschalt oder en huet kee Player-Programm deen ënnerstëtzt gëtt.<br />\nDir kënnt <a href=\"$1\"> de Clip eroflueden</a> oder <a href=\"//www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download\">e Player-Programm erofluede</a> fir de Clip an Ärem Browser ze spillen.",
+	"timedmedia-no-player-js": "Pardon, Äre Browser huet entweder JavaScript ausgeschalt oder en huet kee Player-Programm deen ënnerstëtzt gëtt.<br />\nDir kënnt <a href=\"$1\"> de Clip eroflueden</a> oder <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">e Player-Programm erofluede</a> fir de Clip an Ärem Browser ze spillen.",
 	"timedmedia-more": "Méi ...",
 	"timedmedia-dismiss": "Zoumaachen",
 	"timedmedia-download": "Fichier eroflueden",
@@ -56,5 +56,7 @@
 	"timedmedia-audios": "{{PLURAL:$1|$1 Audio-Fichier|$1 Audio-Fichieren}}",
 	"timedmedia-ogg-audios": "{{PLURAL:$1|$1 Ogg Audio-Fichier|$1 Ogg Audio-Fichieren}}",
 	"timedmedia-flac-audios": "{{PLURAL:$1|$1 FLAC Audio-Fichier|$1 FLAC Audio-Fichieren}}",
-	"timedmedia-wav-audios": "{{PLURAL:$1|$1 WAV Audio-Fichier|$1 WAV Audio-Fichieren}}"
+	"timedmedia-wav-audios": "{{PLURAL:$1|$1 WAV Audio-Fichier|$1 WAV Audio-Fichieren}}",
+	"orphanedtimedtext-unsupported": "Dës Spezialsäit funktionéiert nëmme mat MySQL Datebanken.",
+	"orphanedtimedtext-notimedtext": "TimedText ass op dëser Wiki net aktivéiert."
 }

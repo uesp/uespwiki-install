@@ -27,7 +27,7 @@
  * @ingroup Search
  */
 class SearchHighlighter {
-	var $mCleanWikitext = true;
+	protected $mCleanWikitext = true;
 
 	function __construct( $cleanupWikitext = true ) {
 		$this->mCleanWikitext = $cleanupWikitext;
@@ -36,15 +36,15 @@ class SearchHighlighter {
 	/**
 	 * Default implementation of wikitext highlighting
 	 *
-	 * @param $text String
-	 * @param array $terms terms to highlight (unescaped)
-	 * @param $contextlines Integer
-	 * @param $contextchars Integer
-	 * @return String
+	 * @param string $text
+	 * @param array $terms Terms to highlight (unescaped)
+	 * @param int $contextlines
+	 * @param int $contextchars
+	 * @return string
 	 */
 	public function highlightText( $text, $terms, $contextlines, $contextchars ) {
-		global $wgContLang;
-		global $wgSearchHighlightBoundaries;
+		global $wgContLang, $wgSearchHighlightBoundaries;
+
 		$fname = __METHOD__;
 
 		if ( $text == '' ) {
@@ -117,7 +117,7 @@ class SearchHighlighter {
 						}
 						$offset = $endMatches[0][1] + strlen( $endMatches[0][0] );
 					}
-					if ( ! $found ) {
+					if ( !$found ) {
 						// couldn't find appropriate closing tag, skip
 						$this->splitAndAdd( $textExt, $count, substr( $text, $start, strlen( $matches[0][0] ) ) );
 						$start += strlen( $matches[0][0] );
@@ -138,7 +138,11 @@ class SearchHighlighter {
 		foreach ( $terms as $index => $term ) {
 			// manually do upper/lowercase stuff for utf-8 since PHP won't do it
 			if ( preg_match( '/[\x80-\xff]/', $term ) ) {
-				$terms[$index] = preg_replace_callback( '/./us', array( $this, 'caseCallback' ), $terms[$index] );
+				$terms[$index] = preg_replace_callback(
+					'/./us',
+					array( $this, 'caseCallback' ),
+					$terms[$index]
+				);
 			} else {
 				$terms[$index] = $term;
 			}
@@ -180,7 +184,7 @@ class SearchHighlighter {
 			$succ = true;
 			// check if first text contains all terms
 			foreach ( $terms as $term ) {
-				if ( ! preg_match( "/$patPre" . $term . "$patPost/ui", $firstText ) ) {
+				if ( !preg_match( "/$patPre" . $term . "$patPost/ui", $firstText ) ) {
 					$succ = false;
 					break;
 				}
@@ -190,7 +194,7 @@ class SearchHighlighter {
 				$offsets[$first] = 0;
 			}
 		}
-		if ( ! $snippets ) {
+		if ( !$snippets ) {
 			// match whole query on text
 			$this->process( $pat1, $textExt, $left, $contextchars, $snippets, $offsets );
 			// match whole query on templates/tables/images
@@ -229,7 +233,12 @@ class SearchHighlighter {
 			if ( $len < $targetchars - 20 ) {
 				// complete this line
 				if ( $len < strlen( $all[$index] ) ) {
-					$extended[$index] = $this->extract( $all[$index], $offsets[$index], $offsets[$index] + $targetchars, $offsets[$index] );
+					$extended[$index] = $this->extract(
+						$all[$index],
+						$offsets[$index],
+						$offsets[$index] + $targetchars,
+						$offsets[$index]
+					);
 					$len = strlen( $extended[$index] );
 				}
 
@@ -254,7 +263,9 @@ class SearchHighlighter {
 		foreach ( $snippets as $index => $line ) {
 			if ( $last == - 1 ) {
 				$extract .= $line; // first line
-			} elseif ( $last + 1 == $index && $offsets[$last] + strlen( $snippets[$last] ) >= strlen( $all[$last] ) ) {
+			} elseif ( $last + 1 == $index
+				&& $offsets[$last] + strlen( $snippets[$last] ) >= strlen( $all[$last] )
+			) {
 				$extract .= " " . $line; // continous lines
 			} else {
 				$extract .= '<b> ... </b>' . $line;
@@ -268,7 +279,7 @@ class SearchHighlighter {
 
 		$processed = array();
 		foreach ( $terms as $term ) {
-			if ( ! isset( $processed[$term] ) ) {
+			if ( !isset( $processed[$term] ) ) {
 				$pat3 = "/$patPre(" . $term . ")$patPost/ui"; // highlight word
 				$extract = preg_replace( $pat3,
 					"\\1<span class='searchmatch'>\\2</span>\\3", $extract );
@@ -284,9 +295,9 @@ class SearchHighlighter {
 	/**
 	 * Split text into lines and add it to extracts array
 	 *
-	 * @param array $extracts index -> $line
-	 * @param $count Integer
-	 * @param $text String
+	 * @param array $extracts Index -> $line
+	 * @param int $count
+	 * @param string $text
 	 */
 	function splitAndAdd( &$extracts, &$count, $text ) {
 		$split = explode( "\n", $this->mCleanWikitext ? $this->removeWiki( $text ) : $text );
@@ -301,7 +312,7 @@ class SearchHighlighter {
 	/**
 	 * Do manual case conversion for non-ascii chars
 	 *
-	 * @param $matches Array
+	 * @param array $matches
 	 * @return string
 	 */
 	function caseCallback( $matches ) {
@@ -316,12 +327,12 @@ class SearchHighlighter {
 	/**
 	 * Extract part of the text from start to end, but by
 	 * not chopping up words
-	 * @param $text String
-	 * @param $start Integer
-	 * @param $end Integer
-	 * @param $posStart Integer: (out) actual start position
-	 * @param $posEnd Integer: (out) actual end position
-	 * @return String
+	 * @param string $text
+	 * @param int $start
+	 * @param int $end
+	 * @param int $posStart (out) actual start position
+	 * @param int $posEnd (out) actual end position
+	 * @return string
 	 */
 	function extract( $text, $start, $end, &$posStart = null, &$posEnd = null ) {
 		if ( $start != 0 ) {
@@ -350,17 +361,23 @@ class SearchHighlighter {
 	/**
 	 * Find a nonletter near a point (index) in the text
 	 *
-	 * @param $text String
-	 * @param $point Integer
-	 * @param $offset Integer: offset to found index
-	 * @return Integer: nearest nonletter index, or beginning of utf8 char if none
+	 * @param string $text
+	 * @param int $point
+	 * @param int $offset Offset to found index
+	 * @return int Nearest nonletter index, or beginning of utf8 char if none
 	 */
 	function position( $text, $point, $offset = 0 ) {
 		$tolerance = 10;
 		$s = max( 0, $point - $tolerance );
 		$l = min( strlen( $text ), $point + $tolerance ) - $s;
 		$m = array();
-		if ( preg_match( '/[ ,.!?~!@#$%^&*\(\)+=\-\\\|\[\]"\'<>]/', substr( $text, $s, $l ), $m, PREG_OFFSET_CAPTURE ) ) {
+
+		if ( preg_match(
+			'/[ ,.!?~!@#$%^&*\(\)+=\-\\\|\[\]"\'<>]/',
+			substr( $text, $s, $l ),
+			$m,
+			PREG_OFFSET_CAPTURE
+		) ) {
 			return $m[0][1] + $s + $offset;
 		} else {
 			// check if point is on a valid first UTF8 char
@@ -373,6 +390,7 @@ class SearchHighlighter {
 				}
 				$char = ord( $text[$point] );
 			}
+
 			return $point;
 
 		}
@@ -381,12 +399,12 @@ class SearchHighlighter {
 	/**
 	 * Search extracts for a pattern, and return snippets
 	 *
-	 * @param string $pattern regexp for matching lines
-	 * @param array $extracts extracts to search
-	 * @param $linesleft Integer: number of extracts to make
-	 * @param $contextchars Integer: length of snippet
-	 * @param array $out map for highlighted snippets
-	 * @param array $offsets map of starting points of snippets
+	 * @param string $pattern Regexp for matching lines
+	 * @param array $extracts Extracts to search
+	 * @param int $linesleft Number of extracts to make
+	 * @param int $contextchars Length of snippet
+	 * @param array $out Map for highlighted snippets
+	 * @param array $offsets Map of starting points of snippets
 	 * @protected
 	 */
 	function process( $pattern, $extracts, &$linesleft, &$contextchars, &$out, &$offsets ) {
@@ -429,6 +447,7 @@ class SearchHighlighter {
 	/**
 	 * Basic wikitext removal
 	 * @protected
+	 * @param string $text
 	 * @return mixed
 	 */
 	function removeWiki( $text ) {
@@ -444,7 +463,11 @@ class SearchHighlighter {
 		$text = preg_replace( "/\\{\\{([^|]+?)\\}\\}/", "", $text );
 		$text = preg_replace( "/\\{\\{([^|]+\\|)(.*?)\\}\\}/", "\\2", $text );
 		$text = preg_replace( "/\\[\\[([^|]+?)\\]\\]/", "\\1", $text );
-		$text = preg_replace_callback( "/\\[\\[([^|]+\\|)(.*?)\\]\\]/", array( $this, 'linkReplace' ), $text );
+		$text = preg_replace_callback(
+			"/\\[\\[([^|]+\\|)(.*?)\\]\\]/",
+			array( $this, 'linkReplace' ),
+			$text
+		);
 		// $text = preg_replace("/\\[\\[([^|]+\\|)(.*?)\\]\\]/", "\\2", $text);
 		$text = preg_replace( "/<\/?[^>]+>/", "", $text );
 		$text = preg_replace( "/'''''/", "", $text );
@@ -459,7 +482,8 @@ class SearchHighlighter {
 	 * callback to replace [[target|caption]] kind of links, if
 	 * the target is category or image, leave it
 	 *
-	 * @param $matches Array
+	 * @param array $matches
+	 * @return string
 	 */
 	function linkReplace( $matches ) {
 		$colon = strpos( $matches[1], ':' );
@@ -480,11 +504,11 @@ class SearchHighlighter {
 	 * Simple & fast snippet extraction, but gives completely unrelevant
 	 * snippets
 	 *
-	 * @param $text String
-	 * @param $terms Array
-	 * @param $contextlines Integer
-	 * @param $contextchars Integer
-	 * @return String
+	 * @param string $text
+	 * @param array $terms
+	 * @param int $contextlines
+	 * @param int $contextchars
+	 * @return string
 	 */
 	public function highlightSimple( $text, $terms, $contextlines, $contextchars ) {
 		global $wgContLang;
@@ -506,7 +530,7 @@ class SearchHighlighter {
 			}
 			++$lineno;
 			$m = array();
-			if ( ! preg_match( $pat1, $line, $m ) ) {
+			if ( !preg_match( $pat1, $line, $m ) ) {
 				continue;
 			}
 			--$contextlines;
@@ -530,5 +554,22 @@ class SearchHighlighter {
 		wfProfileOut( "$fname-extract" );
 
 		return $extract;
+	}
+
+	/**
+	 * Returns the first few lines of the text
+	 *
+	 * @param string $text
+	 * @param int $contextlines Max number of returned lines
+	 * @param int $contextchars Average number of characters per line
+	 * @return string
+	 */
+	public function highlightNone( $text, $contextlines, $contextchars ) {
+		$match = array();
+		$text = ltrim( $text ) . "\n"; // make sure the preg_match may find the last line
+		$text = str_replace( "\n\n", "\n", $text ); // remove empty lines
+		preg_match( "/^(.*\n){0,$contextlines}/", $text, $match );
+		$text = htmlspecialchars( substr( trim( $match[0] ), 0, $contextlines * $contextchars ) ); // trim and limit to max number of chars
+		return str_replace( "\n", '<br>', $text );
 	}
 }

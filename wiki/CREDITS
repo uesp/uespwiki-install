@@ -1,6 +1,6 @@
 {{int:version-credits-summary}}
 <!--
-MediaWiki 1.23 is a collaborative project released under the
+MediaWiki 1.24 is a collaborative project released under the
 GNU General Public License v2. We would like to recognize the
 following names for their contribution to the product.
 -->
@@ -131,6 +131,7 @@ following names for their contribution to the product.
 * Elvis Stansvik
 * Eranroz
 * Erwin Dokter
+* Étienne Beaulé
 * Federico Leva
 * FunPika
 * fomafix
@@ -157,6 +158,7 @@ following names for their contribution to the product.
 * Kim Hyun-Joon
 * Lee Worden
 * Lejonel
+* Leon Liesener
 * liangent
 * Louperivois
 * Lucas Garczewski

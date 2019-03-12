@@ -1,8 +1,7 @@
 <?php
 /** Franco-Provençal (arpetan)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -12,10 +11,10 @@
 $fallback = 'fr';
 
 $bookstoreList = array(
-    'Amazon.fr'    => 'http://www.amazon.fr/exec/obidos/ISBN=$1',
-    'alapage.fr'   => 'http://www.alapage.com/mx/?tp=F&type=101&l_isbn=$1&donnee_appel=ALASQ&devise=&',
-    'fnac.com'     => 'http://www3.fnac.com/advanced/book.do?isbn=$1',
-    'chapitre.com' => 'http://www.chapitre.com/frame_rec.asp?isbn=$1',
+	'Amazon.fr'    => 'http://www.amazon.fr/exec/obidos/ISBN=$1',
+	'alapage.fr'   => 'http://www.alapage.com/mx/?tp=F&type=101&l_isbn=$1&donnee_appel=ALASQ&devise=&',
+	'fnac.com'     => 'http://www3.fnac.com/advanced/book.do?isbn=$1',
+	'chapitre.com' => 'http://www.chapitre.com/frame_rec.asp?isbn=$1',
 );
 
 $namespaceNames = array(
@@ -291,17 +290,17 @@ $magicWords = array(
 $linkTrail = '/^([a-zàâçéèêîœôû·’æäåāăëēïīòöōùü‘]+)(.*)$/sDu';
 
 $dateFormats = array(
-    'mdy time' => 'H:i',
-    'mdy date' => 'F j, Y',
-    'mdy both' => 'F j, Y "a" H:i',
+	'mdy time' => 'H:i',
+	'mdy date' => 'F j, Y',
+	'mdy both' => 'F j, Y "a" H:i',
 
-    'dmy time' => 'H:i',
-    'dmy date' => 'j F Y',
-    'dmy both' => 'j F Y "a" H:i',
+	'dmy time' => 'H:i',
+	'dmy date' => 'j F Y',
+	'dmy both' => 'j F Y "a" H:i',
 
-    'ymd time' => 'H:i',
-    'ymd date' => 'Y F j',
-    'ymd both' => 'Y F j "a" H:i',
+	'ymd time' => 'H:i',
+	'ymd date' => 'Y F j',
+	'ymd both' => 'Y F j "a" H:i',
 );
 
 $separatorTransformTable = array( ',' => "\xc2\xa0", '.' => ',' );

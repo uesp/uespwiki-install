@@ -228,7 +228,7 @@ class DatabaseMssql extends DatabaseBase {
 
 				if ( $success ) {
 					$this->mAffectedRows = 0;
-					return true;
+					return $stmt;
 				}
 			}
 		}
@@ -340,6 +340,7 @@ class DatabaseMssql extends DatabaseBase {
 	}
 
 	/**
+	 * @param array $err
 	 * @return string
 	 */
 	private function formatError( $err ) {
@@ -414,10 +415,8 @@ class DatabaseMssql extends DatabaseBase {
 			}
 			$this->mScrollableCursor = true;
 			$this->mPrepareStatements = true;
-
 			return $ret;
 		}
-
 		return $this->query( $sql, $fname );
 	}
 
@@ -613,6 +612,13 @@ class DatabaseMssql extends DatabaseBase {
 		// Determine binary/varbinary fields so we can encode data as a hex string like 0xABCDEF
 		$binaryColumns = $this->getBinaryColumns( $table );
 
+		// INSERT IGNORE is not supported by SQL Server
+		// remove IGNORE from options list and set ignore flag to true
+		if ( in_array( 'IGNORE', $options ) ) {
+			$options = array_diff( $options, array( 'IGNORE' ) );
+			$this->mIgnoreDupKeyErrors = true;
+		}
+
 		foreach ( $arrToInsert as $a ) {
 			// start out with empty identity column, this is so we can return
 			// it as a result of the insert logic
@@ -643,14 +649,6 @@ class DatabaseMssql extends DatabaseBase {
 			}
 
 			$keys = array_keys( $a );
-
-			// INSERT IGNORE is not supported by SQL Server
-			// remove IGNORE from options list and set ignore flag to true
-			$ignoreClause = false;
-			if ( in_array( 'IGNORE', $options ) ) {
-				$options = array_diff( $options, array( 'IGNORE' ) );
-				$this->mIgnoreDupKeyErrors = true;
-			}
 
 			// Build the actual query
 			$sql = $sqlPre . 'INSERT ' . implode( ' ', $options ) .
@@ -690,15 +688,16 @@ class DatabaseMssql extends DatabaseBase {
 				throw $e;
 			}
 			$this->mScrollableCursor = true;
-			$this->mIgnoreDupKeyErrors = false;
 
 			if ( !is_null( $identity ) ) {
 				// then we want to get the identity column value we were assigned and save it off
 				$row = $ret->fetchObject();
-				$this->mInsertId = $row->$identity;
+				if( is_object( $row ) ){
+					$this->mInsertId = $row->$identity;
+				}
 			}
 		}
-
+		$this->mIgnoreDupKeyErrors = false;
 		return $ret;
 	}
 
@@ -743,7 +742,7 @@ class DatabaseMssql extends DatabaseBase {
 	/**
 	 * UPDATE wrapper. Takes a condition array and a SET array.
 	 *
-	 * @param string $table name of the table to UPDATE. This will be passed through
+	 * @param string $table Name of the table to UPDATE. This will be passed through
 	 *                DatabaseBase::tableName().
 	 *
 	 * @param array $values An array of values to SET. For each array element,
@@ -787,7 +786,7 @@ class DatabaseMssql extends DatabaseBase {
 
 	/**
 	 * Makes an encoded list of strings from an array
-	 * @param array $a containing the data
+	 * @param array $a Containing the data
 	 * @param int $mode Constant
 	 *      - LIST_COMMA:          comma separated, no field names
 	 *      - LIST_AND:            ANDed WHERE clause (without the WHERE). See
@@ -920,7 +919,7 @@ class DatabaseMssql extends DatabaseBase {
 			}
 			if ( !$s2 ) {
 				// no ORDER BY
-				$overOrder = 'ORDER BY 1';
+				$overOrder = 'ORDER BY (SELECT 1)';
 			} else {
 				if ( !isset( $orderby[2] ) || !$orderby[2] ) {
 					// don't need to strip it out if we're using a FOR XML clause
@@ -1004,6 +1003,11 @@ class DatabaseMssql extends DatabaseBase {
 			return false;
 		}
 
+		if ( $schema === false ) {
+			global $wgDBmwschema;
+			$schema = $wgDBmwschema;
+		}
+
 		$res = $this->query( "SELECT 1 FROM INFORMATION_SCHEMA.TABLES
 			WHERE TABLE_TYPE = 'BASE TABLE'
 			AND TABLE_SCHEMA = '$schema' AND TABLE_NAME = '$table'" );
@@ -1063,6 +1067,7 @@ class DatabaseMssql extends DatabaseBase {
 
 	/**
 	 * Begin a transaction, committing any previously open transaction
+	 * @param string $fname
 	 */
 	protected function doBegin( $fname = __METHOD__ ) {
 		sqlsrv_begin_transaction( $this->mConn );
@@ -1071,6 +1076,7 @@ class DatabaseMssql extends DatabaseBase {
 
 	/**
 	 * End a transaction
+	 * @param string $fname
 	 */
 	protected function doCommit( $fname = __METHOD__ ) {
 		sqlsrv_commit( $this->mConn );
@@ -1080,6 +1086,7 @@ class DatabaseMssql extends DatabaseBase {
 	/**
 	 * Rollback a transaction.
 	 * No-op on non-transactional databases.
+	 * @param string $fname
 	 */
 	protected function doRollback( $fname = __METHOD__ ) {
 		sqlsrv_rollback( $this->mConn );
@@ -1172,7 +1179,7 @@ class DatabaseMssql extends DatabaseBase {
 	}
 
 	/**
-	 * @param array $options an associative array of options to be turned into
+	 * @param array $options An associative array of options to be turned into
 	 *   an SQL query, valid keys are listed in the function.
 	 * @return array
 	 */
@@ -1234,7 +1241,7 @@ class DatabaseMssql extends DatabaseBase {
 	 * @param string $field Field name
 	 * @param string|array $conds Conditions
 	 * @param string|array $join_conds Join conditions
-	 * @return String SQL text
+	 * @return string SQL text
 	 * @since 1.23
 	 */
 	public function buildGroupConcatField( $delim, $table, $field, $conds = '',
@@ -1295,9 +1302,6 @@ class DatabaseMssql extends DatabaseBase {
 			: array();
 	}
 
-	/**
-	 * @void
-	 */
 	private function populateColumnCaches() {
 		$res = $this->select( 'INFORMATION_SCHEMA.COLUMNS', '*',
 			array(
@@ -1344,7 +1348,7 @@ class DatabaseMssql extends DatabaseBase {
 			// Used internally, we want the schema split off from the table name and returned
 			// as a list with 3 elements (database, schema, table)
 			$table = explode( '.', $table );
-			if ( count( $table ) == 2 ) {
+			while ( count( $table ) < 3 ) {
 				array_unshift( $table, false );
 			}
 		}

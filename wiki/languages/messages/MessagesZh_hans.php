@@ -1,8 +1,7 @@
 <?php
 /** Simplified Chinese (中文（简体）‎)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -186,6 +185,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( '最多修订页面' ),
 	'Movepage'                  => array( '移动页面' ),
 	'Mycontributions'           => array( '我的贡献' ),
+	'MyLanguage'                => array( '我的语言' ),
 	'Mypage'                    => array( '我的用户页' ),
 	'Mytalk'                    => array( '我的讨论页' ),
 	'Myuploads'                 => array( '我上传的文件' ),
@@ -373,7 +373,6 @@ $dateFormats = array(
 
 $bookstoreList = array(
 	'AddALL' => 'http://www.addall.com/New/Partner.cgi?query=$1&type=ISBN',
-	'PriceSCAN' => 'http://www.pricescan.com/books/bookDetail.asp?isbn=$1',
 	'Barnes & Noble' => 'http://search.barnesandnoble.com/bookSearch/isbnInquiry.asp?isbn=$1',
 	'亚马逊' => 'http://www.amazon.com/exec/obidos/ISBN=$1',
 	'卓越亚马逊' => 'http://www.amazon.cn/mn/advancedSearchApp?isbn=$1',

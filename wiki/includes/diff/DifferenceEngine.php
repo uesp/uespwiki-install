@@ -98,9 +98,9 @@ class DifferenceEngine extends ContextSource {
 
 	/**
 	 * Constructor
-	 * @param IContextSource $context context to use, anything else will be ignored
-	 * @param int $old old ID we want to show and diff with.
-	 * @param string|int $new either revision ID or 'prev' or 'next'. Default: 0.
+	 * @param IContextSource $context Context to use, anything else will be ignored
+	 * @param int $old Old ID we want to show and diff with.
+	 * @param string|int $new Either revision ID or 'prev' or 'next'. Default: 0.
 	 * @param int $rcid Deprecated, no longer used!
 	 * @param bool $refreshCache If set, refreshes the diff cache
 	 * @param bool $unhide If set, allow viewing deleted revs
@@ -310,11 +310,11 @@ class DifferenceEngine extends ContextSource {
 								'undoafter' => $this->mOldid,
 								'undo' => $this->mNewid
 							) ),
-							'title' => Linker::titleAttrib( 'undo' )
+							'title' => Linker::titleAttrib( 'undo' ),
 						),
 						$this->msg( 'editundo' )->text()
 					);
-					$revisionTools[] = $undoLink;
+					$revisionTools['mw-diff-undo'] = $undoLink;
 				}
 			}
 
@@ -387,8 +387,14 @@ class DifferenceEngine extends ContextSource {
 		wfRunHooks( 'DiffRevisionTools', array( $this->mNewRev, &$revisionTools, $this->mOldRev ) );
 		$formattedRevisionTools = array();
 		// Put each one in parentheses (poor man's button)
-		foreach ( $revisionTools as $tool ) {
-			$formattedRevisionTools[] = $this->msg( 'parentheses' )->rawParams( $tool )->escaped();
+		foreach ( $revisionTools as $key => $tool ) {
+			$toolClass = is_string( $key ) ? $key : 'mw-diff-tool';
+			$element = Html::rawElement(
+				'span',
+				array( 'class' => $toolClass ),
+				$this->msg( 'parentheses' )->rawParams( $tool )->escaped()
+			);
+			$formattedRevisionTools[] = $element;
 		}
 		$newRevisionHeader = $this->getRevisionHeader( $this->mNewRev, 'complete' ) .
 			' ' . implode( ' ', $formattedRevisionTools );
@@ -554,7 +560,7 @@ class DifferenceEngine extends ContextSource {
 
 			// NOTE: only needed for B/C: custom rendering of JS/CSS via hook
 			if ( $this->mNewPage->isCssJsSubpage() || $this->mNewPage->isCssOrJsPage() ) {
-				// Stolen from Article::view --AG 2007-10-11
+				// This needs to be synchronised with Article::showCssOrJsPage(), which sucks
 				// Give hooks a chance to customise the output
 				// @todo standardize this crap into one function
 				if ( ContentHandler::runLegacyHooks( 'ShowRawCssJs', array( $this->mNewContent, $this->mNewPage, $out ) ) ) {
@@ -562,8 +568,9 @@ class DifferenceEngine extends ContextSource {
 					// use the content object's own rendering
 					$cnt = $this->mNewRev->getContent();
 					$po = $cnt ? $cnt->getParserOutput( $this->mNewRev->getTitle(), $this->mNewRev->getId() ) : null;
-					$txt = $po ? $po->getText() : '';
-					$out->addHTML( $txt );
+					if ( $po ) {
+						$out->addParserOutputContent( $po );
+					}
 				}
 			} elseif ( !wfRunHooks( 'ArticleContentViewCustom', array( $this->mNewContent, $this->mNewPage, $out ) ) ) {
 				// Handled by extension
@@ -584,19 +591,8 @@ class DifferenceEngine extends ContextSource {
 
 				$parserOutput = $this->getParserOutput( $wikiPage, $this->mNewRev );
 
-				# Also try to load it as a redirect
-				$rt = $this->mNewContent ? $this->mNewContent->getRedirectTarget() : null;
-
-				if ( $rt ) {
-					$article = Article::newFromTitle( $this->mNewPage, $this->getContext() );
-					$out->addHTML( $article->viewRedirect( $rt ) );
-
-					# WikiPage::getParserOutput() should not return false, but just in case
-					if ( $parserOutput ) {
-						# Show categories etc.
-						$out->addParserOutputNoText( $parserOutput );
-					}
-				} elseif ( $parserOutput ) {
+				# WikiPage::getParserOutput() should not return false, but just in case
+				if ( $parserOutput ) {
 					$out->addParserOutput( $parserOutput );
 				}
 			}
@@ -833,8 +829,8 @@ class DifferenceEngine extends ContextSource {
 	 *
 	 * @todo move this to TextDifferenceEngine, make DifferenceEngine abstract. At some point.
 	 *
-	 * @param string $otext old text, must be already segmented
-	 * @param string $ntext new text, must be already segmented
+	 * @param string $otext Old text, must be already segmented
+	 * @param string $ntext New text, must be already segmented
 	 *
 	 * @return bool|string
 	 */
@@ -982,7 +978,7 @@ class DifferenceEngine extends ContextSource {
 		}
 
 		// Sanity: don't show the notice if too many rows must be scanned
-		// @TODO: show some special message for that case
+		// @todo show some special message for that case
 		$nEdits = $this->mNewPage->countRevisionsBetween( $oldRev, $newRev, 1000 );
 		if ( $nEdits > 0 && $nEdits <= 1000 ) {
 			$limit = 100; // use diff-multi-manyusers if too many users
@@ -1062,8 +1058,13 @@ class DifferenceEngine extends ContextSource {
 
 			$key = $title->quickUserCan( 'edit', $user ) ? 'editold' : 'viewsourceold';
 			$msg = $this->msg( $key )->escaped();
-			$header .= ' ' . $this->msg( 'parentheses' )->rawParams(
-				Linker::linkKnown( $title, $msg, array(), $editQuery ) )->plain();
+			$editLink = $this->msg( 'parentheses' )->rawParams(
+				Linker::linkKnown( $title, $msg, array( ), $editQuery ) )->plain();
+			$header .= ' ' . Html::rawElement(
+				'span',
+				array( 'class' => 'mw-diff-edit' ),
+				$editLink
+			);
 			if ( $rev->isDeleted( Revision::DELETED_TEXT ) ) {
 				$header = Html::rawElement(
 					'span',
@@ -1150,6 +1151,8 @@ class DifferenceEngine extends ContextSource {
 
 	/**
 	 * Use specified text instead of loading from the database
+	 * @param Content $oldContent
+	 * @param Content $newContent
 	 * @since 1.21
 	 */
 	public function setContent( Content $oldContent, Content $newContent ) {
@@ -1163,6 +1166,7 @@ class DifferenceEngine extends ContextSource {
 	/**
 	 * Set the language in which the diff text is written
 	 * (Defaults to page content language).
+	 * @param Language|string $lang
 	 * @since 1.19
 	 */
 	public function setTextLanguage( $lang ) {

@@ -32,8 +32,8 @@ class CdbFunctions {
 	 * Take a modulo of a signed integer as if it were an unsigned integer.
 	 * $b must be less than 0x40000000 and greater than 0
 	 *
-	 * @param $a
-	 * @param $b
+	 * @param int $a
+	 * @param int $b
 	 *
 	 * @return int
 	 */
@@ -49,8 +49,8 @@ class CdbFunctions {
 
 	/**
 	 * Shift a signed integer right as if it were unsigned
-	 * @param $a
-	 * @param $b
+	 * @param int $a
+	 * @param int $b
 	 * @return int
 	 */
 	public static function unsignedShiftRight( $a, $b ) {
@@ -67,7 +67,7 @@ class CdbFunctions {
 	/**
 	 * The CDB hash function.
 	 *
-	 * @param $s string
+	 * @param string $s
 	 *
 	 * @return int
 	 */
@@ -101,31 +101,31 @@ class CdbFunctions {
  */
 class CdbReaderPHP extends CdbReader {
 	/** The filename */
-	var $fileName;
+	protected $fileName;
 
 	/* number of hash slots searched under this key */
-	var $loop;
+	protected $loop;
 
 	/* initialized if loop is nonzero */
-	var $khash;
+	protected $khash;
 
 	/* initialized if loop is nonzero */
-	var $kpos;
+	protected $kpos;
 
 	/* initialized if loop is nonzero */
-	var $hpos;
+	protected $hpos;
 
 	/* initialized if loop is nonzero */
-	var $hslots;
+	protected $hslots;
 
 	/* initialized if findNext() returns true */
-	var $dpos;
+	protected $dpos;
 
 	/* initialized if cdb_findnext() returns 1 */
-	var $dlen;
+	protected $dlen;
 
 	/**
-	 * @param $fileName string
+	 * @param string $fileName
 	 * @throws CdbException
 	 */
 	public function __construct( $fileName ) {
@@ -145,7 +145,7 @@ class CdbReaderPHP extends CdbReader {
 	}
 
 	/**
-	 * @param $key
+	 * @param mixed $key
 	 * @return bool|string
 	 */
 	public function get( $key ) {
@@ -158,8 +158,8 @@ class CdbReaderPHP extends CdbReader {
 	}
 
 	/**
-	 * @param $key
-	 * @param $pos
+	 * @param string $key
+	 * @param int $pos
 	 * @return bool
 	 */
 	protected function match( $key, $pos ) {
@@ -174,8 +174,8 @@ class CdbReaderPHP extends CdbReader {
 
 	/**
 	 * @throws CdbException
-	 * @param $length
-	 * @param $pos
+	 * @param int $length
+	 * @param int $pos
 	 * @return string
 	 */
 	protected function read( $length, $pos ) {
@@ -200,7 +200,7 @@ class CdbReaderPHP extends CdbReader {
 
 	/**
 	 * Unpack an unsigned integer and throw an exception if it needs more than 31 bits
-	 * @param $s
+	 * @param string $s
 	 * @throws CdbException
 	 * @return mixed
 	 */
@@ -216,7 +216,7 @@ class CdbReaderPHP extends CdbReader {
 
 	/**
 	 * Unpack a 32-bit signed integer
-	 * @param $s
+	 * @param string $s
 	 * @return int
 	 */
 	protected function unpackSigned( $s ) {
@@ -226,7 +226,7 @@ class CdbReaderPHP extends CdbReader {
 	}
 
 	/**
-	 * @param $key
+	 * @param string $key
 	 * @return bool
 	 */
 	protected function findNext( $key ) {
@@ -274,7 +274,7 @@ class CdbReaderPHP extends CdbReader {
 	}
 
 	/**
-	 * @param $key
+	 * @param mixed $key
 	 * @return bool
 	 */
 	protected function find( $key ) {
@@ -288,11 +288,14 @@ class CdbReaderPHP extends CdbReader {
  * CDB writer class
  */
 class CdbWriterPHP extends CdbWriter {
-	var $hplist;
-	var $numentries, $pos;
+	protected $hplist;
+
+	protected $numentries;
+
+	protected $pos;
 
 	/**
-	 * @param $fileName string
+	 * @param string $fileName
 	 */
 	public function __construct( $fileName ) {
 		$this->realFileName = $fileName;
@@ -344,7 +347,7 @@ class CdbWriterPHP extends CdbWriter {
 
 	/**
 	 * @throws CdbException
-	 * @param $buf
+	 * @param string $buf
 	 */
 	protected function write( $buf ) {
 		$len = fwrite( $this->handle, $buf );
@@ -355,7 +358,7 @@ class CdbWriterPHP extends CdbWriter {
 
 	/**
 	 * @throws CdbException
-	 * @param $len
+	 * @param int $len
 	 */
 	protected function posplus( $len ) {
 		$newpos = $this->pos + $len;
@@ -367,9 +370,9 @@ class CdbWriterPHP extends CdbWriter {
 	}
 
 	/**
-	 * @param $keylen
-	 * @param $datalen
-	 * @param $h
+	 * @param int $keylen
+	 * @param int $datalen
+	 * @param int $h
 	 */
 	protected function addend( $keylen, $datalen, $h ) {
 		$this->hplist[] = array(
@@ -385,8 +388,8 @@ class CdbWriterPHP extends CdbWriter {
 
 	/**
 	 * @throws CdbException
-	 * @param $keylen
-	 * @param $datalen
+	 * @param int $keylen
+	 * @param int $datalen
 	 */
 	protected function addbegin( $keylen, $datalen ) {
 		if ( $keylen > 0x7fffffff ) {
@@ -478,7 +481,7 @@ class CdbWriterPHP extends CdbWriter {
 	/**
 	 * Clean up the temp file and throw an exception
 	 *
-	 * @param $msg string
+	 * @param string $msg
 	 * @throws CdbException
 	 */
 	protected function throwException( $msg ) {

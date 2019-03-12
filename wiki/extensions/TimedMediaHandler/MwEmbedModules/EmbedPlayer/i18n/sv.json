@@ -53,6 +53,7 @@
 	"mwe-embedplayer-ogg-player-h264Native": "HTML5 H.264 spelare",
 	"mwe-embedplayer-ogg-player-webmNative": "HTML5 WebM spelare",
 	"mwe-embedplayer-ogg-player-oggPlugin": "Generiella Ogg-tillägg",
+	"mwe-embedplayer-ogg-player-vlcAppPlayer": "VLC för iOS-app",
 	"mwe-embedplayer-ogg-player-quicktime-mozilla": "QuickTime plugin",
 	"mwe-embedplayer-ogg-player-quicktime-activex": "QuickTime ActiveX",
 	"mwe-embedplayer-ogg-player-flowplayer": "Flowplayer",
@@ -65,7 +66,7 @@
 	"mwe-embedplayer-fullscreen-tip-osx": "Tryck på <b>SKIFT ⌘ f</b> för att växla till helskärm",
 	"mwe-embedplayer-do_not_warn_again": "Visa inte detta meddelande fortsättningsvis",
 	"mwe-embedplayer-playerSelect": "Spelare",
-	"mwe-embedplayer-read_before_embed": "<a href=\"http://mediawiki.org/wiki/Security_Notes_on_Remote_Embedding\" target=\"new\">Läs detta</a> innan inbäddning.",
+	"mwe-embedplayer-read_before_embed": "<a href=\"https://www.mediawiki.org/wiki/Security_Notes_on_Remote_Embedding\" target=\"new\">Läs detta</a> innan inbäddning.",
 	"mwe-embedplayer-embed_site_or_blog": "Bädda in på en sida",
 	"mwe-embedplayer-embed_wiki": "Bädda in på en wiki",
 	"mwe-embedplayer-related_videos": "Relaterade videos",
@@ -80,5 +81,11 @@
 	"mwe-embedplayer-video-3gp": "3GP video",
 	"mwe-embedplayer-video-mpeg": "MPEG video",
 	"mwe-embedplayer-video-msvideo": "AVI video",
-	"mwe-embedplayer-missing-source": "Ingen källvideo hittades"
+	"mwe-embedplayer-missing-source": "Ingen källvideo hittades",
+	"mwe-embedplayer-vlcapp-intro": "I för att visa video från denna webbplats på en iPhone eller iPad, behöver du den kostnadsfria $1.",
+	"mwe-embedplayer-vlcapp-vlcapplinktext": "VLC-app",
+	"mwe-embedplayer-vlcapp-downloadapp": "Ladda ner VLC-appen från App Store",
+	"mwe-embedplayer-vlcapp-openvideo": "Öppna denna video i VLC-appen",
+	"mwe-embedplayer-vlcapp-downloadvideo": "Ladda ner denna video",
+	"mwe-embedplayer-vlcapp-vlcapppopup": "För att spela upp video på denna webbplats, behöver du den kostnadsfria VLC-appen. Installera nu?"
 }

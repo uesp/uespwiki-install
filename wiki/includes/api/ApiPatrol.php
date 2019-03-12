@@ -77,10 +77,6 @@ class ApiPatrol extends ApiBase {
 
 	public function getAllowedParams() {
 		return array(
-			'token' => array(
-				ApiBase::PARAM_TYPE => 'string',
-				ApiBase::PARAM_REQUIRED => true
-			),
 			'rcid' => array(
 				ApiBase::PARAM_TYPE => 'integer'
 			),
@@ -92,19 +88,8 @@ class ApiPatrol extends ApiBase {
 
 	public function getParamDescription() {
 		return array(
-			'token' => 'Patrol token obtained from list=recentchanges',
 			'rcid' => 'Recentchanges ID to patrol',
 			'revid' => 'Revision ID to patrol',
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'rcid' => 'integer',
-				'ns' => 'namespace',
-				'title' => 'string'
-			)
 		);
 	}
 
@@ -112,33 +97,14 @@ class ApiPatrol extends ApiBase {
 		return 'Patrol a page or revision.';
 	}
 
-	public function getPossibleErrors() {
-		return array_merge(
-			parent::getPossibleErrors(),
-			parent::getRequireOnlyOneParameterErrorMessages( array( 'rcid', 'revid' ) ),
-			array(
-				array( 'nosuchrcid', 'rcid' ),
-				array( 'nosuchrevid', 'revid' ),
-				array(
-					'code' => 'notpatrollable',
-					'info' => "The revision can't be patrolled as it's too old"
-				)
-			)
-		);
-	}
-
 	public function needsToken() {
-		return true;
-	}
-
-	public function getTokenSalt() {
 		return 'patrol';
 	}
 
 	public function getExamples() {
 		return array(
-			'api.php?action=patrol&token=123abc&rcid=230672766',
-			'api.php?action=patrol&token=123abc&revid=230672766'
+			'api.php?action=patrol&token=123ABC&rcid=230672766',
+			'api.php?action=patrol&token=123ABC&revid=230672766'
 		);
 	}
 

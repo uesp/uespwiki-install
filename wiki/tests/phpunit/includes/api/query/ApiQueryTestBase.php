@@ -34,7 +34,7 @@ STR;
 
 	/**
 	 * Merges all requests parameter + expected values into one
-	 * @param ... list of arrays, each of which contains exactly two
+	 * @param array $v,... List of arrays, each of which contains exactly two
 	 * @return array
 	 */
 	protected function merge( /*...*/ ) {
@@ -52,6 +52,8 @@ STR;
 	/**
 	 * Check that the parameter is a valid two element array,
 	 * with the first element being API request and the second - expected result
+	 * @param array $v
+	 * @return array
 	 */
 	private function validateRequestExpectedPair( $v ) {
 		$this->assertType( 'array', $v, self::PARAM_ASSERT );
@@ -66,6 +68,8 @@ STR;
 
 	/**
 	 * Recursively merges the expected values in the $item into the $all
+	 * @param array &$all
+	 * @param array $item
 	 */
 	private function mergeExpected( &$all, $item ) {
 		foreach ( $item as $k => $v ) {
@@ -83,7 +87,7 @@ STR;
 
 	/**
 	 * Checks that the request's result matches the expected results.
-	 * @param $values array is a two element array( request, expected_results )
+	 * @param array $values Array is a two element array( request, expected_results )
 	 * @throws Exception
 	 */
 	protected function check( $values ) {

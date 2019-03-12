@@ -15,6 +15,8 @@
 	 * @private
 	 */
 	function insertButton( b, speedTip, tagOpen, tagClose, sampleText, imageId ) {
+		var $button;
+
 		// Backwards compatibility
 		if ( typeof b !== 'object' ) {
 			b = {
@@ -26,24 +28,39 @@
 				imageId: imageId
 			};
 		}
-		var $image = $( '<img>' ).attr( {
-			width: 23,
-			height: 22,
+
+		if ( b.imageFile ) {
+			$button = $( '<img>' ).attr( {
 			src: b.imageFile,
 			alt: b.speedTip,
 			title: b.speedTip,
 			id: b.imageId || undefined,
 			'class': 'mw-toolbar-editbutton'
-		} ).click( function () {
-			toolbar.insertTags( b.tagOpen, b.tagClose, b.sampleText );
+			} );
+		} else {
+			$button = $( '<div>' ).attr( {
+				title: b.speedTip,
+				id: b.imageId || undefined,
+				'class': 'mw-toolbar-editbutton'
+			} );
+		}
+
+		$button.click( function ( e ) {
+			if ( b.onClick !== undefined ) {
+				b.onClick( e );
+			} else {
+				toolbar.insertTags( b.tagOpen, b.tagClose, b.sampleText );
+			}
+
 			return false;
 		} );
 
-		$toolbar.append( $image );
+		$toolbar.append( $button );
 	}
 
 	isReady = false;
 	$toolbar = false;
+
 	/**
 	 * @private
 	 * @property {Array}
@@ -62,16 +79,22 @@
 		 * by placing buttons in a queue if this method is called before
 		 * the toolbar is created.
 		 *
-		 * For compatiblity, passing the properties listed below as separate arguments
-		 * (in the listed order) is also supported.
+		 * For backwards-compatibility, passing `imageFile`, `speedTip`, `tagOpen`, `tagClose`,
+		 * `sampleText` and `imageId` as separate arguments (in this order) is also supported.
 		 *
-		 * @param {Object} button Object with the following properties:
-		 * @param {string} button.imageFile
-		 * @param {string} button.speedTip
-		 * @param {string} button.tagOpen
-		 * @param {string} button.tagClose
-		 * @param {string} button.sampleText
-		 * @param {string} [button.imageId]
+		 * @param {Object} button Object with the following properties.
+		 *  You are required to provide *either* the `onClick` parameter, or the three parameters
+		 *  `tagOpen`, `tagClose` and `sampleText`, but not both (they're mutually exclusive).
+		 * @param {string} [button.imageFile] Image to use for the button.
+		 * @param {string} button.speedTip Tooltip displayed when user mouses over the button.
+		 * @param {Function} [button.onClick] Function to be executed when the button is clicked.
+		 * @param {string} [button.tagOpen]
+		 * @param {string} [button.tagClose]
+		 * @param {string} [button.sampleText] Alternative to `onClick`. `tagOpen`, `tagClose` and
+		 *  `sampleText` together provide the markup that should be inserted into page text at
+		 *  current cursor position.
+		 * @param {string} [button.imageId] `id` attribute of the button HTML element. Can be
+         *  used to define the image with CSS if it's not provided as `imageFile`.
 		 */
 		addButton: function () {
 			if ( isReady ) {
@@ -82,7 +105,10 @@
 			}
 		},
 		/**
+		 * Add multiple buttons to the toolbar (see also #addButton).
+		 *
 		 * Example usage:
+		 *
 		 *     addButtons( [ { .. }, { .. }, { .. } ] );
 		 *     addButtons( { .. }, { .. } );
 		 *
@@ -179,13 +205,13 @@
 			}
 			$editForm.submit( function () {
 				scrollTop.value = editBox.scrollTop;
-			});
+			} );
 		}
 
 		// Apply to dynamically created textboxes as well as normal ones
 		$( document ).on( 'focus', 'textarea, input:text', function () {
 			$currentFocused = $( this );
 		} );
-	});
+	} );
 
 }( mediaWiki, jQuery ) );

@@ -54,6 +54,11 @@ $wgTitleBlacklistSources = array();
  */
 $wgTitleBlacklistUsernameSources = '*';
 
+/**
+ * Log blacklist hits to Special:Log
+ */
+$wgTitleBlacklistLogHits = false;
+
 $wgTitleBlacklistCaching = array(
 	'warningchance' => 100,
 	'expiry' => 900,
@@ -71,10 +76,10 @@ $wgAvailableRights[] = 'tboverride-account'; // For account creation
 $wgGroupPermissions['sysop']['tboverride'] = true;
 
 $wgHooks['getUserPermissionsErrorsExpensive'][] = 'TitleBlacklistHooks::userCan';
+$wgHooks['TitleGetEditNotices'][] = 'TitleBlacklistHooks::displayBlacklistOverrideNotice';
 $wgHooks['AbortMove'][] = 'TitleBlacklistHooks::abortMove';
 $wgHooks['AbortNewAccount'][] = 'TitleBlacklistHooks::abortNewAccount';
 $wgHooks['AbortAutoAccount'][] = 'TitleBlacklistHooks::abortNewAccount';
-$wgHooks['CentralAuthAutoCreate'][] = 'TitleBlacklistHooks::centralAuthAutoCreate';
 $wgHooks['EditFilter'][] = 'TitleBlacklistHooks::validateBlacklist';
 $wgHooks['ArticleSaveComplete'][] = 'TitleBlacklistHooks::clearBlacklist';
 $wgHooks['UserCreateForm'][] = 'TitleBlacklistHooks::addOverrideCheckbox';
@@ -88,6 +93,12 @@ $wgHooks['ScribuntoExternalLibraries'][] = function( $engine, array &$extraLibra
 	}
 	return true;
 };
+
+$wgLogTypes[] = 'titleblacklist';
+$wgLogActionsHandlers['titleblacklist/*'] = 'LogFormatter';
+$wgLogRestrictions['titleblacklist'] = 'titleblacklistlog';
+$wgGroupPermissions['sysop']['titleblacklistlog'] = true;
+$wgAvailableRights[] = 'titleblacklistlog';
 
 $wgResourceModules['mediawiki.api.titleblacklist'] = array(
 	'scripts' => 'mediawiki.api.titleblacklist.js',

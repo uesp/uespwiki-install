@@ -62,9 +62,10 @@ class JobQueueRedis extends JobQueue {
 
 	/** @var string Server address */
 	protected $server;
-
 	/** @var string Compression method to use */
 	protected $compression;
+	/** @var bool */
+	protected $daemonized;
 
 	const MAX_AGE_PRUNE = 604800; // integer; seconds a job can live once claimed (7 days)
 
@@ -72,24 +73,16 @@ class JobQueueRedis extends JobQueue {
 	protected $key;
 
 	/**
-	 * @var null|int maximum seconds between execution of periodic tasks.  Used to speed up
-	 * testing but should otherwise be left unset.
-	 */
-	protected $maximumPeriodicTaskSeconds;
-
-	/**
-	 * @params include:
+	 * @param array $params Possible keys:
 	 *   - redisConfig : An array of parameters to RedisConnectionPool::__construct().
 	 *                   Note that the serializer option is ignored as "none" is always used.
 	 *   - redisServer : A hostname/port combination or the absolute path of a UNIX socket.
 	 *                   If a hostname is specified but no port, the standard port number
 	 *                   6379 will be used. Required.
 	 *   - compression : The type of compression to use; one of (none,gzip).
-	 *   - maximumPeriodicTaskSeconds : Maximum seconds between check periodic tasks.  Set to
-	 *                   force faster execution of periodic tasks for inegration tests that
-	 *                   rely on checkDelay.  Without this the integration tests are very very
-	 *                   slow.  This really shouldn't be set in production.
-	 * @param array $params
+	 *   - daemonized  : Set to true if the redisJobRunnerService runs in the background.
+	 *                   This will disable job recycling/undelaying from the MediaWiki side
+	 *                   to avoid redundance and out-of-sync configuration.
 	 */
 	public function __construct( array $params ) {
 		parent::__construct( $params );
@@ -97,8 +90,7 @@ class JobQueueRedis extends JobQueue {
 		$this->server = $params['redisServer'];
 		$this->compression = isset( $params['compression'] ) ? $params['compression'] : 'none';
 		$this->redisPool = RedisConnectionPool::singleton( $params['redisConfig'] );
-		$this->maximumPeriodicTaskSeconds = isset( $params['maximumPeriodicTaskSeconds'] ) ?
-			$params['maximumPeriodicTaskSeconds'] : null;
+		$this->daemonized = !empty( $params['daemonized'] );
 	}
 
 	protected function supportedOrders() {
@@ -194,8 +186,8 @@ class JobQueueRedis extends JobQueue {
 	/**
 	 * @see JobQueue::doBatchPush()
 	 * @param array $jobs
-	 * @param $flags
-	 * @return bool
+	 * @param int $flags
+	 * @return void
 	 * @throws JobQueueError
 	 */
 	protected function doBatchPush( array $jobs, $flags ) {
@@ -211,7 +203,7 @@ class JobQueueRedis extends JobQueue {
 		}
 
 		if ( !count( $items ) ) {
-			return true; // nothing to do
+			return; // nothing to do
 		}
 
 		$conn = $this->getConnection();
@@ -235,7 +227,7 @@ class JobQueueRedis extends JobQueue {
 			if ( $failed > 0 ) {
 				wfDebugLog( 'JobQueueRedis', "Could not insert {$failed} {$this->type} job(s)." );
 
-				return false;
+				throw new RedisException( "Could not insert {$failed} {$this->type} job(s)." );
 			}
 			JobQueue::incrStats( 'job-insert', $this->type, count( $items ), $this->wiki );
 			JobQueue::incrStats( 'job-insert-duplicate', $this->type,
@@ -243,8 +235,6 @@ class JobQueueRedis extends JobQueue {
 		} catch ( RedisException $e ) {
 			$this->throwRedisException( $conn, $e );
 		}
-
-		return true;
 	}
 
 	/**
@@ -327,7 +317,7 @@ LUA;
 				} else {
 					$blob = $this->popAndDeleteBlob( $conn );
 				}
-				if ( $blob === false ) {
+				if ( !is_string( $blob ) ) {
 					break; // no jobs; nothing to do
 				}
 
@@ -350,7 +340,7 @@ LUA;
 
 	/**
 	 * @param RedisConnRef $conn
-	 * @return array serialized string or false
+	 * @return array Serialized string or false
 	 * @throws RedisException
 	 */
 	protected function popAndDeleteBlob( RedisConnRef $conn ) {
@@ -383,7 +373,7 @@ LUA;
 
 	/**
 	 * @param RedisConnRef $conn
-	 * @return array serialized string or false
+	 * @return array Serialized string or false
 	 * @throws RedisException
 	 */
 	protected function popAndAcquireBlob( RedisConnRef $conn ) {
@@ -614,8 +604,8 @@ LUA;
 	/**
 	 * This function should not be called outside JobQueueRedis
 	 *
-	 * @param $uid string
-	 * @param $conn RedisConnRef
+	 * @param string $uid
+	 * @param RedisConnRef $conn
 	 * @return Job|bool Returns false if the job does not exist
 	 * @throws MWException|JobQueueError
 	 */
@@ -717,6 +707,7 @@ LUA;
 				$count += $released + $pruned + $undelayed;
 				JobQueue::incrStats( 'job-recycle', $this->type, $released, $this->wiki );
 				JobQueue::incrStats( 'job-abandon', $this->type, $abandoned, $this->wiki );
+				JobQueue::incrStats( 'job-undelay', $this->type, $undelayed, $this->wiki );
 			}
 		} catch ( RedisException $e ) {
 			$this->throwRedisException( $conn, $e );
@@ -729,6 +720,9 @@ LUA;
 	 * @return array
 	 */
 	protected function doGetPeriodicTasks() {
+		if ( $this->daemonized ) {
+			return array(); // managed in the runner loop
+		}
 		$periods = array( 3600 ); // standard cleanup (useful on config change)
 		if ( $this->claimTTL > 0 ) {
 			$periods[] = ceil( $this->claimTTL / 2 ); // avoid bad timing
@@ -738,10 +732,7 @@ LUA;
 		}
 		$period = min( $periods );
 		$period = max( $period, 30 ); // sanity
-		// Support override for faster testing
-		if ( $this->maximumPeriodicTaskSeconds !== null ) {
-			$period = min( $period, $this->maximumPeriodicTaskSeconds );
-		}
+
 		return array(
 			'recyclePruneAndUndelayJobs' => array(
 				'callback' => array( $this, 'recyclePruneAndUndelayJobs' ),
@@ -773,7 +764,7 @@ LUA;
 	}
 
 	/**
-	 * @param $fields array
+	 * @param array $fields
 	 * @return Job|bool
 	 */
 	protected function getJobFromFields( array $fields ) {
@@ -840,8 +831,8 @@ LUA;
 	}
 
 	/**
-	 * @param $conn RedisConnRef
-	 * @param $e RedisException
+	 * @param RedisConnRef $conn
+	 * @param RedisException $e
 	 * @throws JobQueueError
 	 */
 	protected function throwRedisException( RedisConnRef $conn, $e ) {
@@ -850,8 +841,8 @@ LUA;
 	}
 
 	/**
-	 * @param $prop string
-	 * @param $type string|null
+	 * @param string $prop
+	 * @param string|null $type
 	 * @return string
 	 */
 	private function getQueueKey( $prop, $type = null ) {
@@ -865,7 +856,7 @@ LUA;
 	}
 
 	/**
-	 * @param $key string
+	 * @param string $key
 	 * @return void
 	 */
 	public function setTestingPrefix( $key ) {

@@ -26,38 +26,12 @@
  * @file
  */
 
-# Protect against register_globals
+# Die if register_globals is enabled (PHP <=5.3)
 # This must be done before any globals are set by the code
 if ( ini_get( 'register_globals' ) ) {
-	if ( isset( $_REQUEST['GLOBALS'] ) || isset( $_FILES['GLOBALS'] ) ) {
-		die( '<a href="http://www.hardened-php.net/globals-problem">$GLOBALS overwrite vulnerability</a>' );
-	}
-	$verboten = array(
-		'GLOBALS',
-		'_SERVER',
-		'HTTP_SERVER_VARS',
-		'_GET',
-		'HTTP_GET_VARS',
-		'_POST',
-		'HTTP_POST_VARS',
-		'_COOKIE',
-		'HTTP_COOKIE_VARS',
-		'_FILES',
-		'HTTP_POST_FILES',
-		'_ENV',
-		'HTTP_ENV_VARS',
-		'_REQUEST',
-		'_SESSION',
-		'HTTP_SESSION_VARS'
-	);
-	foreach ( $_REQUEST as $name => $value ) {
-		if ( in_array( $name, $verboten ) ) {
-			header( "HTTP/1.1 500 Internal Server Error" );
-			echo "register_globals security paranoia: trying to overwrite superglobals, aborting.";
-			die( -1 );
-		}
-		unset( $GLOBALS[$name] );
-	}
+	die( 'MediaWiki does not support installations where register_globals is enabled. '
+		. 'Please see <a href="https://www.mediawiki.org/wiki/register_globals">mediawiki.org</a> '
+		. 'for help on how to disable it.' );
 }
 
 # bug 15461: Make IE8 turn off content sniffing. Everybody else should ignore this
@@ -66,12 +40,6 @@ if ( ini_get( 'register_globals' ) ) {
 header( 'X-Content-Type-Options: nosniff' );
 
 $wgRequestTime = microtime( true );
-# getrusage() does not exist on the Microsoft Windows platforms, catching this
-if ( function_exists ( 'getrusage' ) ) {
-	$wgRUstart = getrusage();
-} else {
-	$wgRUstart = array();
-}
 unset( $IP );
 
 # Valid web server entry point, enable includes.
@@ -87,21 +55,18 @@ define( 'MEDIAWIKI', true );
 # if we don't have permissions on parent directories.
 $IP = getenv( 'MW_INSTALL_PATH' );
 if ( $IP === false ) {
-	if ( realpath( '.' ) ) {
-		$IP = realpath( '.' );
-	} else {
-		$IP = dirname( __DIR__ );
-	}
+	$IP = realpath( '.' ) ?: dirname( __DIR__ );
 }
+
+# Load the profiler
+require_once "$IP/includes/profiler/Profiler.php";
+$wgRUstart = wfGetRusage() ?: array();
 
 # Start the autoloader, so that extensions can derive classes from core files
 require_once "$IP/includes/AutoLoader.php";
 
 # Load global functions
 require_once "$IP/includes/GlobalFunctions.php";
-
-# Load the profiler
-require_once "$IP/includes/profiler/Profiler.php";
 
 # Load up some global defines.
 require_once "$IP/includes/Defines.php";

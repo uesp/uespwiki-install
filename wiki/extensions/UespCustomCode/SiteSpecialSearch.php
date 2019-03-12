@@ -5,13 +5,6 @@
 global $IP;
 require_once "$IP/includes/specials/SpecialSearch.php";
 
-function efSiteSpecialSearch( $par = '') {
-	global $wgRequest, $wgUser, $wgOut;
-
-	$searchPage = new SiteSpecialSearch( $wgRequest, $wgUser );
-
-	$searchPage->execute( $par );
-}
 
 class SiteSpecialSearch extends SpecialSearch {
 
@@ -62,10 +55,8 @@ class SiteSpecialSearch extends SpecialSearch {
 	protected function powerSearchBox ($term, $opts)
 	{
 		$checked_data = array();
-		$checked_redirects = "";
 		$checked_talkpages = "";
 
-		if ( $this->searchRedirects ) $checked_redirects = 'checked="checked"';
 		if ( $this->searchTalkPages ) $checked_talkpages = 'checked="checked"';
 
 			//See which namespace boxes to check
@@ -78,6 +69,15 @@ class SiteSpecialSearch extends SpecialSearch {
 
 		}
 
+		$remember_token = "";
+		$user = $this->getUser();
+		if ( $user->isLoggedIn() ) {
+			$remember_token = $user->getEditToken(
+				'searchnamespace',
+				$this->getRequest()
+			);
+		}
+		
 		$result = <<< UESP_EOT
 
 <fieldset id="mw-searchoptions" style="margin:0em;"><legend>Advanced search</legend>
@@ -91,13 +91,15 @@ class SiteSpecialSearch extends SpecialSearch {
 	</tr><tr>
 		<td>&nbsp;</td>
 	</tr><tr>
-		<td><b>Other ES</b></td>
-	</tr><tr>		
-		<td style="white-space: nowrap"><input name="ns140" type="checkbox" value="1" $checked_data[140] id="mw-search-ns140" />&#160;<label for="mw-search-ns140">Books</label></td>
+		<td><b>Other TES</b></td>
+	</tr><tr>
+		<td style="white-space: nowrap"><input name="ns152" type="checkbox" value="1" $checked_data[152] id="mw-search-ns152" />&#160;<label for="mw-search-ns152">Blades</label></td>
 	</tr><tr>
 		<td style="white-space: nowrap"><input name="ns150" type="checkbox" value="1" $checked_data[150] id="mw-search-ns150" />&#160;<label for="mw-search-ns150">Legends</label></td>
 	</tr><tr>
 		<td style="white-space: nowrap"><input name="ns130" type="checkbox" value="1" $checked_data[130] id="mw-search-ns130" />&#160;<label for="mw-search-ns130">Lore</label></td>
+	</tr><tr>		
+		<td style="white-space: nowrap"><input name="ns140" type="checkbox" value="1" $checked_data[140] id="mw-search-ns140" />&#160;<label for="mw-search-ns140">Books</label></td>
 	</tr>
 </table>
 <table cellpadding="0" cellspacing="0" border="0">
@@ -137,19 +139,6 @@ class SiteSpecialSearch extends SpecialSearch {
 </table>
 <table cellpadding="0" cellspacing="0" border="0">
 	<tr>
-		<td><b>Mobile</b></td>
-	</tr><tr>
-		<td style="white-space: nowrap"><input name="ns132" type="checkbox" value="1" $checked_data[132] id="mw-search-ns132" />&#160;<label for="mw-search-ns132">Dawnstar</label></td>
-	</tr><tr>		
-		<td style="white-space: nowrap"><input name="ns138" type="checkbox" value="1" $checked_data[138] id="mw-search-ns138" />&#160;<label for="mw-search-ns138">Stormhold</label></td>
-	</tr><tr>
-		<td style="white-space: nowrap"><input name="ns128" type="checkbox" value="1" $checked_data[128] id="mw-search-ns128" />&#160;<label for="mw-search-ns128">Shadowkey</label></td>
-	</tr><tr>		
-		<td style="white-space: nowrap"><input name="ns136" type="checkbox" value="1" $checked_data[136] id="mw-search-ns136" />&#160;<label for="mw-search-ns136">OBMobile</label></td>				
-	</tr>
-</table>
-<table cellpadding="0" cellspacing="0" border="0">
-	<tr>
 		<td><b>Older Games</b></td>
 	</tr><tr>
 		<td style="white-space: nowrap"><input name="ns108" type="checkbox" value="1" $checked_data[108] id="mw-search-ns108" />&#160;<label for="mw-search-ns108">Redguard</label></td>
@@ -159,6 +148,19 @@ class SiteSpecialSearch extends SpecialSearch {
 		<td style="white-space: nowrap"><input name="ns104" type="checkbox" value="1" $checked_data[104] id="mw-search-ns104" />&#160;<label for="mw-search-ns104">Daggerfall</label></td>
 	</tr><tr>		
 		<td style="white-space: nowrap"><input name="ns102" type="checkbox" value="1" $checked_data[102] id="mw-search-ns102" />&#160;<label for="mw-search-ns102">Arena</label></td>
+	</tr>
+</table>
+<table cellpadding="0" cellspacing="0" border="0">
+	<tr>
+		<td><b>TES Travels</b></td>
+	</tr><tr>		
+		<td style="white-space: nowrap"><input name="ns136" type="checkbox" value="1" $checked_data[136] id="mw-search-ns136" />&#160;<label for="mw-search-ns136">OBMobile</label></td>				
+	</tr><tr>
+		<td style="white-space: nowrap"><input name="ns128" type="checkbox" value="1" $checked_data[128] id="mw-search-ns128" />&#160;<label for="mw-search-ns128">Shadowkey</label></td>
+	</tr><tr>
+		<td style="white-space: nowrap"><input name="ns132" type="checkbox" value="1" $checked_data[132] id="mw-search-ns132" />&#160;<label for="mw-search-ns132">Dawnstar</label></td>
+	</tr><tr>		
+		<td style="white-space: nowrap"><input name="ns138" type="checkbox" value="1" $checked_data[138] id="mw-search-ns138" />&#160;<label for="mw-search-ns138">Stormhold</label></td>
 	</tr>
 </table>
 <table cellpadding="0" cellspacing="0" border="0">
@@ -185,7 +187,7 @@ class SiteSpecialSearch extends SpecialSearch {
 <div class="divider"></div>
 <input name="talkpages" type="checkbox" value="1" $checked_talkpages id="mw-search-ns-talkpages" />&#160;<label for="talkpages">Talk Pages</label>
 &nbsp;	
-<input name="redirs" type="checkbox" value="1" $checked_redirects id="redirs" />&#160;<label for="redirs">List redirects</label>
+<input name="nsRemember" type="checkbox" value=$remember_token id="mw-search-powersearch-remember" />&#160;<label for="mw-search-powersearch-remember">Remember selection for future searches</label>
 <input type="hidden" value="advanced" name="profile" />
 <div id="mw-search-togglebox"></div>
 </fieldset>

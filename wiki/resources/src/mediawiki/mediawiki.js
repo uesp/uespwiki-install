@@ -7,13 +7,13 @@
  * @alternateClassName mediaWiki
  * @singleton
  */
-
-var mw = ( function ( $, undefined ) {
+( function ( $ ) {
 	'use strict';
 
 	/* Private Members */
 
-	var hasOwn = Object.prototype.hasOwnProperty,
+	var mw,
+		hasOwn = Object.prototype.hasOwnProperty,
 		slice = Array.prototype.slice,
 		trackCallbacks = $.Callbacks( 'memory' ),
 		trackQueue = [];
@@ -371,7 +371,7 @@ var mw = ( function ( $, undefined ) {
 	/**
 	 * @class mw
 	 */
-	return {
+	mw = {
 		/* Public Members */
 
 		/**
@@ -471,7 +471,7 @@ var mw = ( function ( $, undefined ) {
 		 *
 		 * This was reserved for future use but never ended up being used.
 		 *
-		 * @deprecated since 1.22: Let deprecated identifiers keep their original name
+		 * @deprecated since 1.22 Let deprecated identifiers keep their original name
 		 *  and use mw.log#deprecate to create an access container for tracking.
 		 * @property
 		 */
@@ -607,11 +607,16 @@ var mw = ( function ( $, undefined ) {
 			 * Format:
 			 *     {
 			 *         'moduleName': {
+			 *             // At registry
 			 *             'version': ############## (unix timestamp),
 			 *             'dependencies': ['required.foo', 'bar.also', ...], (or) function () {}
 			 *             'group': 'somegroup', (or) null,
 			 *             'source': 'local', 'someforeignwiki', (or) null
 			 *             'state': 'registered', 'loaded', 'loading', 'ready', 'error' or 'missing'
+			 *             'skip': 'return !!window.Example', (or) null
+			 *
+			 *             // Added during implementation
+			 *             'skipped': true,
 			 *             'script': ...,
 			 *             'style': ...,
 			 *             'messages': { 'key': 'value' },
@@ -623,12 +628,10 @@ var mw = ( function ( $, undefined ) {
 			 */
 			var registry = {},
 				//
-				// Mapping of sources, keyed by source-id, values are objects.
+				// Mapping of sources, keyed by source-id, values are strings.
 				// Format:
 				//	{
-				//		'sourceId': {
-				//			'loadScript': 'http://foo.bar/w/load.php'
-				//		}
+				//		'sourceId': 'http://foo.bar/w/load.php'
 				//	}
 				//
 				sources = {},
@@ -648,18 +651,14 @@ var mw = ( function ( $, undefined ) {
 			/* Private methods */
 
 			function getMarker() {
-				// Cached ?
-				if ( $marker ) {
-					return $marker;
+				// Cached
+				if ( !$marker ) {
+					$marker = $( 'meta[name="ResourceLoaderDynamicStyles"]' );
+					if ( !$marker.length ) {
+						mw.log( 'No <meta name="ResourceLoaderDynamicStyles"> found, inserting dynamically' );
+						$marker = $( '<meta>' ).attr( 'name', 'ResourceLoaderDynamicStyles' ).appendTo( 'head' );
+					}
 				}
-
-				$marker = $( 'meta[name="ResourceLoaderDynamicStyles"]' );
-				if ( $marker.length ) {
-					return $marker;
-				}
-				mw.log( 'getMarker> No <meta name="ResourceLoaderDynamicStyles"> found, inserting dynamically.' );
-				$marker = $( '<meta>' ).attr( 'name', 'ResourceLoaderDynamicStyles' ).appendTo( 'head' );
-
 				return $marker;
 			}
 
@@ -786,7 +785,7 @@ var mw = ( function ( $, undefined ) {
 							try {
 								styleEl.styleSheet.cssText += cssText; // IE
 							} catch ( e ) {
-								log( 'addEmbeddedCSS fail', e );
+								log( 'Stylesheet error', e );
 							}
 						} else {
 							styleEl.appendChild( document.createTextNode( String( cssText ) ) );
@@ -832,11 +831,25 @@ var mw = ( function ( $, undefined ) {
 			 * @throws {Error} If any unregistered module or a dependency loop is encountered
 			 */
 			function sortDependencies( module, resolved, unresolved ) {
-				var n, deps, len;
+				var n, deps, len, skip;
 
 				if ( registry[module] === undefined ) {
 					throw new Error( 'Unknown dependency: ' + module );
 				}
+
+				if ( registry[module].skip !== null ) {
+					/*jshint evil:true */
+					skip = new Function( registry[module].skip );
+					registry[module].skip = null;
+					if ( skip() ) {
+						registry[module].skipped = true;
+						registry[module].dependencies = [];
+						registry[module].state = 'ready';
+						handlePending( module );
+						return;
+					}
+				}
+
 				// Resolves dynamic loader function and replaces it with its own results
 				if ( $.isFunction( registry[module].dependencies ) ) {
 					registry[module].dependencies = registry[module].dependencies();
@@ -1015,7 +1028,7 @@ var mw = ( function ( $, undefined ) {
 						} catch ( e ) {
 							// A user-defined callback raised an exception.
 							// Swallow it to protect our state machine!
-							log( 'Exception thrown by job.error', e );
+							log( 'Exception thrown by user callback', e );
 						}
 					}
 				}
@@ -1043,71 +1056,26 @@ var mw = ( function ( $, undefined ) {
 			 *  Ignored (and defaulted to `true`) if the document-ready event has already occurred.
 			 */
 			function addScript( src, callback, async ) {
-				/*jshint evil:true */
-				var script, head, done;
-
-				// Using isReady directly instead of storing it locally from
-				// a $.fn.ready callback (bug 31895).
+				// Using isReady directly instead of storing it locally from a $().ready callback (bug 31895)
 				if ( $.isReady || async ) {
-					// Can't use jQuery.getScript because that only uses <script> for cross-domain,
-					// it uses XHR and eval for same-domain scripts, which we don't want because it
-					// messes up line numbers.
-					// The below is based on jQuery ([jquery@1.9.1]/src/ajax/script.js)
-
-					// IE-safe way of getting an append target. In old IE document.head isn't supported
-					// and its getElementsByTagName can't find <head> until </head> is parsed.
-					done = false;
-					head = document.head || document.getElementsByTagName( 'head' )[0] || document.documentElement;
-
-					script = document.createElement( 'script' );
-					script.async = true;
-					script.src = src;
-					if ( $.isFunction( callback ) ) {
-						script.onload = script.onreadystatechange = function () {
-							if (
-								!done
-								&& (
-									!script.readyState
-									|| /loaded|complete/.test( script.readyState )
-								)
-							) {
-								done = true;
-
-								// Handle memory leak in IE
-								script.onload = script.onreadystatechange = null;
-
-								// Detach the element from the document
-								if ( script.parentNode ) {
-									script.parentNode.removeChild( script );
-								}
-
-								// Dereference the element from javascript
-								script = undefined;
-
-								callback();
-							}
-						};
-					}
-
-					if ( window.opera ) {
-						// Appending to the <head> blocks rendering completely in Opera,
-						// so append to the <body> after document ready. This means the
-						// scripts only start loading after the document has been rendered,
-						// but so be it. Opera users don't deserve faster web pages if their
-						// browser makes it impossible.
-						$( function () {
-							document.body.appendChild( script );
-						} );
-					} else {
-						// Circumvent IE6 bugs with base elements (jqbug.com/2709, jqbug.com/4378)
-						// by prepending instead of appending.
-						head.insertBefore( script, head.firstChild );
-					}
+					$.ajax( {
+						url: src,
+						dataType: 'script',
+						// Force jQuery behaviour to be for crossDomain. Otherwise jQuery would use
+						// XHR for a same domain request instead of <script>, which changes the request
+						// headers (potentially missing a cache hit), and reduces caching in general
+						// since browsers cache XHR much less (if at all). And XHR means we retreive
+						// text, so we'd need to $.globalEval, which then messes up line numbers.
+						crossDomain: true,
+						cache: true,
+						async: true
+					} ).always( callback );
 				} else {
+					/*jshint evil:true */
 					document.write( mw.html.element( 'script', { 'src': src }, '' ) );
-					if ( $.isFunction( callback ) ) {
-						// Document.write is synchronous, so this is called when it's done
-						// FIXME: that's a lie. doc.write isn't actually synchronous
+					if ( callback ) {
+						// Document.write is synchronous, so this is called when it's done.
+						// FIXME: That's a lie. doc.write isn't actually synchronous.
 						callback();
 					}
 				}
@@ -1508,7 +1476,7 @@ var mw = ( function ( $, undefined ) {
 
 					for ( source in splits ) {
 
-						sourceLoadScript = sources[source].loadScript;
+						sourceLoadScript = sources[source];
 
 						for ( group in splits[source] ) {
 
@@ -1540,9 +1508,11 @@ var mw = ( function ( $, undefined ) {
 							for ( i = 0; i < modules.length; i += 1 ) {
 								// Determine how many bytes this module would add to the query string
 								lastDotIndex = modules[i].lastIndexOf( '.' );
-								// Note that these substr() calls work even if lastDotIndex == -1
+
+								// If lastDotIndex is -1, substr() returns an empty string
 								prefix = modules[i].substr( 0, lastDotIndex );
-								suffix = modules[i].substr( lastDotIndex + 1 );
+								suffix = modules[i].slice( lastDotIndex + 1 );
+
 								bytesAdded = moduleMap[prefix] !== undefined
 									? suffix.length + 3 // '%2C'.length == 3
 									: modules[i].length + 3; // '%7C'.length == 3
@@ -1582,15 +1552,14 @@ var mw = ( function ( $, undefined ) {
 				 *
 				 * The #work method will use this information to split up requests by source.
 				 *
-				 *     mw.loader.addSource( 'mediawikiwiki', { loadScript: '//www.mediawiki.org/w/load.php' } );
+				 *     mw.loader.addSource( 'mediawikiwiki', '//www.mediawiki.org/w/load.php' );
 				 *
 				 * @param {string} id Short string representing a source wiki, used internally for
 				 *  registered modules to indicate where they should be loaded from (usually lowercase a-z).
-				 * @param {Object} props
-				 * @param {string} props.loadScript Url to the load.php entry point of the source wiki.
+				 * @param {Object|string} loadUrl load.php url, may be an object for backwards-compatibility
 				 * @return {boolean}
 				 */
-				addSource: function ( id, props ) {
+				addSource: function ( id, loadUrl ) {
 					var source;
 					// Allow multiple additions
 					if ( typeof id === 'object' ) {
@@ -1604,7 +1573,11 @@ var mw = ( function ( $, undefined ) {
 						throw new Error( 'source already registered: ' + id );
 					}
 
-					sources[id] = props;
+					if ( typeof loadUrl === 'object' ) {
+						loadUrl = loadUrl.loadScript;
+					}
+
+					sources[id] = loadUrl;
 
 					return true;
 				},
@@ -1619,8 +1592,9 @@ var mw = ( function ( $, undefined ) {
 				 *  names on which this module depends, or a function that returns that array.
 				 * @param {string} [group=null] Group which the module is in
 				 * @param {string} [source='local'] Name of the source
+				 * @param {string} [skip=null] Script body of the skip function
 				 */
-				register: function ( module, version, dependencies, group, source ) {
+				register: function ( module, version, dependencies, group, source, skip ) {
 					var m;
 					// Allow multiple registration
 					if ( typeof module === 'object' ) {
@@ -1647,8 +1621,9 @@ var mw = ( function ( $, undefined ) {
 						version: version !== undefined ? parseInt( version, 10 ) : 0,
 						dependencies: [],
 						group: typeof group === 'string' ? group : null,
-						source: typeof source === 'string' ? source: 'local',
-						state: 'registered'
+						source: typeof source === 'string' ? source : 'local',
+						state: 'registered',
+						skip: typeof skip === 'string' ? skip : null
 					};
 					if ( typeof dependencies === 'string' ) {
 						// Allow dependencies to be given as a single module name
@@ -1778,7 +1753,7 @@ var mw = ( function ( $, undefined ) {
 				 *
 				 * @param {string|Array} modules Either the name of a module, array of modules,
 				 *  or a URL of an external script or style
-				 * @param {string} [type='text/javascript'] mime-type to use if calling with a URL of an
+				 * @param {string} [type='text/javascript'] MIME type to use if calling with a URL of an
 				 *  external script or style; acceptable values are "text/css" and
 				 *  "text/javascript"; if no type is provided, text/javascript is assumed.
 				 * @param {boolean} [async] Whether to load modules asynchronously.
@@ -2025,7 +2000,9 @@ var mw = ( function ( $, undefined ) {
 								mw.loader.store.items = data.items;
 								return;
 							}
-						} catch ( e ) {}
+						} catch ( e ) {
+							log( 'Storage error', e );
+						}
 
 						if ( raw === undefined ) {
 							// localStorage failed; disable store
@@ -2102,6 +2079,7 @@ var mw = ( function ( $, undefined ) {
 								log( 'Detected malformed function stringification (bug 57567)' );
 							}
 						} catch ( e ) {
+							log( 'Storage error', e );
 							return;
 						}
 
@@ -2121,7 +2099,7 @@ var mw = ( function ( $, undefined ) {
 						}
 
 						for ( key in mw.loader.store.items ) {
-							module = key.substring( 0, key.indexOf( '@' ) );
+							module = key.slice( 0, key.indexOf( '@' ) );
 							if ( mw.loader.store.getModuleKey( module ) !== key ) {
 								mw.loader.store.stats.expired++;
 								delete mw.loader.store.items[key];
@@ -2172,7 +2150,9 @@ var mw = ( function ( $, undefined ) {
 								localStorage.removeItem( key );
 								data = JSON.stringify( mw.loader.store );
 								localStorage.setItem( key, data );
-							} catch ( e ) {}
+							} catch ( e ) {
+								log( 'Storage error', e );
+							}
 						}
 
 						return function () {
@@ -2403,17 +2383,17 @@ var mw = ( function ( $, undefined ) {
 		}() )
 	};
 
+	// Alias $j to jQuery for backwards compatibility
+	// @deprecated since 1.23 Use $ or jQuery instead
+	mw.log.deprecate( window, '$j', $, 'Use $ or jQuery instead.' );
+
+	// Attach to window and globally alias
+	window.mw = window.mediaWiki = mw;
+
+	// Auto-register from pre-loaded startup scripts
+	if ( $.isFunction( window.startUp ) ) {
+		window.startUp();
+		window.startUp = undefined;
+	}
+
 }( jQuery ) );
-
-// Alias $j to jQuery for backwards compatibility
-// @deprecated since 1.23 Use $ or jQuery instead
-mw.log.deprecate( window, '$j', jQuery, 'Use $ or jQuery instead.' );
-
-// Attach to window and globally alias
-window.mw = window.mediaWiki = mw;
-
-// Auto-register from pre-loaded startup scripts
-if ( jQuery.isFunction( window.startUp ) ) {
-	window.startUp();
-	window.startUp = undefined;
-}

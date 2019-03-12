@@ -1,9 +1,9 @@
 {
-    "@metadata": {
-        "authors": [
-            "Ahmed-Najib-Biabani-Ibrahimkhel"
-        ]
-    },
-    "mediafunctions-invalid-title": "\"$1\" يو ناسم سرليک دی",
-    "mediafunctions-not-exist": "\"$1\" نشته"
+	"@metadata": {
+		"authors": [
+			"Ahmed-Najib-Biabani-Ibrahimkhel"
+		]
+	},
+	"mediafunctions-invalid-title": "\"$1\" يو ناسم سرليک دی",
+	"mediafunctions-not-exist": "\"$1\" نشته"
 }

@@ -21,6 +21,7 @@
 	"timedmedia-ogg-long-multiplexed": "Ogg多工声音/视频文件，$1，长度$2，$4 × $5像素，共$3",
 	"timedmedia-ogg-long-general": "Ogg媒体文件，长度$2，$3",
 	"timedmedia-ogg-long-error": "无效的ogg文件：$1",
+	"timedmedia-ogg-long-no-streams": "Ogg媒体文件。警告：没有认可用于此文件的编解码器。",
 	"timedmedia-webm-short-video": "WebM $1视频文件，$2",
 	"timedmedia-webm-long-video": "WebM音频/视频文件，$1，长度$2，$4 × $5像素，共$3",
 	"timedmedia-flac-short-audio": "FLAC音频文件，$1",
@@ -30,7 +31,7 @@
 	"timedmedia-wav-pcm-required": "您只能上传脉冲编码调制（PCM）WAV。",
 	"timedmedia-mp4-short-video": "MP4 $1视频文件，$2",
 	"timedmedia-mp4-long-video": "MP4音频/视频文件，$1，长度$2，$4 × $5像素，$3 overall",
-	"timedmedia-no-player-js": "抱歉，您的浏览器禁用了JavaScript或没有任何可支持的播放器。<br />\n您可以<a href=\"$1\">下载这个片段</a>或<a href=\"//www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download\">下载一个播放器</a>以在浏览器中播放片段。",
+	"timedmedia-no-player-js": "抱歉，您的浏览器禁用了JavaScript或没有任何可支持的播放器。<br />\n您可以<a href=\"$1\">下载这个片段</a>或<a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">下载一个播放器</a>以在浏览器中播放片段。",
 	"timedmedia-more": "更多...",
 	"timedmedia-dismiss": "关闭",
 	"timedmedia-download": "下载文件",
@@ -100,5 +101,9 @@
 	"timedmedia-wav-audios": "$1个WAV音频文件",
 	"right-transcode-reset": "重置已失败或已转码的视频将其再次加入到作业队列中。",
 	"right-transcode-status": "查看[[Special:TimedMediaHandler|当前转码活动的信息]]",
-	"action-transcode-status": "查看当前的转码状态"
+	"action-transcode-status": "查看当前的转码状态",
+	"orphanedtimedtext": "孤立的TimedText页面",
+	"orphanedtimedtext-summary": "没有对应文件的[[{{#special:AllPages/TimedText:}}|{{ns:TimedText}}]]页面的列表。",
+	"orphanedtimedtext-unsupported": "此特殊页面只支持MySQL数据库。",
+	"orphanedtimedtext-notimedtext": "TimedText在此wiki未启用。"
 }

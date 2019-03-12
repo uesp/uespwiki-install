@@ -33,7 +33,7 @@
 class ApiQueryRandom extends ApiQueryGeneratorBase {
 	private $pageIDs;
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'rn' );
 	}
 
@@ -46,11 +46,11 @@ class ApiQueryRandom extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $randstr
-	 * @param $limit
-	 * @param $namespace
-	 * @param $resultPageSet ApiPageSet
-	 * @param $redirect
+	 * @param string $randstr
+	 * @param int $limit
+	 * @param int $namespace
+	 * @param ApiPageSet $resultPageSet
+	 * @param bool $redirect
 	 * @return void
 	 */
 	protected function prepareQuery( $randstr, $limit, $namespace, &$resultPageSet, $redirect ) {
@@ -68,7 +68,7 @@ class ApiQueryRandom extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 * @return int
 	 */
 	protected function runQuery( $resultPageSet = null ) {
@@ -99,7 +99,7 @@ class ApiQueryRandom extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 * @return void
 	 */
 	public function run( $resultPageSet = null ) {
@@ -170,16 +170,6 @@ class ApiQueryRandom extends ApiQueryGeneratorBase {
 			'namespace' => 'Return pages in these namespaces only',
 			'limit' => 'Limit how many random pages will be returned',
 			'redirect' => 'Load a random redirect instead of a random page'
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'id' => 'integer',
-				'ns' => 'namespace',
-				'title' => 'string'
-			)
 		);
 	}
 

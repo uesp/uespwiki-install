@@ -59,7 +59,6 @@ define( 'DB_MASTER', -2 );    # Write to master (or only server)
 # Obsolete aliases
 define( 'DB_READ', -1 );
 define( 'DB_WRITE', -2 );
-define( 'DB_LAST', -3 ); # deprecated since 2008, usage throws exception
 
 /**@{
  * Virtual namespaces; don't appear in the page database
@@ -177,9 +176,7 @@ define( 'MW_DATE_ISO', 'ISO 8601' );
  */
 define( 'RC_EDIT', 0 );
 define( 'RC_NEW', 1 );
-define( 'RC_MOVE', 2 ); // obsolete
 define( 'RC_LOG', 3 );
-define( 'RC_MOVE_OVER_REDIRECT', 4 ); // obsolete
 define( 'RC_EXTERNAL', 5 );
 /**@}*/
 
@@ -284,6 +281,7 @@ define( 'CONTENT_MODEL_WIKITEXT', 'wikitext' );
 define( 'CONTENT_MODEL_JAVASCRIPT', 'javascript' );
 define( 'CONTENT_MODEL_CSS', 'css' );
 define( 'CONTENT_MODEL_TEXT', 'text' );
+define( 'CONTENT_MODEL_JSON', 'json' );
 /**@}*/
 
 /**@{

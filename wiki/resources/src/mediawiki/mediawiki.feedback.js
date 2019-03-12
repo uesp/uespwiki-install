@@ -19,9 +19,10 @@
 	 * dialog box. Submitting that dialog box appends its contents to a
 	 * wiki page that you specify, as a new section.
 	 *
-	 * Not compatible with LiquidThreads.
+	 * This feature works with classic MediaWiki pages
+	 * and is not compatible with LiquidThreads or Flow.
 	 *
-	 * Minimal example in how to use it:
+	 * Minimal usage example:
 	 *
 	 *     var feedback = new mw.Feedback();
 	 *     $( '#myButton' ).click( function () { feedback.launch(); } );
@@ -111,13 +112,15 @@
 								$feedbackPageLink.clone()
 							)
 						),
-						$( '<div style="margin-top: 1em;"></div>' ).append(
-							mw.msg( 'feedback-subject' ),
+						$( '<div style="margin-top: 1em;"></div>' )
+						.msg( 'feedback-subject' )
+						.append(
 							$( '<br>' ),
 							$( '<input type="text" class="feedback-subject" name="subject" maxlength="60" style="width: 100%; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box;"/>' )
 						),
-						$( '<div style="margin-top: 0.4em;"></div>' ).append(
-							mw.msg( 'feedback-message' ),
+						$( '<div style="margin-top: 0.4em;"></div>' )
+						.msg( 'feedback-message' )
+						.append(
 							$( '<br>' ),
 							$( '<textarea name="message" class="feedback-message" rows="5" cols="60"></textarea>' )
 						)
@@ -125,8 +128,9 @@
 					$( '<div class="feedback-mode feedback-bugs"></div>' ).append(
 						$( '<p>' ).msg( 'feedback-bugcheck', $bugsListLink )
 					),
-					$( '<div class="feedback-mode feedback-submitting" style="text-align: center; margin: 3em 0;"></div>' ).append(
-						mw.msg( 'feedback-adding' ),
+					$( '<div class="feedback-mode feedback-submitting" style="text-align: center; margin: 3em 0;"></div>' )
+					.msg( 'feedback-adding' )
+					.append(
 						$( '<br>' ),
 						$( '<span class="feedback-spinner"></span>' )
 					),
@@ -138,22 +142,16 @@
 					)
 				);
 
-				// undo some damage from dialog css
-				this.$dialog.find( 'a' ).css( {
-					color: '#0645ad'
-				} );
+			this.$dialog.dialog( {
+				width: 500,
+				autoOpen: false,
+				title: mw.message( this.dialogTitleMessageKey ).escaped(),
+				modal: true,
+				buttons: fb.buttons
+			} );
 
-				this.$dialog.dialog({
-					width: 500,
-					autoOpen: false,
-					title: mw.msg( this.dialogTitleMessageKey ),
-					modal: true,
-					buttons: fb.buttons
-				});
-
-			this.subjectInput = this.$dialog.find( 'input.feedback-subject' ).get(0);
-			this.messageInput = this.$dialog.find( 'textarea.feedback-message' ).get(0);
-
+			this.subjectInput = this.$dialog.find( 'input.feedback-subject' ).get( 0 );
+			this.messageInput = this.$dialog.find( 'textarea.feedback-message' ).get( 0 );
 		},
 
 		/**
@@ -184,6 +182,7 @@
 		displayBugs: function () {
 			var fb = this,
 				bugsButtons = {};
+
 			this.display( 'bugs' );
 			bugsButtons[ mw.msg( 'feedback-bugnew' ) ] = function () {
 				window.open( fb.bugsLink, '_blank' );
@@ -202,6 +201,7 @@
 		displayThanks: function () {
 			var fb = this,
 				closeButton = {};
+
 			this.display( 'thanks' );
 			closeButton[ mw.msg( 'feedback-close' ) ] = function () {
 				fb.$dialog.dialog( 'close' );
@@ -220,6 +220,7 @@
 		displayForm: function ( contents ) {
 			var fb = this,
 				formButtons = {};
+
 			this.subjectInput.value = ( contents && contents.subject ) ? contents.subject : '';
 			this.messageInput.value = ( contents && contents.message ) ? contents.message : '';
 
@@ -243,6 +244,7 @@
 		displayError: function ( message ) {
 			var fb = this,
 				closeButton = {};
+
 			this.display( 'error' );
 			this.$dialog.find( '.feedback-error-msg' ).msg( message );
 			closeButton[ mw.msg( 'feedback-close' ) ] = function () {
@@ -265,25 +267,6 @@
 			var subject, message,
 				fb = this;
 
-			function ok( result ) {
-				if ( result.edit !== undefined ) {
-					if ( result.edit.result === 'Success' ) {
-						fb.displayThanks();
-					} else {
-						// unknown API result
-						fb.displayError( 'feedback-error1' );
-					}
-				} else {
-					// edit failed
-					fb.displayError( 'feedback-error2' );
-				}
-			}
-
-			function err() {
-				// ajax request failed
-				fb.displayError( 'feedback-error3' );
-			}
-
 			// Get the values to submit.
 			subject = this.subjectInput.value;
 
@@ -296,7 +279,30 @@
 
 			this.displaySubmitting();
 
-			this.api.newSection( this.title, subject, message, ok, err );
+			// Post the message, resolving redirects
+			this.api.newSection(
+				this.title,
+				subject,
+				message,
+				{ redirect: true }
+			)
+			.done( function ( result ) {
+				if ( result.edit !== undefined ) {
+					if ( result.edit.result === 'Success' ) {
+						fb.displayThanks();
+					} else {
+						// unknown API result
+						fb.displayError( 'feedback-error1' );
+					}
+				} else {
+					// edit failed
+					fb.displayError( 'feedback-error2' );
+				}
+			} )
+			.fail( function () {
+				// ajax request failed
+				fb.displayError( 'feedback-error3' );
+			} );
 		},
 
 		/**
@@ -310,7 +316,5 @@
 			this.$dialog.dialog( 'open' );
 			this.subjectInput.focus();
 		}
-
 	};
-
 }( mediaWiki, jQuery ) );

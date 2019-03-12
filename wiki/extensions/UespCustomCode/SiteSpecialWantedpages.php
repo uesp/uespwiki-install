@@ -23,11 +23,3 @@ class SiteWantedPagesPage extends WantedPagesPage {
 		return $queryinfo;
 	}
 }
-
-/**
- * constructor
- */
-function efSiteSpecialWantedpages( $par = null, $specialPage ) {
-	$wpp = new SiteWantedPagesPage('Wantedpages');
-	$wpp->execute($par);
-}

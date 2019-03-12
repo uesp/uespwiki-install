@@ -31,7 +31,7 @@
  */
 class ApiQueryDuplicateFiles extends ApiQueryGeneratorBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'df' );
 	}
 
@@ -185,17 +185,6 @@ class ApiQueryDuplicateFiles extends ApiQueryGeneratorBase {
 			'continue' => 'When more results are available, use this to continue',
 			'dir' => 'The direction in which to list',
 			'localonly' => 'Look only for files in the local repository',
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'name' => 'string',
-				'user' => 'string',
-				'timestamp' => 'timestamp',
-				'shared' => 'boolean',
-			)
 		);
 	}
 

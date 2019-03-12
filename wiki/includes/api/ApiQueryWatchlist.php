@@ -32,7 +32,7 @@
  */
 class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'wl' );
 	}
 
@@ -51,7 +51,7 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 		$fld_loginfo = false;
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 * @return void
 	 */
 	private function run( $resultPageSet = null ) {
@@ -168,6 +168,7 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 				|| ( isset( $show['bot'] ) && isset( $show['!bot'] ) )
 				|| ( isset( $show['anon'] ) && isset( $show['!anon'] ) )
 				|| ( isset( $show['patrolled'] ) && isset( $show['!patrolled'] ) )
+				|| ( isset( $show['unread'] ) && isset( $show['!unread'] ) )
 			) {
 				$this->dieUsageMsg( 'show' );
 			}
@@ -191,10 +192,16 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 			$this->addWhereIf( 'rc_user != 0', isset( $show['!anon'] ) );
 			$this->addWhereIf( 'rc_patrolled = 0', isset( $show['!patrolled'] ) );
 			$this->addWhereIf( 'rc_patrolled != 0', isset( $show['patrolled'] ) );
+			$this->addWhereIf( 'wl_notificationtimestamp IS NOT NULL', isset( $show['unread'] ) );
+			$this->addWhereIf( 'wl_notificationtimestamp IS NULL', isset( $show['!unread'] ) );
 		}
 
 		if ( !is_null( $params['type'] ) ) {
-			$this->addWhereFld( 'rc_type', $this->parseRCType( $params['type'] ) );
+			try {
+				$this->addWhereFld( 'rc_type', RecentChange::parseToRCType( $params['type'] ) );
+			} catch ( MWException $e ) {
+				ApiBase::dieDebug( __METHOD__, $e->getMessage() );
+			}
 		}
 
 		if ( !is_null( $params['user'] ) && !is_null( $params['excludeuser'] ) ) {
@@ -217,7 +224,7 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 		if ( !is_null( $params['user'] ) || !is_null( $params['excludeuser'] ) ) {
 			if ( !$user->isAllowed( 'deletedhistory' ) ) {
 				$bitmask = Revision::DELETED_USER;
-			} elseif ( !$user->isAllowed( 'suppressrevision' ) ) {
+			} elseif ( !$user->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
 				$bitmask = Revision::DELETED_USER | Revision::DELETED_RESTRICTED;
 			} else {
 				$bitmask = 0;
@@ -231,7 +238,7 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 		// entirely from the watchlist, or someone could guess the title.
 		if ( !$user->isAllowed( 'deletedhistory' ) ) {
 			$bitmask = LogPage::DELETED_ACTION;
-		} elseif ( !$user->isAllowed( 'suppressrevision' ) ) {
+		} elseif ( !$user->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
 			$bitmask = LogPage::DELETED_ACTION | LogPage::DELETED_RESTRICTED;
 		} else {
 			$bitmask = 0;
@@ -292,33 +299,8 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 
 		/* Our output data. */
 		$vals = array();
-
 		$type = intval( $row->rc_type );
-
-		/* Determine what kind of change this was. */
-		switch ( $type ) {
-			case RC_EDIT:
-				$vals['type'] = 'edit';
-				break;
-			case RC_NEW:
-				$vals['type'] = 'new';
-				break;
-			case RC_MOVE:
-				$vals['type'] = 'move';
-				break;
-			case RC_LOG:
-				$vals['type'] = 'log';
-				break;
-			case RC_EXTERNAL:
-				$vals['type'] = 'external';
-				break;
-			case RC_MOVE_OVER_REDIRECT:
-				$vals['type'] = 'move over redirect';
-				break;
-			default:
-				$vals['type'] = $type;
-		}
-
+		$vals['type'] = RecentChange::parseFromRCType( $type );
 		$anyHidden = false;
 
 		/* Create a new entry in the result for the title. */
@@ -449,35 +431,6 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 		return $vals;
 	}
 
-	/** Copied from ApiQueryRecentChanges.
-	 *
-	 * @param string $type
-	 * @return string
-	 */
-	private function parseRCType( $type ) {
-		if ( is_array( $type ) ) {
-			$retval = array();
-			foreach ( $type as $t ) {
-				$retval[] = $this->parseRCType( $t );
-			}
-
-			return $retval;
-		}
-
-		switch ( $type ) {
-			case 'edit':
-				return RC_EDIT;
-			case 'new':
-				return RC_NEW;
-			case 'log':
-				return RC_LOG;
-			case 'external':
-				return RC_EXTERNAL;
-			default:
-				ApiBase::dieDebug( __METHOD__, "Unknown type '$type'" );
-		}
-	}
-
 	public function getAllowedParams() {
 		return array(
 			'allrev' => false,
@@ -540,6 +493,8 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 					'!anon',
 					'patrolled',
 					'!patrolled',
+					'unread',
+					'!unread',
 				)
 			),
 			'type' => array(
@@ -606,109 +561,8 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 		);
 	}
 
-	public function getResultProperties() {
-		global $wgLogTypes;
-
-		return array(
-			'' => array(
-				'type' => array(
-					ApiBase::PROP_TYPE => array(
-						'edit',
-						'new',
-						'move',
-						'log',
-						'move over redirect'
-					)
-				)
-			),
-			'ids' => array(
-				'pageid' => 'integer',
-				'revid' => 'integer',
-				'old_revid' => 'integer'
-			),
-			'title' => array(
-				'ns' => 'namespace',
-				'title' => 'string'
-			),
-			'user' => array(
-				'user' => 'string',
-				'anon' => 'boolean'
-			),
-			'userid' => array(
-				'userid' => 'integer',
-				'anon' => 'boolean'
-			),
-			'flags' => array(
-				'new' => 'boolean',
-				'minor' => 'boolean',
-				'bot' => 'boolean'
-			),
-			'patrol' => array(
-				'patrolled' => 'boolean'
-			),
-			'timestamp' => array(
-				'timestamp' => 'timestamp'
-			),
-			'sizes' => array(
-				'oldlen' => 'integer',
-				'newlen' => 'integer'
-			),
-			'notificationtimestamp' => array(
-				'notificationtimestamp' => array(
-					ApiBase::PROP_TYPE => 'timestamp',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'comment' => array(
-				'comment' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'parsedcomment' => array(
-				'parsedcomment' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'loginfo' => array(
-				'logid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'logtype' => array(
-					ApiBase::PROP_TYPE => $wgLogTypes,
-					ApiBase::PROP_NULLABLE => true
-				),
-				'logaction' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			)
-		);
-	}
-
 	public function getDescription() {
 		return "Get all recent changes to pages in the logged in user's watchlist.";
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array( 'code' => 'bad_wlowner', 'info' => 'Specified user does not exist' ),
-			array(
-				'code' => 'bad_wltoken',
-				'info' => 'Incorrect watchlist token provided -- ' .
-					'please set a correct token in Special:Preferences'
-			),
-			array( 'code' => 'notloggedin', 'info' => 'You must be logged-in to have a watchlist' ),
-			array( 'code' => 'patrol', 'info' => 'patrol property is not available' ),
-			array( 'show' ),
-			array(
-				'code' => 'permissiondenied',
-				'info' => 'You need the patrol right to request the patrolled flag'
-			),
-			array( 'code' => 'user-excludeuser', 'info' => 'user and excludeuser cannot be used together' ),
-		) );
 	}
 
 	public function getExamples() {
