@@ -199,7 +199,7 @@ $specialPageAliases['myv'] = array(
 	'Editcount' => array( 'ВитнеманьПетнеманьЦёт' ),
 );
 
-/** Nāhuatl (Nāhuatl) */
+/** Nahuatl (Nāhuatl) */
 $specialPageAliases['nah'] = array(
 	'Editcount' => array( 'TlapatlaliztliTlapōhualiztli', 'Ediciones' ),
 );
@@ -276,7 +276,7 @@ $specialPageAliases['sk'] = array(
 
 /** Serbian (Cyrillic script) (српски (ћирилица)‎) */
 $specialPageAliases['sr-ec'] = array(
-	'Editcount' => array( 'Уреди_број' ),
+	'Editcount' => array( 'БројИзмена' ),
 );
 
 /** Swedish (svenska) */
@@ -321,5 +321,5 @@ $specialPageAliases['zh-hans'] = array(
 
 /** Traditional Chinese (中文（繁體）‎) */
 $specialPageAliases['zh-hant'] = array(
-	'Editcount' => array( '編輯數統計' ),
+	'Editcount' => array( '編輯次數' ),
 );

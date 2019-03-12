@@ -69,6 +69,11 @@ class RequestContext implements IContextSource {
 	private $config;
 
 	/**
+	 * @var RequestContext
+	 */
+	private static $instance = null;
+
+	/**
 	 * Set the Config object
 	 *
 	 * @param Config $c
@@ -118,14 +123,10 @@ class RequestContext implements IContextSource {
 	/**
 	 * Set the Title object
 	 *
-	 * @param Title $t
-	 * @throws MWException
+	 * @param Title $title
 	 */
-	public function setTitle( $t ) {
-		if ( $t !== null && !$t instanceof Title ) {
-			throw new MWException( __METHOD__ . " expects an instance of Title" );
-		}
-		$this->title = $t;
+	public function setTitle( Title $title ) {
+		$this->title = $title;
 		// Erase the WikiPage so a new one with the new title gets created.
 		$this->wikipage = null;
 	}
@@ -133,7 +134,7 @@ class RequestContext implements IContextSource {
 	/**
 	 * Get the Title object
 	 *
-	 * @return Title
+	 * @return Title|null
 	 */
 	public function getTitle() {
 		if ( $this->title === null ) {
@@ -153,18 +154,14 @@ class RequestContext implements IContextSource {
 	 * @return bool
 	 */
 	public function canUseWikiPage() {
-		if ( $this->wikipage !== null ) {
-			# If there's a WikiPage object set, we can for sure get it
+		if ( $this->wikipage ) {
+			// If there's a WikiPage object set, we can for sure get it
 			return true;
 		}
+		// Only pages with legitimate titles can have WikiPages.
+		// That usually means pages in non-virtual namespaces.
 		$title = $this->getTitle();
-		if ( $title === null ) {
-			# No Title, no WikiPage
-			return false;
-		} else {
-			# Only namespaces whose pages are stored in the database can have WikiPage
-			return $title->canExist();
-		}
+		return $title ? $title->canExist() : false;
 	}
 
 	/**
@@ -206,7 +203,7 @@ class RequestContext implements IContextSource {
 	}
 
 	/**
-	 * @param $o OutputPage
+	 * @param OutputPage $o
 	 */
 	public function setOutput( OutputPage $o ) {
 		$this->output = $o;
@@ -260,23 +257,12 @@ class RequestContext implements IContextSource {
 		$code = strtolower( $code );
 
 		# Validate $code
-		if ( empty( $code ) || !Language::isValidCode( $code ) || ( $code === 'qqq' ) ) {
+		if ( !$code || !Language::isValidCode( $code ) || $code === 'qqq' ) {
 			wfDebug( "Invalid user language code\n" );
 			$code = $wgLanguageCode;
 		}
 
 		return $code;
-	}
-
-	/**
-	 * Set the Language object
-	 *
-	 * @deprecated since 1.19 Use setLanguage instead
-	 * @param Language|string $l Language instance or language code
-	 */
-	public function setLang( $l ) {
-		wfDeprecated( __METHOD__, '1.19' );
-		$this->setLanguage( $l );
 	}
 
 	/**
@@ -299,16 +285,6 @@ class RequestContext implements IContextSource {
 	}
 
 	/**
-	 * @deprecated since 1.19 Use getLanguage instead
-	 * @return Language
-	 */
-	public function getLang() {
-		wfDeprecated( __METHOD__, '1.19' );
-
-		return $this->getLanguage();
-	}
-
-	/**
 	 * Get the Language object.
 	 * Initialization of user or request objects can depend on this.
 	 *
@@ -321,30 +297,35 @@ class RequestContext implements IContextSource {
 			$e = new Exception;
 			wfDebugLog( 'recursion-guard', "Recursion detected:\n" . $e->getTraceAsString() );
 
-			global $wgLanguageCode;
-			$code = ( $wgLanguageCode ) ? $wgLanguageCode : 'en';
+			$code = $this->getConfig()->get( 'LanguageCode' ) ?: 'en';
 			$this->lang = Language::factory( $code );
 		} elseif ( $this->lang === null ) {
 			$this->recursion = true;
 
-			global $wgLanguageCode, $wgContLang;
+			global $wgContLang;
 
-			$request = $this->getRequest();
-			$user = $this->getUser();
+			try {
+				$request = $this->getRequest();
+				$user = $this->getUser();
 
-			$code = $request->getVal( 'uselang', $user->getOption( 'language' ) );
-			$code = self::sanitizeLangCode( $code );
+				$code = $request->getVal( 'uselang', $user->getOption( 'language' ) );
+				$code = self::sanitizeLangCode( $code );
 
-			wfRunHooks( 'UserGetLanguageObject', array( $user, &$code, $this ) );
+				wfRunHooks( 'UserGetLanguageObject', array( $user, &$code, $this ) );
 
-			if ( $code === $wgLanguageCode ) {
-				$this->lang = $wgContLang;
-			} else {
-				$obj = Language::factory( $code );
-				$this->lang = $obj;
+				if ( $code === $this->getConfig()->get( 'LanguageCode' ) ) {
+					$this->lang = $wgContLang;
+				} else {
+					$obj = Language::factory( $code );
+					$this->lang = $obj;
+				}
+
+				unset( $this->recursion );
 			}
-
-			unset( $this->recursion );
+			catch ( Exception $ex ) {
+				unset( $this->recursion );
+				throw $ex;
+			}
 		}
 
 		return $this->lang;
@@ -371,29 +352,36 @@ class RequestContext implements IContextSource {
 
 			$skin = null;
 			wfRunHooks( 'RequestContextCreateSkin', array( $this, &$skin ) );
+			$factory = SkinFactory::getDefaultInstance();
 
 			// If the hook worked try to set a skin from it
 			if ( $skin instanceof Skin ) {
 				$this->skin = $skin;
 			} elseif ( is_string( $skin ) ) {
-				$this->skin = Skin::newFromKey( $skin );
+				// Normalize the key, just in case the hook did something weird.
+				$normalized = Skin::normalizeKey( $skin );
+				$this->skin = $factory->makeSkin( $normalized );
 			}
 
 			// If this is still null (the hook didn't run or didn't work)
 			// then go through the normal processing to load a skin
 			if ( $this->skin === null ) {
-				global $wgHiddenPrefs;
-				if ( !in_array( 'skin', $wgHiddenPrefs ) ) {
+				if ( !in_array( 'skin', $this->getConfig()->get( 'HiddenPrefs' ) ) ) {
 					# get the user skin
 					$userSkin = $this->getUser()->getOption( 'skin' );
 					$userSkin = $this->getRequest()->getVal( 'useskin', $userSkin );
 				} else {
 					# if we're not allowing users to override, then use the default
-					global $wgDefaultSkin;
-					$userSkin = $wgDefaultSkin;
+					$userSkin = $this->getConfig()->get( 'DefaultSkin' );
 				}
 
-				$this->skin = Skin::newFromKey( $userSkin );
+				// Normalize the key in case the user is passing gibberish
+				// or has old preferences (bug 69566).
+				$normalized = Skin::normalizeKey( $userSkin );
+
+				// Skin::normalizeKey will also validate it, so
+				// this won't throw an exception
+				$this->skin = $factory->makeSkin( $normalized );
 			}
 
 			// After all that set a context on whatever skin got created
@@ -426,19 +414,43 @@ class RequestContext implements IContextSource {
 	 * @return RequestContext
 	 */
 	public static function getMain() {
-		static $instance = null;
-		if ( $instance === null ) {
-			$instance = new self;
+		if ( self::$instance === null ) {
+			self::$instance = new self;
 		}
 
-		return $instance;
+		return self::$instance;
+	}
+
+	/**
+	 * Get the RequestContext object associated with the main request
+	 * and gives a warning to the log, to find places, where a context maybe is missing.
+	 *
+	 * @param string $func
+	 * @return RequestContext
+	 * @since 1.24
+	 */
+	public static function getMainAndWarn( $func = __METHOD__ ) {
+		wfDebug( $func . ' called without context. ' .
+			"Using RequestContext::getMain() for sanity\n" );
+
+		return self::getMain();
+	}
+
+	/**
+	 * Resets singleton returned by getMain(). Should be called only from unit tests.
+	 */
+	public static function resetMain() {
+		if ( !defined( 'MW_PHPUNIT_TEST' ) ) {
+			throw new MWException( __METHOD__ . '() should be called only from unit tests!' );
+		}
+		self::$instance = null;
 	}
 
 	/**
 	 * Export the resolved user IP, HTTP headers, user ID, and session ID.
 	 * The result will be reasonably sized to allow for serialization.
 	 *
-	 * @return Array
+	 * @return array
 	 * @since 1.21
 	 */
 	public function exportSession() {
@@ -476,7 +488,8 @@ class RequestContext implements IContextSource {
 
 		if ( $params['userId'] ) { // logged-in user
 			$user = User::newFromId( $params['userId'] );
-			if ( !$user ) {
+			$user->load();
+			if ( !$user->getId() ) {
 				throw new MWException( "No user with ID '{$params['userId']}'." );
 			}
 		} elseif ( !IP::isValid( $params['ip'] ) ) {

@@ -12,7 +12,7 @@ $wgScriptPath       = "/w";
 $wgScriptExtension  = ".php";
 $wgStylePath = "$wgScriptPath/skins";
 
-$wgLogo = "$wgScriptPath/extensions/UespCustomCode/files/UespLogo.jpg";
+$wgLogo = "//images.uesp.net/4/40/NewUESPLogo1.png";
 
 $wgEnableEmail = true;
 $wgEnableUserEmail = true;
@@ -51,11 +51,20 @@ if ($uespLanguageSuffix != "")
 	$wgUploadMissingFileUrl= "//www.uesp.net/wiki/Special:Upload";
 }
 
+if ($uespLanguageSuffix == "_ar")
+{
+	$wgLogo = "//images.uesp.net/6/69/UESP_Logo_Arabic.png";
+}
+
 $wgShellLocale = "en_US.utf8";
 
 $wgSecretKey = $uespWikiSecretKey;
 
 $wgDefaultSkin = 'uespmonobook';
+$wgDefaultUserOptions['thumbsize'] = 3; // thumb size 200
+// $wgGalleryOptions['imageWidth'] = 200;
+// $wgGalleryOptions['imageHeight'] = 200;
+// $wgGalleryOptions['mode'] = 'nolines';
 
 $wgRightsPage = "UESPWiki:Copyright_and_Ownership";
 $wgRightsUrl = "http://creativecommons.org/licenses/by-sa/2.5/";
@@ -79,9 +88,9 @@ $wgCookiePrefix = "uesp_net_wiki5"; # Don't change as it affects the session nam
 $wgDisableCounters = true;
 $wgExpensiveParserFunctionLimit = 1000;
 $wgFavicon = '/favicon.ico';
-$wgJobRunRate = 0.1;
+$wgJobRunRate = 0;
 $wgLocaltimezone = "GMT";
-$wgMaxArticleSize = 4096;
+$wgMaxArticleSize = 8192;
 $wgMaxShellMemory = 1310720;
 $wgMaxShellFileSize = 1310720;
 $wgRateLimits = array(20, 360); # RM: More advanced options are supported now. Do we need/want them?
@@ -91,8 +100,8 @@ $wgResourceLoaderMaxage = array(
 				'client' => 30 * 24 * 60 * 60,
 		),
 		'unversioned' => array(
-				'server' => 86400,
-				'client' => 86400,
+				'server' => 3600,
+				'client' => 3600,
 		),
 );
 $wgTmpDirectory = "/imagetmp";

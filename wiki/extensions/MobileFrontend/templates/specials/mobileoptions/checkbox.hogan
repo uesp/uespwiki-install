@@ -1,0 +1,11 @@
+<div class="mobileoption">
+	<div class="mw-ui-checkbox">
+		<input type="checkbox" name="{{name}}" id="{{name}}-toggle" {$imagesChecked}>
+		<label for="{{name}}-toggle">
+			{{enableMsg}}
+		</label>
+		<div class="option-description">
+			{{descriptionMsg}}
+		</div>
+	</div>
+</div>

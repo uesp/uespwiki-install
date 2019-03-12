@@ -1,8 +1,7 @@
 <?php
 /** Norwegian Bokmål (norsk bokmål)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -149,6 +148,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Flest_revisjoner' ),
 	'Movepage'                  => array( 'Flytt_side' ),
 	'Mycontributions'           => array( 'Mine_bidrag' ),
+	'MyLanguage'                => array( 'Mitt_språk' ),
 	'Mypage'                    => array( 'Min_side' ),
 	'Mytalk'                    => array( 'Min_diskusjon' ),
 	'Myuploads'                 => array( 'Mine_opplastinger' ),

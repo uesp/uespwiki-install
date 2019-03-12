@@ -5,8 +5,9 @@
 # It is included by LocalSettings.php.
 #
 
-$wgDebugComments = false;
-$wgShowSQLErrors = false;
-$wgShowExceptionDetails = false;
-
+$wgDebugComments = true;
+$wgDebugToolbar = true;
+$wgUseSquid = false;
+$wgShowSQLErrors = true;
+$wgShowExceptionDetails = true;
 

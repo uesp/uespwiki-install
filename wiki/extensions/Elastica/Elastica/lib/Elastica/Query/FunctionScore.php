@@ -171,16 +171,16 @@ class FunctionScore extends AbstractQuery
      */
     public function setRandomScore($seed = NULL)
     {
-        $seedParam = array();
+        $seedParam = new \stdClass();
         if (!is_null($seed)) {
-            $seedParam['seed'] = $seed;
+            $seedParam->seed = $seed;
         }
         return $this->setParam('random_score', $seedParam);
     }
 
     /**
      * Set the score method
-     * @param string $mode see SCORE_MODE_* constatns for valid options. Default is multiply.
+     * @param string $mode see SCORE_MODE_* constants for valid options. Default is multiply.
      * @return \Elastica\Query\FunctionScore
      */
     public function setScoreMode($mode)

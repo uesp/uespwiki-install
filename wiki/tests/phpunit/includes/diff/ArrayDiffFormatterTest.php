@@ -44,7 +44,7 @@ class ArrayDiffFormatterTest extends MediaWikiTestCase {
 			$diffOp->expects( $this->any() )
 				->method( 'getClosing' )
 				->with( $this->isType( 'integer' ) )
-				->will( $this->returnCallback( function() {
+				->will( $this->returnCallback( function () {
 					return 'mockLine';
 				} ) );
 		} else {
@@ -93,13 +93,32 @@ class ArrayDiffFormatterTest extends MediaWikiTestCase {
 		);
 		$otherTestCases[] = array(
 			$this->getMockDiff( array( $this->getMockDiffOp( 'change', array( 'd1' ), array( 'a1' ) ) ) ),
-			array( array( 'action' => 'change', 'old' => 'd1', 'new' => 'mockLine', 'newline' => 1, 'oldline' => 1 ) ),
+			array( array(
+				'action' => 'change',
+				'old' => 'd1',
+				'new' => 'mockLine',
+				'newline' => 1, 'oldline' => 1
+			) ),
 		);
 		$otherTestCases[] = array(
-			$this->getMockDiff( array( $this->getMockDiffOp( 'change', array( 'd1', 'd2' ), array( 'a1', 'a2' ) ) ) ),
+			$this->getMockDiff( array( $this->getMockDiffOp(
+				'change',
+				array( 'd1', 'd2' ),
+				array( 'a1', 'a2' )
+			) ) ),
 			array(
-				array( 'action' => 'change', 'old' => 'd1', 'new' => 'mockLine', 'newline' => 1, 'oldline' => 1 ),
-				array( 'action' => 'change', 'old' => 'd2', 'new' => 'mockLine', 'newline' => 2, 'oldline' => 2 ),
+				array(
+					'action' => 'change',
+					'old' => 'd1',
+					'new' => 'mockLine',
+					'newline' => 1, 'oldline' => 1
+				),
+				array(
+					'action' => 'change',
+					'old' => 'd2',
+					'new' => 'mockLine',
+					'newline' => 2, 'oldline' => 2
+				),
 			),
 		);
 

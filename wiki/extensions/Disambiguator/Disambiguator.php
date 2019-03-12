@@ -53,6 +53,8 @@ $wgExtensionMessagesFiles['DisambiguatorMagic'] = $dir . '/Disambiguator.i18n.ma
 $wgHooks['GetDoubleUnderscoreIDs'][] = 'DisambiguatorHooks::onGetDoubleUnderscoreIDs';
 $wgHooks['wgQueryPages'][] = 'DisambiguatorHooks::onwgQueryPages';
 $wgHooks['LonelyPagesQuery'][] = 'DisambiguatorHooks::onLonelyPagesQuery';
+$wgHooks['SetupAfterCache'][] = 'DisambiguatorHooks::onSetupAfterCache';
+$wgHooks['GetLinkColours'][] = 'DisambiguatorHooks::onGetLinkColours';
 
 // Register special pages
 $wgSpecialPages['DisambiguationPages'] = 'SpecialDisambiguationPages';
@@ -60,7 +62,16 @@ $wgSpecialPageGroups['DisambiguationPages'] = 'pages';
 $wgSpecialPages['DisambiguationPageLinks'] = 'SpecialDisambiguationPageLinks';
 $wgSpecialPageGroups['DisambiguationPageLinks'] = 'pages';
 
+$wgResourceModules['ext.disambiguator.visualEditor'] = array(
+	'localBasePath' => __DIR__,
+	'remoteExtPath' => 'Disambiguator',
+	'scripts' => array( 'visualEditorIntegration.js' ),
+	'messages' => array( 'visualeditor-dialog-meta-settings-disambiguation-label' ),
+	'dependencies' => array( 'ext.visualEditor.mwmeta', 'ext.visualEditor.mediawiki' ),
+	'targets' => array( 'desktop', 'mobile' )
+);
+
 /* Configuration */
 
-// TODO: Allow disambiguation links to be assigned a unique class
-#$wgDisambiguatorIndicateLinks = true;
+// Whether to add a 'mw-disambig' CSS class to links to disambiguation pages
+$wgDisambiguatorIndicateLinks = true;

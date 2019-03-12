@@ -79,7 +79,7 @@ class OldLocalFile extends LocalFile {
 	 * Create a OldLocalFile from a SHA-1 key
 	 * Do not call this except from inside a repo class.
 	 *
-	 * @param string $sha1 base-36 SHA-1
+	 * @param string $sha1 Base-36 SHA-1
 	 * @param LocalRepo $repo
 	 * @param string|bool $timestamp MW_timestamp (optional)
 	 *
@@ -130,7 +130,7 @@ class OldLocalFile extends LocalFile {
 	 * @param Title $title
 	 * @param FileRepo $repo
 	 * @param string $time Timestamp or null to load by archive name
-	 * @param string $archiveName archive name or null to load by timestamp
+	 * @param string $archiveName Archive name or null to load by timestamp
 	 * @throws MWException
 	 */
 	function __construct( $title, $repo, $time, $archiveName ) {
@@ -174,10 +174,11 @@ class OldLocalFile extends LocalFile {
 		return $this->exists() && !$this->isDeleted( File::DELETED_FILE );
 	}
 
-	function loadFromDB() {
+	function loadFromDB( $flags = 0 ) {
 		wfProfileIn( __METHOD__ );
 
 		$this->dataLoaded = true;
+
 		$dbr = $this->repo->getSlaveDB();
 		$conds = array( 'oi_name' => $this->getName() );
 		if ( is_null( $this->requestedTime ) ) {
@@ -402,5 +403,19 @@ class OldLocalFile extends LocalFile {
 		$dbw->commit( __METHOD__ );
 
 		return true;
+	}
+
+	/**
+	 * If archive name is an empty string, then file does not "exist"
+	 *
+	 * This is the case for a couple files on Wikimedia servers where
+	 * the old version is "lost".
+	 */
+	public function exists() {
+		$archiveName = $this->getArchiveName();
+		if ( $archiveName === '' || !is_string( $archiveName ) ) {
+			return false;
+		}
+		return parent::exists();
 	}
 }

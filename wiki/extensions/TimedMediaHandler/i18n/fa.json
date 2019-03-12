@@ -22,6 +22,7 @@
 	"timedmedia-ogg-long-multiplexed": "پرونده صوتی/تصویری پیچیده Ogg، $1، مدت $2، $4×$5 پیکسل، $3 در مجموع",
 	"timedmedia-ogg-long-general": "پرونده Ogg، مدت $2، $3",
 	"timedmedia-ogg-long-error": "پروندهٔ Ogg نامجاز: $1",
+	"timedmedia-ogg-long-no-streams": "پروندهٔ رسانه‌ای Ogg. هشدار: هیچ‌یک از این کدک‌های استفاده‌شده در این پرونده‌ها شناخته‌شده نیستند.",
 	"timedmedia-webm-short-video": "رسانهٔ وب  $1 پروندهٔ ویدئویی، $2",
 	"timedmedia-webm-long-video": "رسانهٔ وب پروندهٔ صوتی/تصویری، $1، مدت $2، $4 × $5 پیکسل، $3 کلی",
 	"timedmedia-flac-short-audio": "پروندهٔ صوتی اف‌ال‌ای‌سی، $1",
@@ -31,7 +32,7 @@
 	"timedmedia-wav-pcm-required": "شما فقط می توانید PCM و WAV را بار کنید.",
 	"timedmedia-mp4-short-video": "MP4  $1 پروندهٔ ویدئویی، $2",
 	"timedmedia-mp4-long-video": "پرونده‌های صوتی یا تصویری با قالب $1، زمان $2، $4 × $5 پیکسل و $3 به طورکلی",
-	"timedmedia-no-player-js": "با عرض پوزش، نرم افزار جاوا اسکریپت برروی مرورگر شما فعال نیست، و یا مرورگر شما از این نرم افزار پشتیبانی نمی کند.<br />\nشما میتوانید <a href=\"$1\">این ویدیو را دانلود</a> و یا <a href=\"//www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download\">یک پخش کننده</a> برای اجرای این ویدیو دانلود نمایید.",
+	"timedmedia-no-player-js": "با عرض پوزش، نرم افزار جاوا اسکریپت برروی مرورگر شما فعال نیست، و یا مرورگر شما از این نرم افزار پشتیبانی نمی کند.<br />\nشما میتوانید <a href=\"$1\">این ویدیو را دانلود</a> و یا <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">یک پخش کننده</a> برای اجرای این ویدیو دانلود نمایید.",
 	"timedmedia-more": "بیشتر...",
 	"timedmedia-dismiss": "بستن",
 	"timedmedia-download": "دریافت پرونده",
@@ -98,5 +99,9 @@
 	"timedmedia-wav-audios": "{{PLURAL:$1|$1 پوشه‌ٔ صوتی دبلیو‌ای‌وی|$1 پوشه‌های صوتی دبلیو‌ای‌وی}}",
 	"right-transcode-reset": "تنظیم مجدد انجام‌نشده‌ها یا ویدئوهای فراکدشده اعمال شد. در نتیجه مجدداً آنها در صف کار قرار گرفتند.",
 	"right-transcode-status": "مشاهدهٔ [[Special:TimedMediaHandler|اطلاعات در مورد فعالیت فراکد]]",
-	"action-transcode-status": "نمایش وضعیت فراکدگذاری کنونی"
+	"action-transcode-status": "نمایش وضعیت فراکدگذاری کنونی",
+	"orphanedtimedtext": "صفحه‌های TimedText یتیم",
+	"orphanedtimedtext-summary": "فهرست صفحه‌های [[{{#special:AllPages/TimedText:}}|{{ns:TimedText}}]] که دارای پروندهٔ متناظر نیستند.",
+	"orphanedtimedtext-unsupported": "این صفحهٔ خاص فقط در پایگاه داده‌های مای‌اس‌کیوال حمایت شده‌است.",
+	"orphanedtimedtext-notimedtext": "TimedText در این ویکی فعال نشده است."
 }

@@ -1,4 +1,5 @@
 <?php
+// @codingStandardsIgnoreFile
 /**
  * Html form for user login (since 1.22 with VForm appearance).
  *
@@ -55,7 +56,7 @@ class UserloginTemplate extends BaseTemplate {
 				</div>
 			<?php } ?>
 
-			<div>
+			<div class="mw-ui-vform-field">
 				<label for='wpName1'>
 					<?php
 					$this->msg( 'userlogin-yourname' );
@@ -71,7 +72,7 @@ class UserloginTemplate extends BaseTemplate {
 				<?php
 				$extraAttrs = array();
 				echo Html::input( 'wpName', $this->data['name'], 'text', array(
-					'class' => 'loginText',
+					'class' => 'loginText mw-ui-input',
 					'id' => 'wpName1',
 					'tabindex' => '1',
 					'size' => '20',
@@ -85,7 +86,7 @@ class UserloginTemplate extends BaseTemplate {
 				?>
 			</div>
 
-			<div>
+			<div class="mw-ui-vform-field">
 				<label for='wpPassword1'>
 					<?php
 					$this->msg( 'userlogin-yourpassword' );
@@ -101,7 +102,7 @@ class UserloginTemplate extends BaseTemplate {
 				</label>
 				<?php
 				echo Html::input( 'wpPassword', null, 'password', array(
-					'class' => 'loginPassword',
+					'class' => 'loginPassword mw-ui-input',
 					'id' => 'wpPassword1',
 					'tabindex' => '2',
 					'size' => '20',
@@ -120,7 +121,7 @@ class UserloginTemplate extends BaseTemplate {
 					$select->addOption( $dom );
 				}
 			?>
-				<div id="mw-user-domain-section">
+				<div class="mw-ui-vform-field" id="mw-user-domain-section">
 					<label for='wpDomain'><?php $this->msg( 'yourdomainname' ); ?></label>
 					<?php echo $select->getHTML(); ?>
 				</div>
@@ -132,20 +133,20 @@ class UserloginTemplate extends BaseTemplate {
 			}
 			?>
 
-			<div>
+			<div class="mw-ui-vform-field">
 				<?php if ( $this->data['canremember'] ) { ?>
-					<label class="mw-ui-checkbox-label">
+					<div class="mw-ui-checkbox">
 						<input name="wpRemember" type="checkbox" value="1" id="wpRemember" tabindex="4"
 							<?php if ( $this->data['remember'] ) {
 								echo 'checked="checked"';
 							} ?>
-						>
-						<?php echo $this->getMsg( 'userlogin-remembermypassword' )->numParams( $expirationDays )->escaped(); ?>
-					</label>
+						><label for="wpRemember">
+							<?php echo $this->getMsg( 'userlogin-remembermypassword' )->numParams( $expirationDays )->escaped(); ?></label>
+					</div>
 				<?php } ?>
 			</div>
 
-			<div>
+			<div class="mw-ui-vform-field">
 				<?php
 				echo Html::input( 'wpLoginAttempt', $this->getMsg( 'pt-login-button' )->text(), 'submit', array(
 					'id' => 'wpLoginAttempt',
@@ -154,7 +155,8 @@ class UserloginTemplate extends BaseTemplate {
 				) );
 				?>
 			</div>
-			<div id="mw-userlogin-help">
+
+			<div class="mw-ui-vform-field" id="mw-userlogin-help">
 				<?php
 				echo Html::element(
 					'a',
@@ -167,6 +169,7 @@ class UserloginTemplate extends BaseTemplate {
 				);
 				?>
 			</div>
+
 			<?php if ( $this->haveData( 'createOrLoginHref' ) ) { ?>
 				<?php if ( $this->data['loggedin'] ) { ?>
 					<div id="mw-createaccount-another">

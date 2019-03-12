@@ -24,6 +24,18 @@
  *
  */
 ( function( $ ) {
+	var eventArray = {};
+
+	$.fn.bindQueueCallback = function( eventName, callback ) {
+		var targetObject = this[0];
+
+		if ( !eventArray[ eventName ] ) {
+			eventArray[ eventName ] = [];
+		}
+
+		eventArray[ eventName ].push( { targetObject : targetObject, callback : callback } );
+	};
+
 	$.fn.triggerQueueCallback = function( triggerName, triggerParam, callback ){
 		var targetObject = this;
 		if( !targetObject.length ){
@@ -36,46 +48,13 @@
 			triggerParam = null;
 		}
 
-		// Support namespaced event segmentation
-		var triggerBaseName = triggerName.split(".")[0];
-		var triggerNamespace = triggerName.split(".")[1];
 
 		// Get the callback set
-		var callbackSet = [];
-		var triggerEventSet = null;
+		var callbackSet = eventArray[ triggerName ];
 
-		// Check jQuery 1.8 location
-		if( $._data && $._data( targetObject[0], "events" ) ){
-			triggerEventSet = $._data( targetObject[0], "events" )[triggerBaseName];
-		}
-		// Check for jQuery > 1.4 < jQuery 1.8+
-		if( !triggerEventSet && $( targetObject ).data( 'events' ) ){
-			triggerEventSet =  $( targetObject ).data( 'events' )[ triggerBaseName ];
-		}
-		// Check for jQuery <= 1.4
-		if( !triggerEventSet && $( targetObject).get(0)['__events__'] ){
-			triggerEventSet =  $( targetObject).get(0)['__events__'][ 'events' ][ triggerBaseName ];
-		}
 		// Check if no triggerEventSet was found:
-		if( !triggerEventSet ){
-			// no events return callback directly
-			callback();
-			return ;
-		}
-
-		if( ! triggerNamespace ){
-			callbackSet = triggerEventSet;
-		} else{
-			$.each( triggerEventSet, function( inx, bindObject ){
-				if( bindObject.namespace ==  triggerNamespace ){
-					callbackSet.push( bindObject );
-				}
-			});
-		}
-
 		if( !callbackSet || callbackSet.length === 0 ){
-			//mw.log( '"mwEmbed::jQuery.triggerQueueCallback: No events run the callback directly: ' + triggerName );
-			// No events run the callback directly
+			// no events return callback directly
 			callback();
 			return ;
 		}
@@ -102,6 +81,11 @@
 			}
 		};
 		var triggerArgs = ( triggerParam )? [ triggerParam, doCallbackCheck ] : [ doCallbackCheck ];
+
 		$( this ).trigger( triggerName, triggerArgs);
+
+		$.each( eventArray[ triggerName ], function ( idx, queuedCallback ) {
+			queuedCallback.callback.apply( queuedCallback.targetObject, triggerArgs );
+		} );
 	};
 } )( jQuery );

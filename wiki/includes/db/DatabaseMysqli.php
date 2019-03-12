@@ -95,17 +95,12 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 		} else {
 			$mysqli->options( MYSQLI_SET_CHARSET_NAME, 'binary' );
 		}
+		$mysqli->options( MYSQLI_OPT_CONNECT_TIMEOUT, 3 );
 
-		$numAttempts = 2;
-		for ( $i = 0; $i < $numAttempts; $i++ ) {
-			if ( $i > 1 ) {
-				usleep( 1000 );
-			}
-			if ( $mysqli->real_connect( $realServer, $this->mUser,
-				$this->mPassword, $this->mDBname, $port, $socket, $connFlags )
-			) {
-				return $mysqli;
-			}
+		if ( $mysqli->real_connect( $realServer, $this->mUser,
+			$this->mPassword, $this->mDBname, $port, $socket, $connFlags )
+		) {
+			return $mysqli;
 		}
 
 		return false;
@@ -305,6 +300,7 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 	 * Give an id for the connection
 	 *
 	 * mysql driver used resource id, but mysqli objects cannot be cast to string.
+	 * @return string
 	 */
 	public function __toString() {
 		if ( $this->mConn instanceof Mysqli ) {

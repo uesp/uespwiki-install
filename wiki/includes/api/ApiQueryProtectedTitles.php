@@ -31,7 +31,7 @@
  */
 class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'pt' );
 	}
 
@@ -44,7 +44,7 @@ class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 * @return void
 	 */
 	private function run( $resultPageSet = null ) {
@@ -175,8 +175,6 @@ class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 	}
 
 	public function getAllowedParams() {
-		global $wgRestrictionLevels;
-
 		return array(
 			'namespace' => array(
 				ApiBase::PARAM_ISMULTI => true,
@@ -184,7 +182,7 @@ class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 			),
 			'level' => array(
 				ApiBase::PARAM_ISMULTI => true,
-				ApiBase::PARAM_TYPE => array_diff( $wgRestrictionLevels, array( '' ) )
+				ApiBase::PARAM_TYPE => array_diff( $this->getConfig()->get( 'RestrictionLevels' ), array( '' ) )
 			),
 			'limit' => array(
 				ApiBase::PARAM_DFLT => 10,
@@ -242,44 +240,6 @@ class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 			),
 			'level' => 'Only list titles with these protection levels',
 			'continue' => 'When more results are available, use this to continue',
-		);
-	}
-
-	public function getResultProperties() {
-		global $wgRestrictionLevels;
-
-		return array(
-			'' => array(
-				'ns' => 'namespace',
-				'title' => 'string'
-			),
-			'timestamp' => array(
-				'timestamp' => 'timestamp'
-			),
-			'user' => array(
-				'user' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'userid' => 'integer'
-			),
-			'userid' => array(
-				'userid' => 'integer'
-			),
-			'comment' => array(
-				'comment' => 'string'
-			),
-			'parsedcomment' => array(
-				'parsedcomment' => 'string'
-			),
-			'expiry' => array(
-				'expiry' => 'timestamp'
-			),
-			'level' => array(
-				'level' => array(
-					ApiBase::PROP_TYPE => array_diff( $wgRestrictionLevels, array( '' ) )
-				)
-			)
 		);
 	}
 

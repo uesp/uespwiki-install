@@ -264,7 +264,7 @@ $specialPageAliases['mt'] = array(
 	'Cite' => array( 'Iċċita' ),
 );
 
-/** Nāhuatl (Nāhuatl) */
+/** Nahuatl (Nāhuatl) */
 $specialPageAliases['nah'] = array(
 	'Cite' => array( 'Tlahtoa', 'Citar' ),
 );
@@ -297,6 +297,11 @@ $specialPageAliases['nn'] = array(
 /** Occitan (occitan) */
 $specialPageAliases['oc'] = array(
 	'Cite' => array( 'Citar' ),
+);
+
+/** Punjabi (ਪੰਜਾਬੀ) */
+$specialPageAliases['pa'] = array(
+	'Cite' => array( 'ਹਵਾਲਾ' ),
 );
 
 /** Polish (polski) */
@@ -352,6 +357,11 @@ $specialPageAliases['sl'] = array(
 /** Albanian (shqip) */
 $specialPageAliases['sq'] = array(
 	'Cite' => array( 'Citim' ),
+);
+
+/** Serbian (Cyrillic script) (српски (ћирилица)‎) */
+$specialPageAliases['sr-ec'] = array(
+	'Cite' => array( 'Цитирај' ),
 );
 
 /** Swedish (svenska) */

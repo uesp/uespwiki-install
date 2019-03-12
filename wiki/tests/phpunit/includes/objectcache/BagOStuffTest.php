@@ -11,8 +11,8 @@ class BagOStuffTest extends MediaWikiTestCase {
 		parent::setUp();
 
 		// type defined through parameter
-		if ( $this->getCliArg( 'use-bagostuff=' ) ) {
-			$name = $this->getCliArg( 'use-bagostuff=' );
+		if ( $this->getCliArg( 'use-bagostuff' ) ) {
+			$name = $this->getCliArg( 'use-bagostuff' );
 
 			$this->cache = ObjectCache::newFromId( $name );
 		} else {
@@ -21,9 +21,6 @@ class BagOStuffTest extends MediaWikiTestCase {
 		}
 
 		$this->cache->delete( wfMemcKey( 'test' ) );
-	}
-
-	protected function tearDown() {
 	}
 
 	public function testMerge() {
@@ -67,7 +64,7 @@ class BagOStuffTest extends MediaWikiTestCase {
 		 * - pcntl_fork is supported by the system
 		 * - cache type will correctly support calls over forks
 		 */
-		$fork = (bool)$this->getCliArg( 'use-bagostuff=' );
+		$fork = (bool)$this->getCliArg( 'use-bagostuff' );
 		$fork &= function_exists( 'pcntl_fork' );
 		$fork &= !$this->cache instanceof HashBagOStuff;
 		$fork &= !$this->cache instanceof EmptyBagOStuff;
@@ -138,7 +135,10 @@ class BagOStuffTest extends MediaWikiTestCase {
 		$this->cache->add( $key1, $value1 );
 		$this->cache->add( $key2, $value2 );
 
-		$this->assertEquals( $this->cache->getMulti( array( $key1, $key2 ) ), array( $key1 => $value1, $key2 => $value2 ) );
+		$this->assertEquals(
+			$this->cache->getMulti( array( $key1, $key2 ) ),
+			array( $key1 => $value1, $key2 => $value2 )
+		);
 
 		// cleanup
 		$this->cache->delete( $key1 );

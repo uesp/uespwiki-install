@@ -9,7 +9,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
@@ -24,8 +24,17 @@
  * @covers MediaWikiPageLinkRenderer
  *
  * @group Title
+ * @group Database
  */
 class MediaWikiPageLinkRendererTest extends MediaWikiTestCase {
+
+	protected function setUp() {
+		parent::setUp();
+
+		$this->setMwGlobals( array(
+			'wgContLang' => Language::factory( 'en' ),
+		) );
+	}
 
 	/**
 	 * Returns a mock GenderCache that will return "female" always.
@@ -44,7 +53,7 @@ class MediaWikiPageLinkRendererTest extends MediaWikiTestCase {
 		return $genderCache;
 	}
 
-	public function provideGetPageUrl() {
+	public static function provideGetPageUrl() {
 		return array(
 			array(
 				new TitleValue( NS_MAIN, 'Foo_Bar' ),
@@ -77,7 +86,7 @@ class MediaWikiPageLinkRendererTest extends MediaWikiTestCase {
 		$this->assertEquals( $url, $actual );
 	}
 
-	public function provideRenderHtmlLink() {
+	public static function provideRenderHtmlLink() {
 		return array(
 			array(
 				new TitleValue( NS_MAIN, 'Foo_Bar' ),
@@ -119,7 +128,7 @@ class MediaWikiPageLinkRendererTest extends MediaWikiTestCase {
 		$this->assertRegExp( $pattern, $actual );
 	}
 
-	public function provideRenderWikitextLink() {
+	public static function provideRenderWikitextLink() {
 		return array(
 			array(
 				new TitleValue( NS_MAIN, 'Foo_Bar' ),
@@ -147,7 +156,7 @@ class MediaWikiPageLinkRendererTest extends MediaWikiTestCase {
 		$formatter->expects( $this->any() )
 			->method( 'getFullText' )
 			->will( $this->returnCallback(
-				function( TitleValue $title ) {
+				function ( TitleValue $title ) {
 					return str_replace( '_', ' ', "$title" );
 				}
 			));

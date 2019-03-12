@@ -52,7 +52,7 @@ class ForeignApiQueryAllPages extends ApiQueryAllPages {
 	 * @param string $titlePart Title part with spaces
 	 * @return string Title part with underscores
 	 */
-	public function titlePartToKey( $titlePart ) {
+	public function titlePartToKey( $titlePart, $defaultNamespace = NS_MAIN ) {
 		return substr( $this->titleToKey( $titlePart . 'x' ), 0, -1 );
 	}
 }
@@ -203,10 +203,14 @@ class TextHandler {
 		$params = new FauxRequest( $this->getTextPagesQuery() );
 		$api = new ApiMain( $params );
 		$api->profileIn();
-		$module = new ForeignApiQueryAllPages( $this->file->getRepo()->getSlaveDB(), $api, 'allpages' );
+		$query = new ApiQuery( $api, 'foo', 'bar' );
+		$query->profileIn();
+		$module = new ForeignApiQueryAllPages( $this->file->getRepo()->getSlaveDB(), $query, 'allpages' );
 		$module->profileIn();
 		$module->execute();
 		$module->profileOut();
+		$query->profileOut();
+		$api->profileOut();
 
 		$data = $module->getResultData();
 		// Get the list of language Names
@@ -271,23 +275,13 @@ class TextHandler {
 			));
 		//} elseif( $this->file->repo instanceof ForeignDBViaLBRepo ){
 		} else {
-			$basePageUrl = $this->getRepoPageURL( $pageTitle );
-			$sep = ( strpos( $basePageUrl, '?' ) === false ) ? '?' : '&';
-			return $basePageUrl . $sep . 'action=raw&ctype=text/x-srt';
+			$query = 'title=' . wfUrlencode( $pageTitle ) . '&';
+			$query .= wfArrayToCgi( array(
+				'action' => 'raw',
+				'ctype' => 'text/x-srt'
+			) );
+			// Note: This will return false if scriptDirUrl is not set for repo.
+			return $this->file->repo->makeUrl( $query );
 		}
-	}
-
-	/**
-	 * A generalized version of getDescriptionUrl for prefixed pages rather than Image: prefix
-	 */
-	function getRepoPageURL( $pageTitle ){
-		$repo = $this->file->repo;
-
-		$url = $repo->getDescriptionUrl( $pageTitle );
-		if ( $url === false ) {
-			return false;
-		}
-		$url = str_replace( array( 'Image:', 'File:' ), '', $url );
-		return $url;
 	}
 }

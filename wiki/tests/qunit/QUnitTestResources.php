@@ -8,14 +8,14 @@ return array(
 
 	'test.sinonjs' => array(
 		'scripts' => array(
-			'resources/lib/sinonjs/sinon-1.9.0.js',
+			'resources/lib/sinonjs/sinon-1.10.3.js',
 			// We want tests to work in IE, but can't include this as it
 			// will break the placeholders in Sinon because the hack it uses
 			// to hijack IE globals relies on running in the global scope
 			// and in ResourceLoader this won't be running in the global scope.
 			// Including it results (among other things) in sandboxed timers
 			// being broken due to Date inheritance being undefined.
-			// 'resources/lib/sinonjs/sinon-ie-1.9.0.js',
+			// 'resources/lib/sinonjs/sinon-ie-1.10.3.js',
 		),
 		'targets' => array( 'desktop', 'mobile' ),
 	),
@@ -44,6 +44,7 @@ return array(
 	'test.mediawiki.qunit.suites' => array(
 		'scripts' => array(
 			'tests/qunit/suites/resources/startup.test.js',
+			'tests/qunit/suites/resources/jquery/jquery.accessKeyLabel.test.js',
 			'tests/qunit/suites/resources/jquery/jquery.autoEllipsis.test.js',
 			'tests/qunit/suites/resources/jquery/jquery.byteLength.test.js',
 			'tests/qunit/suites/resources/jquery/jquery.byteLimit.test.js',
@@ -70,20 +71,22 @@ return array(
 			'tests/qunit/suites/resources/mediawiki/mediawiki.user.test.js',
 			'tests/qunit/suites/resources/mediawiki/mediawiki.util.test.js',
 			'tests/qunit/suites/resources/mediawiki.api/mediawiki.api.test.js',
+			'tests/qunit/suites/resources/mediawiki.api/mediawiki.api.category.test.js',
 			'tests/qunit/suites/resources/mediawiki.api/mediawiki.api.parse.test.js',
 			'tests/qunit/suites/resources/mediawiki.api/mediawiki.api.watch.test.js',
 			'tests/qunit/suites/resources/mediawiki.special/mediawiki.special.recentchanges.test.js',
 			'tests/qunit/suites/resources/mediawiki/mediawiki.language.test.js',
 			'tests/qunit/suites/resources/mediawiki/mediawiki.cldr.test.js',
+			'tests/qunit/suites/resources/mediawiki/mediawiki.cookie.test.js',
 		),
 		'dependencies' => array(
+			'jquery.accessKeyLabel',
 			'jquery.autoEllipsis',
 			'jquery.byteLength',
 			'jquery.byteLimit',
 			'jquery.client',
 			'jquery.color',
 			'jquery.colorUtil',
-			'jquery.delayedBind',
 			'jquery.getAttrs',
 			'jquery.hidpi',
 			'jquery.highlightText',
@@ -95,16 +98,19 @@ return array(
 			'jquery.tablesorter',
 			'jquery.textSelection',
 			'mediawiki.api',
+			'mediawiki.api.category',
 			'mediawiki.api.parse',
 			'mediawiki.api.watch',
 			'mediawiki.jqueryMsg',
 			'mediawiki.Title',
+			'mediawiki.toc',
 			'mediawiki.Uri',
 			'mediawiki.user',
 			'mediawiki.util',
 			'mediawiki.special.recentchanges',
 			'mediawiki.language',
 			'mediawiki.cldr',
+			'mediawiki.cookie',
 			'test.mediawiki.qunit.testrunner',
 		),
 	)

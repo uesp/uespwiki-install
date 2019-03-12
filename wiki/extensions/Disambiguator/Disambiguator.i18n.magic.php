@@ -98,6 +98,11 @@ $magicWords['mr'] = array(
 	'disambiguation' => array( '__निःसंदिग्ध__' ),
 );
 
+/** Norwegian Nynorsk (norsk nynorsk) */
+$magicWords['nn'] = array(
+	'disambiguation' => array( '__FLEIRTYDING__' ),
+);
+
 /** Serbian (Cyrillic script) (српски (ћирилица)‎) */
 $magicWords['sr-ec'] = array(
 	'disambiguation' => array( '__ДИСАМБИГ__' ),
@@ -115,5 +120,5 @@ $magicWords['vi'] = array(
 
 /** Simplified Chinese (中文（简体）‎) */
 $magicWords['zh-hans'] = array(
-	'disambiguation' => array( '__消歧义__' ),
+	'disambiguation' => array( '__消歧义__', '__消除歧义__' ),
 );

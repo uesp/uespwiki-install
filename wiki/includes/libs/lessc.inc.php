@@ -1,5 +1,5 @@
 <?php
-
+// @codingStandardsIgnoreFile File external to MediaWiki. Ignore coding conventions checks.
 /**
  * lessphp v0.4.0@2cc77e3c7b
  * http://leafo.net/lessphp
@@ -1036,7 +1036,7 @@ class lessc {
 					}
 				}
 
-				if(!is_null($mime)) // fallback if the mime type is still unknown
+				if(!is_null($mime)) // fallback if the MIME type is still unknown
 					$url = sprintf('data:%s;base64,%s', $mime, base64_encode(file_get_contents($fullpath)));
 			}
 		}

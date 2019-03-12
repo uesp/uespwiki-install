@@ -87,12 +87,13 @@ abstract class Job implements IJobSpecification {
 	 * This may add duplicate at insert time, but they will be
 	 * removed later on, when the first one is popped.
 	 *
-	 * @param array $jobs of Job objects
+	 * @param array $jobs Array of Job objects
 	 * @return bool
 	 * @deprecated since 1.21
 	 */
 	public static function batchInsert( $jobs ) {
-		return JobQueueGroup::singleton()->push( $jobs );
+		JobQueueGroup::singleton()->push( $jobs );
+		return true;
 	}
 
 	/**
@@ -102,12 +103,13 @@ abstract class Job implements IJobSpecification {
 	 * be rolled-back as part of a larger transaction. However,
 	 * large batches of jobs can cause slave lag.
 	 *
-	 * @param array $jobs of Job objects
+	 * @param array $jobs Array of Job objects
 	 * @return bool
 	 * @deprecated since 1.21
 	 */
 	public static function safeBatchInsert( $jobs ) {
-		return JobQueueGroup::singleton()->push( $jobs, JobQueue::QOS_ATOMIC );
+		JobQueueGroup::singleton()->push( $jobs, JobQueue::QOS_ATOMIC );
+		return true;
 	}
 
 	/**
@@ -115,7 +117,7 @@ abstract class Job implements IJobSpecification {
 	 * actually find a job; it may be adversely affected by concurrent job
 	 * runners.
 	 *
-	 * @param $type string
+	 * @param string $type
 	 * @return Job|bool Returns false if there are no jobs
 	 * @deprecated since 1.21
 	 */
@@ -139,9 +141,9 @@ abstract class Job implements IJobSpecification {
 	 *------------------------------------------------------------------------*/
 
 	/**
-	 * @param $command
-	 * @param $title
-	 * @param $params array|bool
+	 * @param string $command
+	 * @param Title $title
+	 * @param array|bool $params
 	 */
 	public function __construct( $command, $title, $params = false ) {
 		$this->command = $command;
@@ -199,7 +201,7 @@ abstract class Job implements IJobSpecification {
 	}
 
 	/**
-	 * @return integer Number of actually "work items" handled in this job
+	 * @return int Number of actually "work items" handled in this job
 	 * @see $wgJobBackoffThrottling
 	 * @since 1.23
 	 */
@@ -277,17 +279,26 @@ abstract class Job implements IJobSpecification {
 
 	/**
 	 * Insert a single job into the queue.
-	 * @return bool true on success
+	 * @return bool True on success
 	 * @deprecated since 1.21
 	 */
 	public function insert() {
-		return JobQueueGroup::singleton()->push( $this );
+		JobQueueGroup::singleton()->push( $this );
+		return true;
 	}
 
 	/**
 	 * @return string
 	 */
 	public function toString() {
+		$truncFunc = function ( $value ) {
+			$value = (string)$value;
+			if ( mb_strlen( $value ) > 1024 ) {
+				$value = "string(" . mb_strlen( $value ) . ")";
+			}
+			return $value;
+		};
+
 		$paramString = '';
 		if ( $this->params ) {
 			foreach ( $this->params as $key => $value ) {
@@ -295,16 +306,25 @@ abstract class Job implements IJobSpecification {
 					$paramString .= ' ';
 				}
 				if ( is_array( $value ) ) {
-					$value = "array(" . count( $value ) . ")";
+					$filteredValue = array();
+					foreach ( $value as $k => $v ) {
+						if ( is_scalar( $v ) ) {
+							$filteredValue[$k] = $truncFunc( $v );
+						} else {
+							$filteredValue = null;
+							break;
+						}
+					}
+					if ( $filteredValue ) {
+						$value = FormatJson::encode( $filteredValue );
+					} else {
+						$value = "array(" . count( $value ) . ")";
+					}
 				} elseif ( is_object( $value ) && !method_exists( $value, '__toString' ) ) {
 					$value = "object(" . get_class( $value ) . ")";
 				}
-				$value = (string)$value;
-				if ( mb_strlen( $value ) > 1024 ) {
-					$value = "string(" . mb_strlen( $value ) . ")";
-				}
 
-				$paramString .= "$key=$value";
+				$paramString .= "$key={$truncFunc( $value )}";
 			}
 		}
 

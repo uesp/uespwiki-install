@@ -21,11 +21,14 @@ class LU_Finder {
 		$this->core = $core;
 	}
 
+	/**
+	 * @return array
+	 */
 	public function getComponents() {
 		$components = array();
 
 		// For older versions of Mediawiki, pull json updates even though its still using php
-		if ( !isset( $json['core'] ) ) {
+		if ( !isset( $this->json['core'] ) ) {
 			$components['core'] = array(
 				'repo' => 'mediawiki',
 				'orig' => "file://{$this->core}/languages/messages/Messages*.php",

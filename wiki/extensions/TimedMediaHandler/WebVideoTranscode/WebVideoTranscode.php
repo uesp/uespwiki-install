@@ -319,7 +319,10 @@ class WebVideoTranscode {
 		$maxSize = 0;
 		foreach( $wgEnabledTranscodeSet as $transcodeKey ){
 			if( isset( self::$derivativeSettings[$transcodeKey]['videoBitrate'] ) ){
-				$maxSize = self::$derivativeSettings[$transcodeKey]['maxSize'];
+				$currentSize = self::$derivativeSettings[$transcodeKey]['maxSize'];
+				if( $currentSize > $maxSize ){
+					$maxSize = $currentSize;
+				}
 			}
 		}
 		return $maxSize;
@@ -756,8 +759,8 @@ class WebVideoTranscode {
 				'timedmedia-source-file',
 				wfMessage( 'timedmedia-' . $metadataType )->text()
 			)->text(),
-			"width" => $file->getWidth(),
-			"height" => $file->getHeight(),
+			"width" => intval( $file->getWidth() ),
+			"height" => intval( $file->getHeight() ),
 		);
 
 		if( $bitrate ){
@@ -768,7 +771,7 @@ class WebVideoTranscode {
 		if( !$file->getHandler()->isAudio( $file ) ){
 			$framerate = $file->getHandler()->getFramerate( $file );
 			if( $framerate ){
-				$source[ "framerate" ] = $framerate;
+				$source[ "framerate" ] = floatval( $framerate );
 			}
 		}
 		return $source;
@@ -802,7 +805,7 @@ class WebVideoTranscode {
 						$file->getHandler()->getFramerate( $file );
 		// Setup the url src:
 		$src = in_array( 'fullurl', $options) ?  wfExpandUrl( $src ) : $src;
-		return array(
+		$fields = array(
 				'src' => $src,
 				'title' => wfMessage( 'timedmedia-derivative-desc-' . $transcodeKey )->text(),
 				'type' => self::$derivativeSettings[ $transcodeKey ][ 'type' ],
@@ -811,12 +814,16 @@ class WebVideoTranscode {
 
 				// Add data attributes per emerging DASH / webTV adaptive streaming attributes
 				// eventually we will define a manifest xml entry point.
-				"width" => $width,
-				"height" => $height,
+				"width" => intval( $width ),
+				"height" => intval( $height ),
 				// a "ready" transcode should have a bitrate:
-				"bandwidth" => self::$transcodeState[$fileName][ $transcodeKey ]['final_bitrate'],
-				"framerate" => $framerate,
+				"bandwidth" => intval( self::$transcodeState[$fileName][ $transcodeKey ]['final_bitrate'] ),
 			);
+
+		if ( !$file->getHandler()->isAudio( $file ) ) {
+			$fields += array( "framerate" => floatval( $framerate ) );
+		}
+		return $fields;
 	}
 
 	/**
@@ -917,7 +924,11 @@ class WebVideoTranscode {
 		$maxSize = self::getMaxSize( $targetMaxSize );
 		$sourceWidth = intval( $file->getWidth() );
 		$sourceHeight = intval( $file->getHeight() );
-		$sourceAspect = intval( $sourceWidth ) / intval( $sourceHeight );
+		if ( $sourceHeight === 0 ) {
+			// Audio file
+			return array( 0, 0 );
+		}
+		$sourceAspect = $sourceWidth / $sourceHeight;
 		$targetWidth = $sourceWidth;
 		$targetHeight = $sourceHeight;
 		if ( $sourceAspect <= $maxSize['aspect'] ) {

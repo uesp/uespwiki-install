@@ -1,8 +1,7 @@
 <?php
 /** Norwegian Nynorsk (norsk nynorsk)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -36,12 +35,12 @@
  */
 
 /**
-  * @license http://www.gnu.org/copyleft/fdl.html GNU Free Documentation License
-  * @license http://www.gnu.org/copyleft/gpl.html GNU General Public License
-  *
-  * @see http://meta.wikimedia.org/w/index.php?title=LanguageNn.php&action=history
-  * @see http://nn.wikipedia.org/w/index.php?title=Brukar:Dittaeva/LanguageNn.php&action=history
-  */
+ * @license http://www.gnu.org/copyleft/fdl.html GNU Free Documentation License
+ * @license http://www.gnu.org/copyleft/gpl.html GNU General Public License
+ *
+ * @see http://meta.wikimedia.org/w/index.php?title=LanguageNn.php&action=history
+ * @see http://nn.wikipedia.org/w/index.php?title=Brukar:Dittaeva/LanguageNn.php&action=history
+ */
 
 
 $datePreferences = array(
@@ -268,6 +267,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Flest_endringar' ),
 	'Movepage'                  => array( 'Flytt_side' ),
 	'Mycontributions'           => array( 'Bidraga_mine' ),
+	'MyLanguage'                => array( 'Språket_mitt' ),
 	'Mypage'                    => array( 'Sida_mi' ),
 	'Mytalk'                    => array( 'Diskusjonssida_mi' ),
 	'Myuploads'                 => array( 'Opplastingane_mine' ),

@@ -1,5 +1,5 @@
 ( function ( $, mw ) {
-	var config, header,
+	var header,
 
 		// Data set "simple"
 		a1 = [ 'A', '1' ],
@@ -155,16 +155,16 @@
 			['February 05 2010']
 		];
 
-	config = {
-		wgMonthNames: ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-		wgMonthNamesShort: ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-		wgDefaultDateFormat: 'dmy',
-		wgSeparatorTransformTable: ['', ''],
-		wgDigitTransformTable: ['', ''],
-		wgContentLanguage: 'en'
-	};
-
-	QUnit.module( 'jquery.tablesorter', QUnit.newMwEnvironment( { config: config } ) );
+	QUnit.module( 'jquery.tablesorter', QUnit.newMwEnvironment( {
+		config: {
+			wgMonthNames: ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+			wgMonthNamesShort: ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+			wgDefaultDateFormat: 'dmy',
+			wgSeparatorTransformTable: ['', ''],
+			wgDigitTransformTable: ['', ''],
+			wgContentLanguage: 'en'
+		}
+	} ) );
 
 	/**
 	 * Create an HTML table from an array of row arrays containing text strings.
@@ -1160,13 +1160,34 @@
 				'</table>'
 		);
 		$table.tablesorter();
-		assert.equal( 0,
-			$table.find( '#A2' ).prop( 'headerIndex' ),
-			'A2 should be a sort header'
+		assert.equal( $table.find( '#A2' ).prop( 'headerIndex' ),
+			undefined,
+			'A2 should not be a sort header'
 		);
-		assert.equal( 1, // should be 2
-			$table.find( '#C1' ).prop( 'headerIndex' ),
-			'C1 should be a sort header, but will sort the wrong column'
+		assert.equal( $table.find( '#C1' ).prop( 'headerIndex' ),
+			2,
+			'C1 should be a sort header'
+		);
+	} );
+
+	// bug 53527
+	QUnit.test( 'td cells in thead should not be taken into account for longest row calculation', 2, function ( assert ) {
+		var $table = $(
+			'<table class="sortable">' +
+				'<thead>' +
+				'<tr><th id="A1">A1</th><th>B1</th><td id="C1">C1</td></tr>' +
+				'<tr><th id="A2">A2</th><th>B2</th><th id="C2">C2</th></tr>' +
+				'</thead>' +
+				'</table>'
+		);
+		$table.tablesorter();
+		assert.equal( $table.find( '#C2' ).prop( 'headerIndex' ),
+			2,
+			'C2 should be a sort header'
+		);
+		assert.equal( $table.find( '#C1' ).prop( 'headerIndex' ),
+			undefined,
+			'C1 should not be a sort header'
 		);
 	} );
 
@@ -1197,7 +1218,9 @@
 			'</tbody></table>' );
 
 			$table.tablesorter();
-			assert.equal( 2, $table.find( 'tr:eq(1) th:eq(1)').prop('headerIndex'), 'Incorrect index of sort header' );
+			assert.equal( $table.find( 'tr:eq(1) th:eq(1)').prop('headerIndex'),
+				2,
+				'Incorrect index of sort header' );
 		}
 	);
 

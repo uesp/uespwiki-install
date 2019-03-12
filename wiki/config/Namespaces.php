@@ -38,7 +38,6 @@ array(	100 => "Tamold",      101 => "Tamold_talk",
 
 $wgNamespaceAliases =
 array(	'UESP' => NS_PROJECT, 'UESP_talk' => NS_PROJECT+1,
-		'AR' => 102,          'AR_talk' => 103,
 		'DF' => 104,          'DF_talk' => 105,
 		'BS' => 106,          'BS_talk' => 107,
 		'RG' => 108,          'RG_talk' => 109,

@@ -87,7 +87,7 @@ if (!isset($wgAutoloadClasses['CategoryTreeCategoryPage']))
 	$wgAutoloadClasses['CategoryTreeCategoryPage'] = $dir . 'FakeCategoryTreeStubs.php';
 
 # Intialization function where most of customization is done
-$wgExtensionFunctions[] = 'efMetaTemplateInit';
+$wgHooks['ParserFirstCallInit'][] = 'efMetaTemplateInit';
 
 /* 
  * Add Hooks
@@ -125,8 +125,8 @@ $wgSpecialPageGroups[ 'MetaVarsOnPage' ] = 'wiki';
 
 # This function is called as soon as setup is done
 # Loads extension messages and does some other initialization that can be safely moved out of global
-function efMetaTemplateInit() {
-	global $wgVersion, $wgMessageCache, $wgSearchType, $wgParser, $wgRequest, $wgHooks;
+function efMetaTemplateInit( Parser $parser ) {
+	global $wgVersion, $wgMessageCache, $wgSearchType, $wgRequest, $wgHooks;
 	global $egUespNamespace;
 	$dir = dirname(__FILE__) . '/';
 
@@ -148,7 +148,10 @@ function efMetaTemplateInit() {
 	$titleText = $wgRequest->getVal( 'title' );
 	if ($titleText) {
 		$title = Title::newFromText($wgRequest->getVal( 'title' ));
-		$istemplate = $title->getNamespace()==NS_TEMPLATE;
+		if ($title == null)
+			$istemplate = false;
+		else
+			$istemplate = $title->getNamespace()==NS_TEMPLATE;
 	}
 	else {
 		$istemplate = false;
@@ -160,48 +163,48 @@ function efMetaTemplateInit() {
 		$hookoption = 0;
 		
 	
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_DEFINE, 'efMetaTemplateImplementDefine', $hookoption);
+	$parser->setFunctionHook( MAG_METATEMPLATE_DEFINE, 'efMetaTemplateImplementDefine', $hookoption);
 	// previews are only on Template pages when in preview mode; if not activated, call blank instead
 	// this one check is reliable here, because previews are never done by job queue
 	if ( $istemplate && $ispreview )
-		$wgParser->setFunctionHook( MAG_METATEMPLATE_PREVIEW, 'efMetaTemplateImplementPreview', $hookoption);
+		$parser->setFunctionHook( MAG_METATEMPLATE_PREVIEW, 'efMetaTemplateImplementPreview', $hookoption);
 	else
-		$wgParser->setFunctionHook( MAG_METATEMPLATE_PREVIEW, 'efMetaTemplateBlank');
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_UNSET, 'efMetaTemplateImplementUnset', $hookoption);
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_INHERIT, 'efMetaTemplateImplementInherit', $hookoption);
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_RETURN, 'efMetaTemplateImplementReturn', $hookoption);
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_LOCAL, 'efMetaTemplateImplementLocal', $hookoption);
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_IFEXISTX, 'efMetaTemplateIfExist', $hookoption);
+		$parser->setFunctionHook( MAG_METATEMPLATE_PREVIEW, 'efMetaTemplateBlank');
+	$parser->setFunctionHook( MAG_METATEMPLATE_UNSET, 'efMetaTemplateImplementUnset', $hookoption);
+	$parser->setFunctionHook( MAG_METATEMPLATE_INHERIT, 'efMetaTemplateImplementInherit', $hookoption);
+	$parser->setFunctionHook( MAG_METATEMPLATE_RETURN, 'efMetaTemplateImplementReturn', $hookoption);
+	$parser->setFunctionHook( MAG_METATEMPLATE_LOCAL, 'efMetaTemplateImplementLocal', $hookoption);
+	$parser->setFunctionHook( MAG_METATEMPLATE_IFEXISTX, 'efMetaTemplateIfExist', $hookoption);
 	
 	if ($egMetaTemplateEnableSaveLoad) {
-		$wgParser->setFunctionHook( MAG_METATEMPLATE_SAVE, 'efMetaTemplateImplementSave', $hookoption);
-		$wgParser->setFunctionHook( MAG_METATEMPLATE_LOAD, 'efMetaTemplateImplementLoad', $hookoption);
-		$wgParser->setFunctionHook( MAG_METATEMPLATE_LISTSAVED, 'efMetaTemplateImplementListsaved', $hookoption);
+		$parser->setFunctionHook( MAG_METATEMPLATE_SAVE, 'efMetaTemplateImplementSave', $hookoption);
+		$parser->setFunctionHook( MAG_METATEMPLATE_LOAD, 'efMetaTemplateImplementLoad', $hookoption);
+		$parser->setFunctionHook( MAG_METATEMPLATE_LISTSAVED, 'efMetaTemplateImplementListsaved', $hookoption);
 
 		$wgHooks['ArticleDeleteComplete'][] = 'MetaTemplateSaveData::OnDelete';
 		// $wgHooks['ArticlePurge'][] = 'MetaTemplateSaveData::OnDelete'; // Same function header and desired effect as OnDelete, so re-use
 		$wgHooks['TitleMoveComplete'][] = 'MetaTemplateSaveData::OnMove';
 	}
 	
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_NAMESPACEx, 'efMetaTemplateImplementNamespacex', SFH_NO_HASH | $hookoption );
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_PAGENAMEx, 'efMetaTemplateImplementPagenamex', SFH_NO_HASH | $hookoption );
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_FULLPAGENAMEx, 'efMetaTemplateImplementFullpagenamex', SFH_NO_HASH | $hookoption );
+	$parser->setFunctionHook( MAG_METATEMPLATE_NAMESPACEx, 'efMetaTemplateImplementNamespacex', SFH_NO_HASH | $hookoption );
+	$parser->setFunctionHook( MAG_METATEMPLATE_PAGENAMEx, 'efMetaTemplateImplementPagenamex', SFH_NO_HASH | $hookoption );
+	$parser->setFunctionHook( MAG_METATEMPLATE_FULLPAGENAMEx, 'efMetaTemplateImplementFullpagenamex', SFH_NO_HASH | $hookoption );
 	
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_SPLITARGS, 'efMetaTemplateImplementSplitargs', $hookoption);
+	$parser->setFunctionHook( MAG_METATEMPLATE_SPLITARGS, 'efMetaTemplateImplementSplitargs', $hookoption);
 // explodeargs and include do not access parser stack, but still need frame (to expand templates)
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_EXPLODEARGS, 'efMetaTemplateImplementExplodeargs', $hookoption );
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_INCLUDE, 'efMetaTemplateImplementInclude', $hookoption );
+	$parser->setFunctionHook( MAG_METATEMPLATE_EXPLODEARGS, 'efMetaTemplateImplementExplodeargs', $hookoption );
+	$parser->setFunctionHook( MAG_METATEMPLATE_INCLUDE, 'efMetaTemplateImplementInclude', $hookoption );
 // these functions do not access parser stack and therefore can use old-style hook arguments
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_PICKFROM, 'efMetaTemplateImplementPickfrom' );
-	$wgParser->setFunctionHook( MAG_METATEMPLATE_TRIMLINKS, 'efMetaTemplateImplementTrimlinks');
+	$parser->setFunctionHook( MAG_METATEMPLATE_PICKFROM, 'efMetaTemplateImplementPickfrom' );
+	$parser->setFunctionHook( MAG_METATEMPLATE_TRIMLINKS, 'efMetaTemplateImplementTrimlinks');
 	
 	// Tag function hooks
-	$wgParser->setHook( MAG_METATEMPLATE_DISPLAYCODE, 'efMetaTemplateDisplaycode' );
-	$wgParser->setHook( MAG_METATEMPLATE_CLEANSPACE, 'efMetaTemplateCleanspace' );
-	$wgParser->setHook( MAG_METATEMPLATE_CLEANTABLE, 'efMetaTemplateCleantable' );
+	$parser->setHook( MAG_METATEMPLATE_DISPLAYCODE, 'efMetaTemplateDisplaycode' );
+	$parser->setHook( MAG_METATEMPLATE_CLEANSPACE, 'efMetaTemplateCleanspace' );
+	$parser->setHook( MAG_METATEMPLATE_CLEANTABLE, 'efMetaTemplateCleantable' );
 	global $egMetaTemplateEnableCatPageTemplate;
 	if ($egMetaTemplateEnableCatPageTemplate)
-		$wgParser->setHook( MAG_METATEMPLATE_CATPAGETEMPLATE, 'efMetaTemplateCatPageTemplate' );
+		$parser->setHook( MAG_METATEMPLATE_CATPAGETEMPLATE, 'efMetaTemplateCatPageTemplate' );
 	
 	return true;
 }

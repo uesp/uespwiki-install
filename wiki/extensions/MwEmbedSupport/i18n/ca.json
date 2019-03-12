@@ -1,9 +1,9 @@
 {
-    "@metadata": {
-        "authors": [
-            "Fitoschido",
-            "Toniher"
-        ]
-    },
-    "mwembed-desc": "Proporciona compatibilitat amb els mòduls i les extensions que usen mwEmbed"
+	"@metadata": {
+		"authors": [
+			"Fitoschido",
+			"Toniher"
+		]
+	},
+	"mwembed-desc": "Proporciona compatibilitat amb els mòduls i les extensions que usen mwEmbed"
 }

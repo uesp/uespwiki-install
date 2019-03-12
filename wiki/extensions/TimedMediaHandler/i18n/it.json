@@ -19,6 +19,7 @@
 	"timedmedia-ogg-long-multiplexed": "File audio/video multiplexed Ogg $1, durata $2, dimensioni $4×$5 pixel, complessivamente $3",
 	"timedmedia-ogg-long-general": "File multimediale Ogg, durata $2, $3",
 	"timedmedia-ogg-long-error": "File ogg non valido: $1",
+	"timedmedia-ogg-long-no-streams": "File multimediale Ogg. Attenzione: non è stato riconosciuto alcuno dei codec usati in questo file.",
 	"timedmedia-webm-short-video": "File video WebM $1, $2",
 	"timedmedia-webm-long-video": "File audio/video WebM $1, durata $2, dimensioni $4×$5 pixel, complessivamente $3",
 	"timedmedia-flac-short-audio": "File audio FLAC, $1",
@@ -28,7 +29,7 @@
 	"timedmedia-wav-pcm-required": "Puoi caricare solo PCM (Pulse Code Modulation) WAV.",
 	"timedmedia-mp4-short-video": "File video MP4 $1, $2",
 	"timedmedia-mp4-long-video": "File audio/video MP4 $1, durata $2, dimensioni $4×$5 pixel, complessivamente $3",
-	"timedmedia-no-player-js": "Si sta utilizzando un browser che ha JavaScript disattivato oppure non ha alcun riproduttore supportato.<br />\nÈ possibile <a href=\"$1\">scaricare il clip multimediale</a> o <a href=\"//www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download\">un riproduttore</a> per riprodurre il clip nel proprio browser.",
+	"timedmedia-no-player-js": "Si sta utilizzando un browser che ha JavaScript disattivato oppure non ha alcun riproduttore supportato.<br />\nÈ possibile <a href=\"$1\">scaricare il clip multimediale</a> o <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">un riproduttore</a> per riprodurre il clip nel proprio browser.",
 	"timedmedia-more": "Altro...",
 	"timedmedia-dismiss": "Chiudi",
 	"timedmedia-download": "Scarica il file",
@@ -95,5 +96,9 @@
 	"timedmedia-wav-audios": "{{PLURAL:$1|$1 file audio WAV}}",
 	"right-transcode-reset": "Reimposta i video difettosi o transcodificati così che possano essere inclusi nuovamente in coda di lavoro.",
 	"right-transcode-status": "Visualizza [[Special:TimedMediaHandler|informazioni sull'attuale attività di transcodifica]]",
-	"action-transcode-status": "visualizzare l'attuale stato della transcodifica"
+	"action-transcode-status": "visualizzare l'attuale stato della transcodifica",
+	"orphanedtimedtext": "Pagine sottotitoli orfane",
+	"orphanedtimedtext-summary": "Elenco di pagine [[{{#special:AllPages/TimedText:}}|{{ns:TimedText}}]] che non hanno un file corrispondente.",
+	"orphanedtimedtext-unsupported": "Questa pagina speciale è supportata solo su database MySQL.",
+	"orphanedtimedtext-notimedtext": "TimedText non è abilitato su questo wiki."
 }

@@ -1,8 +1,8 @@
 {
-    "@metadata": {
-        "authors": [
-            "Тест"
-        ]
-    },
-    "mwembed-desc": "Забезпечує підтримку модулів та розширень mwEmbed"
+	"@metadata": {
+		"authors": [
+			"Тест"
+		]
+	},
+	"mwembed-desc": "Забезпечує підтримку модулів та розширень mwEmbed"
 }

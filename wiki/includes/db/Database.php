@@ -43,10 +43,10 @@ interface DatabaseType {
 	/**
 	 * Open a connection to the database. Usually aborts on failure
 	 *
-	 * @param string $server database server host
-	 * @param string $user database user name
-	 * @param string $password database user password
-	 * @param string $dbName database name
+	 * @param string $server Database server host
+	 * @param string $user Database user name
+	 * @param string $password Database user password
+	 * @param string $dbName Database name
 	 * @return bool
 	 * @throws DBConnectionError
 	 */
@@ -269,6 +269,13 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	protected $mTrxLevel = 0;
 
 	/**
+	 * Either a short hexidecimal string if a transaction is active or ""
+	 *
+	 * @var string
+	 */
+	protected $mTrxShortId = '';
+
+	/**
 	 * Remembers the function name given for starting the most recent transaction via begin().
 	 * Used to provide additional context for error reporting.
 	 *
@@ -336,7 +343,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	}
 
 	/**
-	 * @return string command delimiter used by this database engine
+	 * @return string Command delimiter used by this database engine
 	 */
 	public function getDelimiter() {
 		return $this->delimiter;
@@ -349,7 +356,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 *   - false to disable debugging
 	 *   - omitted or null to do nothing
 	 *
-	 * @return bool|null previous value of the flag
+	 * @return bool|null Previous value of the flag
 	 */
 	public function debug( $debug = null ) {
 		return wfSetBit( $this->mFlags, DBO_DEBUG, $debug );
@@ -475,7 +482,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * parameters, the member with the given name is set to the given value.
 	 *
 	 * @param string $name
-	 * @param $value
+	 * @param array $value
 	 */
 	public function setLBInfo( $name, $value = null ) {
 		if ( is_null( $value ) ) {
@@ -593,7 +600,18 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * @return bool
 	 */
 	public function doneWrites() {
-		return $this->mDoneWrites;
+		return (bool)$this->mDoneWrites;
+	}
+
+	/**
+	 * Returns the last time the connection may have been used for write queries.
+	 * Should return a timestamp if unsure.
+	 *
+	 * @return int|float UNIX timestamp or false
+	 * @since 1.24
+	 */
+	public function lastDoneWrites() {
+		return $this->mDoneWrites ?: false;
 	}
 
 	/**
@@ -661,8 +679,6 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 *   - DBO_DEBUG: output some debug info (same as debug())
 	 *   - DBO_NOBUFFER: don't buffer results (inverse of bufferResults())
 	 *   - DBO_TRX: automatically start transactions
-	 *   - DBO_DEFAULT: automatically sets DBO_TRX if not in command line mode
-	 *       and removes it in command line mode
 	 *   - DBO_PERSISTENT: use persistant database connection
 	 * @return bool
 	 */
@@ -692,17 +708,40 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	}
 
 	/**
-	 * Return a path to the DBMS-specific schema file, otherwise default to tables.sql
+	 * Return a path to the DBMS-specific SQL file if it exists,
+	 * otherwise default SQL file
+	 *
+	 * @param string $filename
+	 * @return string
+	 */
+	private function getSqlFilePath( $filename ) {
+		global $IP;
+		$dbmsSpecificFilePath = "$IP/maintenance/" . $this->getType() . "/$filename";
+		if ( file_exists( $dbmsSpecificFilePath ) ) {
+			return $dbmsSpecificFilePath;
+		} else {
+			return "$IP/maintenance/$filename";
+		}
+	}
+
+	/**
+	 * Return a path to the DBMS-specific schema file,
+	 * otherwise default to tables.sql
 	 *
 	 * @return string
 	 */
 	public function getSchemaPath() {
-		global $IP;
-		if ( file_exists( "$IP/maintenance/" . $this->getType() . "/tables.sql" ) ) {
-			return "$IP/maintenance/" . $this->getType() . "/tables.sql";
-		} else {
-			return "$IP/maintenance/tables.sql";
-		}
+		return $this->getSqlFilePath( 'tables.sql' );
+	}
+
+	/**
+	 * Return a path to the DBMS-specific update key file,
+	 * otherwise default to update-keys.sql
+	 *
+	 * @return string
+	 */
+	public function getUpdateKeysPath() {
+		return $this->getSqlFilePath( 'update-keys.sql' );
 	}
 
 # ------------------------------------------------------------------------------
@@ -806,7 +845,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * database. Example uses in core:
 	 * @see LoadBalancer::reallyOpenConnection()
 	 * @see ForeignDBRepo::getMasterDB()
-	 * @see WebInstaller_DBConnect::execute()
+	 * @see WebInstallerDBConnect::execute()
 	 *
 	 * @since 1.18
 	 *
@@ -908,7 +947,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	}
 
 	/**
-	 * @param $errno
+	 * @param int $errno
 	 * @param string $errstr
 	 */
 	public function connectionErrorHandler( $errno, $errstr ) {
@@ -926,7 +965,6 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 		if ( count( $this->mTrxIdleCallbacks ) ) { // sanity
 			throw new MWException( "Transaction idle callbacks still pending." );
 		}
-		$this->mOpened = false;
 		if ( $this->mConn ) {
 			if ( $this->trxLevel() ) {
 				if ( !$this->mTrxAutomatic ) {
@@ -937,13 +975,14 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 				$this->commit( __METHOD__, 'flush' );
 			}
 
-			$ret = $this->closeConnection();
+			$closed = $this->closeConnection();
 			$this->mConn = false;
-
-			return $ret;
 		} else {
-			return true;
+			$closed = true;
 		}
+		$this->mOpened = false;
+
+		return $closed;
 	}
 
 	/**
@@ -1010,13 +1049,13 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 *     for a successful read query, or false on failure if $tempIgnore set
 	 */
 	public function query( $sql, $fname = __METHOD__, $tempIgnore = false ) {
-		global $wgUser, $wgDebugDBTransactions;
+		global $wgUser, $wgDebugDBTransactions, $wgDebugDumpSqlLength;
 
 		$this->mLastQuery = $sql;
-		if ( !$this->mDoneWrites && $this->isWriteQuery( $sql ) ) {
+		if ( $this->isWriteQuery( $sql ) ) {
 			# Set a flag indicating that writes have been done
-			wfDebug( __METHOD__ . ": Writes done: $sql\n" );
-			$this->mDoneWrites = true;
+			wfDebug( __METHOD__ . ': Writes done: ' . DatabaseBase::generalizeSQL( $sql ) . "\n" );
+			$this->mDoneWrites = microtime( true );
 		}
 
 		# Add a comment for easy SHOW PROCESSLIST interpretation
@@ -1054,7 +1093,8 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 		# Keep track of whether the transaction has write queries pending
 		if ( $this->mTrxLevel && !$this->mTrxDoneWrites && $this->isWriteQuery( $sql ) ) {
 			$this->mTrxDoneWrites = true;
-			Profiler::instance()->transactionWritingIn( $this->mServer, $this->mDBname );
+			Profiler::instance()->transactionWritingIn(
+				$this->mServer, $this->mDBname, $this->mTrxShortId );
 		}
 
 		$queryProf = '';
@@ -1071,6 +1111,10 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 				$queryProf = 'query: ' . substr( DatabaseBase::generalizeSQL( $sql ), 0, 255 );
 				$totalProf = 'DatabaseBase::query';
 			}
+			# Include query transaction state
+			$queryProf .= $this->mTrxShortId ? " [TRX#{$this->mTrxShortId}]" : "";
+
+			$trx = $this->mTrxLevel ? 'TRX=yes' : 'TRX=no';
 			wfProfileIn( $totalProf );
 			wfProfileIn( $queryProf );
 		}
@@ -1079,7 +1123,8 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 			static $cnt = 0;
 
 			$cnt++;
-			$sqlx = substr( $commentedSql, 0, 500 );
+			$sqlx = $wgDebugDumpSqlLength ? substr( $commentedSql, 0, $wgDebugDumpSqlLength )
+				: $commentedSql;
 			$sqlx = strtr( $sqlx, "\t\n", '  ' );
 
 			$master = $isMaster ? 'master' : 'slave';
@@ -1087,6 +1132,11 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 		}
 
 		$queryId = MWDebug::query( $sql, $fname, $isMaster );
+
+		# Avoid fatals if close() was called
+		if ( !$this->isOpen() ) {
+			throw new DBUnexpectedError( $this, "DB connection was already closed." );
+		}
 
 		# Do the query and handle errors
 		$ret = $this->doQuery( $commentedSql );
@@ -1098,20 +1148,29 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 			# Transaction is gone, like it or not
 			$hadTrx = $this->mTrxLevel; // possible lost transaction
 			$this->mTrxLevel = 0;
+			$this->mTrxIdleCallbacks = array(); // bug 65263
+			$this->mTrxPreCommitCallbacks = array(); // bug 65263
 			wfDebug( "Connection lost, reconnecting...\n" );
-
+			# Stash the last error values since ping() might clear them
+			$lastError = $this->lastError();
+			$lastErrno = $this->lastErrno();
 			if ( $this->ping() ) {
-				wfDebug( "Reconnected\n" );
-				$sqlx = substr( $commentedSql, 0, 500 );
-				$sqlx = strtr( $sqlx, "\t\n", '  ' );
 				global $wgRequestTime;
+				wfDebug( "Reconnected\n" );
+				$sqlx = $wgDebugDumpSqlLength ? substr( $commentedSql, 0, $wgDebugDumpSqlLength )
+					: $commentedSql;
+				$sqlx = strtr( $sqlx, "\t\n", '  ' );
 				$elapsed = round( microtime( true ) - $wgRequestTime, 3 );
 				if ( $elapsed < 300 ) {
 					# Not a database error to lose a transaction after a minute or two
 					wfLogDBError( "Connection lost and reconnected after {$elapsed}s, query: $sqlx" );
 				}
-				if ( !$hadTrx ) {
-					# Should be safe to silently retry
+				if ( $hadTrx ) {
+					# Leave $ret as false and let an error be reported.
+					# Callers may catch the exception and continue to use the DB.
+					$this->reportQueryError( $lastError, $lastErrno, $sql, $fname, $tempIgnore );
+				} else {
+					# Should be safe to silently retry (no trx and thus no callbacks)
 					$ret = $this->doQuery( $commentedSql );
 				}
 			} else {
@@ -1190,7 +1249,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 
 	/**
 	 * Execute a prepared query with the various arguments
-	 * @param string $prepared the prepared sql
+	 * @param string $prepared The prepared sql
 	 * @param mixed $args Either an array here, or put scalars as varargs
 	 *
 	 * @return ResultWrapper
@@ -1211,7 +1270,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * For faking prepared SQL statements on DBs that don't support it directly.
 	 *
 	 * @param string $preparedQuery A 'preparable' SQL statement
-	 * @param array $args of Arguments to fill it with
+	 * @param array $args Array of Arguments to fill it with
 	 * @return string Executable SQL
 	 */
 	public function fillPrepared( $preparedQuery, $args ) {
@@ -1455,6 +1514,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * @param array $options Query options
 	 * @param array $join_conds Join conditions
 	 *
+	 *
 	 * @param string|array $table
 	 *
 	 * May be either an array of table names, or a single string holding a table
@@ -1692,7 +1752,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	}
 
 	/**
-	 * Estimate rows in dataset.
+	 * Estimate the number of rows in dataset
 	 *
 	 * MySQL allows you to estimate the number of rows that would be returned
 	 * by a SELECT query, using EXPLAIN SELECT. The estimate is provided using
@@ -1711,11 +1771,41 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * @param array $options Options for select
 	 * @return int Row count
 	 */
-	public function estimateRowCount( $table, $vars = '*', $conds = '',
-		$fname = __METHOD__, $options = array()
+	public function estimateRowCount(
+		$table, $vars = '*', $conds = '', $fname = __METHOD__, $options = array()
 	) {
 		$rows = 0;
 		$res = $this->select( $table, array( 'rowcount' => 'COUNT(*)' ), $conds, $fname, $options );
+
+		if ( $res ) {
+			$row = $this->fetchRow( $res );
+			$rows = ( isset( $row['rowcount'] ) ) ? $row['rowcount'] : 0;
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Get the number of rows in dataset
+	 *
+	 * This is useful when trying to do COUNT(*) but with a LIMIT for performance.
+	 *
+	 * Takes the same arguments as DatabaseBase::select().
+	 *
+	 * @param string $table Table name
+	 * @param string $vars Unused
+	 * @param array|string $conds Filters on the table
+	 * @param string $fname Function name for profiling
+	 * @param array $options Options for select
+	 * @return int Row count
+	 * @since 1.24
+	 */
+	public function selectRowCount(
+		$table, $vars = '*', $conds = '', $fname = __METHOD__, $options = array()
+	) {
+		$rows = 0;
+		$sql = $this->selectSQLText( $table, '1', $conds, $fname, $options );
+		$res = $this->query( "SELECT COUNT(*) AS rowcount FROM ($sql) tmp_count" );
 
 		if ( $res ) {
 			$row = $this->fetchRow( $res );
@@ -1747,9 +1837,10 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 		# All newlines, tabs, etc replaced by single space
 		$sql = preg_replace( '/\s+/', ' ', $sql );
 
-		# All numbers => N
+		# All numbers => N,
+		# except the ones surrounded by characters, e.g. l10n
 		$sql = preg_replace( '/-?\d+(,-?\d+)+/s', 'N,...,N', $sql );
-		$sql = preg_replace( '/-?\d+/s', 'N', $sql );
+		$sql = preg_replace( '/(?<![a-zA-Z])-?\d+(?![a-zA-Z])/s', 'N', $sql );
 
 		return $sql;
 	}
@@ -1864,7 +1955,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 *   DatabaseBase::tableName().
 	 * @param array $a Array of rows to insert
 	 * @param string $fname Calling function name (use __METHOD__) for logs/profiling
-	 * @param array $options of options
+	 * @param array $options Array of options
 	 *
 	 * @return bool
 	 */
@@ -2059,11 +2150,11 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * Build a partial where clause from a 2-d array such as used for LinkBatch.
 	 * The keys on each level may be either integers or strings.
 	 *
-	 * @param array $data organized as 2-d
+	 * @param array $data Organized as 2-d
 	 *    array(baseKeyVal => array(subKeyVal => [ignored], ...), ...)
 	 * @param string $baseKey Field name to match the base-level keys to (eg 'pl_namespace')
 	 * @param string $subKey Field name to match the sub-level keys to (eg 'pl_title')
-	 * @return Mixed: string SQL fragment, or false if no items in array.
+	 * @return string|bool SQL fragment, or false if no items in array
 	 */
 	public function makeWhereFrom2d( $data, $baseKey, $subKey ) {
 		$conds = array();
@@ -2087,7 +2178,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	/**
 	 * Return aggregated value alias
 	 *
-	 * @param $valuedata
+	 * @param array $valuedata
 	 * @param string $valuename
 	 *
 	 * @return string
@@ -2161,7 +2252,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 *
 	 * @todo Explain what exactly will fail if this is not overridden.
 	 *
-	 * @param $db
+	 * @param string $db
 	 *
 	 * @return bool Success or failure
 	 */
@@ -2176,6 +2267,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 
 	/**
 	 * Get the current DB name
+	 * @return string
 	 */
 	public function getDBname() {
 		return $this->mDBname;
@@ -2183,6 +2275,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 
 	/**
 	 * Get the server hostname or IP address
+	 * @return string
 	 */
 	public function getServer() {
 		return $this->mServer;
@@ -2347,7 +2440,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	/**
 	 * Gets an array of aliased table names
 	 *
-	 * @param array $tables array( [alias] => table )
+	 * @param array $tables Array( [alias] => table )
 	 * @return string[] See tableNameWithAlias()
 	 */
 	public function tableNamesWithAlias( $tables ) {
@@ -2381,7 +2474,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	/**
 	 * Gets an array of aliased field names
 	 *
-	 * @param array $fields array( [alias] => field )
+	 * @param array $fields Array( [alias] => field )
 	 * @return string[] See fieldNameWithAlias()
 	 */
 	public function fieldNamesWithAlias( $fields ) {
@@ -2526,11 +2619,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * @return string
 	 */
 	protected function escapeLikeInternal( $s ) {
-		$s = str_replace( '\\', '\\\\', $s );
-		$s = $this->strencode( $s );
-		$s = str_replace( array( '%', '_' ), array( '\%', '\_' ), $s );
-
-		return $s;
+		return addcslashes( $s, '\%_' );
 	}
 
 	/**
@@ -2566,7 +2655,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 			}
 		}
 
-		return " LIKE '" . $s . "' ";
+		return " LIKE {$this->addQuotes( $s )} ";
 	}
 
 	/**
@@ -2886,9 +2975,9 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * DELETE query wrapper.
 	 *
 	 * @param array $table Table name
-	 * @param string|array $conds of conditions. See $conds in DatabaseBase::select()
+	 * @param string|array $conds Array of conditions. See $conds in DatabaseBase::select()
 	 *   for the format. Use $conds == "*" to delete all rows
-	 * @param string $fname name of the calling function
+	 * @param string $fname Name of the calling function
 	 * @throws DBUnexpectedError
 	 * @return bool|ResultWrapper
 	 */
@@ -3008,7 +3097,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	/**
 	 * Returns true if current database backend supports ORDER BY or LIMIT for separate subqueries
 	 * within the UNION construct.
-	 * @return Boolean
+	 * @return bool
 	 */
 	public function unionSupportsOrderAndLimit() {
 		return true; // True for almost every DB supported
@@ -3177,7 +3266,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * @param DBMasterPos $pos
 	 * @param int $timeout The maximum number of seconds to wait for
 	 *   synchronisation
-	 * @return int Zzero if the slave was past that position already,
+	 * @return int Zero if the slave was past that position already,
 	 *   greater than zero if we waited for some period of time, less than
 	 *   zero if we timed out.
 	 */
@@ -3254,7 +3343,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	protected function runOnTransactionIdleCallbacks() {
 		$autoTrx = $this->getFlag( DBO_TRX ); // automatic begin() enabled?
 
-		$e = null; // last exception
+		$e = $ePrior = null; // last exception
 		do { // callbacks may add callbacks :)
 			$callbacks = $this->mTrxIdleCallbacks;
 			$this->mTrxIdleCallbacks = array(); // recursion guard
@@ -3265,6 +3354,10 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 					call_user_func( $phpCallback );
 					$this->setFlag( $autoTrx ? DBO_TRX : 0 ); // restore automatic begin()
 				} catch ( Exception $e ) {
+					if ( $ePrior ) {
+						MWExceptionHandler::logException( $ePrior );
+					}
+					$ePrior = $e;
 				}
 			}
 		} while ( count( $this->mTrxIdleCallbacks ) );
@@ -3280,7 +3373,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	 * @since 1.22
 	 */
 	protected function runOnTransactionPreCommitCallbacks() {
-		$e = null; // last exception
+		$e = $ePrior = null; // last exception
 		do { // callbacks may add callbacks :)
 			$callbacks = $this->mTrxPreCommitCallbacks;
 			$this->mTrxPreCommitCallbacks = array(); // recursion guard
@@ -3289,6 +3382,10 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 					list( $phpCallback ) = $callback;
 					call_user_func( $phpCallback );
 				} catch ( Exception $e ) {
+					if ( $ePrior ) {
+						MWExceptionHandler::logException( $ePrior );
+					}
+					$ePrior = $e;
 				}
 			}
 		} while ( count( $this->mTrxPreCommitCallbacks ) );
@@ -3403,9 +3500,15 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 			$this->runOnTransactionPreCommitCallbacks();
 			$this->doCommit( $fname );
 			if ( $this->mTrxDoneWrites ) {
-				Profiler::instance()->transactionWritingOut( $this->mServer, $this->mDBname );
+				Profiler::instance()->transactionWritingOut(
+					$this->mServer, $this->mDBname, $this->mTrxShortId );
 			}
 			$this->runOnTransactionIdleCallbacks();
+		}
+
+		# Avoid fatals if close() was called
+		if ( !$this->isOpen() ) {
+			throw new DBUnexpectedError( $this, "DB connection was already closed." );
 		}
 
 		$this->doBegin( $fname );
@@ -3416,6 +3519,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 		$this->mTrxAtomicLevels = new SplStack;
 		$this->mTrxIdleCallbacks = array();
 		$this->mTrxPreCommitCallbacks = array();
+		$this->mTrxShortId = wfRandomString( 12 );
 	}
 
 	/**
@@ -3452,24 +3556,31 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 			);
 		}
 
-		if ( $flush !== 'flush' ) {
-			if ( !$this->mTrxLevel ) {
-				wfWarn( "$fname: No transaction to commit, something got out of sync!" );
-			} elseif ( $this->mTrxAutomatic ) {
-				wfWarn( "$fname: Explicit commit of implicit transaction. Something may be out of sync!" );
-			}
-		} else {
+		if ( $flush === 'flush' ) {
 			if ( !$this->mTrxLevel ) {
 				return; // nothing to do
 			} elseif ( !$this->mTrxAutomatic ) {
 				wfWarn( "$fname: Flushing an explicit transaction, getting out of sync!" );
 			}
+		} else {
+			if ( !$this->mTrxLevel ) {
+				wfWarn( "$fname: No transaction to commit, something got out of sync!" );
+				return; // nothing to do
+			} elseif ( $this->mTrxAutomatic ) {
+				wfWarn( "$fname: Explicit commit of implicit transaction. Something may be out of sync!" );
+			}
+		}
+
+		# Avoid fatals if close() was called
+		if ( !$this->isOpen() ) {
+			throw new DBUnexpectedError( $this, "DB connection was already closed." );
 		}
 
 		$this->runOnTransactionPreCommitCallbacks();
 		$this->doCommit( $fname );
 		if ( $this->mTrxDoneWrites ) {
-			Profiler::instance()->transactionWritingOut( $this->mServer, $this->mDBname );
+			Profiler::instance()->transactionWritingOut(
+				$this->mServer, $this->mDBname, $this->mTrxShortId );
 		}
 		$this->runOnTransactionIdleCallbacks();
 	}
@@ -3504,6 +3615,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 		if ( $flush !== 'flush' ) {
 			if ( !$this->mTrxLevel ) {
 				wfWarn( "$fname: No transaction to rollback, something got out of sync!" );
+				return; // nothing to do
 			} elseif ( $this->mTrxAutomatic ) {
 				wfWarn( "$fname: Explicit rollback of implicit transaction. Something may be out of sync!" );
 			}
@@ -3515,12 +3627,18 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 			}
 		}
 
+		# Avoid fatals if close() was called
+		if ( !$this->isOpen() ) {
+			throw new DBUnexpectedError( $this, "DB connection was already closed." );
+		}
+
 		$this->doRollback( $fname );
 		$this->mTrxIdleCallbacks = array(); // cancel
 		$this->mTrxPreCommitCallbacks = array(); // cancel
 		$this->mTrxAtomicLevels = new SplStack;
 		if ( $this->mTrxDoneWrites ) {
-			Profiler::instance()->transactionWritingOut( $this->mServer, $this->mDBname );
+			Profiler::instance()->transactionWritingOut(
+				$this->mServer, $this->mDBname, $this->mTrxShortId );
 		}
 	}
 
@@ -4097,7 +4215,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 	/**
 	 * Encode an expiry time into the DBMS dependent format
 	 *
-	 * @param string $expiry timestamp for expiry, or the 'infinity' string
+	 * @param string $expiry Timestamp for expiry, or the 'infinity' string
 	 * @return string
 	 */
 	public function encodeExpiry( $expiry ) {
@@ -4134,6 +4252,7 @@ abstract class DatabaseBase implements IDatabase, DatabaseType {
 
 	/**
 	 * @since 1.19
+	 * @return string
 	 */
 	public function __toString() {
 		return (string)$this->mConn;

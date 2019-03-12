@@ -1,7 +1,8 @@
 {
     "@metadata": {
         "authors": [
-            "Andrew Garrett"
+            "Andrew Garrett",
+            "Kunal Mehta"
         ]
     },
     "abusefilter-desc": "Applies automatic heuristics to edits",
@@ -166,7 +167,7 @@
     "abusefilter-edit-denied": "You may not view details of this filter, because it is hidden from public view.",
     "abusefilter-edit-main": "Filter parameters",
     "abusefilter-edit-done-subtitle": "Filter edited",
-    "abusefilter-edit-done": "[[Special:AbuseFilter/history/$1/diff/prev/$2|Your changes]] to [[Special:AbuseFilter/$1|filter $1]] have been saved.",
+    "abusefilter-edit-done": "[[Special:AbuseFilter/history/$1/diff/prev/$2|Your changes]] to [[Special:AbuseFilter/$1|filter $3]] have been saved.",
     "abusefilter-edit-badsyntax": "There is a syntax error in the filter you specified.\nThe output from the parser was: <pre>$1</pre>",
     "abusefilter-edit-restricted": "You cannot edit this filter, because it contains one or more restricted actions.\nPlease ask a user with permission to add restricted actions to make the change for you.",
     "abusefilter-edit-viewhistory": "View this filter's history",
@@ -259,6 +260,7 @@
     "abusefilter-edit-builder-vars-user-age": "Age of user account",
     "abusefilter-edit-builder-vars-user-name": "Name of user account",
     "abusefilter-edit-builder-vars-user-groups": "Groups (including implicit) user is in",
+    "abusefilter-edit-builder-vars-user-rights": "Rights that a user has",
     "abusefilter-edit-builder-vars-user-blocked": "Whether user is blocked",
     "abusefilter-edit-builder-vars-user-emailconfirm": "Time email address was confirmed",
     "abusefilter-edit-builder-vars-recent-contributors": "Last ten users to contribute to the page",
@@ -335,7 +337,7 @@
     "abusefilter-revert-filter": "Filter:",
     "abusefilter-revert-preview-intro": "Below are the actions taken by the abuse filter that will be reverted by this action.\nPlease check them carefully, and click \"{{int:abusefilter-revert-confirm}}\" to confirm your selection.",
     "abusefilter-revert-confirm": "Confirm",
-    "abusefilter-revert-success": "You have reverted all actions taken by the abuse filter due to [[Special:AbuseFilter/$1|filter $1]].",
+    "abusefilter-revert-success": "You have reverted all actions taken by the abuse filter due to [[Special:AbuseFilter/$1|filter $2]].",
     "abusefilter-revert-reason": "Automatic revert of all actions taken by the abuse filter due to filter $1.\nReason given: $2",
     "abusefilter-revert-reasonfield": "Reason:",
     "abusefilter-test": "Test a filter against previous edits",
@@ -390,5 +392,6 @@
     "abusefilter-diff-next": "Newer change",
     "abusefilter-import-intro": "You can use this interface to import filters from other wikis.\nOn the source wiki, click \"{{int:abusefilter-edit-export}}\" under \"{{int:abusefilter-edit-tools}}\" on the editing interface.\nCopy from the textbox that appears, and paste it into this textbox, then click \"{{int:abusefilter-import-submit}}\".",
     "abusefilter-import-submit": "Import data",
-    "abusefilter-group-default": "Default"
+    "abusefilter-group-default": "Default",
+    "abusefilter-http-error": "An HTTP error occurred: $1."
 }

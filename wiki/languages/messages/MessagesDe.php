@@ -1,8 +1,7 @@
 <?php
 /** German (Deutsch)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -92,6 +91,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Meistbearbeitete_Seiten' ),
 	'Movepage'                  => array( 'Verschieben' ),
 	'Mycontributions'           => array( 'Meine_Beiträge' ),
+	'MyLanguage'                => array( 'Meine_Sprache' ),
 	'Mypage'                    => array( 'Meine_Benutzerseite' ),
 	'Mytalk'                    => array( 'Meine_Diskussionsseite' ),
 	'Myuploads'                 => array( 'Meine_hochgeladenen_Dateien' ),
@@ -202,7 +202,7 @@ $magicWords = array(
 	'subjectpagenamee'          => array( '1', 'HAUPTSEITENNAME_URL', 'VORDERSEITE_URL', 'HAUPTSEITE_URL', 'SUBJECTPAGENAMEE', 'ARTICLEPAGENAMEE' ),
 	'subst'                     => array( '0', 'ERS:', 'SUBST:' ),
 	'safesubst'                 => array( '0', 'SICHER_ERS:', 'SICHERERS:', 'SAFESUBST:' ),
-	'img_thumbnail'             => array( '1', 'miniatur', 'mini', 'thumbnail', 'thumb' ),
+	'img_thumbnail'             => array( '1', 'mini', 'miniatur', 'thumbnail', 'thumb' ),
 	'img_manualthumb'           => array( '1', 'miniatur=$1', 'mini=$1', 'thumbnail=$1', 'thumb=$1' ),
 	'img_right'                 => array( '1', 'rechts', 'right' ),
 	'img_left'                  => array( '1', 'links', 'left' ),

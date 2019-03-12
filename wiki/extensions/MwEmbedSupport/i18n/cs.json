@@ -1,8 +1,8 @@
 {
-    "@metadata": {
-        "authors": [
-            "Mormegil"
-        ]
-    },
-    "mwembed-desc": "Poskytuje podporu pro moduly a rozšíření mwEmbed"
+	"@metadata": {
+		"authors": [
+			"Mormegil"
+		]
+	},
+	"mwembed-desc": "Poskytuje podporu pro moduly a rozšíření mwEmbed"
 }

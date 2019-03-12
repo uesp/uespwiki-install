@@ -12,6 +12,7 @@ $specialPageAliases = array();
 /** English (English) */
 $specialPageAliases['en'] = array(
 	'TimedMediaHandler' => array( 'TimedMediaHandler' ),
+	'OrphanedTimedText' => array( 'OrphanedTimedText' ),
 );
 
 /** Arabic (العربية) */
@@ -27,11 +28,17 @@ $specialPageAliases['arz'] = array(
 /** German (Deutsch) */
 $specialPageAliases['de'] = array(
 	'TimedMediaHandler' => array( 'TimedMedia-Steuerungsprogramm' ),
+	'OrphanedTimedText' => array( 'Verwaister_TimedText' ),
 );
 
 /** Zazaki (Zazaki) */
 $specialPageAliases['diq'] = array(
 	'TimedMediaHandler' => array( 'MısnayoğéMedyayaZemanın' ),
+);
+
+/** Estonian (eesti) */
+$specialPageAliases['et'] = array(
+	'TimedMediaHandler' => array( 'Ajastatud_meediafailide_töötleja' ),
 );
 
 /** Hebrew (עברית) */
@@ -47,6 +54,7 @@ $specialPageAliases['ko'] = array(
 /** Macedonian (македонски) */
 $specialPageAliases['mk'] = array(
 	'TimedMediaHandler' => array( 'СинхронизираниСнимки' ),
+	'OrphanedTimedText' => array( 'ОсамениСинхронизации' ),
 );
 
 /** Malayalam (മലയാളം) */
@@ -62,4 +70,5 @@ $specialPageAliases['vi'] = array(
 /** Simplified Chinese (中文（简体）‎) */
 $specialPageAliases['zh-hans'] = array(
 	'TimedMediaHandler' => array( '定时媒体处理器' ),
+	'OrphanedTimedText' => array( '孤立定时文本' ),
 );

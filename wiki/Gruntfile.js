@@ -3,7 +3,9 @@ module.exports = function ( grunt ) {
 	grunt.loadNpmTasks( 'grunt-contrib-copy' );
 	grunt.loadNpmTasks( 'grunt-contrib-jshint' );
 	grunt.loadNpmTasks( 'grunt-contrib-watch' );
-	grunt.loadNpmTasks( 'grunt-jscs-checker' );
+	grunt.loadNpmTasks( 'grunt-banana-checker' );
+	grunt.loadNpmTasks( 'grunt-jscs' );
+	grunt.loadNpmTasks( 'grunt-jsonlint' );
 	grunt.loadNpmTasks( 'grunt-karma' );
 
 	var wgServer = process.env.MW_SERVER,
@@ -16,18 +18,21 @@ module.exports = function ( grunt ) {
 		pkg: grunt.file.readJSON( 'package.json' ),
 		jshint: {
 			options: {
-				jshintrc: '.jshintrc'
+				jshintrc: true
 			},
-			all: [ '*.js', '{includes,languages,resources,skins,tests}/**/*.js' ]
+			all: [
+				'*.js',
+				'{includes,languages,resources,tests}/**/*.js'
+			]
 		},
 		jscs: {
-			// Known issues:
-			// - https://github.com/mdevils/node-jscs/issues/277
-			// - https://github.com/mdevils/node-jscs/issues/278
 			all: [
 				'<%= jshint.all %>',
 				// Auto-generated file with JSON (double quotes)
-				'!tests/qunit/data/mediawiki.jqueryMsg.data.js'
+				'!tests/qunit/data/mediawiki.jqueryMsg.data.js',
+				// Skip functions are stored as script files but wrapped in a function when
+				// executed. node-jscs trips on the would-be "Illegal return statement".
+				'!resources/src/*-skip.js'
 
 			// Exclude all files ignored by jshint
 			].concat( grunt.file.read( '.jshintignore' ).split( '\n' ).reduce( function ( patterns, pattern ) {
@@ -38,10 +43,23 @@ module.exports = function ( grunt ) {
 				return patterns;
 			}, [] ) )
 		},
+		jsonlint: {
+			all: [
+				'.jscsrc',
+				'{languages,maintenance,resources}/**/*.json',
+				'package.json'
+			]
+		},
+		banana: {
+			core: 'languages/i18n/',
+			installer: 'includes/installer/i18n/'
+		},
 		watch: {
 			files: [
-				'.{jshintrc,jscs.json,jshintignore,csslintrc}',
-				'<%= jshint.all %>'
+				'<%= jscs.all %>',
+				'<%= jsonlint.all %>',
+				'.jshintignore',
+				'.jshintrc'
 			],
 			tasks: 'test'
 		},
@@ -93,7 +111,7 @@ module.exports = function ( grunt ) {
 		return !!( process.env.MW_SERVER && process.env.MW_SCRIPT_PATH );
 	} );
 
-	grunt.registerTask( 'lint', ['jshint', 'jscs'] );
+	grunt.registerTask( 'lint', ['jshint', 'jscs', 'jsonlint', 'banana'] );
 	grunt.registerTask( 'qunit', [ 'assert-mw-env', 'karma:main' ] );
 
 	grunt.registerTask( 'test', ['lint'] );

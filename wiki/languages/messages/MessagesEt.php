@@ -1,8 +1,7 @@
 <?php
 /** Estonian (eesti)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -143,7 +142,6 @@ $bookstoreList = array(
 	'minu Raamat' => 'http://www.raamat.ee/advanced_search_result.php?keywords=$1',
 	'Raamatukoi' => 'http://www.raamatukoi.ee/cgi-bin/index?valik=otsing&paring=$1',
 	'AddALL' => 'http://www.addall.com/New/Partner.cgi?query=$1&type=ISBN',
-	'PriceSCAN' => 'http://www.pricescan.com/books/bookDetail.asp?isbn=$1',
 	'Barnes & Noble' => 'http://search.barnesandnoble.com/bookSearch/isbnInquiry.asp?isbn=$1',
 	'Amazon.com' => 'http://www.amazon.com/exec/obidos/ISBN=$1'
 );

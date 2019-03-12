@@ -103,7 +103,7 @@
 			} else if ( node.tagName.toLowerCase() === 'img' ) {
 				return $node.attr( 'alt' ) || ''; // handle undefined alt
 			} else {
-				return $.map( $.makeArray( node.childNodes ), function( elem ) {
+				return $.map( $.makeArray( node.childNodes ), function ( elem ) {
 					// 1 is for document.ELEMENT_NODE (the constant is undefined on old browsers)
 					if ( elem.nodeType === 1 ) {
 						return getElementSortKey( elem );
@@ -131,7 +131,7 @@
 				nodeValue = '';
 			}
 
-			if ( nodeValue !== '') {
+			if ( nodeValue !== '' ) {
 				if ( parsers[i].is( nodeValue, table ) ) {
 					concurrent++;
 					rowIndex++;
@@ -160,15 +160,14 @@
 	}
 
 	function buildParserCache( table, $headers ) {
-		var rows = table.tBodies[0].rows,
-			sortType,
+		var sortType, cells, len, i, parser,
+			rows = table.tBodies[0].rows,
 			parsers = [];
 
 		if ( rows[0] ) {
 
-			var cells = rows[0].cells,
-				len = cells.length,
-				i, parser;
+			cells = rows[0].cells;
+			len = cells.length;
 
 			for ( i = 0; i < len; i++ ) {
 				parser = false;
@@ -190,7 +189,8 @@
 	/* Other utility functions */
 
 	function buildCache( table ) {
-		var totalRows = ( table.tBodies[0] && table.tBodies[0].rows.length ) || 0,
+		var i, j, $row, cols,
+			totalRows = ( table.tBodies[0] && table.tBodies[0].rows.length ) || 0,
 			totalCells = ( table.tBodies[0].rows[0] && table.tBodies[0].rows[0].cells.length ) || 0,
 			parsers = table.config.parsers,
 			cache = {
@@ -198,11 +198,11 @@
 				normalized: []
 			};
 
-		for ( var i = 0; i < totalRows; ++i ) {
+		for ( i = 0; i < totalRows; ++i ) {
 
 			// Add the table data to main data array
-			var $row = $( table.tBodies[0].rows[i] ),
-				cols = [];
+			$row = $( table.tBodies[0].rows[i] );
+			cols = [];
 
 			// if this is a child row, add it to the last row's children and
 			// continue to the next row
@@ -214,7 +214,7 @@
 
 			cache.row.push( $row );
 
-			for ( var j = 0; j < totalCells; ++j ) {
+			for ( j = 0; j < totalCells; ++j ) {
 				cols.push( parsers[j].format( getElementSortKey( $row[0].cells[j] ), table, $row[0].cells[j] ) );
 			}
 
@@ -262,26 +262,26 @@
 	function emulateTHeadAndFoot( $table ) {
 		var $thead, $tfoot, i, len,
 			$rows = $table.find( '> tbody > tr' );
-		if ( !$table.get(0).tHead ) {
+		if ( !$table.get( 0 ).tHead ) {
 			$thead = $( '<thead>' );
 			$rows.each( function () {
-				if ( $(this).children( 'td' ).length ) {
+				if ( $( this ).children( 'td' ).length ) {
 					// This row contains a <td>, so it's not a header row
 					// Stop here
 					return false;
 				}
 				$thead.append( this );
 			} );
-			$table.find(' > tbody:first').before( $thead );
+			$table.find( ' > tbody:first' ).before( $thead );
 		}
-		if ( !$table.get(0).tFoot ) {
+		if ( !$table.get( 0 ).tFoot ) {
 			$tfoot = $( '<tfoot>' );
 			len = $rows.length;
 			for ( i = len - 1; i >= 0; i-- ) {
-				if ( $( $rows[i] ).children( 'td' ).length ){
+				if ( $( $rows[i] ).children( 'td' ).length ) {
 					break;
 				}
-				$tfoot.prepend( $( $rows[i] ));
+				$tfoot.prepend( $( $rows[i] ) );
 			}
 			$table.append( $tfoot );
 		}
@@ -292,22 +292,24 @@
 			colspanOffset = 0,
 			columns,
 			i,
+			rowspan,
+			colspan,
+			headerCount,
+			longestTR,
+			exploded,
 			$tableHeaders = $( [] ),
 			$tableRows = $( 'thead:eq(0) > tr', table );
 		if ( $tableRows.length <= 1 ) {
 			$tableHeaders = $tableRows.children( 'th' );
 		} else {
-			var rowspan,
-				colspan,
-				headerCount,
-				longestTR,
-				matrixRowIndex,
-				matrixColumnIndex,
-				exploded = [];
+			exploded = [];
 
 			// Loop through all the dom cells of the thead
 			$tableRows.each( function ( rowIndex, row ) {
-				$.each( row.cells, function( columnIndex, cell ) {
+				$.each( row.cells, function ( columnIndex, cell ) {
+					var matrixRowIndex,
+						matrixColumnIndex;
+
 					rowspan = Number( cell.rowSpan );
 					colspan = Number( cell.colSpan );
 
@@ -330,14 +332,14 @@
 			} );
 			// We want to find the row that has the most columns (ignoring colspan)
 			$.each( exploded, function ( index, cellArray ) {
-				headerCount = $.unique( $(cellArray) ).length;
+				headerCount = $( uniqueElements( cellArray ) ).filter( 'th' ).length;
 				if ( headerCount >= maxSeen ) {
 					maxSeen = headerCount;
 					longestTR = index;
 				}
 			} );
 			// We cannot use $.unique() here because it sorts into dom order, which is undesirable
-			$tableHeaders = $( uniqueElements( exploded[longestTR] ) );
+			$tableHeaders = $( uniqueElements( exploded[longestTR] ) ).filter( 'th' );
 		}
 
 		// as each header can span over multiple columns (using colspan=N),
@@ -391,9 +393,9 @@
 	 */
 	function setHeadersOrder( $headers, sortList, headerToColumns ) {
 		// Loop through all headers to retrieve the indices of the columns the header spans across:
-		$.each( headerToColumns, function( headerIndex, columns ) {
+		$.each( headerToColumns, function ( headerIndex, columns ) {
 
-			$.each( columns, function( i, columnIndex ) {
+			$.each( columns, function ( i, columnIndex ) {
 				var header = $headers[headerIndex];
 
 				if ( !isValueInArray( columnIndex, sortList ) ) {
@@ -402,7 +404,7 @@
 					header.count = 0;
 				} else {
 					// Column shall be sorted: Apply designated count and order.
-					$.each( sortList, function( j, sortColumn ) {
+					$.each( sortList, function ( j, sortColumn ) {
 						if ( sortColumn[0] === i ) {
 							header.order = sortColumn[1];
 							header.count = sortColumn[1] + 1;
@@ -416,8 +418,9 @@
 	}
 
 	function isValueInArray( v, a ) {
-		var l = a.length;
-		for ( var i = 0; i < l; i++ ) {
+		var i,
+			len = a.length;
+		for ( i = 0; i < len; i++ ) {
 			if ( a[i][0] === v ) {
 				return true;
 			}
@@ -427,7 +430,7 @@
 
 	function uniqueElements( array ) {
 		var uniques = [];
-		$.each( array, function( index, elem ) {
+		$.each( array, function ( index, elem ) {
 			if ( elem !== undefined && $.inArray( elem, uniques ) === -1 ) {
 				uniques.push( elem );
 			}
@@ -447,11 +450,11 @@
 	}
 
 	function sortText( a, b ) {
-		return ( (a < b) ? -1 : ((a > b) ? 1 : 0) );
+		return ( ( a < b ) ? -1 : ( ( a > b ) ? 1 : 0 ) );
 	}
 
 	function sortTextDesc( a, b ) {
-		return ( (b < a) ? -1 : ((b > a) ? 1 : 0) );
+		return ( ( b < a ) ? -1 : ( ( b > a ) ? 1 : 0 ) );
 	}
 
 	function multisort( table, sortList, cache ) {
@@ -501,9 +504,9 @@
 
 		// We allow a trailing percent sign, which we just strip. This works fine
 		// if percents and regular numbers aren't being mixed.
-		ts.numberRegex = new RegExp('^(' + '[-+\u2212]?[0-9][0-9,]*(\\.[0-9,]*)?(E[-+\u2212]?[0-9][0-9,]*)?' + // Fortran-style scientific
+		ts.numberRegex = new RegExp( '^(' + '[-+\u2212]?[0-9][0-9,]*(\\.[0-9,]*)?(E[-+\u2212]?[0-9][0-9,]*)?' + // Fortran-style scientific
 		'|' + '[-+\u2212]?' + digitClass + '+[\\s\\xa0]*%?' + // Generic localised
-		')$', 'i');
+		')$', 'i' );
 	}
 
 	function buildDateTable() {
@@ -529,7 +532,7 @@
 
 		// Build RegEx
 		// Any date formated with . , ' - or /
-		ts.dateRegex[0] = new RegExp( /^\s*(\d{1,2})[\,\.\-\/'\s]{1,2}(\d{1,2})[\,\.\-\/'\s]{1,2}(\d{2,4})\s*?/i);
+		ts.dateRegex[0] = new RegExp( /^\s*(\d{1,2})[\,\.\-\/'\s]{1,2}(\d{1,2})[\,\.\-\/'\s]{1,2}(\d{2,4})\s*?/i );
 
 		// Written Month name, dmy
 		ts.dateRegex[1] = new RegExp( '^\\s*(\\d{1,2})[\\,\\.\\-\\/\'\\s]+(' + regex + ')' + '[\\,\\.\\-\\/\'\\s]+(\\d{2,4})\\s*$', 'i' );
@@ -633,8 +636,8 @@
 			// Build array of key names
 			for ( key in ts.collationTable ) {
 				// Check hasOwn to be safe
-				if ( ts.collationTable.hasOwnProperty(key) ) {
-					keys.push(key);
+				if ( ts.collationTable.hasOwnProperty( key ) ) {
+					keys.push( key );
 				}
 			}
 			if ( keys.length ) {
@@ -649,24 +652,24 @@
 		}
 		ts.rgx = {
 			IPAddress: [
-				new RegExp( /^\d{1,3}[\.]\d{1,3}[\.]\d{1,3}[\.]\d{1,3}$/)
+				new RegExp( /^\d{1,3}[\.]\d{1,3}[\.]\d{1,3}[\.]\d{1,3}$/ )
 			],
 			currency: [
-				new RegExp( /(^[£$€¥]|[£$€¥]$)/),
-				new RegExp( /[£$€¥]/g)
+				new RegExp( /(^[£$€¥]|[£$€¥]$)/ ),
+				new RegExp( /[£$€¥]/g )
 			],
 			url: [
-				new RegExp( /^(https?|ftp|file):\/\/$/),
-				new RegExp( /(https?|ftp|file):\/\//)
+				new RegExp( /^(https?|ftp|file):\/\/$/ ),
+				new RegExp( /(https?|ftp|file):\/\// )
 			],
 			isoDate: [
-				new RegExp( /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/)
+				new RegExp( /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/ )
 			],
 			usLongDate: [
-				new RegExp( /^[A-Za-z]{3,10}\.? [0-9]{1,2}, ([0-9]{4}|'?[0-9]{2}) (([0-2]?[0-9]:[0-5][0-9])|([0-1]?[0-9]:[0-5][0-9]\s(AM|PM)))$/)
+				new RegExp( /^[A-Za-z]{3,10}\.? [0-9]{1,2}, ([0-9]{4}|'?[0-9]{2}) (([0-2]?[0-9]:[0-5][0-9])|([0-1]?[0-9]:[0-5][0-9]\s(AM|PM)))$/ )
 			],
 			time: [
-				new RegExp( /^(([0-2]?[0-9]:[0-5][0-9])|([0-1]?[0-9]:[0-5][0-9]\s(am|pm)))$/)
+				new RegExp( /^(([0-2]?[0-9]:[0-5][0-9])|([0-1]?[0-9]:[0-5][0-9]\s(am|pm)))$/ )
 			]
 		};
 	}
@@ -681,8 +684,8 @@
 
 	function convertSortList( sortObjects ) {
 		var sortList = [];
-		$.each( sortObjects, function( i, sortObject ) {
-			$.each ( sortObject, function( columnIndex, order ) {
+		$.each( sortObjects, function ( i, sortObject ) {
+			$.each( sortObject, function ( columnIndex, order ) {
 				var orderIndex = ( order === 'desc' ) ? 1 : 0;
 				sortList.push( [parseInt( columnIndex, 10 ), orderIndex] );
 			} );
@@ -780,11 +783,12 @@
 						// Legacy fix of .sortbottoms
 						// Wrap them inside inside a tfoot (because that's what they actually want to be) &
 						// and put the <tfoot> at the end of the <table>
-						var $sortbottoms = $table.find( '> tbody > tr.sortbottom' );
+						var $tfoot,
+							$sortbottoms = $table.find( '> tbody > tr.sortbottom' );
 						if ( $sortbottoms.length ) {
-							var $tfoot = $table.children( 'tfoot' );
+							$tfoot = $table.children( 'tfoot' );
 							if ( $tfoot.length ) {
-								$tfoot.eq(0).prepend( $sortbottoms );
+								$tfoot.eq( 0 ).prepend( $sortbottoms );
 							} else {
 								$table.append( $( '<tfoot>' ).append( $sortbottoms ) );
 							}
@@ -799,6 +803,10 @@
 					// Apply event handling to headers
 					// this is too big, perhaps break it out?
 					$headers.not( '.' + table.config.unsortableClass ).on( 'keypress click', function ( e ) {
+						var cell, columns, newSortList, i,
+							totalRows,
+							j, s, o;
+
 						if ( e.type === 'click' && e.target.nodeName.toLowerCase() === 'a' ) {
 							// The user clicked on a link inside a table header.
 							// Do nothing and let the default link click action continue.
@@ -822,13 +830,11 @@
 						// cells get event .change() and bubbles up to the <table> here
 						cache = buildCache( table );
 
-						var totalRows = ( $table[0].tBodies[0] && $table[0].tBodies[0].rows.length ) || 0;
+						totalRows = ( $table[0].tBodies[0] && $table[0].tBodies[0].rows.length ) || 0;
 						if ( !table.sortDisabled && totalRows > 0 ) {
 							// Get current column sort order
 							this.order = this.count % 2;
 							this.count++;
-
-							var cell, columns, newSortList, i;
 
 							cell = this;
 							// Get current column index
@@ -836,7 +842,7 @@
 							newSortList = $.map( columns, function ( c ) {
 								// jQuery "helpfully" flattens the arrays...
 								return [[c, cell.order]];
-							});
+							} );
 							// Index of first column belonging to this header
 							i = columns[0];
 
@@ -851,9 +857,9 @@
 								if ( isValueInArray( i, config.sortList ) ) {
 									// The user has clicked on an already sorted column.
 									// Reverse the sorting direction for all tables.
-									for ( var j = 0; j < config.sortList.length; j++ ) {
-										var s = config.sortList[j],
-											o = config.headerList[s[0]];
+									for ( j = 0; j < config.sortList.length; j++ ) {
+										s = config.sortList[j];
+										o = config.headerList[s[0]];
 										if ( isValueInArray( s[0], newSortList ) ) {
 											o.count = s[1];
 											o.count++;
@@ -934,9 +940,10 @@
 			},
 
 			addParser: function ( parser ) {
-				var l = parsers.length,
+				var i,
+					len = parsers.length,
 					a = true;
-				for ( var i = 0; i < l; i++ ) {
+				for ( i = 0; i < len; i++ ) {
 					if ( parsers[i].id.toLowerCase() === parser.id.toLowerCase() ) {
 						a = false;
 					}
@@ -951,7 +958,7 @@
 				if ( ts.transformTable !== false ) {
 					out = '';
 					for ( p = 0; p < s.length; p++ ) {
-						c = s.charAt(p);
+						c = s.charAt( p );
 						if ( c in ts.transformTable ) {
 							out += ts.transformTable[c];
 						} else {
@@ -965,7 +972,7 @@
 			},
 
 			formatFloat: function ( s ) {
-				var i = parseFloat(s);
+				var i = parseFloat( s );
 				return isNaN( i ) ? 0 : i;
 			},
 
@@ -1010,14 +1017,15 @@
 	ts.addParser( {
 		id: 'IPAddress',
 		is: function ( s ) {
-			return ts.rgx.IPAddress[0].test(s);
+			return ts.rgx.IPAddress[0].test( s );
 		},
 		format: function ( s ) {
-			var a = s.split( '.' ),
+			var i, item,
+				a = s.split( '.' ),
 				r = '',
-				l = a.length;
-			for ( var i = 0; i < l; i++ ) {
-				var item = a[i];
+				len = a.length;
+			for ( i = 0; i < len; i++ ) {
+				item = a[i];
 				if ( item.length === 1 ) {
 					r += '00' + item;
 				} else if ( item.length === 2 ) {
@@ -1026,7 +1034,7 @@
 					r += item;
 				}
 			}
-			return $.tablesorter.formatFloat(r);
+			return $.tablesorter.formatFloat( r );
 		},
 		type: 'numeric'
 	} );
@@ -1034,7 +1042,7 @@
 	ts.addParser( {
 		id: 'currency',
 		is: function ( s ) {
-			return ts.rgx.currency[0].test(s);
+			return ts.rgx.currency[0].test( s );
 		},
 		format: function ( s ) {
 			return $.tablesorter.formatDigit( s.replace( ts.rgx.currency[1], '' ) );
@@ -1045,7 +1053,7 @@
 	ts.addParser( {
 		id: 'url',
 		is: function ( s ) {
-			return ts.rgx.url[0].test(s);
+			return ts.rgx.url[0].test( s );
 		},
 		format: function ( s ) {
 			return $.trim( s.replace( ts.rgx.url[1], '' ) );
@@ -1056,11 +1064,11 @@
 	ts.addParser( {
 		id: 'isoDate',
 		is: function ( s ) {
-			return ts.rgx.isoDate[0].test(s);
+			return ts.rgx.isoDate[0].test( s );
 		},
 		format: function ( s ) {
-			return $.tablesorter.formatFloat((s !== '') ? new Date(s.replace(
-			new RegExp( /-/g), '/')).getTime() : '0' );
+			return $.tablesorter.formatFloat( ( s !== '' ) ? new Date( s.replace(
+			new RegExp( /-/g ), '/' ) ).getTime() : '0' );
 		},
 		type: 'numeric'
 	} );
@@ -1068,10 +1076,10 @@
 	ts.addParser( {
 		id: 'usLongDate',
 		is: function ( s ) {
-			return ts.rgx.usLongDate[0].test(s);
+			return ts.rgx.usLongDate[0].test( s );
 		},
 		format: function ( s ) {
-			return $.tablesorter.formatFloat( new Date(s).getTime() );
+			return $.tablesorter.formatFloat( new Date( s ).getTime() );
 		},
 		type: 'numeric'
 	} );
@@ -1079,10 +1087,10 @@
 	ts.addParser( {
 		id: 'date',
 		is: function ( s ) {
-			return ( ts.dateRegex[0].test(s) || ts.dateRegex[1].test(s) || ts.dateRegex[2].test(s ));
+			return ( ts.dateRegex[0].test( s ) || ts.dateRegex[1].test( s ) || ts.dateRegex[2].test( s ) );
 		},
 		format: function ( s ) {
-			var match;
+			var match, y;
 			s = $.trim( s.toLowerCase() );
 
 			if ( ( match = s.match( ts.dateRegex[0] ) ) !== null ) {
@@ -1112,8 +1120,7 @@
 				s[2] = '0' + s[2];
 			}
 
-			var y;
-			if ( ( y = parseInt( s[0], 10) ) < 100 ) {
+			if ( ( y = parseInt( s[0], 10 ) ) < 100 ) {
 				// Guestimate years without centuries
 				if ( y < 30 ) {
 					s[0] = 2000 + y;
@@ -1132,7 +1139,7 @@
 	ts.addParser( {
 		id: 'time',
 		is: function ( s ) {
-			return ts.rgx.time[0].test(s);
+			return ts.rgx.time[0].test( s );
 		},
 		format: function ( s ) {
 			return $.tablesorter.formatFloat( new Date( '2000/01/01 ' + s ).getTime() );
@@ -1143,10 +1150,10 @@
 	ts.addParser( {
 		id: 'number',
 		is: function ( s ) {
-			return $.tablesorter.numberRegex.test( $.trim( s ));
+			return $.tablesorter.numberRegex.test( $.trim( s ) );
 		},
 		format: function ( s ) {
-			return $.tablesorter.formatDigit(s);
+			return $.tablesorter.formatDigit( s );
 		},
 		type: 'numeric'
 	} );

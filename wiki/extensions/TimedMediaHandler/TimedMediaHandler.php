@@ -95,6 +95,8 @@ $wgTranscodeBackgroundSizeLimit = 3 * 1024 * 1024; // 3GB
 $wgFFmpegThreads = 1;
 
 // The location of ffmpeg2theora (transcoding)
+// Set to false to use avconv/ffmpeg to produce Ogg Theora transcodes instead;
+// beware this will disable Ogg skeleton metadata generation.
 $wgFFmpeg2theoraLocation = '/usr/bin/ffmpeg2theora';
 
 // Location of oggThumb binary ( used instead of ffmpeg )
@@ -201,6 +203,8 @@ ini_set( 'include_path',
 
 // getID3 provides metadata for mp4 and webm files:
 $wgAutoloadClasses['getID3'] = "$timedMediaDir/libs/getid3/getid3.php";
+$wgAutoloadClasses['getid3_exception'] = "$timedMediaDir/libs/getid3/getid3.php";
+$wgAutoloadClasses['getid3_handler'] = "$timedMediaDir/libs/getid3/getid3.php";
 
 // ID3 Metadata Handler
 $wgAutoloadClasses['ID3Handler'] = "$timedMediaDir/handlers/ID3Handler/ID3Handler.php";
@@ -214,6 +218,7 @@ $wgAutoloadClasses['FLACHandler'] = "$timedMediaDir/handlers/FLACHandler/FLACHan
 $wgAutoloadClasses['WAVHandler'] = "$timedMediaDir/handlers/WAVHandler/WAVHandler.php";
 
 // Text handler
+$wgAutoloadClasses['ForeignApiQueryAllPages'] = "$timedMediaDir/handlers/TextHandler/TextHandler.php";
 $wgAutoloadClasses['TextHandler'] = "$timedMediaDir/handlers/TextHandler/TextHandler.php";
 $wgAutoloadClasses['TimedTextPage'] = "$timedMediaDir/TimedTextPage.php";
 
@@ -243,15 +248,15 @@ $wgExtensionMessagesFiles['MwEmbed.TimedText'] = "$timedMediaDir/MwEmbedModules/
 
 // Special Pages
 $wgAutoloadClasses['SpecialTimedMediaHandler'] = "$timedMediaDir/SpecialTimedMediaHandler.php";
+$wgAutoloadClasses['SpecialOrphanedTimedText'] = "$timedMediaDir/SpecialOrphanedTimedText.php";
 
 // Register all Timed Media Handler hooks right after the cache check.
 // This way if you set a variable like $wgTimedTextNS in LocalSettings.php after you include TimedMediaHandler
 // we can still read the variable values
 $wgHooks['SetupAfterCache'][] = 'TimedMediaHandlerHooks::register';
 
-$wgHooks['ExtractThumbParameters'][] = 'TimedMediaHandler::onExtractThumbParameters';
-
-# add Special:TimedMediaHandler
+# add Special pages
+$wgSpecialPages['OrphanedTimedText'] = 'SpecialOrphanedTimedText';
 $wgSpecialPages['TimedMediaHandler'] = 'SpecialTimedMediaHandler';
 $wgSpecialPageGroups['TimedMediaHandler'] = 'media';
 

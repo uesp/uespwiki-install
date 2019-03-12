@@ -8,7 +8,7 @@ use Elastica\Index;
 use Elastica\Query\Builder;
 use Elastica\Query\MatchAll;
 use Elastica\Query\QueryString;
-use Elastica\Query\CustomScore;
+use Elastica\Query\FunctionScore;
 use Elastica\Query;
 use Elastica\Script;
 use Elastica\Search;
@@ -358,7 +358,8 @@ class SearchTest extends BaseTest
 
         //Timeout - this one is a bit more tricky to test
         $script = new Script('Thread.sleep(100); return _score;');
-        $query = new CustomScore($script, 'test');
+        $query = new FunctionScore();
+        $query->addScriptScoreFunction($script);
         $resultSet = $search->search($query, array('timeout' => 50));
         $this->assertTrue($resultSet->hasTimedOut());
 
@@ -491,4 +492,9 @@ class SearchTest extends BaseTest
 		$this->assertInstanceOf('\Elastica\ResultSet', $result2);
 		$this->assertEquals(1, $result2->getTotalHits());
 	}
+
+    public function testScanAndScroll() {
+        $search = new Search($this->_getClient());
+        $this->assertInstanceOf('Elastica\ScanAndScroll', $search->scanAndScroll());
+    }
 }

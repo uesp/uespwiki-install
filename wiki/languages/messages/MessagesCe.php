@@ -1,8 +1,7 @@
 <?php
 /** Chechen (нохчийн)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -118,6 +117,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Сих_сиха_нисйина_йолу_агӀонаш' ),
 	'Movepage'                  => array( 'АгӀона_цӀе_хийцар' ),
 	'Mycontributions'           => array( 'Сан_къинхьегам' ),
+	'MyLanguage'                => array( 'Сан_мотт' ),
 	'Mypage'                    => array( 'Сан_агӀо' ),
 	'Mytalk'                    => array( 'Сан_дийцаре' ),
 	'Myuploads'                 => array( 'Сан_файлаш' ),

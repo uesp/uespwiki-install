@@ -1,8 +1,8 @@
 {
-    "@metadata": {
-        "authors": [
-            "BáthoryPéter"
-        ]
-    },
-    "mwembed-desc": "Támogatást nyújt az „mwEmbed“ modulokhoz és bővítményekhez"
+	"@metadata": {
+		"authors": [
+			"BáthoryPéter"
+		]
+	},
+	"mwembed-desc": "Támogatást nyújt az „mwEmbed“ modulokhoz és bővítményekhez"
 }

@@ -21,70 +21,77 @@
  */
 
 class CategoryViewer extends ContextSource {
-	var $limit, $from, $until,
-		$articles, $articles_start_char,
-		$children, $children_start_char,
-		$showGallery, $imgsNoGalley,
-		$imgsNoGallery_start_char,
-		$imgsNoGallery;
+	/** @var int */
+	public $limit;
 
-	/**
-	 * @var Array
-	 */
-	var $nextPage;
+	/** @var array */
+	public $from;
 
-	/**
-	 * @var Array
-	 */
-	var $flip;
+	/** @var array */
+	public $until;
 
-	/**
-	 * @var Title
-	 */
-	var $title;
+	/** @var string[] */
+	public $articles;
 
-	/**
-	 * @var Collation
-	 */
-	var $collation;
+	/** @var array */
+	public $articles_start_char;
 
-	/**
-	 * @var ImageGallery
-	 */
-	var $gallery;
+	/** @var array */
+	public $children;
 
-	/**
-	 * Category object for this page
-	 * @var Category
-	 */
+	/** @var array */
+	public $children_start_char;
+
+	/** @var bool */
+	public $showGallery;
+
+	/** @var array */
+	public $imgsNoGallery_start_char;
+
+	/** @var array */
+	public $imgsNoGallery;
+
+	/** @var array */
+	public $nextPage;
+
+	/** @var array */
+	protected $prevPage;
+
+	/** @var array */
+	public $flip;
+
+	/** @var Title */
+	public $title;
+
+	/** @var Collation */
+	public $collation;
+
+	/** @var ImageGallery */
+	public $gallery;
+
+	/** @var Category Category object for this page. */
 	private $cat;
 
-	/**
-	 * The original query array, to be used in generating paging links.
-	 * @var array
-	 */
+	/** @var array The original query array, to be used in generating paging links. */
 	private $query;
 
 	/**
-	 * Constructor
-	 *
 	 * @since 1.19 $context is a second, required parameter
-	 * @param $title Title
-	 * @param $context IContextSource
+	 * @param Title $title
+	 * @param IContextSource $context
 	 * @param array $from An array with keys page, subcat,
 	 *        and file for offset of results of each section (since 1.17)
 	 * @param array $until An array with 3 keys for until of each section (since 1.17)
-	 * @param $query Array
+	 * @param array $query
 	 */
 	function __construct( $title, IContextSource $context, $from = array(),
 		$until = array(), $query = array()
 	) {
-		global $wgCategoryPagingLimit;
 		$this->title = $title;
 		$this->setContext( $context );
 		$this->from = $from;
 		$this->until = $until;
-		$this->limit = $wgCategoryPagingLimit;
+		$this->limit = $context->getConfig()->get( 'CategoryPagingLimit' );
 		$this->cat = Category::newFromTitle( $title );
 		$this->query = $query;
 		$this->collation = Collation::singleton();
@@ -97,10 +104,10 @@ class CategoryViewer extends ContextSource {
 	 * @return string HTML output
 	 */
 	public function getHTML() {
-		global $wgCategoryMagicGallery;
 		wfProfileIn( __METHOD__ );
 
-		$this->showGallery = $wgCategoryMagicGallery && !$this->getOutput()->mNoGallery;
+		$this->showGallery = $this->getConfig()->get( 'CategoryMagicGallery' )
+			&& !$this->getOutput()->mNoGallery;
 
 		$this->clearCategoryState();
 		$this->doCategoryQuery();
@@ -146,14 +153,13 @@ class CategoryViewer extends ContextSource {
 			// Note that null for mode is taken to mean use default.
 			$mode = $this->getRequest()->getVal( 'gallerymode', null );
 			try {
-				$this->gallery = ImageGalleryBase::factory( $mode );
+				$this->gallery = ImageGalleryBase::factory( $mode, $this->getContext() );
 			} catch ( MWException $e ) {
 				// User specified something invalid, fallback to default.
-				$this->gallery = ImageGalleryBase::factory();
+				$this->gallery = ImageGalleryBase::factory( false, $this->getContext() );
 			}
 
 			$this->gallery->setHideBadImages();
-			$this->gallery->setContext( $this->getContext() );
 		} else {
 			$this->imgsNoGallery = array();
 			$this->imgsNoGallery_start_char = array();
@@ -162,9 +168,9 @@ class CategoryViewer extends ContextSource {
 
 	/**
 	 * Add a subcategory to the internal lists, using a Category object
-	 * @param $cat Category
-	 * @param $sortkey
-	 * @param $pageLength
+	 * @param Category $cat
+	 * @param string $sortkey
+	 * @param int $pageLength
 	 */
 	function addSubcategoryObject( Category $cat, $sortkey, $pageLength ) {
 		// Subcategory; strip the 'Category' namespace from the link text.
@@ -210,10 +216,10 @@ class CategoryViewer extends ContextSource {
 
 	/**
 	 * Add a page in the image namespace
-	 * @param $title Title
-	 * @param $sortkey
-	 * @param $pageLength
-	 * @param $isRedirect bool
+	 * @param Title $title
+	 * @param string $sortkey
+	 * @param int $pageLength
+	 * @param bool $isRedirect
 	 */
 	function addImage( Title $title, $sortkey, $pageLength, $isRedirect = false ) {
 		global $wgContLang;
@@ -240,10 +246,10 @@ class CategoryViewer extends ContextSource {
 
 	/**
 	 * Add a miscellaneous page
-	 * @param $title
-	 * @param $sortkey
-	 * @param $pageLength
-	 * @param $isRedirect bool
+	 * @param Title $title
+	 * @param string $sortkey
+	 * @param int $pageLength
+	 * @param bool $isRedirect
 	 */
 	function addPage( $title, $sortkey, $pageLength, $isRedirect = false ) {
 		global $wgContLang;
@@ -283,6 +289,12 @@ class CategoryViewer extends ContextSource {
 			'subcat' => null,
 			'file' => null,
 		);
+		$this->prevPage = array(
+			'page' => null,
+			'subcat' => null,
+			'file' => null,
+		);
+
 		$this->flip = array( 'page' => false, 'subcat' => false, 'file' => false );
 
 		foreach ( array( 'page', 'subcat', 'file' ) as $type ) {
@@ -338,6 +350,9 @@ class CategoryViewer extends ContextSource {
 					# are additional pages to be had. Stop here...
 					$this->nextPage[$type] = $humanSortkey;
 					break;
+				}
+				if ( $count == $this->limit ) {
+					$this->prevPage[$type] = $humanSortkey;
 				}
 
 				if ( $title->getNamespace() == NS_CATEGORY ) {
@@ -453,7 +468,17 @@ class CategoryViewer extends ContextSource {
 	 */
 	private function getSectionPagingLinks( $type ) {
 		if ( isset( $this->until[$type] ) && $this->until[$type] !== null ) {
-			return $this->pagingLinks( $this->nextPage[$type], $this->until[$type], $type );
+			// The new value for the until parameter should be pointing to the first
+			// result displayed on the page which is the second last result retrieved
+			// from the database.The next link should have a from parameter pointing
+			// to the until parameter of the current page.
+			if ( $this->nextPage[$type] !== null ) {
+				return $this->pagingLinks( $this->prevPage[$type], $this->until[$type], $type );
+			} else {
+				// If the nextPage variable is null, it means that we have reached the first page
+				// and therefore the previous link should be disabled.
+				return $this->pagingLinks( null, $this->until[$type], $type );
+			}
 		} elseif ( $this->nextPage[$type] !== null
 			|| ( isset( $this->from[$type] ) && $this->from[$type] !== null )
 		) {
@@ -474,10 +499,10 @@ class CategoryViewer extends ContextSource {
 	 * Format a list of articles chunked by letter, either as a
 	 * bullet list or a columnar format, depending on the length.
 	 *
-	 * @param $articles Array
-	 * @param $articles_start_char Array
-	 * @param $cutoff Int
-	 * @return String
+	 * @param array $articles
+	 * @param array $articles_start_char
+	 * @param int $cutoff
+	 * @return string
 	 * @private
 	 */
 	function formatList( $articles, $articles_start_char, $cutoff = 6 ) {
@@ -507,9 +532,9 @@ class CategoryViewer extends ContextSource {
 	 * More distant TODO: Scrap this and use CSS columns, whenever IE finally
 	 * supports those.
 	 *
-	 * @param $articles Array
-	 * @param $articles_start_char Array
-	 * @return String
+	 * @param array $articles
+	 * @param string[] $articles_start_char
+	 * @return string
 	 * @private
 	 */
 	static function columnList( $articles, $articles_start_char ) {
@@ -563,9 +588,9 @@ class CategoryViewer extends ContextSource {
 
 	/**
 	 * Format a list of articles chunked by letter in a bullet list.
-	 * @param $articles Array
-	 * @param $articles_start_char Array
-	 * @return String
+	 * @param array $articles
+	 * @param string[] $articles_start_char
+	 * @return string
 	 * @private
 	 */
 	static function shortList( $articles, $articles_start_char ) {
@@ -590,7 +615,7 @@ class CategoryViewer extends ContextSource {
 	 * @param string $last The 'from' parameter for the generated URL
 	 * @param string $type A prefix for parameters, 'page' or 'subcat' or
 	 *     'file'
-	 * @return String HTML
+	 * @return string HTML
 	 */
 	private function pagingLinks( $first, $last, $type = '' ) {
 		$prevLink = $this->msg( 'prevn' )->numParams( $this->limit )->escaped();
@@ -702,7 +727,10 @@ class CategoryViewer extends ContextSource {
 			// to refresh the incorrect category table entry -- which should be
 			// quick due to the small number of entries.
 			$totalcnt = $rescnt;
-			$this->cat->refreshCounts();
+			$category = $this->cat;
+			wfGetDB( DB_MASTER )->onTransactionIdle( function () use ( $category ) {
+				$category->refreshCounts();
+			} );
 		} else {
 			// Case 3: hopeless.  Don't give a total count at all.
 			// Messages: category-subcat-count-limited, category-article-count-limited,

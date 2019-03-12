@@ -1,9 +1,9 @@
 {
-    "@metadata": {
-        "authors": [
-            "Purodha",
-            "Shirayuki"
-        ]
-    },
-    "mwembed-desc": "{{desc|name=MwEmbed Support|url=http://www.mediawiki.org/wiki/Extension:MwEmbed}}"
+	"@metadata": {
+		"authors": [
+			"Purodha",
+			"Shirayuki"
+		]
+	},
+	"mwembed-desc": "{{desc|name=MwEmbed Support|url=http://www.mediawiki.org/wiki/Extension:MwEmbed}}"
 }

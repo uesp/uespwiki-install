@@ -1,8 +1,7 @@
 <?php
 /** Korean (한국어)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -69,7 +68,7 @@ $namespaceAliases = array(
 	'특수기능' => NS_SPECIAL,
 	'MediaWiki토론' => NS_MEDIAWIKI_TALK,
 	'그림' => NS_FILE,
-	'파일토론' => NS_FILE_TALK,
+	'그림토론' => NS_FILE_TALK,
 );
 
 $specialPageAliases = array(
@@ -126,6 +125,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( '역사긴문서' ),
 	'Movepage'                  => array( '옮기기', '문서옮기기', '이동', '문서이동' ),
 	'Mycontributions'           => array( '내기여', '내기여목록' ),
+	'MyLanguage'                => array( '내언어' ),
 	'Mypage'                    => array( '내사용자문서' ),
 	'Mytalk'                    => array( '내사용자토론' ),
 	'Myuploads'                 => array( '내가올린파일' ),

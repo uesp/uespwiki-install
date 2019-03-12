@@ -1,8 +1,7 @@
 <?php
 /** Traditional Chinese (中文（繁體）‎)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -170,6 +169,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( '最多修訂頁面' ),
 	'Movepage'                  => array( '移動頁面' ),
 	'Mycontributions'           => array( '我的貢獻' ),
+	'MyLanguage'                => array( '我的語言' ),
 	'Mypage'                    => array( '我的用戶頁' ),
 	'Mytalk'                    => array( '我的討論頁' ),
 	'Myuploads'                 => array( '我的上傳' ),

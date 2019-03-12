@@ -240,7 +240,7 @@ class DatabaseSqlite extends DatabaseBase {
 	/**
 	 * @see DatabaseBase::isWriteQuery()
 	 *
-	 * @param $sql string
+	 * @param string $sql
 	 * @return bool
 	 */
 	function isWriteQuery( $sql ) {
@@ -342,13 +342,18 @@ class DatabaseSqlite extends DatabaseBase {
 	 */
 	function numFields( $res ) {
 		$r = $res instanceof ResultWrapper ? $res->result : $res;
-
-		return is_array( $r ) ? count( $r[0] ) : 0;
+		if ( is_array( $r ) && count( $r ) > 0 ) {
+			// The size of the result array is twice the number of fields. (Bug: 65578)
+			return count( $r[0] ) / 2;
+		} else {
+			// If the result is empty return 0
+			return 0;
+		}
 	}
 
 	/**
 	 * @param ResultWrapper $res
-	 * @param $n
+	 * @param int $n
 	 * @return bool
 	 */
 	function fieldName( $res, $n ) {
@@ -661,7 +666,7 @@ class DatabaseSqlite extends DatabaseBase {
 	}
 
 	/**
-	 * @return string wikitext of a link to the server software's web site
+	 * @return string Wikitext of a link to the server software's web site
 	 */
 	public function getSoftwareLink() {
 		return "[{{int:version-db-sqlite-url}} SQLite]";
@@ -747,7 +752,7 @@ class DatabaseSqlite extends DatabaseBase {
 	}
 
 	/**
-	 * @param $b
+	 * @param string $b
 	 * @return Blob
 	 */
 	function encodeBlob( $b ) {
@@ -755,7 +760,7 @@ class DatabaseSqlite extends DatabaseBase {
 	}
 
 	/**
-	 * @param $b Blob|string
+	 * @param Blob|string $b
 	 * @return string
 	 */
 	function decodeBlob( $b ) {
@@ -868,6 +873,9 @@ class DatabaseSqlite extends DatabaseBase {
 		} elseif ( preg_match( '/^\s*DROP INDEX/i', $s ) ) {
 			// DROP INDEX is database-wide, not table-specific, so no ON <table> clause.
 			$s = preg_replace( '/\sON\s+[^\s]*/i', '', $s );
+		} elseif ( preg_match( '/^\s*INSERT IGNORE\b/i', $s ) ) {
+			// INSERT IGNORE --> INSERT OR IGNORE
+			$s = preg_replace( '/^\s*INSERT IGNORE\b/i', 'INSERT OR IGNORE', $s );
 		}
 
 		return $s;

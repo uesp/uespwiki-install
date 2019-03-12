@@ -78,7 +78,8 @@
 	position : absolute;
 	cursor : pointer;
 	border : none !important;
-	z-index : 1;
+	/* Previously this specified a z-index, but that caused
+	 * problems with the pop-up player */
 }
 
 .play-btn-large:hover {

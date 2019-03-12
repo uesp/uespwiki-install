@@ -13,34 +13,6 @@
 		setup: function () {
 			this.originalMwLanguage = mw.language;
 
-			// Messages that are reused in multiple tests
-			mw.messages.set( {
-				// The values for gender are not significant,
-				// what matters is which of the values is choosen by the parser
-				'gender-msg': '$1: {{GENDER:$2|blue|pink|green}}',
-				'gender-msg-currentuser': '{{GENDER:|blue|pink|green}}',
-
-				'plural-msg': 'Found $1 {{PLURAL:$1|item|items}}',
-
-				// Assume the grammar form grammar_case_foo is not valid in any language
-				'grammar-msg': 'Przeszukaj {{GRAMMAR:grammar_case_foo|{{SITENAME}}}}',
-
-				'formatnum-msg': '{{formatnum:$1}}',
-
-				'portal-url': 'Project:Community portal',
-				'see-portal-url': '{{Int:portal-url}} is an important community page.',
-
-				'jquerymsg-test-statistics-users': '注册[[Special:ListUsers|用户]]',
-
-				'jquerymsg-test-version-entrypoints-index-php': '[https://www.mediawiki.org/wiki/Manual:index.php index.php]',
-
-				'external-link-replace': 'Foo [$1 bar]'
-			} );
-
-			mw.config.set( {
-				wgArticlePath: '/wiki/$1'
-			} );
-
 			specialCharactersPageName = '"Who" wants to be a millionaire & live on \'Exotic Island\'?';
 
 			expectedListUsers = '注册<a title="Special:ListUsers" href="/wiki/Special:ListUsers">用户</a>';
@@ -57,6 +29,33 @@
 		},
 		teardown: function () {
 			mw.language = this.originalMwLanguage;
+		},
+		config: {
+			wgArticlePath: '/wiki/$1'
+		},
+		// Messages that are reused in multiple tests
+		messages: {
+			// The values for gender are not significant,
+			// what matters is which of the values is choosen by the parser
+			'gender-msg': '$1: {{GENDER:$2|blue|pink|green}}',
+			'gender-msg-currentuser': '{{GENDER:|blue|pink|green}}',
+
+			'plural-msg': 'Found $1 {{PLURAL:$1|item|items}}',
+			// See https://bugzilla.wikimedia.org/69993
+			'plural-msg-explicit-forms-nested': 'Found {{PLURAL:$1|$1 results|0=no results in {{SITENAME}}|1=$1 result}}',
+			// Assume the grammar form grammar_case_foo is not valid in any language
+			'grammar-msg': 'Przeszukaj {{GRAMMAR:grammar_case_foo|{{SITENAME}}}}',
+
+			'formatnum-msg': '{{formatnum:$1}}',
+
+			'portal-url': 'Project:Community portal',
+			'see-portal-url': '{{Int:portal-url}} is an important community page.',
+
+			'jquerymsg-test-statistics-users': '注册[[Special:ListUsers|用户]]',
+
+			'jquerymsg-test-version-entrypoints-index-php': '[https://www.mediawiki.org/wiki/Manual:index.php index.php]',
+
+			'external-link-replace': 'Foo [$1 bar]'
 		}
 	} ) );
 
@@ -158,10 +157,13 @@
 		);
 	} );
 
-	QUnit.test( 'Plural', 3, function ( assert ) {
+	QUnit.test( 'Plural', 6, function ( assert ) {
 		assert.equal( formatParse( 'plural-msg', 0 ), 'Found 0 items', 'Plural test for english with zero as count' );
 		assert.equal( formatParse( 'plural-msg', 1 ), 'Found 1 item', 'Singular test for english' );
 		assert.equal( formatParse( 'plural-msg', 2 ), 'Found 2 items', 'Plural test for english' );
+		assert.equal( formatParse( 'plural-msg-explicit-forms-nested', 6 ), 'Found 6 results', 'Plural message with explicit plural forms' );
+		assert.equal( formatParse( 'plural-msg-explicit-forms-nested', 0 ), 'Found no results in ' + mw.config.get( 'wgSiteName' ), 'Plural message with explicit plural forms, with nested {{SITENAME}}' );
+		assert.equal( formatParse( 'plural-msg-explicit-forms-nested', 1 ), 'Found 1 result', 'Plural message with explicit plural forms with placeholder nested' );
 	} );
 
 	QUnit.test( 'Gender', 15, function ( assert ) {
@@ -294,10 +296,8 @@
 			expectedMultipleBars,
 			expectedSpecialCharacters;
 
-		/*
-		 The below three are all identical to or based on real messages.  For disambiguations-text,
-		 the bold was removed because it is not yet implemented.
-		 */
+		// The below three are all identical to or based on real messages.  For disambiguations-text,
+		// the bold was removed because it is not yet implemented.
 
 		assert.htmlEqual(
 			formatParse( 'jquerymsg-test-statistics-users' ),
@@ -350,7 +350,7 @@
 	} );
 
 // Tests that {{-transformation vs. general parsing are done as requested
-	QUnit.test( 'Curly brace transformation', 14, function ( assert ) {
+	QUnit.test( 'Curly brace transformation', 16, function ( assert ) {
 		var oldUserLang = mw.config.get( 'wgUserLanguage' );
 
 		assertBothModes( assert, ['gender-msg', 'Bob', 'male'], 'Bob: blue', 'gender is resolved' );
@@ -398,6 +398,16 @@
 			formatParse( 'external-link-replace', 'http://example.com' ),
 			'Foo <a href="http://example.com">bar</a>',
 			'External link message processed when format is \'parse\''
+		);
+		assert.htmlEqual(
+			formatParse( 'external-link-replace', $( '<i>' ) ),
+			'Foo <i>bar</i>',
+			'External link message processed as jQuery object when format is \'parse\''
+		);
+		assert.htmlEqual(
+			formatParse( 'external-link-replace', function () {} ),
+			'Foo <a href="#">bar</a>',
+			'External link message processed as function when format is \'parse\''
 		);
 
 		mw.config.set( 'wgUserLanguage', oldUserLang );

@@ -1,11 +1,11 @@
-/**
+/*!
  * JavaScript for Special:Preferences
  */
 jQuery( function ( $ ) {
 	var $preftoc, $preferences, $fieldsets, $legends,
 		hash, labelFunc,
 		$tzSelect, $tzTextbox, $localtimeHolder, servertime,
-		$checkBoxes;
+		$checkBoxes, savedWindowOnBeforeUnload;
 
 	labelFunc = function () {
 		return this.id.replace( /^mw-prefsection/g, 'preftab' );
@@ -46,9 +46,10 @@ jQuery( function ( $ ) {
 	/**
 	 * It uses document.getElementById for security reasons (HTML injections in $()).
 	 *
+	 * @ignore
 	 * @param String name: the name of a tab without the prefix ("mw-prefsection-")
 	 * @param String mode: [optional] A hash will be set according to the current
-	 * open section. Set mode 'noHash' to surpress this.
+	 *  open section. Set mode 'noHash' to surpress this.
 	 */
 	function switchPrefTab( name, mode ) {
 		var $tab, scrollTop;
@@ -159,10 +160,8 @@ jQuery( function ( $ ) {
 		} );
 	}
 
-	/**
-	* Timezone functions.
-	* Guesses Timezone from browser and updates fields onchange
-	*/
+	// Timezone functions.
+	// Guesses Timezone from browser and updates fields onchange.
 
 	$tzSelect = $( '#mw-input-wptimecorrection' );
 	$tzTextbox = $( '#mw-input-wptimecorrection-other' );
@@ -201,7 +200,7 @@ jQuery( function ( $ ) {
 		}
 	}
 
-	function updateTimezoneSelection () {
+	function updateTimezoneSelection() {
 		var minuteDiff, localTime,
 			type = $tzSelect.val();
 
@@ -263,5 +262,44 @@ jQuery( function ( $ ) {
 	}
 	$( '#mw-input-wpsearcheverything' ).change( function () {
 		$checkBoxes.prop( 'disabled', $( this ).prop( 'checked' ) );
+	} );
+
+	// Set up a message to notify users if they try to leave the page without
+	// saving.
+	$( '#mw-prefs-form' ).data( 'origdata', $( '#mw-prefs-form' ).serialize() );
+	$( window )
+		.on( 'beforeunload.prefswarning', function () {
+			var retval;
+
+			// Check if anything changed
+			if ( $( '#mw-prefs-form' ).serialize() !== $( '#mw-prefs-form' ).data( 'origdata' ) ) {
+				// Return our message
+				retval = mediaWiki.msg( 'prefswarning-warning', mediaWiki.msg( 'saveprefs' ) );
+			}
+
+			// Unset the onbeforeunload handler so we don't break page caching in Firefox
+			savedWindowOnBeforeUnload = window.onbeforeunload;
+			window.onbeforeunload = null;
+			if ( retval !== undefined ) {
+				// ...but if the user chooses not to leave the page, we need to rebind it
+				setTimeout( function () {
+					window.onbeforeunload = savedWindowOnBeforeUnload;
+				}, 1 );
+				return retval;
+			}
+		} )
+		.on( 'pageshow.prefswarning', function () {
+			// Re-add onbeforeunload handler
+			if ( !window.onbeforeunload ) {
+				window.onbeforeunload = savedWindowOnBeforeUnload;
+			}
+		} );
+	$( '#mw-prefs-form' ).submit( function () {
+		// Unbind our beforeunload handler
+		$( window ).off( '.prefswarning' );
+	} );
+	$( '#mw-prefs-restoreprefs' ).click( function () {
+		// Unbind our beforeunload handler
+		$( window ).off( '.prefswarning' );
 	} );
 } );

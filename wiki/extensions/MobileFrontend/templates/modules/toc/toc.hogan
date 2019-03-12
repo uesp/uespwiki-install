@@ -1,0 +1,8 @@
+<h2>{{contentsMsg}} <span class="icon icon-16px"></span></h2>
+<div>
+	<ul>
+	{{#sections}}
+	{{>tocHeading}}
+	{{/sections}}
+	</ul>
+</div>

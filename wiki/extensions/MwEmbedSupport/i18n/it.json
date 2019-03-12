@@ -1,8 +1,8 @@
 {
-    "@metadata": {
-        "authors": [
-            "Beta16"
-        ]
-    },
-    "mwembed-desc": "Fornisce supporto per i moduli e le estensioni mwEmbed"
+	"@metadata": {
+		"authors": [
+			"Beta16"
+		]
+	},
+	"mwembed-desc": "Fornisce supporto per i moduli e le estensioni mwEmbed"
 }

@@ -117,12 +117,13 @@
 		var parser = new mw.jqueryMsg.parser( options );
 
 		return function ( args ) {
-			var key = args[0],
+			var fallback,
+				key = args[0],
 				argsArray = $.isArray( args[1] ) ? args[1] : slice.call( args, 1 );
 			try {
 				return parser.parse( key, argsArray );
 			} catch ( e ) {
-				var fallback = parser.settings.messages.get( key );
+				fallback = parser.settings.messages.get( key );
 				mw.log.warn( 'mediawiki.jqueryMsg: ' + key + ': ' + e.message );
 				return $( '<span>' ).text( fallback );
 			}
@@ -319,7 +320,7 @@
 					for ( i = 0; i < ps.length; i++ ) {
 						result = ps[i]();
 						if ( result !== null ) {
-							 return result;
+							return result;
 						}
 					}
 					return null;
@@ -403,8 +404,8 @@
 				return function () {
 					var result = null;
 					if ( input.substr( pos, len ) === s ) {
-						 result = s;
-						 pos += len;
+						result = s;
+						pos += len;
 					}
 					return result;
 				};
@@ -421,7 +422,7 @@
 			 */
 			function makeRegexParser( regex ) {
 				return function () {
-					var matches = input.substr( pos ).match( regex );
+					var matches = input.slice( pos ).match( regex );
 					if ( matches === null ) {
 						return null;
 					}
@@ -668,7 +669,7 @@
 				for ( i = 0, len = attributes.length; i < len; i += 2 ) {
 					attributeName = attributes[i];
 					if ( $.inArray( attributeName, settings.allowedHtmlCommonAttributes ) === -1 &&
-					     $.inArray( attributeName, settings.allowedHtmlAttributesByElement[startTagName] || [] ) === -1 ) {
+						$.inArray( attributeName, settings.allowedHtmlAttributesByElement[startTagName] || [] ) === -1 ) {
 						return false;
 					}
 				}
@@ -723,7 +724,7 @@
 
 				if ( parsedCloseTagResult === null ) {
 					// Closing tag failed.  Return the start tag and contents.
-					return [ 'CONCAT', input.substring( startOpenTagPos, endOpenTagPos ) ]
+					return [ 'CONCAT', input.slice( startOpenTagPos, endOpenTagPos ) ]
 						.concat( parsedHtmlContents );
 				}
 
@@ -747,8 +748,8 @@
 					// parsed HTML link.
 					//
 					// Concatenate everything from the tag, flattening the contents.
-					result = [ 'CONCAT', input.substring( startOpenTagPos, endOpenTagPos ) ]
-						.concat( parsedHtmlContents, input.substring( startCloseTagPos, endCloseTagPos ) );
+					result = [ 'CONCAT', input.slice( startOpenTagPos, endOpenTagPos ) ]
+						.concat( parsedHtmlContents, input.slice( startCloseTagPos, endCloseTagPos ) );
 				}
 
 				return result;
@@ -1085,7 +1086,11 @@
 			} else {
 				$el = $( '<a>' );
 				if ( typeof arg === 'function' ) {
-					$el.click( arg ).attr( 'href', '#' );
+					$el.attr( 'href', '#' )
+					.click( function ( e ) {
+						e.preventDefault();
+					} )
+					.click( arg );
 				} else {
 					$el.attr( 'href', arg.toString() );
 				}
@@ -1124,9 +1129,16 @@
 		 * @return {string} selected pluralized form according to current language
 		 */
 		plural: function ( nodes ) {
-			var forms, count;
+			var forms, formIndex, node, count;
 			count = parseFloat( this.language.convertNumber( nodes[0], true ) );
 			forms = nodes.slice( 1 );
+			for ( formIndex = 0; formIndex < forms.length; formIndex++ ) {
+				node = forms[formIndex];
+				if ( node.jquery && node.hasClass( 'mediaWiki_htmlEmitter' )  ) {
+					// This is a nested node, already expanded.
+					forms[formIndex] = forms[formIndex].html();
+				}
+			}
 			return forms.length ? this.language.convertPlural( count, forms ) : '';
 		},
 

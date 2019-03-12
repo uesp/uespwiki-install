@@ -149,6 +149,7 @@ class TimedMediaHandlerHooks {
 		$wgHooks[ 'NewRevisionFromEditComplete' ][] = 'TimedMediaHandlerHooks::onNewRevisionFromEditComplete';
 
 		$wgHooks['LoadExtensionSchemaUpdates'][] = 'TimedMediaHandlerHooks::checkSchemaUpdates';
+		$wgHooks['wgQueryPages'][] = 'TimedMediaHandlerHooks::onwgQueryPages';
 		return true;
 	}
 
@@ -171,7 +172,8 @@ class TimedMediaHandlerHooks {
 	 * @return bool
 	 */
 	public static function checkForTimedTextPage( &$title, &$article ){
-		if( $title->getNamespace() == NS_TIMEDTEXT ) {
+		global $wgTimedTextNS;
+		if ( $title->getNamespace() === $wgTimedTextNS ) {
 			$article = new TimedTextPage( $title );
 		}
 		return true;
@@ -183,7 +185,8 @@ class TimedMediaHandlerHooks {
 	 * @return bool
 	 */
 	public static function checkForTimedTextDiff( $diffEngine, $output ) {
-		if ( $output->getTitle()->getNamespace() == NS_TIMEDTEXT ) {
+		global $wgTimedTextNS;
+		if ( $output->getTitle()->getNamespace() === $wgTimedTextNS ) {
 			$article = new TimedTextPage( $output->getTitle() );
 			$article->renderOutput( $output );
 			return false;
@@ -349,7 +352,10 @@ class TimedMediaHandlerHooks {
 			'TestTimeParsing.php',
 			'TestApiUploadVideo.php',
 			'TestVideoThumbnail.php',
-			'TestVideoTranscode.php'
+			'TestVideoTranscode.php',
+			'TestOggHandler.php',
+			'TestTimedMediaTransformOutput.php',
+			'TestTimedMediaHandler.php'
 		);
 		foreach( $testFiles as $fileName ){
 			$files[] = $testDir . $fileName;
@@ -369,11 +375,13 @@ class TimedMediaHandlerHooks {
 	 * @return bool
 	 */
 	static function pageOutputHook(  &$out, &$sk ){
+		global $wgTimedTextNS;
+
 		$title = $out->getTitle();
 		$namespace = $title->getNamespace();
 		$addModules = false;
 
-		if ( $namespace === NS_CATEGORY || $namespace === NS_TIMEDTEXT ) {
+		if ( $namespace === NS_CATEGORY || $namespace === $wgTimedTextNS ) {
 			$addModules = true;
 		}
 
@@ -410,4 +418,8 @@ class TimedMediaHandlerHooks {
 		return true;
 	}
 
+	public static function onwgQueryPages( $qp ) {
+		$qp[] = array( 'SpecialOrphanedTimedText', 'OrphanedTimedText' );
+		return true;
+	}
 }

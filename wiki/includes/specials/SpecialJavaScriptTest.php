@@ -25,9 +25,8 @@
  * @ingroup SpecialPage
  */
 class SpecialJavaScriptTest extends SpecialPage {
-
 	/**
-	* @var array Supported frameworks.
+	 * @var array Supported frameworks.
 	 */
 	private static $frameworks = array(
 		'qunit',
@@ -150,15 +149,13 @@ class SpecialJavaScriptTest extends SpecialPage {
 	 * Rendered by OutputPage and Skin.
 	 */
 	private function viewQUnit() {
-		global $wgJavaScriptTestConfig;
-
 		$out = $this->getOutput();
-		$testConfig = $wgJavaScriptTestConfig;
+		$testConfig = $this->getConfig()->get( 'JavaScriptTestConfig' );
 
 		$modules = $out->getResourceLoader()->getTestModuleNames( 'qunit' );
 
 		$summary = $this->msg( 'javascripttest-qunit-intro' )
-			->params( $wgJavaScriptTestConfig['qunit']['documentation'] )
+			->params( $testConfig['qunit']['documentation'] )
 			->parseAsBlock();
 
 		$baseHtml = <<<HTML
@@ -269,6 +266,21 @@ HTML;
 
 		header( 'Content-Type: text/html; charset=utf-8' );
 		echo $html;
+	}
+
+	/**
+	 * Return an array of subpages beginning with $search that this special page will accept.
+	 *
+	 * @param string $search Prefix to search for
+	 * @param int $limit Maximum number of results to return
+	 * @return string[] Matching subpages
+	 */
+	public function prefixSearchSubpages( $search, $limit = 10 ) {
+		return self::prefixSearchArray(
+			$search,
+			$limit,
+			self::$frameworks
+		);
 	}
 
 	protected function getGroupName() {

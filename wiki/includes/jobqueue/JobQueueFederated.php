@@ -47,14 +47,12 @@
  * @since 1.22
  */
 class JobQueueFederated extends JobQueue {
-	/** @var array (partition name => weight) reverse sorted by weight */
-	protected $partitionMap = array();
-
-	/** @var array (partition name => JobQueue) reverse sorted by weight */
-	protected $partitionQueues = array();
-
+	/** @var HashRing */
+	protected $partitionRing;
 	/** @var HashRing */
 	protected $partitionPushRing;
+	/** @var array (partition name => JobQueue) reverse sorted by weight */
+	protected $partitionQueues = array();
 
 	/** @var BagOStuff */
 	protected $cache;
@@ -66,7 +64,7 @@ class JobQueueFederated extends JobQueue {
 	const CACHE_TTL_LONG = 300; // integer; seconds to cache info that is kept up to date
 
 	/**
-	 * @params include:
+	 * @param array $params Possible keys:
 	 *  - sectionsByWiki      : A map of wiki IDs to section names.
 	 *                          Wikis will default to using the section "default".
 	 *  - partitionsBySection : Map of section names to maps of (partition name => weight).
@@ -82,7 +80,6 @@ class JobQueueFederated extends JobQueue {
 	 *                          different partition queues. This improves availability
 	 *                          during failure, at the cost of added latency and somewhat
 	 *                          less reliable job de-duplication mechanisms.
-	 * @param array $params
 	 * @throws MWException
 	 */
 	protected function __construct( array $params ) {
@@ -97,10 +94,10 @@ class JobQueueFederated extends JobQueue {
 			? $params['maxPartitionsTry']
 			: 2;
 		// Get the full partition map
-		$this->partitionMap = $params['partitionsBySection'][$section];
-		arsort( $this->partitionMap, SORT_NUMERIC );
+		$partitionMap = $params['partitionsBySection'][$section];
+		arsort( $partitionMap, SORT_NUMERIC );
 		// Get the partitions jobs can actually be pushed to
-		$partitionPushMap = $this->partitionMap;
+		$partitionPushMap = $partitionMap;
 		if ( isset( $params['partitionsNoPush'] ) ) {
 			foreach ( $params['partitionsNoPush'] as $partition ) {
 				unset( $partitionPushMap[$partition] );
@@ -114,17 +111,23 @@ class JobQueueFederated extends JobQueue {
 			unset( $baseConfig[$o] ); // partition queue doesn't care about this
 		}
 		// Get the partition queue objects
-		foreach ( $this->partitionMap as $partition => $w ) {
+		foreach ( $partitionMap as $partition => $w ) {
 			if ( !isset( $params['configByPartition'][$partition] ) ) {
 				throw new MWException( "No configuration for partition '$partition'." );
 			}
 			$this->partitionQueues[$partition] = JobQueue::factory(
 				$baseConfig + $params['configByPartition'][$partition] );
 		}
+		// Ring of all partitions
+		$this->partitionRing = new HashRing( $partitionMap );
 		// Get the ring of partitions to push jobs into
-		$this->partitionPushRing = new HashRing( $partitionPushMap );
+		if ( count( $partitionPushMap ) === count( $partitionMap ) ) {
+			$this->partitionPushRing = clone $this->partitionRing; // faster
+		} else {
+			$this->partitionPushRing = new HashRing( $partitionPushMap );
+		}
 		// Aggregate cache some per-queue values if there are multiple partition queues
-		$this->cache = count( $this->partitionMap ) > 1 ? wfGetMainCache() : new EmptyBagOStuff();
+		$this->cache = count( $partitionMap ) > 1 ? wfGetMainCache() : new EmptyBagOStuff();
 	}
 
 	protected function supportedOrders() {
@@ -191,7 +194,7 @@ class JobQueueFederated extends JobQueue {
 		$key = $this->getCacheKey( $type );
 
 		$count = $this->cache->get( $key );
-		if ( is_int( $count ) ) {
+		if ( $count !== false ) {
 			return $count;
 		}
 
@@ -217,15 +220,20 @@ class JobQueueFederated extends JobQueue {
 		// Try to insert the jobs and update $partitionsTry on any failures.
 		// Retry to insert any remaning jobs again, ignoring the bad partitions.
 		$jobsLeft = $jobs;
+		// @codingStandardsIgnoreStart Generic.CodeAnalysis.ForLoopWithTestFunctionCall.NotAllowed
 		for ( $i = $this->maxPartitionsTry; $i > 0 && count( $jobsLeft ); --$i ) {
+			// @codingStandardsIgnoreEnd
+			try {
+				$partitionRing->getLiveRing();
+			} catch ( UnexpectedValueException $e ) {
+				break; // all servers down; nothing to insert to
+			}
 			$jobsLeft = $this->tryJobInsertions( $jobsLeft, $partitionRing, $flags );
 		}
 		if ( count( $jobsLeft ) ) {
 			throw new JobQueueError(
 				"Could not insert job(s), {$this->maxPartitionsTry} partitions tried." );
 		}
-
-		return true;
 	}
 
 	/**
@@ -246,7 +254,7 @@ class JobQueueFederated extends JobQueue {
 		foreach ( $jobs as $key => $job ) {
 			if ( $job->ignoreDuplicates() ) {
 				$sha1 = sha1( serialize( $job->getDeduplicationInfo() ) );
-				$uJobsByPartition[$partitionRing->getLocation( $sha1 )][] = $job;
+				$uJobsByPartition[$partitionRing->getLiveLocation( $sha1 )][] = $job;
 				unset( $jobs[$key] );
 			}
 		}
@@ -265,17 +273,17 @@ class JobQueueFederated extends JobQueue {
 			/** @var JobQueue $queue */
 			$queue = $this->partitionQueues[$partition];
 			try {
-				$ok = $queue->doBatchPush( $jobBatch, $flags | self::QOS_ATOMIC );
+				$ok = true;
+				$queue->doBatchPush( $jobBatch, $flags | self::QOS_ATOMIC );
 			} catch ( JobQueueError $e ) {
 				$ok = false;
 				MWExceptionHandler::logException( $e );
 			}
 			if ( $ok ) {
 				$key = $this->getCacheKey( 'empty' );
-				$this->cache->set( $key, 'false', JobQueueDB::CACHE_TTL_LONG );
+				$this->cache->set( $key, 'false', self::CACHE_TTL_LONG );
 			} else {
-				$partitionRing = $partitionRing->newWithoutLocation( $partition ); // blacklist
-				if ( !$partitionRing ) {
+				if ( !$partitionRing->ejectFromLiveRing( $partition, 5 ) ) { // blacklist
 					throw new JobQueueError( "Could not insert job(s), no partitions available." );
 				}
 				$jobsLeft = array_merge( $jobsLeft, $jobBatch ); // not inserted
@@ -284,20 +292,20 @@ class JobQueueFederated extends JobQueue {
 
 		// Insert the jobs that are not de-duplicated into the queues...
 		foreach ( $nuJobBatches as $jobBatch ) {
-			$partition = ArrayUtils::pickRandom( $partitionRing->getLocationWeights() );
+			$partition = ArrayUtils::pickRandom( $partitionRing->getLiveLocationWeights() );
 			$queue = $this->partitionQueues[$partition];
 			try {
-				$ok = $queue->doBatchPush( $jobBatch, $flags | self::QOS_ATOMIC );
+				$ok = true;
+				$queue->doBatchPush( $jobBatch, $flags | self::QOS_ATOMIC );
 			} catch ( JobQueueError $e ) {
 				$ok = false;
 				MWExceptionHandler::logException( $e );
 			}
 			if ( $ok ) {
 				$key = $this->getCacheKey( 'empty' );
-				$this->cache->set( $key, 'false', JobQueueDB::CACHE_TTL_LONG );
+				$this->cache->set( $key, 'false', self::CACHE_TTL_LONG );
 			} else {
-				$partitionRing = $partitionRing->newWithoutLocation( $partition ); // blacklist
-				if ( !$partitionRing ) {
+				if ( !$partitionRing->ejectFromLiveRing( $partition, 5 ) ) { // blacklist
 					throw new JobQueueError( "Could not insert job(s), no partitions available." );
 				}
 				$jobsLeft = array_merge( $jobsLeft, $jobBatch ); // not inserted
@@ -308,14 +316,7 @@ class JobQueueFederated extends JobQueue {
 	}
 
 	protected function doPop() {
-		$key = $this->getCacheKey( 'empty' );
-
-		$isEmpty = $this->cache->get( $key );
-		if ( $isEmpty === 'true' ) {
-			return false;
-		}
-
-		$partitionsTry = $this->partitionMap; // (partition => weight)
+		$partitionsTry = $this->partitionRing->getLiveLocationWeights(); // (partition => weight)
 
 		$failed = 0;
 		while ( count( $partitionsTry ) ) {
@@ -343,7 +344,8 @@ class JobQueueFederated extends JobQueue {
 		}
 		$this->throwErrorIfAllPartitionsDown( $failed );
 
-		$this->cache->set( $key, 'true', JobQueueDB::CACHE_TTL_LONG );
+		$key = $this->getCacheKey( 'empty' );
+		$this->cache->set( $key, 'true', self::CACHE_TTL_LONG );
 
 		return false;
 	}
@@ -358,12 +360,14 @@ class JobQueueFederated extends JobQueue {
 
 	protected function doIsRootJobOldDuplicate( Job $job ) {
 		$params = $job->getRootJobParams();
-		$partitions = $this->partitionPushRing->getLocations( $params['rootJobSignature'], 2 );
+		$sigature = $params['rootJobSignature'];
+		$partition = $this->partitionPushRing->getLiveLocation( $sigature );
 		try {
-			return $this->partitionQueues[$partitions[0]]->doIsRootJobOldDuplicate( $job );
+			return $this->partitionQueues[$partition]->doIsRootJobOldDuplicate( $job );
 		} catch ( JobQueueError $e ) {
-			if ( isset( $partitions[1] ) ) { // check fallback partition
-				return $this->partitionQueues[$partitions[1]]->doIsRootJobOldDuplicate( $job );
+			if ( $this->partitionPushRing->ejectFromLiveRing( $partition, 5 ) ) {
+				$partition = $this->partitionPushRing->getLiveLocation( $sigature );
+				return $this->partitionQueues[$partition]->doIsRootJobOldDuplicate( $job );
 			}
 		}
 
@@ -372,12 +376,14 @@ class JobQueueFederated extends JobQueue {
 
 	protected function doDeduplicateRootJob( Job $job ) {
 		$params = $job->getRootJobParams();
-		$partitions = $this->partitionPushRing->getLocations( $params['rootJobSignature'], 2 );
+		$sigature = $params['rootJobSignature'];
+		$partition = $this->partitionPushRing->getLiveLocation( $sigature );
 		try {
-			return $this->partitionQueues[$partitions[0]]->doDeduplicateRootJob( $job );
+			return $this->partitionQueues[$partition]->doDeduplicateRootJob( $job );
 		} catch ( JobQueueError $e ) {
-			if ( isset( $partitions[1] ) ) { // check fallback partition
-				return $this->partitionQueues[$partitions[1]]->doDeduplicateRootJob( $job );
+			if ( $this->partitionPushRing->ejectFromLiveRing( $partition, 5 ) ) {
+				$partition = $this->partitionPushRing->getLiveLocation( $sigature );
+				return $this->partitionQueues[$partition]->doDeduplicateRootJob( $job );
 			}
 		}
 
@@ -468,7 +474,7 @@ class JobQueueFederated extends JobQueue {
 
 	public function getCoalesceLocationInternal() {
 		return "JobQueueFederated:wiki:{$this->wiki}" .
-			sha1( serialize( array_keys( $this->partitionMap ) ) );
+			sha1( serialize( array_keys( $this->partitionQueues ) ) );
 	}
 
 	protected function doGetSiblingQueuesWithJobs( array $types ) {
@@ -542,7 +548,7 @@ class JobQueueFederated extends JobQueue {
 	}
 
 	/**
-	 * @param $property
+	 * @param string $property
 	 * @return string
 	 */
 	private function getCacheKey( $property ) {

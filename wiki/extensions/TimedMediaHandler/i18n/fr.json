@@ -31,6 +31,7 @@
 	"timedmedia-ogg-long-multiplexed": "Fichier multiplexé audio/vidéo Ogg, $1, durée $2, $4&nbsp;×&nbsp;$5 pixels, $3 au total",
 	"timedmedia-ogg-long-general": "Fichier média Ogg, durée $2, $3",
 	"timedmedia-ogg-long-error": "Fichier Ogg invalide : $1",
+	"timedmedia-ogg-long-no-streams": "Fichier de média ogg. Attention : Aucun des codecs utilisés dans ce fichier n’est reconnu.",
 	"timedmedia-webm-short-video": "Fichier vidéo WebM $1, $2",
 	"timedmedia-webm-long-video": "Fichier audio/vidéo WebM, $1, longueur $2, $4 x $5 pixels, $3 l'ensemble",
 	"timedmedia-flac-short-audio": "Fichier audio FLAC, $1",
@@ -40,7 +41,7 @@
 	"timedmedia-wav-pcm-required": "Vous ne pouvez télécharger que des WAV PCM (Modulation d’impulsion codée).",
 	"timedmedia-mp4-short-video": "Fichier vidéo MP4 $1, $2",
 	"timedmedia-mp4-long-video": "Fichier audio/vidéo MP4, $1, taille $2, $4 x $5 pixels, $3 au total",
-	"timedmedia-no-player-js": "Désolé, soit votre navigateur a JavaScript désactivé, soit il ne dispose d’aucun lecteur pris en charge.<br />\nVous pouvez <a href=\"$1\">télécharger le clip</a> ou <a href=\"//www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download\">télécharger un lecteur</a> pour lire le clip dans votre navigateur.",
+	"timedmedia-no-player-js": "Désolé, soit votre navigateur a JavaScript désactivé, soit il ne dispose d’aucun lecteur pris en charge.<br />\nVous pouvez <a href=\"$1\">télécharger le clip</a> ou <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">télécharger un lecteur</a> pour lire le clip dans votre navigateur.",
 	"timedmedia-more": "Plus…",
 	"timedmedia-dismiss": "Fermer",
 	"timedmedia-download": "Télécharger le fichier",
@@ -116,5 +117,9 @@
 	"timedmedia-wav-audios": "{{PLURAL:$1|$1 fichier audio WAV|$1 fichiers audio WAV}}",
 	"right-transcode-reset": "Réinitialiser les vidéos en échec ou transcodées pour qu’elles soient de nouveau insérées dans la file des travaux",
 	"right-transcode-status": "Afficher [[Special:TimedMediaHandler|l'information sur l'activité de transcodage actuelle]]",
-	"action-transcode-status": "afficher l’état de transcodage actuel"
+	"action-transcode-status": "afficher l’état de transcodage actuel",
+	"orphanedtimedtext": "Pages orphelines de TimedText",
+	"orphanedtimedtext-summary": "Liste des pages [[{{#special:AllPages/TimedText:}}|{{ns:TimedText}}]] qui n’ont pas de fichier correspondant.",
+	"orphanedtimedtext-unsupported": "Cette page spéciale n’est supportée que sur les bases de données MySQL.",
+	"orphanedtimedtext-notimedtext": "TimedText n’est pas activé sur ce wiki."
 }

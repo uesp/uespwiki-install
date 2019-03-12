@@ -13,51 +13,35 @@
 		 * (don't call before document ready)
 		 */
 		init: function () {
-			/* Fill $content var */
 			util.$content = ( function () {
-				var i, l, $content, selectors;
+				var i, l, $node, selectors;
+
 				selectors = [
-					// The preferred standard for setting $content (class="mw-body")
-					// You may also use (class="mw-body mw-body-primary") if you use
-					// mw-body in multiple locations.
-					// Or class="mw-body-primary" if you want $content to be deeper
-					// in the dom than mw-body
+					// The preferred standard is class "mw-body".
+					// You may also use class "mw-body mw-body-primary" if you use
+					// mw-body in multiple locations. Or class "mw-body-primary" if
+					// you use mw-body deeper in the DOM.
 					'.mw-body-primary',
 					'.mw-body',
 
-					/* Legacy fallbacks for setting the content */
-					// Vector, Monobook, Chick, etc... based skins
-					'#bodyContent',
-
-					// Modern based skins
-					'#mw_contentholder',
-
-					// Standard, CologneBlue
-					'#article',
-
-					// #content is present on almost all if not all skins. Most skins (the above cases)
-					// have #content too, but as an outer wrapper instead of the article text container.
-					// The skins that don't have an outer wrapper do have #content for everything
-					// so it's a good fallback
-					'#content',
-
-					// If nothing better is found fall back to our bodytext div that is guaranteed to be here
+					// If the skin has no such class, fall back to the parser output
 					'#mw-content-text',
 
-					// Should never happen... well, it could if someone is not finished writing a skin and has
-					// not inserted bodytext yet. But in any case <body> should always exist
+					// Should never happen... well, it could if someone is not finished writing a
+					// skin and has not yet inserted bodytext yet.
 					'body'
 				];
+
 				for ( i = 0, l = selectors.length; i < l; i++ ) {
-					$content = $( selectors[i] ).first();
-					if ( $content.length ) {
-						return $content;
+					$node = $( selectors[i] );
+					if ( $node.length ) {
+						return $node.first();
 					}
 				}
 
-				// Make sure we don't unset util.$content if it was preset and we don't find anything
+				// Preserve existing customized value in case it was preset
 				return util.$content;
-			} )();
+			}() );
 		},
 
 		/* Main body */
@@ -76,14 +60,29 @@
 
 		/**
 		 * Encode page titles for use in a URL
+		 *
 		 * We want / and : to be included as literal characters in our title URLs
-		 * as they otherwise fatally break the title
+		 * as they otherwise fatally break the title.
+		 *
+		 * The others are decoded because we can, it's prettier and matches behaviour
+		 * of `wfUrlencode` in PHP.
 		 *
 		 * @param {string} str String to be encoded.
 		 */
 		wikiUrlencode: function ( str ) {
 			return util.rawurlencode( str )
-				.replace( /%20/g, '_' ).replace( /%3A/g, ':' ).replace( /%2F/g, '/' );
+				.replace( /%20/g, '_' )
+				// wfUrlencode replacements
+				.replace( /%3B/g, ';' )
+				.replace( /%40/g, '@' )
+				.replace( /%24/g, '$' )
+				.replace( /%21/g, '!' )
+				.replace( /%2A/g, '*' )
+				.replace( /%28/g, '(' )
+				.replace( /%29/g, ')' )
+				.replace( /%2C/g, ',' )
+				.replace( /%2F/g, '/' )
+				.replace( /%3A/g, ':' );
 		},
 
 		/**
@@ -148,30 +147,6 @@
 		},
 
 		/**
-		 * Hide/show the table of contents element
-		 *
-		 * @param {jQuery} $toggleLink A jQuery object of the toggle link.
-		 * @param {Function} [callback] Function to be called after the toggle is
-		 *  completed (including the animation).
-		 * @return {Mixed} Boolean visibility of the toc (true if it's visible)
-		 * or Null if there was no table of contents.
-		 * @deprecated since 1.23 Use jQuery
-		 */
-		toggleToc: function ( $toggleLink, callback ) {
-			var ret, $tocList = $( '#toc ul:first' );
-
-			// This function shouldn't be called if there's no TOC,
-			// but just in case...
-			if ( !$tocList.length ) {
-				return null;
-			}
-			ret = $tocList.is( ':hidden' );
-			$toggleLink.click();
-			$tocList.promise().done( callback );
-			return ret;
-		},
-
-		/**
 		 * Grab the URL parameter value for the given parameter.
 		 * Returns null if not found.
 		 *
@@ -195,121 +170,23 @@
 		},
 
 		/**
-		 * @property {string}
-		 * Access key prefix.
-		 */
-		tooltipAccessKeyPrefix: ( function () {
-			var profile = $.client.profile();
-
-			// Opera on any platform
-			if ( profile.name === 'opera' ) {
-				return 'shift-esc-';
-			}
-
-			// Chrome on any platform
-			if ( profile.name === 'chrome' ) {
-				if ( profile.platform === 'mac' ) {
-					// Chrome on Mac
-					return 'ctrl-option-';
-				}
-				// Chrome on Windows or Linux
-				// (both alt- and alt-shift work, but alt with E, D, F etc does not
-				// work since they are browser shortcuts)
-				return 'alt-shift-';
-			}
-
-			// Non-Windows Safari with webkit_version > 526
-			if ( profile.platform !== 'win'
-				&& profile.name === 'safari'
-				&& profile.layoutVersion > 526
-			) {
-				return 'ctrl-alt-';
-			}
-
-			// Firefox 14+ on Mac
-			if ( profile.platform === 'mac'
-				&& profile.name === 'firefox'
-				&& profile.versionNumber >= 14
-			) {
-				return 'ctrl-option-';
-			}
-
-			// Safari/Konqueror on any platform, or any browser on Mac
-			// (but not Safari on Windows)
-			if ( !( profile.platform === 'win' && profile.name === 'safari' )
-				&& ( profile.name === 'safari'
-				|| profile.platform === 'mac'
-				|| profile.name === 'konqueror' )
-			) {
-				return 'ctrl-';
-			}
-
-			// Firefox/Iceweasel 2.x and later
-			if ( ( profile.name === 'firefox' || profile.name === 'iceweasel' )
-				&& profile.versionBase > '1' ) {
-				return 'alt-shift-';
-			}
-
-			return 'alt-';
-		} )(),
-
-		/**
-		 * @property {RegExp}
-		 * Regex to match accesskey tooltips.
+		 * The content wrapper of the skin (e.g. `.mw-body`).
 		 *
-		 * Should match:
+		 * Populated on document ready by #init. To use this property,
+		 * wait for `$.ready` and be sure to have a module depedendency on
+		 * `mediawiki.util` and `mediawiki.page.startup` which will ensure
+		 * your document ready handler fires after #init.
 		 *
-		 * - "ctrl-option-"
-		 * - "alt-shift-"
-		 * - "ctrl-alt-"
-		 * - "ctrl-"
+		 * Because of the lazy-initialised nature of this property,
+		 * you're discouraged from using it.
 		 *
-		 * The accesskey is matched in group $6.
-		 */
-		tooltipAccessKeyRegexp: /\[(ctrl-)?(option-)?(alt-)?(shift-)?(esc-)?(.)\]$/,
-
-		/**
-		 * Add the appropriate prefix to the accesskey shown in the tooltip.
+		 * If you need just the wikipage content (not any of the
+		 * extra elements output by the skin), use `$( '#mw-content-text' )`
+		 * instead. Or listen to mw.hook#wikipage_content which will
+		 * allow your code to re-run when the page changes (e.g. live preview
+		 * or re-render after ajax save).
 		 *
-		 * If the `$nodes` parameter is given, only those nodes are updated;
-		 * otherwise, depending on browser support, we update either all elements
-		 * with accesskeys on the page or a bunch of elements which are likely to
-		 * have them on core skins.
-		 *
-		 * @param {Array|jQuery} [$nodes] A jQuery object, or array of nodes to update.
-		 */
-		updateTooltipAccessKeys: function ( $nodes ) {
-			if ( !$nodes ) {
-				if ( document.querySelectorAll ) {
-					// If we're running on a browser where we can do this efficiently,
-					// just find all elements that have accesskeys. We can't use jQuery's
-					// polyfill for the selector since looping over all elements on page
-					// load might be too slow.
-					$nodes = $( document.querySelectorAll( '[accesskey]' ) );
-				} else {
-					// Otherwise go through some elements likely to have accesskeys rather
-					// than looping over all of them. Unfortunately this will not fully
-					// work for custom skins with different HTML structures. Input, label
-					// and button should be rare enough that no optimizations are needed.
-					$nodes = $( '#column-one a, #mw-head a, #mw-panel a, #p-logo a, input, label, button' );
-				}
-			} else if ( !( $nodes instanceof $ ) ) {
-				$nodes = $( $nodes );
-			}
-
-			$nodes.attr( 'title', function ( i, val ) {
-				if ( val && util.tooltipAccessKeyRegexp.test( val ) ) {
-					return val.replace( util.tooltipAccessKeyRegexp,
-						'[' + util.tooltipAccessKeyPrefix + '$6]' );
-				}
-				return val;
-			} );
-		},
-
-		/*
 		 * @property {jQuery}
-		 * A jQuery object that refers to the content area element.
-		 * Populated by #init.
 		 */
 		$content: null,
 
@@ -404,20 +281,12 @@
 				$item.attr( 'id', id );
 			}
 
-			if ( tooltip ) {
-				// Trim any existing accesskey hint and the trailing space
-				tooltip = $.trim( tooltip.replace( util.tooltipAccessKeyRegexp, '' ) );
-				if ( accesskey ) {
-					tooltip += ' [' + accesskey + ']';
-				}
-				$link.attr( 'title', tooltip );
-				if ( accesskey ) {
-					util.updateTooltipAccessKeys( $link );
-				}
-			}
-
 			if ( accesskey ) {
 				$link.attr( 'accesskey', accesskey );
+			}
+
+			if ( tooltip ) {
+				$link.attr( 'title', tooltip ).updateTooltipAccessKeys();
 			}
 
 			if ( nextnode ) {
@@ -441,26 +310,6 @@
 			$ul.append( $item );
 			return $item[0];
 
-		},
-
-		/**
-		 * Add a little box at the top of the screen to inform the user of
-		 * something, replacing any previous message.
-		 * Calling with no arguments, with an empty string or null will hide the message
-		 *
-		 * @param {Mixed} message The DOM-element, jQuery object or HTML-string to be put inside the message box.
-		 * to allow CSS/JS to hide different boxes. null = no class used.
-		 * @deprecated since 1.20 Use mw#notify
-		 */
-		jsMessage: function ( message ) {
-			if ( !arguments.length || message === '' || message === null ) {
-				return true;
-			}
-			if ( typeof message !== 'object' ) {
-				message = $.parseHTML( message );
-			}
-			mw.notify( message, { autoHide: true, tag: 'legacy' } );
-			return true;
 		},
 
 		/**
@@ -533,7 +382,7 @@
 				// RegExp is case insensitive
 				'i'
 			);
-			return ( null !== mailtxt.match( html5EmailRegexp ) );
+			return ( mailtxt.match( html5EmailRegexp ) !== null );
 		},
 
 		/**
@@ -595,6 +444,87 @@
 	 * @deprecated since 1.23 Use #getUrl instead.
 	 */
 	mw.log.deprecate( util, 'wikiGetlink', util.getUrl, 'Use mw.util.getUrl instead.' );
+
+	/**
+	 * Access key prefix. Might be wrong for browsers implementing the accessKeyLabel property.
+	 * @property {string} tooltipAccessKeyPrefix
+	 * @deprecated since 1.24 Use the module jquery.accessKeyLabel instead.
+	 */
+	mw.log.deprecate( util, 'tooltipAccessKeyPrefix', $.fn.updateTooltipAccessKeys.getAccessKeyPrefix(), 'Use jquery.accessKeyLabel instead.' );
+
+	/**
+	 * Regex to match accesskey tooltips.
+	 *
+	 * Should match:
+	 *
+	 * - "[ctrl-option-x]"
+	 * - "[alt-shift-x]"
+	 * - "[ctrl-alt-x]"
+	 * - "[ctrl-x]"
+	 *
+	 * The accesskey is matched in group $6.
+	 *
+	 * Will probably not work for browsers implementing the accessKeyLabel property.
+	 *
+	 * @property {RegExp} tooltipAccessKeyRegexp
+	 * @deprecated since 1.24 Use the module jquery.accessKeyLabel instead.
+	 */
+	mw.log.deprecate( util, 'tooltipAccessKeyRegexp', /\[(ctrl-)?(option-)?(alt-)?(shift-)?(esc-)?(.)\]$/, 'Use jquery.accessKeyLabel instead.' );
+
+	/**
+	 * Add the appropriate prefix to the accesskey shown in the tooltip.
+	 *
+	 * If the `$nodes` parameter is given, only those nodes are updated;
+	 * otherwise, depending on browser support, we update either all elements
+	 * with accesskeys on the page or a bunch of elements which are likely to
+	 * have them on core skins.
+	 *
+	 * @method updateTooltipAccessKeys
+	 * @param {Array|jQuery} [$nodes] A jQuery object, or array of nodes to update.
+	 * @deprecated since 1.24 Use the module jquery.accessKeyLabel instead.
+	 */
+	mw.log.deprecate( util, 'updateTooltipAccessKeys', function ( $nodes ) {
+		if ( !$nodes ) {
+			if ( document.querySelectorAll ) {
+				// If we're running on a browser where we can do this efficiently,
+				// just find all elements that have accesskeys. We can't use jQuery's
+				// polyfill for the selector since looping over all elements on page
+				// load might be too slow.
+				$nodes = $( document.querySelectorAll( '[accesskey]' ) );
+			} else {
+				// Otherwise go through some elements likely to have accesskeys rather
+				// than looping over all of them. Unfortunately this will not fully
+				// work for custom skins with different HTML structures. Input, label
+				// and button should be rare enough that no optimizations are needed.
+				$nodes = $( '#column-one a, #mw-head a, #mw-panel a, #p-logo a, input, label, button' );
+			}
+		} else if ( !( $nodes instanceof $ ) ) {
+			$nodes = $( $nodes );
+		}
+
+		$nodes.updateTooltipAccessKeys();
+	}, 'Use jquery.accessKeyLabel instead.' );
+
+	/**
+	 * Add a little box at the top of the screen to inform the user of
+	 * something, replacing any previous message.
+	 * Calling with no arguments, with an empty string or null will hide the message
+	 *
+	 * @method jsMessage
+	 * @deprecated since 1.20 Use mw#notify
+	 * @param {Mixed} message The DOM-element, jQuery object or HTML-string to be put inside the message box.
+	 *  to allow CSS/JS to hide different boxes. null = no class used.
+	 */
+	mw.log.deprecate( util, 'jsMessage', function ( message ) {
+		if ( !arguments.length || message === '' || message === null ) {
+			return true;
+		}
+		if ( typeof message !== 'object' ) {
+			message = $.parseHTML( message );
+		}
+		mw.notify( message, { autoHide: true, tag: 'legacy' } );
+		return true;
+	}, 'Use mw.notify instead.' );
 
 	mw.util = util;
 

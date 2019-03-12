@@ -36,7 +36,7 @@ class ApiQueryLinks extends ApiQueryGeneratorBase {
 
 	private $table, $prefix, $description, $helpUrl;
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		switch ( $moduleName ) {
 			case self::LINKS:
 				$this->table = 'pagelinks';
@@ -220,15 +220,6 @@ class ApiQueryLinks extends ApiQueryGeneratorBase {
 			'continue' => 'When more results are available, use this to continue',
 			$this->titlesParam => $this->titlesParamDescription,
 			'dir' => 'The direction in which to list',
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'ns' => 'namespace',
-				'title' => 'string'
-			)
 		);
 	}
 

@@ -66,7 +66,9 @@ class ArticleTest extends MediaWikiTestCase {
 	}
 
 	/**
-	 * Checks for the existence of the backwards compatibility static functions (forwarders to WikiPage class)
+	 * Checks for the existence of the backwards compatibility static functions
+	 * (forwarders to WikiPage class)
+	 *
 	 * @covers Article::selectFields
 	 * @covers Article::onArticleCreate
 	 * @covers Article::onArticleDelete
@@ -74,6 +76,7 @@ class ArticleTest extends MediaWikiTestCase {
 	 * @covers Article::getAutosummary
 	 */
 	public function testStaticFunctions() {
+		$this->hideDeprecated( 'Article::selectFields' );
 		$this->hideDeprecated( 'Article::getAutosummary' );
 		$this->hideDeprecated( 'WikiPage::getAutosummary' );
 		$this->hideDeprecated( 'CategoryPage::getAutosummary' ); // Inherited from Article

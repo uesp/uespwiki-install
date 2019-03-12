@@ -26,7 +26,7 @@
  * Newer version for high use templates. This is deprecated by RefreshLinksPartitionJob.
  *
  * @ingroup JobQueue
- * @deprecated 1.23
+ * @deprecated since 1.23
  */
 class RefreshLinksJob2 extends Job {
 	function __construct( $title, $params ) {
@@ -37,7 +37,7 @@ class RefreshLinksJob2 extends Job {
 
 	/**
 	 * Run a refreshLinks2 job
-	 * @return boolean success
+	 * @return bool Success
 	 */
 	function run() {
 		global $wgUpdateRowsPerJob;
@@ -101,9 +101,9 @@ class RefreshLinksJob2 extends Job {
 	}
 
 	/**
-	 * @param $table string
-	 * @param $masterPos mixed
-	 * @return Array
+	 * @param string $table
+	 * @param mixed $masterPos
+	 * @return array
 	 */
 	protected function getSingleTitleJobs( $table, $masterPos ) {
 		# The "start"/"end" fields are not set for the base jobs
@@ -128,7 +128,7 @@ class RefreshLinksJob2 extends Job {
 	}
 
 	/**
-	 * @return Array
+	 * @return array
 	 */
 	public function getDeduplicationInfo() {
 		$info = parent::getDeduplicationInfo();

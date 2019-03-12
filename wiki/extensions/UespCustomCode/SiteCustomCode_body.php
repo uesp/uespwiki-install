@@ -41,22 +41,21 @@ class SiteMiscFunctions {
 			$ret = SiteNamespace::find_nsobj($parser, $frame)->get(strtolower($magicWordId));
 		}
 		elseif ($magicWordId == MAG_SITE_CORENAME) {
-			$ret = self::implementCorename($parser->getTitle());
+			$ret = self::implementCorename($parser);
 		}
 		elseif ($magicWordId == MAG_SITE_LABELNAME) {
-			$ret = self::implementLabelname($parser->getTitle());
+			$ret = self::implementLabelname($parser);
 		}
 		elseif ($magicWordId == MAG_SITE_SORTABLECORENAME) {
-			$ret = self::implementSortableCorename($parser->getTitle());
+			$ret = self::implementSortableCorename($parser);
 		}
 		return true;
 	}
 
 // Implementation of CORENAME magic word (also used by SORTABLECORENAME and LABELNAME magic words) 
-	public static function implementCorename( $page_title = NULL ) {
-		global $wgTitle;
-		if( is_null( $page_title ) )
-			$page_title = $wgTitle;
+	public static function implementCorename( &$parser, $page_title = NULL ) {
+		if( is_null( $page_title ) && is_object ( $parser ) )
+			$page_title = $parser->getTitle();
 		if ( is_object($page_title) )
 			$page_title = $page_title->getText();
 		$sections = explode( '/', $page_title );
@@ -70,14 +69,14 @@ class SiteMiscFunctions {
 	}
 	
 // Implementation of SORTABLECORENAME magic word
-	public static function implementSortableCorename( $page_title = NULL ) {
-		$corename = self::implementCorename( $page_title );
+	public static function implementSortableCorename( &$parser, $page_title = NULL ) {
+		$corename = self::implementCorename( $parser, $page_title );
 		return self::doSortable($corename);
 	}
 
 // Implementation of LABELNAME magic word
-	public static function implementLabelname( $page_title = NULL ) {
-		$corename = self::implementCorename($page_title);
+	public static function implementLabelname( &$parser, $page_title = NULL ) {
+		$corename = self::implementCorename( $parser, $page_title );
 		return self::doLabel($corename);
 	}
 
@@ -307,8 +306,19 @@ class SiteMiscFunctions {
 		return true;
 	}
 
+/* Pre-MW-1.19
 	public static function getDefaultSort(&$parser, &$defaultSort) {
 		$defaultSort = self::implementSortableCorename( $parser->getTitle()->getText() );
+		return true;
+	}
+*/
+
+	public static function onGetDefaultSortkey( $title, &$sortkey ) {
+		// This is a bit of a hack, since the new implementSortableCorename() wants a parser object we no longer have available.
+		// Since the subpages are no longer a concern, we simply strip off the subpage name and pass that directly to doSortable().
+		$sections = explode( '/', $title->getText() );
+		$titleKey = $sections[count($sections)-1];
+		$sortkey = self::doSortable($titleKey);
 		return true;
 	}
 	

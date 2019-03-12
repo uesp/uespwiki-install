@@ -35,8 +35,8 @@ $wgPFEnableStringFunctions = false;
   * Running Jenkins unit tests without setting $wgPFEnableStringFunctions = true;
   * will cause all the parser tests for string functions to be skipped.
   */
-if ( isset( $wgWikimediaJenkinsCI ) && ( $wgWikimediaJenkinsCI === true ) ) {
-	$wgPFEnableStringFunctions = true ;
+if ( isset( $wgWikimediaJenkinsCI ) && $wgWikimediaJenkinsCI === true ) {
+	$wgPFEnableStringFunctions = true;
 }
 
 /** REGISTRATION */
@@ -52,6 +52,7 @@ $wgExtensionCredits['parserhook'][] = array(
 $wgAutoloadClasses['ExtParserFunctions'] = __DIR__ . '/ParserFunctions_body.php';
 $wgAutoloadClasses['ExprParser'] = __DIR__ . '/Expr.php';
 $wgAutoloadClasses['ExprError'] = __DIR__ . '/Expr.php';
+$wgAutoloadClasses['Scribunto_LuaParserFunctionsLibrary'] = __DIR__ . '/ParserFunctions.library.php';
 
 $wgMessagesDirs['ParserFunctions'] = __DIR__ . '/i18n';
 $wgExtensionMessagesFiles['ParserFunctions'] = __DIR__ . '/ParserFunctions.i18n.php';
@@ -76,10 +77,10 @@ function wfRegisterParserFunctions( $parser ) {
 	$parser->setFunctionHook( 'ifexist', 'ExtParserFunctions::ifexistObj', SFH_OBJECT_ARGS );
 	$parser->setFunctionHook( 'ifexpr', 'ExtParserFunctions::ifexprObj', SFH_OBJECT_ARGS );
 	$parser->setFunctionHook( 'iferror', 'ExtParserFunctions::iferrorObj', SFH_OBJECT_ARGS );
+	$parser->setFunctionHook( 'time', 'ExtParserFunctions::timeObj', SFH_OBJECT_ARGS );
+	$parser->setFunctionHook( 'timel', 'ExtParserFunctions::localTimeObj', SFH_OBJECT_ARGS );
 
 	$parser->setFunctionHook( 'expr', 'ExtParserFunctions::expr' );
-	$parser->setFunctionHook( 'time', 'ExtParserFunctions::time' );
-	$parser->setFunctionHook( 'timel', 'ExtParserFunctions::localTime' );
 	$parser->setFunctionHook( 'rel2abs', 'ExtParserFunctions::rel2abs' );
 	$parser->setFunctionHook( 'titleparts', 'ExtParserFunctions::titleparts' );
 
@@ -108,3 +109,10 @@ function wfParserFunctionsTests( &$files ) {
 	$files[] = __DIR__ . '/tests/ExpressionTest.php';
 	return true;
 }
+
+$wgHooks['ScribuntoExternalLibraries'][] = function( $engine, array &$extraLibraries ) {
+	if( $engine == 'lua' ) {
+		$extraLibraries['mw.ext.ParserFunctions'] = 'Scribunto_LuaParserFunctionsLibrary';
+	}
+	return true;
+};

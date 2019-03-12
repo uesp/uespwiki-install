@@ -28,7 +28,7 @@ use Psr\Log\AbstractLogger;
  * All levels are passed to wfDebugLog() with the specific level being ignored.
  *
  * @see \MediaWiki\Logger\LoggerFactory
- * @since 1.23.10
+ * @since 1.24.4
  * @author Bryan Davis <bd808@wikimedia.org>
  * @copyright © 2015 Bryan Davis and Wikimedia Foundation.
  */

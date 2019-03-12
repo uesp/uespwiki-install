@@ -44,8 +44,13 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	 * @return string
 	 */
 	function getUrl( $sizeOverride = false ){
-		global $wgStylePath;
-		$url = "$wgStylePath/common/images/icons/fileicon-ogg.png";
+		global $wgVersion, $wgResourceBasePath, $wgStylePath;
+		// Needs to be 1.24c because version_compare() works in confusing ways
+		if ( version_compare( $wgVersion, '1.24c', '>=' ) ) {
+			$url = "$wgResourceBasePath/resources/assets/file-type-icons/fileicon-ogg.png";
+		} else {
+			$url = "$wgStylePath/common/images/icons/fileicon-ogg.png";
+		}
 
 		if ( $this->isVideo ) {
 			if ( $this->thumbUrl ) {
@@ -115,8 +120,6 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	 * @throws MWException
 	 */
 	function toHtml( $options = array() ) {
-		global $wgMinimumVideoPlayerSize;
-
 		if ( count( func_get_args() ) == 2 ) {
 			throw new MWException( __METHOD__ .' called in the old style' );
 		}
@@ -130,11 +133,7 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 			$this->width = $options['override-width'];
 		}
 
-
-		// Check if the video is too small to play inline ( instead do a pop-up dialog )
-		// If we're filling the window (e.g. during an iframe embed) one probably doesn't want the pop up.
-		// Also the pop up is broken in that case.
-		if( $this->getPlayerWidth() <= $wgMinimumVideoPlayerSize && $this->isVideo && !$this->fillwindow ){
+		if ( $this->useImagePopUp() ) {
 			$res = $this->getImagePopUp();
 		} else {
 			$res = $this->getHtmlMediaTagOutput();
@@ -142,6 +141,23 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 		$this->width = $oldWidth;
 		$this->height = $oldHeight;
 		return $res;
+	}
+
+	/**
+	 * Helper to determine if to use pop up dialog for videos
+	 *
+	 * @return boolean
+	 */
+	private function useImagePopUp() {
+		global  $wgMinimumVideoPlayerSize;
+		// Check if the video is too small to play inline ( instead do a pop-up dialog )
+		// If we're filling the window (e.g. during an iframe embed) one probably doesn't want the pop up.
+		// Also the pop up is broken in that case.
+		return $this->isVideo
+			&& !$this->fillwindow
+			&& $this->getPlayerWidth() < $wgMinimumVideoPlayerSize
+			// Do not do pop-up if its going to be the same size as inline player anyways
+			&& $this->getPlayerWidth() < $this->getPopupPlayerWidth();
 	}
 
 	/**
@@ -170,8 +186,7 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 		return Xml::tags( 'div' , array(
 				'id' => self::PLAYER_ID_PREFIX . TimedMediaTransformOutput::$serial++,
 				'class' => 'PopUpMediaTransform',
-				'style' => "width:" . $this->getPlayerWidth() . "px;height:" .
-							$this->getPlayerHeight() . "px",
+				'style' => "width:" . $this->getPlayerWidth() . "px;",
 				'videopayload' => $this->getHtmlMediaTagOutput( $this->getPopupPlayerSize(), $autoPlay ),
 				),
 			Xml::tags( 'img', array(
@@ -189,7 +204,14 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 				),
 				Xml::tags( 'span', array(
 						'class' => 'play-btn-large'
-					), '&nbsp;' )
+					),
+					// Have some sort of text for lynx & screen readers.
+					Html::element(
+						'span',
+						array( 'class' => 'mw-tmh-playtext' ),
+						wfMessage( 'timedmedia-play-media' )->text()
+					)
+				)
 			)
 		);
 	}
@@ -202,7 +224,53 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 		$maxImageSize = WebVideoTranscode::getMaxSizeWebStream();
 		return WebVideoTranscode::getMaxSizeTransform( $this->file, $maxImageSize);
 	}
-	static function sortMediaByBandwidth( $a, $b){
+
+	/**
+	 * Helper function to get pop up width
+	 *
+	 * Silly function because array index operations aren't allowed
+	 * on function calls before php 5.4
+	 */
+	private function getPopupPlayerWidth() {
+		list( $popUpWidth ) = $this->getPopupPlayerSize();
+		return $popUpWidth;
+	}
+
+	/**
+	 * Sort media by bandwidth, but with things not wide enough at end
+	 *
+	 * The list should be in preferred source order, so we want the file
+	 * with the lowest bitrate (to save bandwidth) first, but we also want
+	 * appropriate resolution files before the 160p transcodes.
+	 */
+	private function sortMediaByBandwidth( $a, $b ) {
+		$width = $this->getPlayerWidth();
+		$maxWidth = $this->getPopupPlayerWidth();
+		if ( $this->useImagePopUp() || $width > $maxWidth ) {
+			// If its a pop-up player than we should use the pop up player size
+			// if its a normal player, but has a bigger width than the pop-up
+			// player, then we use the pop-up players width as the target width
+			// as that is equivalent to the max transcode size. Otherwise this
+			// will suggest the original file as the best source, which seems like
+			// a potentially bad idea, as it could be anything size wise.
+			$width = $maxWidth;
+		}
+
+		if ( $a['width'] < $width && $b['width'] >= $width ) {
+			// $a is not wide enough but $b is
+			// so we consider $a > $b as we want $b before $a
+			return 1;
+		}
+		if ( $a['width'] >= $width && $b['width'] < $width ) {
+			// $b not wide enough, so $a must be preferred.
+			return -1;
+		}
+		if ( $a['width'] < $width && $b['width'] < $width && $a['width'] != $b['width'] ) {
+			// both are too small. Go with the one closer to the target width
+			return ( $a['width'] < $b['width'] ) ? -1 : 1;
+		}
+		// Both are big enough, or both equally to small. Go with the one
+		// that has a lower bit-rate (as it will be faster to download).
 		return ( $a['bandwidth'] < $b['bandwidth'] ) ? -1 : 1;
 	}
 	/**
@@ -215,6 +283,7 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	function getHtmlMediaTagOutput( $sizeOverride = array(), $autoPlay = false ){
 		// Try to get the first source src attribute ( usually this should be the source file )
 		$mediaSources = $this->getMediaSources();
+		reset( $mediaSources ); // do not rely on auto-resetting of arrays under HHVM
 		$firstSource = current( $mediaSources );
 
 		if( !$firstSource['src'] ){
@@ -224,7 +293,7 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 
 		// Sort sources by bandwidth least to greatest ( so default selection on resource constrained
 		// browsers ( without js? ) go with minimal source.
-		uasort( $mediaSources, 'TimedMediaTransformOutput::sortMediaByBandwidth' );
+		usort( $mediaSources, array( $this, 'sortMediaByBandwidth' ) );
 
 		// We prefix some source attributes with data- to pass along to the javascript player
 		$prefixedSourceAttr = Array( 'width', 'height', 'title', 'shorttitle', 'bandwidth', 'framerate', 'disablecontrols' );

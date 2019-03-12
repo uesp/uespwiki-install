@@ -1,8 +1,7 @@
 <?php
 /** Literary Chinese (文言)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -127,12 +126,10 @@ $defaultDateFormat = 'zh';
  * overridden.
  */
 $dateFormats = array(
-        'zh time' => 'H時i分',
-        'zh date' => 'Y年n月j日 （l）',
-        'zh both' => 'Y年n月j日 （D） H時i分',
+	'zh time' => 'H時i分',
+	'zh date' => 'Y年n月j日 （l）',
+	'zh both' => 'Y年n月j日 （D） H時i分',
 );
-
-$linkTrail = '/^([a-z]+)(.*)$/sD';
 
 $digitTransformTable = array(
 	'0' => '〇',

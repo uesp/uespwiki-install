@@ -86,7 +86,7 @@ class MultiHttpClient {
  	 *   - err     : Any cURL error string
  	 * The map also stores integer-indexed copies of these values. This lets callers do:
 	 *	<code>
-	 *		list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $req;
+	 *		list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $http->run( $req );
 	 *  </code>
 	 * @param array $req HTTP request array
 	 * @param array $opts
@@ -110,13 +110,13 @@ class MultiHttpClient {
  	 *   - err     : Any cURL error string
  	 * The map also stores integer-indexed copies of these values. This lets callers do:
 	 *	<code>
-	 *		list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $req;
+	 *		list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $req['response'];
 	 *  </code>
 	 * All headers in the 'headers' field are normalized to use lower case names.
 	 * This is true for the request headers and the response headers. Integer-indexed
 	 * method/URL entries will also be changed to use the corresponding string keys.
 	 *
-	 * @param array $req Map of HTTP request arrays
+	 * @param array $reqs Map of HTTP request arrays
 	 * @param array $opts
 	 *   - connTimeout     : connection timeout per request
 	 *   - reqTimeout      : post-connection timeout per request
@@ -310,6 +310,19 @@ class MultiHttpClient {
 			);
 		} elseif ( $req['method'] === 'POST' ) {
 			curl_setopt( $ch, CURLOPT_POST, 1 );
+			// Don't interpret POST parameters starting with '@' as file uploads, because this
+			// makes it impossible to POST plain values starting with '@' (and causes security
+			// issues potentially exposing the contents of local files).
+			// The PHP manual says this option was introduced in PHP 5.5 defaults to true in PHP 5.6,
+			// but we support lower versions, and the option doesn't exist in HHVM 5.6.99.
+			if ( defined( 'CURLOPT_SAFE_UPLOAD' ) ) {
+				curl_setopt( $ch, CURLOPT_SAFE_UPLOAD, true );
+			} else if ( is_array( $req['body'] ) ) {
+				// In PHP 5.2 and later, '@' is interpreted as a file upload if POSTFIELDS
+				// is an array, but not if it's a string. So convert $req['body'] to a string
+				// for safety.
+				$req['body'] = wfArrayToCgi( $req['body'] );
+			}
 			curl_setopt( $ch, CURLOPT_POSTFIELDS, $req['body'] );
 		} else {
 			if ( is_resource( $req['body'] ) || $req['body'] !== '' ) {

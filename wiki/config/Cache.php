@@ -19,4 +19,5 @@ else
 	$wgCacheDirectory = "/home/uesp/cache/" . $uespLanguageSuffix;
 	$wgSquidMaxage = 2678400;
 	$wgSquidServers = array("10.7.143.40");
+	$wgUseSquid = true;
 }

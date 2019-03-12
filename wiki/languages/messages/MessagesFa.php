@@ -1,8 +1,7 @@
 <?php
 /** Persian (فارسی)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -93,6 +92,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'بیشترین_نسخه' ),
 	'Movepage'                  => array( 'انتقال_صفحه' ),
 	'Mycontributions'           => array( 'مشارکت‌های_من' ),
+	'MyLanguage'                => array( 'زبان‌های_من' ),
 	'Mypage'                    => array( 'صفحه_من' ),
 	'Mytalk'                    => array( 'بحث_من' ),
 	'Myuploads'                 => array( 'بارگذاری‌های_من' ),
@@ -372,7 +372,7 @@ $datePreferenceMigrationMap = array(
  * overridden.
  */
 $dateFormats = array(
-    # Please be cautious not to delete the invisible RLM from the beginning of the strings.
+	# Please be cautious not to delete the invisible RLM from the beginning of the strings.
 	'mdy time' => '‏H:i',
 	'mdy date' => '‏n/j/Y میلادی',
 	'mdy both' => '‏n/j/Y میلادی، ساعت H:i',

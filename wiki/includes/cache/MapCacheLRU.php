@@ -31,13 +31,13 @@
  * @since 1.23
  */
 class MapCacheLRU {
-	/** @var Array */
+	/** @var array */
 	protected $cache = array(); // (key => value)
 
 	protected $maxCacheKeys; // integer; max entries
 
 	/**
-	 * @param $maxKeys integer Maximum number of entries allowed (min 1).
+	 * @param int $maxKeys Maximum number of entries allowed (min 1).
 	 * @throws MWException When $maxCacheKeys is not an int or =< 0.
 	 */
 	public function __construct( $maxKeys ) {
@@ -52,12 +52,12 @@ class MapCacheLRU {
 	 * This will prune the cache if it gets too large based on LRU.
 	 * If the item is already set, it will be pushed to the top of the cache.
 	 *
-	 * @param $key string
-	 * @param $value mixed
+	 * @param string $key
+	 * @param mixed $value
 	 * @return void
 	 */
 	public function set( $key, $value ) {
-		if ( isset( $this->cache[$key] ) ) {
+		if ( array_key_exists( $key, $this->cache ) ) {
 			$this->ping( $key ); // push to top
 		} elseif ( count( $this->cache ) >= $this->maxCacheKeys ) {
 			reset( $this->cache );
@@ -70,11 +70,11 @@ class MapCacheLRU {
 	/**
 	 * Check if a key exists
 	 *
-	 * @param $key string
+	 * @param string $key
 	 * @return bool
 	 */
 	public function has( $key ) {
-		return isset( $this->cache[$key] );
+		return array_key_exists( $key, $this->cache );
 	}
 
 	/**
@@ -82,11 +82,11 @@ class MapCacheLRU {
 	 * This returns null if the key is not set.
 	 * If the item is already set, it will be pushed to the top of the cache.
 	 *
-	 * @param $key string
+	 * @param string $key
 	 * @return mixed
 	 */
 	public function get( $key ) {
-		if ( isset( $this->cache[$key] ) ) {
+		if ( array_key_exists( $key, $this->cache ) ) {
 			$this->ping( $key ); // push to top
 			return $this->cache[$key];
 		} else {
@@ -97,7 +97,7 @@ class MapCacheLRU {
 	/**
 	 * Clear one or several cache entries, or all cache entries
 	 *
-	 * @param $keys string|Array
+	 * @param string|array $keys
 	 * @return void
 	 */
 	public function clear( $keys = null ) {
@@ -113,7 +113,7 @@ class MapCacheLRU {
 	/**
 	 * Push an entry to the top of the cache
 	 *
-	 * @param $key string
+	 * @param string $key
 	 */
 	protected function ping( $key ) {
 		$item = $this->cache[$key];

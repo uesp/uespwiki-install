@@ -386,7 +386,8 @@
 			// on links from hiding a notification.
 			.on( 'click', 'a', function ( e ) {
 				e.stopPropagation();
-			} );
+			} )
+			.hide();
 
 		// Prepend the notification area to the content area and save it's object.
 		mw.util.$content.prepend( $area );
@@ -440,7 +441,7 @@
 		/**
 		 * Display a notification message to the user.
 		 *
-		 * @param {HTMLElement|jQuery|mw.Message|string} message
+		 * @param {HTMLElement|HTMLElement[]|jQuery|mw.Message|string} message
 		 * @param {Object} options The options to use for the notification.
 		 *  See #defaults for details.
 		 * @return {mw.Notification} Notification object

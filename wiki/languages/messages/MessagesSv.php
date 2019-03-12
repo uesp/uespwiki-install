@@ -1,8 +1,7 @@
 <?php
 /** Swedish (svenska)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -138,6 +137,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Flest_versioner' ),
 	'Movepage'                  => array( 'Flytta' ),
 	'Mycontributions'           => array( 'Mina_bidrag' ),
+	'MyLanguage'                => array( 'Mitt_språk' ),
 	'Mypage'                    => array( 'Min_sida' ),
 	'Mytalk'                    => array( 'Min_diskussion' ),
 	'Myuploads'                 => array( 'Mina_uppladdningar' ),
@@ -305,7 +305,7 @@ $magicWords = array(
 );
 
 $linkTrail = '/^([a-zåäöéÅÄÖÉ]+)(.*)$/sDu';
-$separatorTransformTable =  array(
+$separatorTransformTable = array(
 	',' => "\xc2\xa0", // @bug 2749
 	'.' => ','
 );

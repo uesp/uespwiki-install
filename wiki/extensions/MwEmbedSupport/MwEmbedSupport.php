@@ -34,19 +34,12 @@ $wgExtensionCredits['other'][] = array(
 );
 
 $wgAutoloadClasses['MwEmbedResourceManager'] = __DIR__ . '/MwEmbedResourceManager.php';
-$wgAutoloadClasses['MwEmbedSupportHooks'] = __DIR__ . '/MwEmbedSupport.hooks.php';
 
 // Include module messages:
 $wgMessagesDirs['MwEmbedSupport'] = __DIR__ . '/i18n';
 $wgExtensionMessagesFiles['MwEmbedSupport'] = __DIR__  ."/MwEmbedSupport.i18n.php";
 $wgMessagesDirs['MwEmbed.MwEmbedSupport'] = __DIR__ . '/MwEmbedModules/MwEmbedSupport/i18n';
 $wgExtensionMessagesFiles['MwEmbed.MwEmbedSupport'] = __DIR__  ."/MwEmbedModules/MwEmbedSupport/MwEmbedSupport.i18n.php";
-
-// Add mwEmbed Support modules that are not part of startup
-$wgHooks['BeforePageDisplay'][] = 'MwEmbedSupportHooks::UpdatePageModules';
-
-// Add the startup modules hook
-$wgHooks['ResourceLoaderGetStartupModules'][] = 'MwEmbedSupportHooks::addStartupModules';
 
 // Add Global MwEmbed Registration hook
 $wgHooks['ResourceLoaderRegisterModules'][] = 'MwEmbedResourceManager::registerModules';

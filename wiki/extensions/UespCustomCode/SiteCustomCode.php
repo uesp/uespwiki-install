@@ -84,6 +84,10 @@ EOT;
 	exit(1);
 }
 
+require_once('SiteSpecialPreferences.php');
+require_once('SiteSpecialWantedpages.php');
+require_once('SiteSpecialSearch.php');
+
 if ($wgSitename == 'UESPWiki')
 	$egCustomSiteID = 'Uesp';
 elseif ($wgSitename == 'ESPOWiki')
@@ -157,6 +161,7 @@ $wgAutoloadClasses['SiteBreadCrumbTrail'] = $dir . 'SiteCustomCode_body.php';
 $wgAutoloadClasses['SiteSpecialRecentChanges'] = $dir . 'SiteSpecialRecentchanges.php';
 $wgAutoloadClasses['SiteOldChangesList'] = $dir . 'SiteChangesList.php';
 $wgAutoloadClasses['SiteEnhancedChangesList'] = $dir . 'SiteChangesList.php';
+$wgAutoloadClasses['SiteSpecialRandompage'] = $dir . 'SiteSpecialRandompage.php';
 
 /*
  * Add Hooks
@@ -165,8 +170,9 @@ $wgAutoloadClasses['SiteEnhancedChangesList'] = $dir . 'SiteChangesList.php';
 # Comment out this line to disable those features (see wgSearchType below, too, for Search)
 $wgHooks['SpecialPage_initList'][] = 'efSiteSpecialPageInit';
 $wgHooks['BeforePageDisplay'][] = 'UESP_beforePageDisplay';
-$wgHooks['SearchGetNearMatchBefore'][] = 'onSearchGetNearMatchBefore';
-$wgHooks['SpecialSearchCreateLink'][] = 'onSpecialSearchCreateLink';
+//$wgHooks['SearchGetNearMatchBefore'][] = 'onSearchGetNearMatchBefore';
+//$wgHooks['SpecialSearchCreateLink'][] = 'onSpecialSearchCreateLink';
+$wgHooks['TitleSquidURLs'][] = 'onUespTitleSquidURLs';
 
 # Load messages
 
@@ -197,7 +203,8 @@ $wgHooks['UserToggles'][] = 'SiteMiscFunctions::addUserToggles';
 
 # Extension-specific hooks added to mediawiki code
 $wgHooks['ParserDuringPreSaveTransform'][] = 'SiteMiscFunctions::preSaveTransform';  // UESP
-$wgHooks['ParserGetDefaultSort'][] = 'SiteMiscFunctions::getDefaultSort';
+// $wgHooks['ParserGetDefaultSort'][] = 'SiteMiscFunctions::getDefaultSort';
+$wgHooks['GetDefaultSortkey'][] = 'SiteMiscFunctions::onGetDefaultSortkey';
 $wgHooks['SanitizerAddHtml'][] = 'SiteMiscFunctions::sanitizerAddHtml';              // UESP
 $wgHooks['SanitizerAddWhitelist'][] = 'SiteMiscFunctions::sanitizerAddWhitelist';    // UESP
 $wgHooks['ParserBeforeMakeImage'][] = 'SiteMiscFunctions::addImageClear';
@@ -235,11 +242,28 @@ $wgGroupPermissions['sysop']['unrestrictedblock'] = true;
 $egSiteEnableGoogleAds = true;  // UESP
 #$egSiteEnableGoogleAds = false; // ESPO
 
-$wgResourceModules['ext.UespCustomCode'] = array(
-	'loaderscripts' => 'modules/uespCurse.js',
+$wgResourceModules['ext.UespCustomCode.ad.scripts'] = array(
 	'position' => 'top',
-	'localBasePath' => dirname(__FILE__) . '/',
-	'remoteExtPath' => 'UespCustomCode',
+	'scripts' => array( 'modules/uespCurse.js' ),
+	'localBasePath' => __DIR__,
+	'remoteBasePath' => "$wgScriptPath/extensions/UespCustomCode/",
+	'targets' => array( 'desktop', 'mobile' ),
+);
+
+$wgResourceModules['ext.UespCustomCode.app.styles'] = array(
+	'position' => 'top',
+	'styles' => array( 'modules/uespApp.css' ),
+	'localBasePath' => __DIR__,
+	'remoteBasePath' => "$wgScriptPath/extensions/UespCustomCode/",
+	'targets' => array( 'mobile' ),
+);
+
+$wgResourceModules['ext.UespCustomCode.app.scripts'] = array(
+	'position' => 'top',
+	'scripts' => array( 'modules/uespApp.js' ),
+	'localBasePath' => __DIR__,
+	'remoteBasePath' => "$wgScriptPath/extensions/UespCustomCode/",
+	'targets' => array( 'mobile' ),
 );
 
 /*
@@ -249,7 +273,7 @@ $wgResourceModules['ext.UespCustomCode'] = array(
 # Loads extension messages and does some other initialization that can be safely moved out of global
 
 function efSiteCustomCode() {
-	global $wgParser, $wgContLang, $wgDefaultUserOptions, $egCustomSiteID, $uespIsMobile;
+	global $wgParser, $wgContLang, $wgDefaultUserOptions, $egCustomSiteID, $uespIsMobile, $wgOut, $uespIsApp;
 
 	// Change search type so that new search class is loaded
 	// To disable extension-specific search-related code (i.e., mechanics of how pages are looked up), this line could be commented out -- but some features will still be accessed by SiteSpecialSearch
@@ -260,6 +284,11 @@ function efSiteCustomCode() {
 	$wgParser->setFunctionHook(MAG_SITE_SORTABLE, array('SiteMiscFunctions', 'implementSortable'));
 	// To disable the {{#label:}} parser function, comment out this line
 	$wgParser->setFunctionHook(MAG_SITE_LABEL, array('SiteMiscFunctions', 'implementLabel'));
+
+	// parser function versions of pagename variables
+	$wgParser->setFunctionHook(MAG_SITE_CORENAME, array('SiteMiscFunctions', 'implementCorename'), SFH_NO_HASH);
+	$wgParser->setFunctionHook(MAG_SITE_LABELNAME, array('SiteMiscFunctions', 'implementLabelname'), SFH_NO_HASH);
+	$wgParser->setFunctionHook(MAG_SITE_SORTABLECORENAME, array('SiteMiscFunctions', 'implementSortableCorename'), SFH_NO_HASH);
 
 	// {{#inittrail:}}, {{#settrail:}}, and {{#addtotrail:}} parser functions
 	$wgParser->setFunctionHook(MAG_SITE_INITTRAIL, array('SiteBreadCrumbTrail', 'implementInitTrail'), $hookoption);
@@ -309,6 +338,16 @@ function efSiteCustomCode() {
 	{
 		if (MobileContext::singleton()->isMobileDevice()) $uespIsMobile = true;
 	}
+	
+	if ($uespIsApp)
+	{
+		$wgOut->addModules( 'ext.UespCustomCode.app.scripts' );
+		$wgOut->addModuleStyles( 'ext.UespCustomCode.app.styles' );
+	}
+	else
+	{
+		$wgOut->addModules( 'ext.UespCustomCode.ad.scripts' );
+	}
 
 	return true;
 }
@@ -316,7 +355,7 @@ function efSiteCustomCode() {
 function UESP_beforePageDisplay(&$out) {
 	global $wgScriptPath;
 
-	$out->addHeadItem("uesp", "<script src='$wgScriptPath/extensions/UespCustomCode/modules/uespCurse.js'></script>");
+	//$out->addHeadItem("uesp", "<script src='$wgScriptPath/extensions/UespCustomCode/modules/uespCurse.js'></script>");
 
 	SetUespEsoMapSessionData();
 	
@@ -332,7 +371,7 @@ function SetUespEsoMapSessionData()
 	
 	if ($wgUser == null) return;
 	
-	if( $wgUser->isAllowed( 'mapedit' ))
+	if( $wgUser->isAllowed( 'esomapedit' ))
 	{
 		$_SESSION['UESP_EsoMap_canEdit'] = true;
 	}
@@ -359,17 +398,28 @@ function efSiteSpecialPageInit(&$aSpecialPages) {
 	// pagetype(class)=SpecialPage, $name = '', $restriction = '', $listed = true, $function = false, $file = 'default', $includable = false
 	// pagetype(class)=IncludableSpecialPage, $name, $restriction = '', $listed = true, $function = false, $file = 'default'
 	// all of these cases the page object itself is a SpecialPage; the customization is done via a customized Form class
-	$aSpecialPages['Wantedpages'] = array('IncludableSpecialPage', 'Wantedpages', '', true, 'efSiteSpecialWantedpages', $dir . 'SiteSpecialWantedpages.php');
+	
 #	$aSpecialPages['Lonelypages'] = array( 'SpecialPage', 'Lonelypages', '', true, 'efSiteSpecialLonelypages', $dir . 'SiteSpecialLonelypages.php');
-	$aSpecialPages['Search'] = array('SpecialPage', 'Search', '', true, 'efSiteSpecialSearch', $dir . 'SiteSpecialSearch.php');
-	$aSpecialPages['Preferences'] = array('SpecialPage', 'Preferences', '', true, 'efSiteSpecialPreferences', $dir . 'SiteSpecialPreferences.php');
+
+	// $aSpecialPages['Search'] = array('SpecialPage', 'Search', '', true, 'efSiteSpecialSearch', $dir . 'SiteSpecialSearch.php');
+	$aSpecialPages['Search'] = 'SiteSpecialSearch';
+	$aSpecialPages['Preferences'] = 'SitePreferencesForm';
+	$aSpecialPages['Wantedpages'] = 'SiteWantedPagesPage';	
+	
 	// recentchanges is different because it has its own class derived from SpecialPage
 	$aSpecialPages['Recentchanges'] = 'SiteSpecialRecentChanges';
+	
+	$aSpecialPages['Randompage'] = 'SiteSpecialRandompage';
 
 	return true;
 }
 
 function onSearchGetNearMatchBefore( $allSearchTerms, &$title ) {
+	$title = Title::newFromText( $allSearchTerms[0] ); // Look for exact match before trying alternates
+	if ( $title->exists() ) {
+		return false; // false = match
+	}
+	
 	$title = Title::newFromText( preg_replace('/\beso\b/i', 'Online', $allSearchTerms[0]) );
 	if ( $title->exists() ) {
 		return false; // false = match
@@ -384,7 +434,32 @@ function onSpecialSearchCreateLink( $t, &$params ) {
 	$params[1] = preg_replace('/\((ESO) OR online\)/i', '$1', $params[1]);
 	
 	return true;
-} 
+}
+
+
+# Make sure all possible variants of an article is purged since it can be server from different URLs.
+function onUespTitleSquidURLs( Title $title, array &$urls )
+{
+	$internalUrl = preg_replace('/(http(?:s)?:\/\/)([a-z_\-\.0-9A-Z]+)(\.uesp\.net\/.*)/i', '$1XXZZYY$3', $title->getInternalURL());
+	
+	$newUrl1 = str_replace("XXZZYY", "en", $internalUrl);
+	$newUrl2 = str_replace("XXZZYY", "en.m", $internalUrl);
+	$newUrl3 = str_replace("XXZZYY", "app", $internalUrl);
+	$newUrl4 = str_replace("XXZZYY", "pt", $internalUrl);
+	$newUrl5 = str_replace("XXZZYY", "pt.m", $internalUrl);
+	$newUrl6 = str_replace("XXZZYY", "it", $internalUrl);
+	$newUrl7 = str_replace("XXZZYY", "it.m", $internalUrl);
+	
+	//error_log("onUespTitleSquidURLs: $internalUrl, $newUrl1, $newUrl2, $newUrl3");
+	
+	$urls[] = $newUrl1;
+	$urls[] = $newUrl2;
+	$urls[] = $newUrl3;
+	$urls[] = $newUrl4;
+	$urls[] = $newUrl5;
+	$urls[] = $newUrl6;
+	$urls[] = $newUrl7;
+}
 
 // group pages appear under at Special:SpecialPages
 $wgSpecialPageGroups['Preferences'] = 'users';

@@ -5,7 +5,9 @@
 			"Shizhao",
 			"Xiaomingyan",
 			"Yfdyh000",
-			"乌拉跨氪"
+			"乌拉跨氪",
+			"NigelSoft",
+			"Liuxinyu970226"
 		]
 	},
 	"mwe-embedplayer-credit-title": "标题：$1",
@@ -55,6 +57,7 @@
 	"mwe-embedplayer-ogg-player-h264Native": "HTML5 H.264播放器",
 	"mwe-embedplayer-ogg-player-webmNative": "HTML5 WebM播放器",
 	"mwe-embedplayer-ogg-player-oggPlugin": "通用Ogg插件",
+	"mwe-embedplayer-ogg-player-vlcAppPlayer": "用于iOS的VLC应用程序",
 	"mwe-embedplayer-ogg-player-quicktime-mozilla": "QuickTime插件",
 	"mwe-embedplayer-ogg-player-quicktime-activex": "QuickTime ActiveX",
 	"mwe-embedplayer-ogg-player-flowplayer": "Flowplayer",
@@ -67,7 +70,7 @@
 	"mwe-embedplayer-fullscreen-tip-osx": "按<b>Shift ⌘ F</b>切换至全屏",
 	"mwe-embedplayer-do_not_warn_again": "以后不再显示该信息",
 	"mwe-embedplayer-playerSelect": "播放器",
-	"mwe-embedplayer-read_before_embed": "嵌入前请<a href=\"http://mediawiki.org/wiki/Security_Notes_on_Remote_Embedding\" target=\"new\">阅读本文</a>。",
+	"mwe-embedplayer-read_before_embed": "嵌入前请<a href=\"https://www.mediawiki.org/wiki/Security_Notes_on_Remote_Embedding\" target=\"new\">阅读本文</a>。",
 	"mwe-embedplayer-embed_site_or_blog": "嵌入页面",
 	"mwe-embedplayer-embed_wiki": "嵌入wiki",
 	"mwe-embedplayer-related_videos": "相关视频",
@@ -82,5 +85,11 @@
 	"mwe-embedplayer-video-3gp": "3GP视频",
 	"mwe-embedplayer-video-mpeg": "MPEG视频",
 	"mwe-embedplayer-video-msvideo": "AVI视频",
-	"mwe-embedplayer-missing-source": "未找到源视频"
+	"mwe-embedplayer-missing-source": "未找到源视频",
+	"mwe-embedplayer-vlcapp-intro": "为了在iPhone或iPad上访问此站点时播放视频，您需要免费的$1。",
+	"mwe-embedplayer-vlcapp-vlcapplinktext": "VLC应用程序",
+	"mwe-embedplayer-vlcapp-downloadapp": "从App Store下载VLC应用程序",
+	"mwe-embedplayer-vlcapp-openvideo": "使用VLC应用程序打开此视频",
+	"mwe-embedplayer-vlcapp-downloadvideo": "下载这个视频",
+	"mwe-embedplayer-vlcapp-vlcapppopup": "要在此站点播放视频，您需要免费的VLC应用程序。现在安装？"
 }

@@ -2,12 +2,8 @@
 
 namespace Elastica\Bulk;
 
-if (!defined('JSON_UNESCAPED_UNICODE')) {
-    define('JSON_UNESCAPED_SLASHES', 64);
-    define('JSON_UNESCAPED_UNICODE', 256);
-}
-
 use Elastica\Bulk;
+use Elastica\JSON;
 use Elastica\Index;
 use Elastica\Type;
 
@@ -169,6 +165,17 @@ class Action
     }
 
     /**
+     * @param string $routing
+     * @return \Elastica\Bulk\Action
+     */
+    public function setRouting($routing)
+    {
+        $this->_metadata['_routing'] = $routing;
+
+        return $this;
+    }
+
+    /**
      * @return array
      */
     public function toArray()
@@ -185,15 +192,16 @@ class Action
      */
     public function toString()
     {
-        $string = json_encode($this->getActionMetadata(), JSON_FORCE_OBJECT) . Bulk::DELIMITER;
+        $string = JSON::stringify($this->getActionMetadata(), JSON_FORCE_OBJECT) . Bulk::DELIMITER;
         if ($this->hasSource()) {
             $source = $this->getSource();
             if (is_string($source)) {
                 $string.= $source;
             } elseif (is_array($source) && array_key_exists('doc', $source) && is_string($source['doc'])) {
-                $string.= '{"doc": ' . $source['doc'] . '}';
+                $docAsUpsert = (isset($source['doc_as_upsert'])) ? ', "doc_as_upsert": '.$source['doc_as_upsert'] : '';
+                $string.= '{"doc": '.$source['doc'].$docAsUpsert.'}';
             } else {
-                $string.= json_encode($source, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                $string.= JSON::stringify($source, 'JSON_ELASTICSEARCH');
             }
             $string.= Bulk::DELIMITER;
         }

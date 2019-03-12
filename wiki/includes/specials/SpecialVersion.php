@@ -50,6 +50,7 @@ class SpecialVersion extends SpecialPage {
 
 	/**
 	 * main()
+	 * @param string|null $par
 	 */
 	public function execute( $par ) {
 		global $IP, $wgExtensionCredits;
@@ -129,6 +130,7 @@ class SpecialVersion extends SpecialPage {
 					$this->getEntryPointInfo()
 				);
 				$out->addHtml(
+					$this->getSkinCredits() .
 					$this->getExtensionCredits() .
 					$this->getParserTags() .
 					$this->getParserFunctionHooks()
@@ -165,7 +167,7 @@ class SpecialVersion extends SpecialPage {
 	/**
 	 * Get the "MediaWiki is copyright 2001-20xx by lots of cool guys" text
 	 *
-	 * @return String
+	 * @return string
 	 */
 	public static function getCopyrightAndAuthorList() {
 		global $wgLang;
@@ -202,7 +204,7 @@ class SpecialVersion extends SpecialPage {
 	 *
 	 * @return string
 	 */
-	static function softwareInformation() {
+	public static function softwareInformation() {
 		$dbr = wfGetDB( DB_SLAVE );
 
 		// Put the software in an array of form 'name' => 'version'. All messages should
@@ -210,7 +212,11 @@ class SpecialVersion extends SpecialPage {
 		// wikimarkup can be used.
 		$software = array();
 		$software['[https://www.mediawiki.org/ MediaWiki]'] = self::getVersionLinked();
-		$software['[http://www.php.net/ PHP]'] = phpversion() . " (" . PHP_SAPI . ")";
+		if ( wfIsHHVM() ) {
+			$software['[http://hhvm.com/ HHVM]'] = HHVM_VERSION . " (" . PHP_SAPI . ")";
+		} else {
+			$software['[https://php.net/ PHP]'] = PHP_VERSION . " (" . PHP_SAPI . ")";
+		}
 		$software[$dbr->getSoftwareLink()] = $dbr->getServerInfo();
 
 		// Allow a hook to add/remove items.
@@ -240,7 +246,7 @@ class SpecialVersion extends SpecialPage {
 	/**
 	 * Return a string of the MediaWiki version with SVN revision if available.
 	 *
-	 * @param $flags String
+	 * @param string $flags
 	 * @return mixed
 	 */
 	public static function getVersion( $flags = '' ) {
@@ -304,7 +310,7 @@ class SpecialVersion extends SpecialPage {
 	}
 
 	/**
-	 * @return string wgVersion + a link to subversion revision of svn BASE
+	 * @return string Global wgVersion + a link to subversion revision of svn BASE
 	 */
 	private static function getVersionLinkedSvn() {
 		global $IP;
@@ -346,7 +352,7 @@ class SpecialVersion extends SpecialPage {
 
 	/**
 	 * @since 1.22 Returns the HEAD date in addition to the sha1 and link
-	 * @return bool|string wgVersion + HEAD sha1 stripped to the first 7 chars
+	 * @return bool|string Global wgVersion + HEAD sha1 stripped to the first 7 chars
 	 *   with link and date, or false on failure
 	 */
 	private static function getVersionLinkedGit() {
@@ -377,9 +383,7 @@ class SpecialVersion extends SpecialPage {
 	 * Returns an array with the base extension types.
 	 * Type is stored as array key, the message as array value.
 	 *
-	 * TODO: ideally this would return all extension types, including
-	 * those added by SpecialVersionExtensionTypes. This is not possible
-	 * since this hook is passing along $this though.
+	 * TODO: ideally this would return all extension types.
 	 *
 	 * @since 1.17
 	 *
@@ -409,7 +413,7 @@ class SpecialVersion extends SpecialPage {
 	 *
 	 * @since 1.17
 	 *
-	 * @param $type String
+	 * @param string $type
 	 *
 	 * @return string
 	 */
@@ -420,23 +424,22 @@ class SpecialVersion extends SpecialPage {
 	}
 
 	/**
-	 * Generate wikitext showing extensions name, URL, author and description.
+	 * Generate wikitext showing the name, URL, author and description of each extension.
 	 *
 	 * @return string Wikitext
 	 */
-	function getExtensionCredits() {
+	public function getExtensionCredits() {
 		global $wgExtensionCredits;
 
-		if ( !count( $wgExtensionCredits ) ) {
+		if (
+			count( $wgExtensionCredits ) === 0 ||
+			// Skins are displayed separately, see getSkinCredits()
+			( count( $wgExtensionCredits ) === 1 && isset( $wgExtensionCredits['skin'] ) )
+		) {
 			return '';
 		}
 
 		$extensionTypes = self::getExtensionTypes();
-
-		/**
-		 * @deprecated as of 1.17, use hook ExtensionTypes instead.
-		 */
-		wfRunHooks( 'SpecialVersionExtensionTypes', array( &$this, &$extensionTypes ) );
 
 		$out = Xml::element(
 				'h2',
@@ -457,15 +460,43 @@ class SpecialVersion extends SpecialPage {
 			}
 		}
 
+		$this->firstExtOpened = false;
 		// Loop through the extension categories to display their extensions in the list.
 		foreach ( $extensionTypes as $type => $message ) {
-			if ( $type != 'other' ) {
+			// Skins have a separate section
+			if ( $type !== 'other' && $type !== 'skin' ) {
 				$out .= $this->getExtensionCategory( $type, $message );
 			}
 		}
 
 		// We want the 'other' type to be last in the list.
 		$out .= $this->getExtensionCategory( 'other', $extensionTypes['other'] );
+
+		$out .= Xml::closeElement( 'table' );
+
+		return $out;
+	}
+
+	/**
+	 * Generate wikitext showing the name, URL, author and description of each skin.
+	 *
+	 * @return string Wikitext
+	 */
+	public function getSkinCredits() {
+		global $wgExtensionCredits;
+		if ( !isset( $wgExtensionCredits['skin'] ) || count( $wgExtensionCredits['skin'] ) === 0 ) {
+			return '';
+		}
+
+		$out = Xml::element(
+				'h2',
+				array( 'id' => 'mw-version-skin' ),
+				$this->msg( 'version-skins' )->text()
+			) .
+			Xml::openElement( 'table', array( 'class' => 'wikitable plainlinks', 'id' => 'sv-skin' ) );
+
+		$this->firstExtOpened = false;
+		$out .= $this->getExtensionCategory( 'skin', null );
 
 		$out .= Xml::closeElement( 'table' );
 
@@ -494,7 +525,7 @@ class SpecialVersion extends SpecialPage {
 			);
 
 			array_walk( $tags, function ( &$value ) {
-				$value = '&lt;' . htmlentities( $value ) . '&gt;';
+				$value = '&lt;' . htmlspecialchars( $value ) . '&gt;';
 			} );
 			$out .= $this->listToText( $tags );
 		} else {
@@ -533,8 +564,8 @@ class SpecialVersion extends SpecialPage {
 	 *
 	 * @since 1.17
 	 *
-	 * @param $type String
-	 * @param $message String
+	 * @param string $type
+	 * @param string $message
 	 *
 	 * @return string
 	 */
@@ -558,11 +589,11 @@ class SpecialVersion extends SpecialPage {
 
 	/**
 	 * Callback to sort extensions by type.
-	 * @param $a array
-	 * @param $b array
+	 * @param array $a
+	 * @param array $b
 	 * @return int
 	 */
-	function compare( $a, $b ) {
+	public function compare( $a, $b ) {
 		if ( $a['name'] === $b['name'] ) {
 			return 0;
 		} else {
@@ -585,16 +616,25 @@ class SpecialVersion extends SpecialPage {
 	 *  - Description of extension (descriptionmsg or description)
 	 *  - List of authors (author) and link to a ((AUTHORS)|(CREDITS))(\.txt)? file if it exists
 	 *
-	 * @param $extension Array
+	 * @param array $extension
 	 *
-	 * @return string raw HTML
+	 * @return string Raw HTML
 	 */
-	function getCreditsForExtension( array $extension ) {
+	public function getCreditsForExtension( array $extension ) {
 		$out = $this->getOutput();
 
 		// We must obtain the information for all the bits and pieces!
 		// ... such as extension names and links
-		$extensionName = isset( $extension['name'] ) ? $extension['name'] : '[no name]';
+		if ( isset( $extension['namemsg'] ) ) {
+			// Localized name of extension
+			$extensionName = $this->msg( $extension['namemsg'] )->text();
+		} elseif ( isset( $extension['name'] ) ) {
+			// Non localized version
+			$extensionName = $extension['name'];
+		} else {
+			$extensionName = $this->msg( 'version-no-ext-name' )->text();
+		}
+
 		if ( isset( $extension['url'] ) ) {
 			$extensionNameLink = Linker::makeExternalLink(
 				$extension['url'],
@@ -622,6 +662,7 @@ class SpecialVersion extends SpecialPage {
 
 		if ( isset( $extension['path'] ) ) {
 			global $IP;
+			$extensionPath = dirname( $extension['path'] );
 			if ( $this->coreId == '' ) {
 				wfDebug( 'Looking up core head id' );
 				$coreHeadSHA1 = self::getGitHeadSha1( $IP );
@@ -640,7 +681,6 @@ class SpecialVersion extends SpecialPage {
 
 			if ( !$vcsVersion ) {
 				wfDebug( "Getting VCS info for extension $extensionName" );
-				$extensionPath = dirname( $extension['path'] );
 				$gitInfo = new GitInfo( $extensionPath );
 				$vcsVersion = $gitInfo->getHeadSHA1();
 				if ( $vcsVersion !== false ) {
@@ -686,7 +726,7 @@ class SpecialVersion extends SpecialPage {
 			if ( $vcsDate ) {
 				$vcsTimeString = Html::element( 'span',
 					array( 'class' => 'mw-version-ext-vcs-timestamp' ),
-					$this->getLanguage()->timeanddate( $vcsDate )
+					$this->getLanguage()->timeanddate( $vcsDate, true )
 				);
 				$versionString .= " {$vcsTimeString}";
 			}
@@ -793,7 +833,7 @@ class SpecialVersion extends SpecialPage {
 		}
 	}
 
-	private function openExtType( $text, $name = null ) {
+	private function openExtType( $text = null, $name = null ) {
 		$out = '';
 
 		$opt = array( 'colspan' => 5 );
@@ -809,13 +849,18 @@ class SpecialVersion extends SpecialPage {
 			$opt['id'] = "sv-$name";
 		}
 
-		$out .= Html::rawElement( 'tr', array(),
-			Html::element( 'th', $opt, $text )
-		);
+		if ( $text !== null ) {
+			$out .= Html::rawElement( 'tr', array(),
+				Html::element( 'th', $opt, $text )
+			);
+		}
 
+		$firstHeadingMsg = ( $name === 'credits-skin' )
+			? 'version-skin-colheader-name'
+			: 'version-ext-colheader-name';
 		$out .= Html::openElement( 'tr' );
 		$out .= Html::element( 'th', array( 'class' => 'mw-version-ext-col-label' ),
-			$this->msg( 'version-ext-colheader-name' )->text() );
+			$this->msg( $firstHeadingMsg )->text() );
 		$out .= Html::element( 'th', array( 'class' => 'mw-version-ext-col-label' ),
 			$this->msg( 'version-ext-colheader-version' )->text() );
 		$out .= Html::element( 'th', array( 'class' => 'mw-version-ext-col-label' ),
@@ -860,7 +905,7 @@ class SpecialVersion extends SpecialPage {
 	 *
 	 * @return string HTML fragment
 	 */
-	function listAuthors( $authors, $extName, $extDir ) {
+	public function listAuthors( $authors, $extName, $extDir ) {
 		$hasOthers = false;
 
 		$list = array();
@@ -963,28 +1008,22 @@ class SpecialVersion extends SpecialPage {
 	 *
 	 * @return string
 	 */
-	function listToText( $list, $sort = true ) {
-		$cnt = count( $list );
-
-		if ( $cnt == 1 ) {
-			// Enforce always returning a string
-			return (string)self::arrayToString( $list[0] );
-		} elseif ( $cnt == 0 ) {
+	public function listToText( $list, $sort = true ) {
+		if ( !count( $list ) ) {
 			return '';
-		} else {
-			if ( $sort ) {
-				sort( $list );
-			}
-
-			return $this->getLanguage()
-				->listToText( array_map( array( __CLASS__, 'arrayToString' ), $list ) );
 		}
+		if ( $sort ) {
+			sort( $list );
+		}
+
+		return $this->getLanguage()
+			->listToText( array_map( array( __CLASS__, 'arrayToString' ), $list ) );
 	}
 
 	/**
 	 * Convert an array or object to a string for display.
 	 *
-	 * @param mixed $list will convert an array to string if given and return
+	 * @param mixed $list Will convert an array to string if given and return
 	 *   the paramater unaltered otherwise
 	 *
 	 * @return mixed
@@ -1023,7 +1062,7 @@ class SpecialVersion extends SpecialPage {
 	 *        url                   The subversion URL of the directory
 	 *        repo-url              The base URL of the repository
 	 *        viewvc-url            A ViewVC URL pointing to the checked-out revision
-	 * @param $dir string
+	 * @param string $dir
 	 * @return array|bool
 	 */
 	public static function getSvnInfo( $dir ) {
@@ -1096,7 +1135,7 @@ class SpecialVersion extends SpecialPage {
 	/**
 	 * Retrieve the revision number of a Subversion working directory.
 	 *
-	 * @param string $dir directory of the svn checkout
+	 * @param string $dir Directory of the svn checkout
 	 *
 	 * @return int Revision number
 	 */
@@ -1113,13 +1152,22 @@ class SpecialVersion extends SpecialPage {
 	}
 
 	/**
-	 * @param string $dir directory of the git checkout
-	 * @return bool|String sha1 of commit HEAD points to
+	 * @param string $dir Directory of the git checkout
+	 * @return bool|string Sha1 of commit HEAD points to
 	 */
 	public static function getGitHeadSha1( $dir ) {
 		$repo = new GitInfo( $dir );
 
 		return $repo->getHeadSHA1();
+	}
+
+	/**
+	 * @param string $dir Directory of the git checkout
+	 * @return bool|string Branch currently checked out
+	 */
+	public static function getGitCurrentBranch( $dir ) {
+		$repo = new GitInfo( $dir );
+		return $repo->getCurrentBranch();
 	}
 
 	/**

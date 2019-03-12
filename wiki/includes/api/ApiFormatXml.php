@@ -111,9 +111,9 @@ class ApiFormatXml extends ApiFormatBase {
 	 * @note The method is recursive, so the same rules apply to any
 	 * sub-arrays.
 	 *
-	 * @param $elemName
-	 * @param $elemValue
-	 * @param $indent
+	 * @param string $elemName
+	 * @param mixed $elemValue
+	 * @param int $indent
 	 *
 	 * @return string
 	 */
@@ -145,6 +145,15 @@ class ApiFormatXml extends ApiFormatBase {
 				unset( $elemValue['_element'] );
 			} else {
 				$subElemIndName = null;
+			}
+
+			if ( isset( $elemValue['_subelements'] ) ) {
+				foreach ( $elemValue['_subelements'] as $subElemId ) {
+					if ( isset( $elemValue[$subElemId] ) && !is_array( $elemValue[$subElemId] ) ) {
+						$elemValue[$subElemId] = array( '*' => $elemValue[$subElemId] );
+					}
+				}
+				unset( $elemValue['_subelements'] );
 			}
 
 			$indElements = array();

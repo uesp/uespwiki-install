@@ -2,7 +2,7 @@
 namespace JsonConfig;
 
 use ContentHandler;
-use Exception;
+use MWException;
 use stdClass;
 use TitleValue;
 use Title;
@@ -34,7 +34,7 @@ class JCSingleton {
 
 	/**
 	 * Initializes singleton state by parsing $wgJsonConfig* values
-	 * @throws \Exception
+	 * @throws \MWException
 	 */
 	private static function init() {
 		static $isInitialized = false;
@@ -336,27 +336,6 @@ class JCSingleton {
 		return self::$titleMap;
 	}
 
-	public static function getContentClass( $modelId ) {
-		global $wgJsonConfigModels;
-		$class = null;
-		if ( array_key_exists( $modelId, $wgJsonConfigModels ) ) {
-			$value = $wgJsonConfigModels[$modelId];
-			if ( is_array( $value ) ) {
-				if ( !array_key_exists( 'class', $value ) ) {
-					wfLogWarning( "JsonConfig: Invalid \$wgJsonConfigModels['$modelId'] array value, 'class' not found" );
-				} else {
-					$class = $value['class'];
-				}
-			} else {
-				$class = $value;
-			}
-		}
-		if ( !$class ) {
-			$class = __NAMESPACE__ . '\JCContent';
-		}
-		return $class;
-	}
-
 	/**
 	 * Returns an array with settings if the $titleValue object is handled by the JsonConfig extension,
 	 * false if unrecognized namespace, and null if namespace is handled but not this title
@@ -517,31 +496,19 @@ class JCSingleton {
 		return true;
 	}
 
-	public static function onMovePageIsValidMove( Title $oldTitle, Title $newTitle, \Status $status ) {
-		$conf = self::getMetadata( $oldTitle->getTitleValue() );
+	public static function onAbortMove( /** @noinspection PhpUnusedParameterInspection */ Title $title, Title $newTitle, $wgUser, &$err, $reason ) {
+		$conf = self::getMetadata( $title->getTitleValue() );
 		if ( $conf ) {
 			$newConf = self::getMetadata( $newTitle->getTitleValue() );
 			if ( !$newConf ) {
 				// @todo: is parse() the right func to use here?
-				$status->fatal( 'jsonconfig-move-aborted-ns' );
+				$err = wfMessage( 'jsonconfig-move-aborted-ns' )->parse();
 				return false;
 			} elseif ( $conf->model !== $newConf->model ) {
-				$status->fatal( 'jsonconfig-move-aborted-model', $conf->model, $newConf->model );
+				$err = wfMessage( 'jsonconfig-move-aborted-model', $conf->model, $newConf->model )->parse();
 				return false;
 			}
 		}
-
-		return true;
-	}
-
-	public static function onAbortMove( /** @noinspection PhpUnusedParameterInspection */ Title $title, Title $newTitle, $wgUser, &$err, $reason ) {
-		$status = new \Status();
-		self::onMovePageIsValidMove( $title, $newTitle, $status );
-		if ( !$status->isOK() ) {
-			$err = $status->getHTML();
-			return false;
-		}
-
 		return true;
 	}
 

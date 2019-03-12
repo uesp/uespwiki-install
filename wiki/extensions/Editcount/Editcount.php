@@ -1,5 +1,4 @@
 <?php
-if (!defined('MEDIAWIKI')) die();
 /**
  * A Special Page extension that displays edit counts.
  *
@@ -13,6 +12,10 @@ if (!defined('MEDIAWIKI')) die();
  * @license http://www.gnu.org/copyleft/gpl.html GNU General Public License 2.0 or later
  */
 
+if ( !defined( 'MEDIAWIKI' ) ) {
+	die();
+}
+
 $wgExtensionCredits['specialpage'][] = array(
 	'path' => __FILE__,
 	'name' => 'Editcount',
@@ -21,9 +24,8 @@ $wgExtensionCredits['specialpage'][] = array(
 	'url' => 'https://www.mediawiki.org/wiki/Extension:Editcount',
 );
 
-$dir = dirname(__FILE__) . '/';
 $wgMessagesDirs['Editcount'] = __DIR__ . '/i18n';
-$wgExtensionMessagesFiles['Editcount'] = $dir . 'Editcount.i18n.php';
-$wgExtensionMessagesFiles['EditcountAliases'] = $dir . 'Editcount.alias.php';
-$wgAutoloadClasses['Editcount'] = $dir . 'Editcount_body.php';
+$wgExtensionMessagesFiles['Editcount'] = __DIR__ . '/Editcount.i18n.php';
+$wgExtensionMessagesFiles['EditcountAliases'] = __DIR__ . '/Editcount.alias.php';
+$wgAutoloadClasses['Editcount'] = __DIR__ . '/Editcount_body.php';
 $wgSpecialPages['Editcount'] = 'Editcount';

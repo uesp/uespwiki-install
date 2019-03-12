@@ -27,7 +27,6 @@
  * of a specific loader request
  */
 class ResourceLoaderContext {
-
 	/* Protected Members */
 
 	protected $resourceLoader;
@@ -46,12 +45,10 @@ class ResourceLoaderContext {
 	/* Methods */
 
 	/**
-	 * @param $resourceLoader ResourceLoader
-	 * @param $request WebRequest
+	 * @param ResourceLoader $resourceLoader
+	 * @param WebRequest $request
 	 */
-	public function __construct( $resourceLoader, WebRequest $request ) {
-		global $wgDefaultSkin, $wgResourceLoaderDebug;
-
+	public function __construct( ResourceLoader $resourceLoader, WebRequest $request ) {
 		$this->resourceLoader = $resourceLoader;
 		$this->request = $request;
 
@@ -62,7 +59,9 @@ class ResourceLoaderContext {
 		// Various parameters
 		$this->skin = $request->getVal( 'skin' );
 		$this->user = $request->getVal( 'user' );
-		$this->debug = $request->getFuzzyBool( 'debug', $wgResourceLoaderDebug );
+		$this->debug = $request->getFuzzyBool(
+			'debug', $resourceLoader->getConfig()->get( 'ResourceLoaderDebug' )
+		);
 		$this->only = $request->getVal( 'only' );
 		$this->version = $request->getVal( 'version' );
 		$this->raw = $request->getFuzzyBool( 'raw' );
@@ -70,7 +69,7 @@ class ResourceLoaderContext {
 		$skinnames = Skin::getSkinNames();
 		// If no skin is specified, or we don't recognize the skin, use the default skin
 		if ( !$this->skin || !isset( $skinnames[$this->skin] ) ) {
-			$this->skin = $wgDefaultSkin;
+			$this->skin = $resourceLoader->getConfig()->get( 'DefaultSkin' );
 		}
 	}
 
@@ -79,7 +78,7 @@ class ResourceLoaderContext {
 	 * an array of module names like array( 'jquery.foo', 'jquery.bar',
 	 * 'jquery.ui.baz', 'jquery.ui.quux' )
 	 * @param string $modules Packed module name list
-	 * @return array of module names
+	 * @return array Array of module names
 	 */
 	public static function expandModuleNames( $modules ) {
 		$retval = array();
@@ -109,11 +108,14 @@ class ResourceLoaderContext {
 	}
 
 	/**
-	 * Return a dummy ResourceLoaderContext object suitable for passing into things that don't "really" need a context
+	 * Return a dummy ResourceLoaderContext object suitable for passing into
+	 * things that don't "really" need a context.
 	 * @return ResourceLoaderContext
 	 */
 	public static function newDummyContext() {
-		return new self( null, new FauxRequest( array() ) );
+		return new self( new ResourceLoader(
+			ConfigFactory::getDefaultInstance()->makeConfig( 'main' )
+		), new FauxRequest( array() ) );
 	}
 
 	/**
@@ -184,14 +186,14 @@ class ResourceLoaderContext {
 	}
 
 	/**
-	 * @return String|null
+	 * @return string|null
 	 */
 	public function getOnly() {
 		return $this->only;
 	}
 
 	/**
-	 * @return String|null
+	 * @return string|null
 	 */
 	public function getVersion() {
 		return $this->version;
@@ -208,21 +210,21 @@ class ResourceLoaderContext {
 	 * @return bool
 	 */
 	public function shouldIncludeScripts() {
-		return is_null( $this->only ) || $this->only === 'scripts';
+		return is_null( $this->getOnly() ) || $this->getOnly() === 'scripts';
 	}
 
 	/**
 	 * @return bool
 	 */
 	public function shouldIncludeStyles() {
-		return is_null( $this->only ) || $this->only === 'styles';
+		return is_null( $this->getOnly() ) || $this->getOnly() === 'styles';
 	}
 
 	/**
 	 * @return bool
 	 */
 	public function shouldIncludeMessages() {
-		return is_null( $this->only ) || $this->only === 'messages';
+		return is_null( $this->getOnly() ) || $this->getOnly() === 'messages';
 	}
 
 	/**
@@ -231,8 +233,8 @@ class ResourceLoaderContext {
 	public function getHash() {
 		if ( !isset( $this->hash ) ) {
 			$this->hash = implode( '|', array(
-				$this->getLanguage(), $this->getDirection(), $this->skin, $this->user,
-				$this->debug, $this->only, $this->version
+				$this->getLanguage(), $this->getDirection(), $this->getSkin(), $this->getUser(),
+				$this->getDebug(), $this->getOnly(), $this->getVersion()
 			) );
 		}
 		return $this->hash;

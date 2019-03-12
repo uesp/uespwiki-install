@@ -34,9 +34,9 @@ abstract class ContextSource implements IContextSource {
 	private $context;
 
 	/**
-	 * Get the RequestContext object
+	 * Get the base IContextSource object
 	 * @since 1.18
-	 * @return RequestContext
+	 * @return IContextSource
 	 */
 	public function getContext() {
 		if ( $this->context === null ) {
@@ -83,7 +83,7 @@ abstract class ContextSource implements IContextSource {
 	 * Get the Title object
 	 *
 	 * @since 1.18
-	 * @return Title
+	 * @return Title|null
 	 */
 	public function getTitle() {
 		return $this->getContext()->getTitle();
@@ -137,18 +137,6 @@ abstract class ContextSource implements IContextSource {
 	/**
 	 * Get the Language object
 	 *
-	 * @deprecated since 1.19 Use getLanguage instead
-	 * @return Language
-	 */
-	public function getLang() {
-		wfDeprecated( __METHOD__, '1.19' );
-
-		return $this->getLanguage();
-	}
-
-	/**
-	 * Get the Language object
-	 *
 	 * @since 1.19
 	 * @return Language
 	 */
@@ -183,7 +171,7 @@ abstract class ContextSource implements IContextSource {
 	 * Export the resolved user IP, HTTP headers, user ID, and session ID.
 	 * The result will be reasonably sized to allow for serialization.
 	 *
-	 * @return Array
+	 * @return array
 	 * @since 1.21
 	 */
 	public function exportSession() {

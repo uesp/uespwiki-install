@@ -24,17 +24,27 @@
  * Static accessor class for site_stats and related things
  */
 class SiteStats {
-	static $row, $loaded = false;
-	static $jobs;
-	static $pageCount = array();
-	static $groupMemberCounts = array();
+	/** @var bool|ResultWrapper */
+	private static $row;
+
+	/** @var bool */
+	private static $loaded = false;
+
+	/** @var int */
+	private static $jobs;
+
+	/** @var int[] */
+	private static $pageCount = array();
+
+	/** @var int[] */
+	private static $groupMemberCounts = array();
 
 	static function recache() {
 		self::load( true );
 	}
 
 	/**
-	 * @param $recache bool
+	 * @param bool $recache
 	 */
 	static function load( $recache = false ) {
 		if ( self::$loaded && !$recache ) {
@@ -55,7 +65,7 @@ class SiteStats {
 	}
 
 	/**
-	 * @return Bool|ResultWrapper
+	 * @return bool|ResultWrapper
 	 */
 	static function loadAndLazyInit() {
 		wfDebug( __METHOD__ . ": reading site_stats from slave\n" );
@@ -86,8 +96,8 @@ class SiteStats {
 	}
 
 	/**
-	 * @param $db DatabaseBase
-	 * @return Bool|ResultWrapper
+	 * @param DatabaseBase $db
+	 * @return bool|ResultWrapper
 	 */
 	static function doLoad( $db ) {
 		return $db->selectRow( 'site_stats', array(
@@ -160,8 +170,8 @@ class SiteStats {
 
 	/**
 	 * Find the number of users in a given user group.
-	 * @param string $group name of group
-	 * @return Integer
+	 * @param string $group Name of group
+	 * @return int
 	 */
 	static function numberingroup( $group ) {
 		if ( !isset( self::$groupMemberCounts[$group] ) ) {
@@ -190,7 +200,10 @@ class SiteStats {
 		if ( !isset( self::$jobs ) ) {
 			$dbr = wfGetDB( DB_SLAVE );
 			self::$jobs = array_sum( JobQueueGroup::singleton()->getQueueSizes() );
-			/* Zero rows still do single row read for row that doesn't exist, but people are annoyed by that */
+			/**
+			 * Zero rows still do single row read for row that doesn't exist,
+			 * but people are annoyed by that
+			 */
 			if ( self::$jobs == 1 ) {
 				self::$jobs = 0;
 			}
@@ -199,7 +212,7 @@ class SiteStats {
 	}
 
 	/**
-	 * @param $ns int
+	 * @param int $ns
 	 *
 	 * @return int
 	 */
@@ -223,7 +236,7 @@ class SiteStats {
 	 *
 	 * Checks only fields which are filled by SiteStatsInit::refresh.
 	 *
-	 * @param $row
+	 * @param bool|object $row
 	 *
 	 * @return bool
 	 */
@@ -265,7 +278,7 @@ class SiteStatsInit {
 
 	/**
 	 * Constructor
-	 * @param $database Boolean or DatabaseBase:
+	 * @param bool|DatabaseBase $database
 	 * - Boolean: whether to use the master DB
 	 * - DatabaseBase: database connection to use
 	 */
@@ -279,7 +292,7 @@ class SiteStatsInit {
 
 	/**
 	 * Count the total number of edits
-	 * @return Integer
+	 * @return int
 	 */
 	public function edits() {
 		$this->mEdits = $this->db->selectField( 'revision', 'COUNT(*)', '', __METHOD__ );
@@ -289,7 +302,7 @@ class SiteStatsInit {
 
 	/**
 	 * Count pages in article space(s)
-	 * @return Integer
+	 * @return int
 	 */
 	public function articles() {
 		global $wgArticleCountMethod;
@@ -319,7 +332,7 @@ class SiteStatsInit {
 
 	/**
 	 * Count total pages
-	 * @return Integer
+	 * @return int
 	 */
 	public function pages() {
 		$this->mPages = $this->db->selectField( 'page', 'COUNT(*)', '', __METHOD__ );
@@ -328,7 +341,7 @@ class SiteStatsInit {
 
 	/**
 	 * Count total users
-	 * @return Integer
+	 * @return int
 	 */
 	public function users() {
 		$this->mUsers = $this->db->selectField( 'user', 'COUNT(*)', '', __METHOD__ );
@@ -337,7 +350,7 @@ class SiteStatsInit {
 
 	/**
 	 * Count views
-	 * @return Integer
+	 * @return int
 	 */
 	public function views() {
 		$this->mViews = $this->db->selectField( 'page', 'SUM(page_counter)', '', __METHOD__ );
@@ -346,7 +359,7 @@ class SiteStatsInit {
 
 	/**
 	 * Count total files
-	 * @return Integer
+	 * @return int
 	 */
 	public function files() {
 		$this->mFiles = $this->db->selectField( 'image', 'COUNT(*)', '', __METHOD__ );
@@ -357,10 +370,10 @@ class SiteStatsInit {
 	 * Do all updates and commit them. More or less a replacement
 	 * for the original initStats, but without output.
 	 *
-	 * @param $database DatabaseBase|bool
+	 * @param DatabaseBase|bool $database
 	 * - Boolean: whether to use the master DB
 	 * - DatabaseBase: database connection to use
-	 * @param array $options of options, may contain the following values
+	 * @param array $options Array of options, may contain the following values
 	 * - views Boolean: when true, do not update the number of page views (default: true)
 	 * - activeUsers Boolean: whether to update the number of active users (default: false)
 	 */

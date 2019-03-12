@@ -128,7 +128,6 @@ $wgExtensionFunctions[] = function () {
 		          'CodeEditorGetPageLanguage',
 		          'EditFilterMergedContent',
 		          'BeforePageDisplay',
-		          'MovePageIsValidMove',
 		          'AbortMove',
 		          'ArticleDeleteComplete',
 		          'ArticleUndelete',

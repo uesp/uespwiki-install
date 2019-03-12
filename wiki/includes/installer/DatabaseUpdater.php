@@ -72,6 +72,7 @@ abstract class DatabaseUpdater {
 		'PopulateImageSha1',
 		'FixExtLinksProtocolRelative',
 		'PopulateFilearchiveSha1',
+		'PopulateBacklinkNamespace'
 	);
 
 	/**
@@ -232,9 +233,9 @@ abstract class DatabaseUpdater {
 	/**
 	 * @since 1.19
 	 *
-	 * @param $tableName string
-	 * @param $indexName string
-	 * @param $sqlPath string
+	 * @param string $tableName
+	 * @param string $indexName
+	 * @param string $sqlPath
 	 */
 	public function addExtensionIndex( $tableName, $indexName, $sqlPath ) {
 		$this->extensionUpdates[] = array( 'addIndex', $tableName, $indexName, $sqlPath, true );
@@ -244,9 +245,9 @@ abstract class DatabaseUpdater {
 	 *
 	 * @since 1.19
 	 *
-	 * @param $tableName string
-	 * @param $columnName string
-	 * @param $sqlPath string
+	 * @param string $tableName
+	 * @param string $columnName
+	 * @param string $sqlPath
 	 */
 	public function addExtensionField( $tableName, $columnName, $sqlPath ) {
 		$this->extensionUpdates[] = array( 'addField', $tableName, $columnName, $sqlPath, true );
@@ -256,9 +257,9 @@ abstract class DatabaseUpdater {
 	 *
 	 * @since 1.20
 	 *
-	 * @param $tableName string
-	 * @param $columnName string
-	 * @param $sqlPath string
+	 * @param string $tableName
+	 * @param string $columnName
+	 * @param string $sqlPath
 	 */
 	public function dropExtensionField( $tableName, $columnName, $sqlPath ) {
 		$this->extensionUpdates[] = array( 'dropField', $tableName, $columnName, $sqlPath, true );
@@ -281,8 +282,8 @@ abstract class DatabaseUpdater {
 	 *
 	 * @since 1.20
 	 *
-	 * @param $tableName string
-	 * @param $sqlPath string
+	 * @param string $tableName
+	 * @param string $sqlPath
 	 */
 	public function dropExtensionTable( $tableName, $sqlPath ) {
 		$this->extensionUpdates[] = array( 'dropTable', $tableName, $sqlPath, true );
@@ -296,9 +297,9 @@ abstract class DatabaseUpdater {
 	 * @param string $tableName The table name
 	 * @param string $oldIndexName The old index name
 	 * @param string $newIndexName The new index name
-	 * @param $skipBothIndexExistWarning Boolean: Whether to warn if both the old
-	 * and the new indexes exist. [facultative; by default, false]
 	 * @param string $sqlPath The path to the SQL change path
+	 * @param bool $skipBothIndexExistWarning Whether to warn if both the old
+	 * and the new indexes exist. [facultative; by default, false]
 	 */
 	public function renameExtensionIndex( $tableName, $oldIndexName, $newIndexName,
 		$sqlPath, $skipBothIndexExistWarning = false
@@ -329,7 +330,7 @@ abstract class DatabaseUpdater {
 	 *
 	 * @since 1.20
 	 *
-	 * @param $tableName string
+	 * @param string $tableName
 	 * @return bool
 	 */
 	public function tableExists( $tableName ) {
@@ -352,7 +353,7 @@ abstract class DatabaseUpdater {
 	/**
 	 * Get the list of extension-defined updates
 	 *
-	 * @return Array
+	 * @return array
 	 */
 	protected function getExtensionUpdates() {
 		return $this->extensionUpdates;
@@ -371,6 +372,7 @@ abstract class DatabaseUpdater {
 	 * @since 1.21
 	 *
 	 * Writes the schema updates desired to a file for the DB Admin to run.
+	 * @param array $schemaUpdate
 	 */
 	private function writeSchemaUpdateFile( $schemaUpdate = array() ) {
 		$updates = $this->updatesSkipped;
@@ -423,9 +425,8 @@ abstract class DatabaseUpdater {
 	/**
 	 * Helper function for doUpdates()
 	 *
-	 * @param array $updates of updates to run
-	 * @param bool $passSelf Whether to pass this object we calling external
-	 *                  functions
+	 * @param array $updates Array of updates to run
+	 * @param bool $passSelf Whether to pass this object we calling external functions
 	 */
 	private function runUpdates( array $updates, $passSelf ) {
 		$updatesDone = array();
@@ -476,7 +477,8 @@ abstract class DatabaseUpdater {
 	public function updateRowExists( $key ) {
 		$row = $this->db->selectRow(
 			'updatelog',
-			'1',
+			# Bug 65813
+			'1 AS X',
 			array( 'ul_key' => $key ),
 			__METHOD__
 		);
@@ -507,7 +509,7 @@ abstract class DatabaseUpdater {
 	 * class does). Pre-1.17 wikis won't have this column, and really old wikis
 	 * might not even have updatelog at all
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	protected function canUseNewUpdatelog() {
 		return $this->db->tableExists( 'updatelog', __METHOD__ ) &&
@@ -531,7 +533,12 @@ abstract class DatabaseUpdater {
 			return true;
 		}
 
-		return !in_array( $name, $wgSharedTables );
+		if ( in_array( $name, $wgSharedTables ) ) {
+			$this->output( "...skipping update to shared table $name.\n" );
+			return false;
+		} else {
+			return true;
+		}
 	}
 
 	/**
@@ -622,7 +629,7 @@ abstract class DatabaseUpdater {
 	 * Applies a SQL patch
 	 *
 	 * @param string $path Path to the patch file
-	 * @param $isFullPath Boolean Whether to treat $path as a relative or not
+	 * @param bool $isFullPath Whether to treat $path as a relative or not
 	 * @param string $msg Description of the patch
 	 * @return bool False if patch is skipped.
 	 */
@@ -775,7 +782,7 @@ abstract class DatabaseUpdater {
 	 * @param string $table Name of the table to modify
 	 * @param string $oldIndex Old name of the index
 	 * @param string $newIndex New name of the index
-	 * @param $skipBothIndexExistWarning Boolean: Whether to warn if both the
+	 * @param bool $skipBothIndexExistWarning Whether to warn if both the
 	 * old and the new indexes exist.
 	 * @param string $patch Path to the patch file
 	 * @param bool $fullpath Whether to treat $patch path as a relative or not
@@ -900,7 +907,7 @@ abstract class DatabaseUpdater {
 		if ( $wgLocalisationCacheConf['manualRecache'] ) {
 			$this->rebuildLocalisationCache();
 		}
-		MessageBlobStore::clear();
+		MessageBlobStore::getInstance()->clear();
 		$this->output( "done.\n" );
 	}
 
@@ -977,6 +984,7 @@ abstract class DatabaseUpdater {
 
 	/**
 	 * Updates the timestamps in the transcache table
+	 * @return bool
 	 */
 	protected function doUpdateTranscacheField() {
 		if ( $this->updateRowExists( 'convert transcache field' ) ) {

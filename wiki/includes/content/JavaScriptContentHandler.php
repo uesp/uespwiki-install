@@ -27,7 +27,7 @@
  * @ingroup Content
  * @todo make ScriptContentHandler base class, do highlighting stuff there?
  */
-class JavaScriptContentHandler extends TextContentHandler {
+class JavaScriptContentHandler extends CodeContentHandler {
 
 	/**
 	 * @param string $modelId
@@ -36,55 +36,7 @@ class JavaScriptContentHandler extends TextContentHandler {
 		parent::__construct( $modelId, array( CONTENT_FORMAT_JAVASCRIPT ) );
 	}
 
-	/**
-	 * @param string $text
-	 * @param string $format
-	 *
-	 * @return JavaScriptContent
-	 *
-	 * @see ContentHandler::unserializeContent()
-	 */
-	public function unserializeContent( $text, $format = null ) {
-		$this->checkFormat( $format );
-
-		return new JavaScriptContent( $text );
+	protected function getContentClass() {
+		return 'JavaScriptContent';
 	}
-
-	/**
-	 * @return JavaScriptContent A new JavaScriptContent object with empty text.
-	 *
-	 * @see ContentHandler::makeEmptyContent()
-	 */
-	public function makeEmptyContent() {
-		return new JavaScriptContent( '' );
-	}
-
-	/**
-	 * Returns the english language, because JS is english, and should be handled as such.
-	 *
-	 * @param Title $title
-	 * @param Content $content
-	 *
-	 * @return Language wfGetLangObj( 'en' )
-	 *
-	 * @see ContentHandler::getPageLanguage()
-	 */
-	public function getPageLanguage( Title $title, Content $content = null ) {
-		return wfGetLangObj( 'en' );
-	}
-
-	/**
-	 * Returns the english language, because JS is english, and should be handled as such.
-	 *
-	 * @param Title $title
-	 * @param Content $content
-	 *
-	 * @return Language wfGetLangObj( 'en' )
-	 *
-	 * @see ContentHandler::getPageViewLanguage()
-	 */
-	public function getPageViewLanguage( Title $title, Content $content = null ) {
-		return wfGetLangObj( 'en' );
-	}
-
 }

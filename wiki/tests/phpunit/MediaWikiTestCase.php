@@ -4,7 +4,6 @@
  * @since 1.18
  */
 abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
-
 	/**
 	 * $called tracks whether the setUp and tearDown method has been called.
 	 * class extending MediaWikiTestCase usually override setUp and tearDown
@@ -89,6 +88,14 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 		$this->backupStaticAttributes = false;
 	}
 
+	public function __destruct() {
+		// Complain if self::setUp() was called, but not self::tearDown()
+		// $this->called['setUp'] will be checked by self::testMediaWikiTestCaseParentSetupCalled()
+		if ( isset( $this->called['setUp'] ) && !isset( $this->called['tearDown'] ) ) {
+			throw new MWException( get_called_class() . "::tearDown() must call parent::tearDown()" );
+		}
+	}
+
 	public function run( PHPUnit_Framework_TestResult $result = null ) {
 		/* Some functions require some kind of caching, and will end up using the db,
 		 * which we can't allow, as that would open a new connection for mysql.
@@ -157,7 +164,7 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	 *
 	 * @since 1.20
 	 *
-	 * @return string absolute name of the temporary file
+	 * @return string Absolute name of the temporary file
 	 */
 	protected function getNewTempFile() {
 		$fileName = tempnam( wfTempDir(), 'MW_PHPUnit_' . get_class( $this ) . '_' );
@@ -193,7 +200,7 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	protected function setUp() {
 		wfProfileIn( __METHOD__ );
 		parent::setUp();
-		$this->called['setUp'] = 1;
+		$this->called['setUp'] = true;
 
 		$this->phpErrorLevel = intval( ini_get( 'error_reporting' ) );
 
@@ -222,6 +229,7 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	protected function tearDown() {
 		wfProfileIn( __METHOD__ );
 
+		$this->called['tearDown'] = true;
 		// Cleaning up temporary files
 		foreach ( $this->tmpFiles as $fileName ) {
 			if ( is_file( $fileName ) || ( is_link( $fileName ) ) ) {
@@ -246,6 +254,8 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 			$GLOBALS[$key] = $value;
 		}
 		$this->mwGlobals = array();
+		RequestContext::resetMain();
+		MediaHandler::resetCache();
 
 		$phpErrorLevel = intval( ini_get( 'error_reporting' ) );
 
@@ -254,7 +264,8 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 
 			$oldHex = strtoupper( dechex( $this->phpErrorLevel ) );
 			$newHex = strtoupper( dechex( $phpErrorLevel ) );
-			$message = "PHP error_reporting setting was left dirty: was 0x$oldHex before test, 0x$newHex after test!";
+			$message = "PHP error_reporting setting was left dirty: "
+				. "was 0x$oldHex before test, 0x$newHex after test!";
 
 			$this->fail( $message );
 		}
@@ -329,7 +340,7 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	 *
 	 * @param array|string $globalKeys Key to the global variable, or an array of keys.
 	 *
-	 * @throws Exception when trying to stash an unset global
+	 * @throws Exception When trying to stash an unset global
 	 * @since 1.23
 	 */
 	protected function stashMwGlobals( $globalKeys ) {
@@ -368,7 +379,7 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	 * @param string $name The name of the global, as in wgFooBar
 	 * @param array $values The array containing the entries to set in that global
 	 *
-	 * @throws MWException if the designated global is not an array.
+	 * @throws MWException If the designated global is not an array.
 	 *
 	 * @since 1.21
 	 */
@@ -467,7 +478,7 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 
 		//Make 1 page with 1 revision
 		$page = WikiPage::factory( Title::newFromText( 'UTPage' ) );
-		if ( !$page->getId() == 0 ) {
+		if ( $page->getId() == 0 ) {
 			$page->doEditContent(
 				new WikitextContent( 'UTContent' ),
 				'UTPageSummary',
@@ -505,16 +516,16 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	 *
 	 * @since 1.21
 	 *
-	 * @note: the original table prefix is stored in self::$oldTablePrefix. This is used
+	 * @note the original table prefix is stored in self::$oldTablePrefix. This is used
 	 * by teardownTestDB() to return the wiki to using the original table set.
 	 *
-	 * @note: this method only works when first called. Subsequent calls have no effect,
+	 * @note this method only works when first called. Subsequent calls have no effect,
 	 * even if using different parameters.
 	 *
 	 * @param DatabaseBase $db The database connection
-	 * @param String $prefix The prefix to use for the new table set (aka schema).
+	 * @param string $prefix The prefix to use for the new table set (aka schema).
 	 *
-	 * @throws MWException if the database table prefix is already $prefix
+	 * @throws MWException If the database table prefix is already $prefix
 	 */
 	public static function setupTestDB( DatabaseBase $db, $prefix ) {
 		global $wgDBprefix;
@@ -599,6 +610,8 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 
 	/**
 	 * Used as a compatibility method for phpunit < 3.7.32
+	 * @param string $value
+	 * @param string $msg
 	 */
 	private function assertEmpty2( $value, $msg ) {
 		return $this->assertTrue( $value == '', $msg );
@@ -660,18 +673,22 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 
 	/**
 	 * @since 1.18
+	 * @param string $offset
+	 * @return mixed
 	 */
 	public function getCliArg( $offset ) {
-		if ( isset( MediaWikiPHPUnitCommand::$additionalOptions[$offset] ) ) {
-			return MediaWikiPHPUnitCommand::$additionalOptions[$offset];
+		if ( isset( PHPUnitMaintClass::$additionalOptions[$offset] ) ) {
+			return PHPUnitMaintClass::$additionalOptions[$offset];
 		}
 	}
 
 	/**
 	 * @since 1.18
+	 * @param string $offset
+	 * @param mixed $value
 	 */
 	public function setCliArg( $offset, $value ) {
-		MediaWikiPHPUnitCommand::$additionalOptions[$offset] = $value;
+		PHPUnitMaintClass::$additionalOptions[$offset] = $value;
 	}
 
 	/**
@@ -680,7 +697,6 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	 * @since 1.19
 	 *
 	 * @param string $function
-	 * @return null
 	 */
 	public function hideDeprecated( $function ) {
 		wfSuppressWarnings();
@@ -767,7 +783,9 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	 * @param bool $ordered If the order of the values should match
 	 * @param bool $named If the keys should match
 	 */
-	protected function assertArrayEquals( array $expected, array $actual, $ordered = false, $named = false ) {
+	protected function assertArrayEquals( array $expected, array $actual,
+		$ordered = false, $named = false
+	) {
 		if ( !$ordered ) {
 			$this->objectAssociativeSort( $expected );
 			$this->objectAssociativeSort( $actual );
@@ -1007,6 +1025,8 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	 * test whenever it is not loaded.
 	 *
 	 * @since 1.21
+	 * @param string $extName
+	 * @return bool
 	 */
 	protected function checkPHPExtension( $extName ) {
 		$loaded = extension_loaded( $extName );
@@ -1099,4 +1119,23 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 		$this->assertEmpty( $errors, implode( "\n", $errors ) );
 	}
 
+	/**
+	 * Note: we are overriding this method to remove the deprecated error
+	 * @see https://bugzilla.wikimedia.org/show_bug.cgi?id=69505
+	 * @see https://github.com/sebastianbergmann/phpunit/issues/1292
+	 *
+	 * @param array $matcher
+	 * @param string $actual
+	 * @param string $message
+	 * @param bool $isHtml
+	 */
+	public static function assertTag( $matcher, $actual, $message = '', $isHtml = true ) {
+		//trigger_error(__METHOD__ . ' is deprecated', E_USER_DEPRECATED);
+
+		$dom = PHPUnit_Util_XML::load( $actual, $isHtml );
+		$tags = PHPUnit_Util_XML::findNodes( $dom, $matcher, $isHtml );
+		$matched = count( $tags ) > 0 && $tags[0] instanceof DOMNode;
+
+		self::assertTrue( $matched, $message );
+	}
 }

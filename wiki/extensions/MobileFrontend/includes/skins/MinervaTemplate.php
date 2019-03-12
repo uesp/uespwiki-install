@@ -202,6 +202,7 @@ class MinervaTemplate extends BaseTemplate {
 	}
 
 	protected function render( $data ) { // FIXME: replace with template engines
+		global $uespIsMobile, $uespIsApp;
 
 		// begin rendering
 		echo $data[ 'headelement' ];
@@ -213,10 +214,26 @@ class MinervaTemplate extends BaseTemplate {
 				?>
 			</div>
 			<div id='mw-mf-page-center'>
-			<p><br/>
 			<!-- UESP: Mobile Banner Header -->
-			<div style="text-align: center; left-margin: auto; margin-left: auto; margin-right: auto; width: 728px; height: 90px;">
-				<div id='cdm-zone-01'></div>
+			<div id='uespTopBannerMobileAd'>
+				<?php
+					if ($uespIsApp)
+					{
+				?>
+				<ins class="adsbygoogle"
+				     style="display:inline-block;width:320px;height:50px"
+				     data-ad-client="ca-pub-3886949899853833"
+				     data-ad-slot="2164082426"></ins>
+				<script>
+					    (adsbygoogle = window.adsbygoogle || []).push({});
+				</script>
+     			<?php
+					}
+					else
+					{
+						echo "<div id='cdm-zone-01'></div>";
+					}				
+				?>
 			</div>
 
 				<?php
@@ -251,10 +268,31 @@ class MinervaTemplate extends BaseTemplate {
 					$this->renderContentWrapper( $data );
 				?>
 				</div>
+				<p><br/>
 				<!-- UESP: Mobile Banner Footer -->
-				<div style="text-align: center;  left-margin: auto;  margin-left: auto; margin-right: auto; width: 300px; height: 250px;">
-					<div id='cdm-zone-02'></div>
-				</div>
+				<?php
+					if ($uespIsApp)
+					{
+						echo '<div style="text-align: center;  left-margin: auto;  margin-left: auto; margin-right: auto; width: 300px; height: 250px;">';
+				?>
+				<ins class="adsbygoogle"
+					     style="display:inline-block;width:300px;height:250px"
+					     data-ad-client="ca-pub-3886949899853833"
+					     data-ad-slot="5640293000"></ins>
+				<script>
+					    (adsbygoogle = window.adsbygoogle || []).push({});
+				</script>
+     			<?php
+     					echo '</div>';
+					}
+					else
+					{
+						echo '<div style="text-align: center;  left-margin: auto;  margin-left: auto; margin-right: auto; width: 300px; height: 250px;">';
+						echo "<div id='cdm-zone-02'></div>";
+						echo '</div>';
+					}				
+				?>
+				
 				<?php
 					$this->renderFooter( $data );
 				?>

@@ -1,8 +1,7 @@
 <?php
 /** Afrikaans (Afrikaans)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -140,6 +139,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'MeesteWysigings' ),
 	'Movepage'                  => array( 'Skuif_bladsy', 'Skuifbladsy' ),
 	'Mycontributions'           => array( 'Mybydrae' ),
+	'MyLanguage'                => array( 'MyTaal' ),
 	'Mypage'                    => array( 'MyBladsy' ),
 	'Mytalk'                    => array( 'Mybespreking', 'Mybesprekings' ),
 	'Newimages'                 => array( 'Nuwe_beelde', 'Nuwebeelde', 'Nuwe_lêers', 'Nuwelêers' ),

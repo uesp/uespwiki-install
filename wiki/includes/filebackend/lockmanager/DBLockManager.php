@@ -108,7 +108,7 @@ abstract class DBLockManager extends QuorumLockManager {
 		$this->session = wfRandomString( 31 );
 	}
 
-	// @TODO: change this code to work in one batch
+	// @todo change this code to work in one batch
 	protected function getLocksOnServer( $lockSrv, array $pathsByType ) {
 		$status = Status::newGood();
 		foreach ( $pathsByType as $type => $paths ) {
@@ -195,7 +195,7 @@ abstract class DBLockManager extends QuorumLockManager {
 	 * Checks if the DB has not recently had connection/query errors.
 	 * This just avoids wasting time on doomed connection attempts.
 	 *
-	 * @param $lockDb string
+	 * @param string $lockDb
 	 * @return bool
 	 */
 	protected function cacheCheckFailures( $lockDb ) {

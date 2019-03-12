@@ -1,8 +1,8 @@
 {
-    "@metadata": {
-        "authors": [
-            "Toliño"
-        ]
-    },
-    "mwembed-desc": "Ofrece soporte para módulos e extensións mwEmbed"
+	"@metadata": {
+		"authors": [
+			"Toliño"
+		]
+	},
+	"mwembed-desc": "Ofrece soporte para módulos e extensións mwEmbed"
 }

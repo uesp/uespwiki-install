@@ -29,25 +29,25 @@
 abstract class PrefixSearch {
 	/**
 	 * Do a prefix search of titles and return a list of matching page names.
-	 * @deprecated: Since 1.23, use TitlePrefixSearch or StringPrefixSearch classes
+	 * @deprecated Since 1.23, use TitlePrefixSearch or StringPrefixSearch classes
 	 *
-	 * @param $search String
-	 * @param $limit Integer
-	 * @param array $namespaces used if query is not explicitly prefixed
-	 * @return Array of strings
+	 * @param string $search
+	 * @param int $limit
+	 * @param array $namespaces Used if query is not explicitly prefixed
+	 * @return array Array of strings
 	 */
 	public static function titleSearch( $search, $limit, $namespaces = array() ) {
-		$search = new StringPrefixSearch;
-		return $search->search( $search, $limit, $namespaces );
+		$prefixSearch = new StringPrefixSearch;
+		return $prefixSearch->search( $search, $limit, $namespaces );
 	}
 
 	/**
 	 * Do a prefix search of titles and return a list of matching page names.
 	 *
-	 * @param $search String
-	 * @param $limit Integer
-	 * @param array $namespaces used if query is not explicitly prefixed
-	 * @return Array of strings or Title objects
+	 * @param string $search
+	 * @param int $limit
+	 * @param array $namespaces Used if query is not explicitly prefixed
+	 * @return array Array of strings or Title objects
 	 */
 	public function search( $search, $limit, $namespaces = array() ) {
 		$search = trim( $search );
@@ -82,8 +82,8 @@ abstract class PrefixSearch {
 
 	/**
 	 * Do a prefix search for all possible variants of the prefix
-	 * @param $search String
-	 * @param $limit Integer
+	 * @param string $search
+	 * @param int $limit
 	 * @param array $namespaces
 	 *
 	 * @return array
@@ -121,7 +121,7 @@ abstract class PrefixSearch {
 	 * @param array $titles
 	 * @return array
 	 */
-	protected abstract function titles( array $titles );
+	abstract protected function titles( array $titles );
 
 	/**
 	 * When implemented in a descendant class, receives an array of titles as strings and returns
@@ -131,14 +131,14 @@ abstract class PrefixSearch {
 	 *
 	 * @return array
 	 */
-	protected abstract function strings( array $strings );
+	abstract protected function strings( array $strings );
 
 	/**
 	 * Do a prefix search of titles and return a list of matching page names.
-	 * @param $namespaces Array
-	 * @param $search String
-	 * @param $limit Integer
-	 * @return Array of strings
+	 * @param array $namespaces
+	 * @param string $search
+	 * @param int $limit
+	 * @return array Array of strings
 	 */
 	protected function searchBackend( $namespaces, $search, $limit ) {
 		if ( count( $namespaces ) == 1 ) {
@@ -159,27 +159,48 @@ abstract class PrefixSearch {
 	/**
 	 * Prefix search special-case for Special: namespace.
 	 *
-	 * @param string $search term
-	 * @param $limit Integer: max number of items to return
-	 * @return Array
+	 * @param string $search Term
+	 * @param int $limit Max number of items to return
+	 * @return array
 	 */
 	protected function specialSearch( $search, $limit ) {
 		global $wgContLang;
 
-		# normalize searchKey, so aliases with spaces can be found - bug 25675
-		$search = str_replace( ' ', '_', $search );
+		$searchParts = explode( '/', $search, 2 );
+		$searchKey = $searchParts[0];
+		$subpageSearch = isset( $searchParts[1] ) ? $searchParts[1] : null;
 
-		$searchKey = $wgContLang->caseFold( $search );
+		// Handle subpage search separately.
+		if ( $subpageSearch !== null ) {
+			// Try matching the full search string as a page name
+			$specialTitle = Title::makeTitleSafe( NS_SPECIAL, $searchKey );
+			if ( !$specialTitle ) {
+				return array();
+			}
+			$special = SpecialPageFactory::getPage( $specialTitle->getText() );
+			if ( $special ) {
+				$subpages = $special->prefixSearchSubpages( $subpageSearch, $limit );
+				return array_map( function ( $sub ) use ( $specialTitle ) {
+					return $specialTitle->getSubpage( $sub );
+				}, $subpages );
+			} else {
+				return array();
+			}
+		}
+
+		# normalize searchKey, so aliases with spaces can be found - bug 25675
+		$searchKey = str_replace( ' ', '_', $searchKey );
+		$searchKey = $wgContLang->caseFold( $searchKey );
 
 		// Unlike SpecialPage itself, we want the canonical forms of both
 		// canonical and alias title forms...
 		$keys = array();
-		foreach ( SpecialPageFactory::getList() as $page => $class ) {
+		foreach ( SpecialPageFactory::getNames() as $page  ) {
 			$keys[$wgContLang->caseFold( $page )] = $page;
 		}
 
 		foreach ( $wgContLang->getSpecialPageAliases() as $page => $aliases ) {
-			if ( !array_key_exists( $page, SpecialPageFactory::getList() ) ) {# bug 20885
+			if ( !in_array( $page, SpecialPageFactory::getNames() ) ) {# bug 20885
 				continue;
 			}
 
@@ -213,10 +234,10 @@ abstract class PrefixSearch {
 	 * be automatically capitalized by Title::secureAndSpit()
 	 * later on depending on $wgCapitalLinks)
 	 *
-	 * @param array $namespaces namespaces to search in
-	 * @param string $search term
-	 * @param $limit Integer: max number of items to return
-	 * @return Array of Title objects
+	 * @param array $namespaces Namespaces to search in
+	 * @param string $search Term
+	 * @param int $limit Max number of items to return
+	 * @return array Array of Title objects
 	 */
 	protected function defaultSearchBackend( $namespaces, $search, $limit ) {
 		$ns = array_shift( $namespaces ); // support only one namespace
@@ -246,8 +267,8 @@ abstract class PrefixSearch {
 	/**
 	 * Validate an array of numerical namespace indexes
 	 *
-	 * @param $namespaces Array
-	 * @return Array (default: contains only NS_MAIN)
+	 * @param array $namespaces
+	 * @return array (default: contains only NS_MAIN)
 	 */
 	protected function validateNamespaces( $namespaces ) {
 		global $wgContLang;
@@ -296,7 +317,9 @@ class TitlePrefixSearch extends PrefixSearch {
 class StringPrefixSearch extends PrefixSearch {
 
 	protected function titles( array $titles ) {
-		return array_map( function( Title $t ) { return $t->getPrefixedText(); }, $titles );
+		return array_map( function ( Title $t ) {
+			return $t->getPrefixedText();
+		}, $titles );
 	}
 
 	protected function strings( array $strings ) {

@@ -31,7 +31,7 @@
  */
 class ApiQueryLogEvents extends ApiQueryBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'le' );
 	}
 
@@ -43,6 +43,7 @@ class ApiQueryLogEvents extends ApiQueryBase {
 	public function execute() {
 		$params = $this->extractRequestParams();
 		$db = $this->getDB();
+		$this->requireMaxOneParameter( $params, 'title', 'prefix', 'namespace' );
 
 		$prop = array_flip( $params['prop'] );
 
@@ -80,6 +81,10 @@ class ApiQueryLogEvents extends ApiQueryBase {
 		) );
 
 		$this->addFieldsIf( 'page_id', $this->fld_ids );
+		// log_page is the page_id saved at log time, whereas page_id is from a
+		// join at query time.  This leads to different results in various
+		// scenarios, e.g. deletion, recreation.
+		$this->addFieldsIf( 'log_page', $this->fld_ids );
 		$this->addFieldsIf( array( 'log_user', 'log_user_text', 'user_name' ), $this->fld_user );
 		$this->addFieldsIf( 'log_user', $this->fld_userid );
 		$this->addFieldsIf(
@@ -174,11 +179,14 @@ class ApiQueryLogEvents extends ApiQueryBase {
 			$this->addWhereFld( 'log_title', $titleObj->getDBkey() );
 		}
 
+		if ( $params['namespace'] !== null ) {
+			$this->addWhereFld( 'log_namespace', $params['namespace'] );
+		}
+
 		$prefix = $params['prefix'];
 
 		if ( !is_null( $prefix ) ) {
-			global $wgMiserMode;
-			if ( $wgMiserMode ) {
+			if ( $this->getConfig()->get( 'MiserMode' ) ) {
 				$this->dieUsage( 'Prefix search disabled in Miser Mode', 'prefixsearchdisabled' );
 			}
 
@@ -195,7 +203,7 @@ class ApiQueryLogEvents extends ApiQueryBase {
 			if ( !$this->getUser()->isAllowed( 'deletedhistory' ) ) {
 				$titleBits = LogPage::DELETED_ACTION;
 				$userBits = LogPage::DELETED_USER;
-			} elseif ( !$this->getUser()->isAllowed( 'suppressrevision' ) ) {
+			} elseif ( !$this->getUser()->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
 				$titleBits = LogPage::DELETED_ACTION | LogPage::DELETED_RESTRICTED;
 				$userBits = LogPage::DELETED_USER | LogPage::DELETED_RESTRICTED;
 			} else {
@@ -235,13 +243,13 @@ class ApiQueryLogEvents extends ApiQueryBase {
 	}
 
 	/**
-	 * @param $result ApiResult
-	 * @param $vals array
-	 * @param $params string
-	 * @param $type string
-	 * @param $action string
-	 * @param $ts
-	 * @param $legacy bool
+	 * @param ApiResult $result
+	 * @param array $vals
+	 * @param string $params
+	 * @param string $type
+	 * @param string $action
+	 * @param string $ts
+	 * @param bool $legacy
 	 * @return array
 	 */
 	public static function addLogParams( $result, &$vals, $params, $type,
@@ -363,6 +371,7 @@ class ApiQueryLogEvents extends ApiQueryBase {
 				}
 				if ( $this->fld_ids ) {
 					$vals['pageid'] = intval( $row->page_id );
+					$vals['logpage'] = intval( $row->log_page );
 				}
 				if ( $this->fld_details && $row->log_params !== '' ) {
 					self::addLogParams(
@@ -393,7 +402,7 @@ class ApiQueryLogEvents extends ApiQueryBase {
 					$vals['user'] = $row->user_name === null ? $row->log_user_text : $row->user_name;
 				}
 				if ( $this->fld_userid ) {
-					$vals['userid'] = $row->log_user;
+					$vals['userid'] = intval( $row->log_user );
 				}
 
 				if ( !$row->log_user ) {
@@ -438,10 +447,12 @@ class ApiQueryLogEvents extends ApiQueryBase {
 		return $vals;
 	}
 
+	/**
+	 * @return array
+	 */
 	private function getAllowedLogActions() {
-		global $wgLogActions, $wgLogActionsHandlers;
-
-		return array_keys( array_merge( $wgLogActions, $wgLogActionsHandlers ) );
+		$config = $this->getConfig();
+		return array_keys( array_merge( $config->get( 'LogActions' ), $config->get( 'LogActionsHandlers' ) ) );
 	}
 
 	public function getCacheMode( $params ) {
@@ -461,8 +472,7 @@ class ApiQueryLogEvents extends ApiQueryBase {
 	}
 
 	public function getAllowedParams( $flags = 0 ) {
-		global $wgLogTypes;
-
+		$config = $this->getConfig();
 		return array(
 			'prop' => array(
 				ApiBase::PARAM_ISMULTI => true,
@@ -481,7 +491,7 @@ class ApiQueryLogEvents extends ApiQueryBase {
 				)
 			),
 			'type' => array(
-				ApiBase::PARAM_TYPE => $wgLogTypes
+				ApiBase::PARAM_TYPE => $config->get( 'LogTypes' )
 			),
 			'action' => array(
 				// validation on request is done in execute()
@@ -504,6 +514,9 @@ class ApiQueryLogEvents extends ApiQueryBase {
 			),
 			'user' => null,
 			'title' => null,
+			'namespace' => array(
+				ApiBase::PARAM_TYPE => 'namespace'
+			),
 			'prefix' => null,
 			'tag' => null,
 			'limit' => array(
@@ -544,6 +557,7 @@ class ApiQueryLogEvents extends ApiQueryBase {
 			'dir' => $this->getDirectionDescription( $p ),
 			'user' => 'Filter entries to those made by the given user',
 			'title' => 'Filter entries to those related to a page',
+			'namespace' => 'Filter entries to those in the given namespace',
 			'prefix' => 'Filter entries that start with this prefix. Disabled in Miser Mode',
 			'limit' => 'How many total event entries to return',
 			'tag' => 'Only list event entries tagged with this tag',
@@ -551,74 +565,8 @@ class ApiQueryLogEvents extends ApiQueryBase {
 		);
 	}
 
-	public function getResultProperties() {
-		global $wgLogTypes;
-
-		return array(
-			'ids' => array(
-				'logid' => 'integer',
-				'pageid' => 'integer'
-			),
-			'title' => array(
-				'ns' => 'namespace',
-				'title' => 'string'
-			),
-			'type' => array(
-				'type' => array(
-					ApiBase::PROP_TYPE => $wgLogTypes
-				),
-				'action' => 'string'
-			),
-			'details' => array(
-				'actionhidden' => 'boolean'
-			),
-			'user' => array(
-				'userhidden' => 'boolean',
-				'user' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'anon' => 'boolean'
-			),
-			'userid' => array(
-				'userhidden' => 'boolean',
-				'userid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'anon' => 'boolean'
-			),
-			'timestamp' => array(
-				'timestamp' => 'timestamp'
-			),
-			'comment' => array(
-				'commenthidden' => 'boolean',
-				'comment' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'parsedcomment' => array(
-				'commenthidden' => 'boolean',
-				'parsedcomment' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			)
-		);
-	}
-
 	public function getDescription() {
 		return 'Get events from logs.';
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array( 'code' => 'param_user', 'info' => 'User name $user not found' ),
-			array( 'code' => 'param_title', 'info' => 'Bad title value \'title\'' ),
-			array( 'code' => 'param_prefix', 'info' => 'Bad title value \'prefix\'' ),
-			array( 'code' => 'prefixsearchdisabled', 'info' => 'Prefix search disabled in Miser Mode' ),
-		) );
 	}
 
 	public function getExamples() {

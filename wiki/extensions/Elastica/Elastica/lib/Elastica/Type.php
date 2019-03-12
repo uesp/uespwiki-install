@@ -298,10 +298,13 @@ class Type implements SearchableInterface
 
         $response = $this->request($path, Request::GET);
         $data = $response->getData();
-        if (!isset($data[$this->getIndex()->getName()])) {
-            return array();
+
+        $mapping = array_shift($data);
+        if (isset($mapping['mappings'])) {
+            return $mapping['mappings'];
         }
-        return $data[$this->getIndex()->getName()]['mappings'];
+
+        return array();
     }
 
     /**
@@ -429,12 +432,13 @@ class Type implements SearchableInterface
     /**
      * Deletes the given list of ids from this type
      *
-     * @param  array $ids
-     * @return \Elastica\Response Response object
+     * @param  array              $ids
+     * @param  string|false       $routing  Optional routing key for all ids
+     * @return \Elastica\Response Response  object
      */
-    public function deleteIds(array $ids)
+    public function deleteIds(array $ids, $routing = false)
     {
-        return $this->getIndex()->getClient()->deleteIds($ids, $this->getIndex(), $this);
+        return $this->getIndex()->getClient()->deleteIds($ids, $this->getIndex(), $this, $routing);
     }
 
     /**

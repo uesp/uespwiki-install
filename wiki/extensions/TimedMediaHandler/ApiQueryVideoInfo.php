@@ -24,13 +24,19 @@ class ApiQueryVideoInfo extends ApiQueryImageInfo {
 	}
 
 	public function getDescription() {
-		return 'Extends imageinfo to include video source information';
+		return 'Extends imageinfo to include video source (derivatives) information';
 	}
 
 	static function getInfo( $file, $prop, $result, $thumbParams = null, $version = 'latest' ) {
 		$vals = parent::getInfo( $file, $prop, $result, $thumbParams = null );
-		if( isset( $prop['derivatives'] ) ){
-			$vals['derivatives'] = WebVideoTranscode::getSources( $file, array( 'fullurl') );
+		if( isset( $prop['derivatives'] ) ) {
+			if ( $file->getHandler() && $file->getHandler() instanceof TimedMediaHandler ) {
+				$vals['derivatives'] = WebVideoTranscode::getSources( $file, array( 'fullurl') );
+				$result->setIndexedTagName( $vals['derivatives'], "derivative" );
+			} else {
+				// Non-TMH file, no derivatives.
+				$vals['derivatives'] = array();
+			}
 		}
 		return $vals;
 	}
@@ -43,7 +49,7 @@ class ApiQueryVideoInfo extends ApiQueryImageInfo {
 
 	public static function getPropertyDescriptions( $filter = array(), $modulePrefix = '' ) {
 		$s = parent::getPropertyDescriptions( $filter, $modulePrefix );
-		$s[] = ' derivatives 	-Adds an array of video source derivatives';
+		$s[] = ' derivatives   - Adds an array of the different format and quality versions of an audio or video file that are available.';
 		return $s;
 	}
 
@@ -230,6 +236,22 @@ class ApiQueryVideoInfo extends ApiQueryImageInfo {
 			'continue' => null,
 		);
 	}
+
+	/**
+	 * Get API self-documentation.
+	 *
+	 * Needed since core calls self::getPropertyDescriptions(),
+	 * (and not static::getPropertyDescriptions() ) which binds
+	 * to the static method in that class instead of the static
+	 * method of the same name in this class.
+	 */
+	public function getParamDescription() {
+		$params = parent::getParamDescription();
+		$p = $this->getModulePrefix();
+		$params['prop'] = self::getPropertyDescriptions( array(), $p );
+		return $params;
+	}
+
 
 	public function getVersion() {
 		return __CLASS__ . ': $Id$';

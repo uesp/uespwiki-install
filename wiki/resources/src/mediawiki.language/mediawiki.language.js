@@ -59,9 +59,9 @@ $.extend( mw.language, {
 			form = forms[index];
 			if ( /^\d+=/.test( form ) ) {
 				equalsPosition = form.indexOf( '=' );
-				formCount = parseInt( form.substring( 0, equalsPosition ), 10 );
+				formCount = parseInt( form.slice( 0, equalsPosition ), 10 );
 				if ( formCount === count ) {
-					return form.substr( equalsPosition + 1 );
+					return form.slice( equalsPosition + 1 );
 				}
 				forms[index] = undefined;
 			}
@@ -144,8 +144,28 @@ $.extend( mw.language, {
 			return grammarForms[form][word] || word;
 		}
 		return word;
-	}
+	},
 
+	/**
+	 * Turn a list of string into a simple list using commas and 'and'.
+	 *
+	 * See Language::listToText in languages/Language.php
+	 *
+	 * @param {string[]} list
+	 * @return {string}
+	 */
+	listToText: function ( list ) {
+		var text = '', i = 0;
+		for ( ; i < list.length; i++ ) {
+			text += list[i];
+			if ( list.length - 2 === i ) {
+				text += mw.msg( 'and' ) + mw.msg( 'word-separator' );
+			} else if ( list.length - 1 !== i ) {
+				text += mw.msg( 'comma-separator' );
+			}
+		}
+		return text;
+	}
 } );
 
 }( mediaWiki, jQuery ) );

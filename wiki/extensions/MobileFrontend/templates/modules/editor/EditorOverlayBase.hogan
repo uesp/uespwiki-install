@@ -1,0 +1,41 @@
+<div class="overlay-header-container position-fixed">
+	{{>header}}
+	<div class="overlay-header save-header hideable hidden">
+		<ul>
+			<li>{{>backButton}}</li>
+		</ul>
+		<div class="overlay-title">
+			<h2>{{{previewingMsg}}}</h2>
+		</div>
+		<div class="overlay-action"><button class="submit">{{saveMsg}}</button></div>
+	</div>
+	<div class="overlay-header saving-header hideable hidden">
+		<ul>
+			<li>{{>cancelButton}}</li>
+		</ul>
+		<div class="overlay-title">
+			<h2>{{{waitMsg}}}</h2>
+		</div>
+		<ul>
+			<li><button class="loading icon">{{waitMsg}}</button></li>
+		</ul>
+	</div>
+</div>
+
+<div class="overlay-content">
+	<div class="panels">
+		<div class="save-panel panel hideable hidden">
+			<p class="summary-request">{{{summaryRequestMsg}}}</p>
+			<textarea rows="2" class="summary" placeholder="{{summaryMsg}}"></textarea>
+			<p class="license">{{{licenseMsg}}}</p>
+		</div>
+		<div class="captcha-panel panel hideable hidden">
+			<div class="inputs-box">
+				<img src="">
+				<input class="captcha-word" placeholder="{{captchaMsg}}" />
+			</div>
+		</div>
+	</div>
+	<div class="spinner loading"></div>
+	{{>content}}
+</div>

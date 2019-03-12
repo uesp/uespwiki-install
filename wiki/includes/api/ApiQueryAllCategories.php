@@ -32,7 +32,7 @@
  */
 class ApiQueryAllCategories extends ApiQueryGeneratorBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'ac' );
 	}
 
@@ -49,7 +49,7 @@ class ApiQueryAllCategories extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 */
 	private function run( $resultPageSet = null ) {
 		$db = $this->getDB();
@@ -204,23 +204,6 @@ class ApiQueryAllCategories extends ApiQueryGeneratorBase {
 				' size    - Adds number of pages in the category',
 				' hidden  - Tags categories that are hidden with __HIDDENCAT__',
 			),
-		);
-	}
-
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'*' => 'string'
-			),
-			'size' => array(
-				'size' => 'integer',
-				'pages' => 'integer',
-				'files' => 'integer',
-				'subcats' => 'integer'
-			),
-			'hidden' => array(
-				'hidden' => 'boolean'
-			)
 		);
 	}
 

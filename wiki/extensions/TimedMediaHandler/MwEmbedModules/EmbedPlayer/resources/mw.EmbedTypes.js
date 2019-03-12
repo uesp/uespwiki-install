@@ -76,6 +76,19 @@ var imageOverlayPlayer = new mw.MediaPlayer( 'imageOverlay', [
 //var vlcMimeList = ['video/ogg', 'audio/ogg', 'audio/mpeg', 'application/ogg', 'video/x-flv', 'video/mp4', 'video/h264', 'video/x-msvideo', 'video/mpeg', 'video/3gp'];
 //var vlcPlayer = new mw.MediaPlayer( 'vlc-player', vlcMimeList, 'Vlc' );
 
+var vlcAppPlayer = new mw.MediaPlayer( 'vlcAppPlayer', [
+	'video/ogg',
+	'video/ogg; codecs="theora"',
+	'video/ogg; codecs="theora, vorbis"',
+	'audio/ogg',
+	'audio/ogg; codecs="vorbis"',
+	'audio/ogg; codecs="opus"',
+	'application/ogg',
+	'video/webm',
+	'video/webm; codecs="vp8"',
+	'video/webm; codecs="vp8, vorbis"',
+], 'VLCApp' );
+
 // Generic plugin
 //var oggPluginPlayer = new mw.MediaPlayer( 'oggPlugin', ['video/ogg', 'application/ogg'], 'Generic' );
 
@@ -152,7 +165,7 @@ mw.EmbedTypes = {
 
 		}
 		// Some browsers filter out duplicate mime types, hiding some plugins
-		var uniqueMimesOnly = $.browser.opera || $.browser.safari;
+		var uniqueMimesOnly = $.client.test( { opera: null, safari: null } );
 
 		// Opera will switch off javaEnabled in preferences if java can't be
 		// found. And it doesn't register an application/x-java-applet mime type like
@@ -167,7 +180,7 @@ mw.EmbedTypes = {
 		}
 
 		// ActiveX plugins
-		if ( $.browser.msie ) {
+		if ( $.client.profile().name === 'msie' ) {
 			 // VLC
 			 //if ( this.testActiveX( 'VideoLAN.VLCPlugin.2' ) ) {
 			 //	 this.mediaPlayers.addPlayer( vlcPlayer );
@@ -298,6 +311,9 @@ mw.EmbedTypes = {
 			}
 		}
 
+		if ( mw.isIOS() ) {
+			this.mediaPlayers.addPlayer( vlcAppPlayer );
+		}
 		// Allow extensions to detect and add their own "players"
 		mw.log("EmbedPlayer::trigger:embedPlayerUpdateMediaPlayersEvent");
 		$( mw ).trigger( 'embedPlayerUpdateMediaPlayersEvent' , this.mediaPlayers );

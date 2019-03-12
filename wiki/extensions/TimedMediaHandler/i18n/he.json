@@ -17,6 +17,7 @@
 	"timedmedia-ogg-long-multiplexed": "קובץ Ogg מרובב של שמע ווידאו, $1, באורך $2, $4×$5 פיקסלים, $3 בסך הכול",
 	"timedmedia-ogg-long-general": "קובץ מדיה של Ogg, באורך $2, $3",
 	"timedmedia-ogg-long-error": "קובץ ogg בלתי תקין: $1",
+	"timedmedia-ogg-long-no-streams": "קובץ מדיה Ogg. אזהרה: אף אחד מהקודקים בקובץ הזה אינו מוּכּר.",
 	"timedmedia-webm-short-video": "קובץ וידאו WebM $1&rlm;, $2",
 	"timedmedia-webm-long-video": "קובץ שמע ווידאו WebM&rlm;, $1, באורך $2&rlm;, $4 × $5 פיקסלים, $3 סך הכול",
 	"timedmedia-flac-short-audio": "קובץ שמע FLAC‏, $1",
@@ -26,7 +27,7 @@
 	"timedmedia-wav-pcm-required": "אפשר להעלות רק קובצי WAV בתסדיר PCM‏ (Pulse Code Modulation).",
 	"timedmedia-mp4-short-video": "קובץ וידאו MP4 $1&rlm;, $2",
 	"timedmedia-mp4-long-video": "קובץ שמע ווידאו של MP4&rlm;, $1, באורך $2, $4 × $5 פיסקלים, $3 בסך הכול",
-	"timedmedia-no-player-js": "מצטערים, בדפדפן שלך לא מופעלת תמיכה ב־JavaScript או שאין בו נגן נתמך.<br />\nבאפשרותך <a href=\"$1\">להוריד למחשב את הסרטון</a> או <a href=\"//www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download\">להוריד נגן</a> שינגן את הסרטון בדפדפן שלך.",
+	"timedmedia-no-player-js": "מצטערים, בדפדפן שלך לא מופעלת תמיכה ב־JavaScript או שאין בו נגן נתמך.<br />\nבאפשרותך <a href=\"$1\">להוריד למחשב את הסרטון</a> או <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">להוריד נגן</a> שינגן את הסרטון בדפדפן שלך.",
 	"timedmedia-more": "עוד…",
 	"timedmedia-dismiss": "סגירה",
 	"timedmedia-download": "הורדת הקובץ",
@@ -93,5 +94,9 @@
 	"timedmedia-wav-audios": "{{PLURAL:$1|קובץ שמע WAV אחד|$1 קובצי שמע WAV}}",
 	"right-transcode-reset": "אתחול סרטים שקידוד המשנה שלהם הושלם או נכשל כך שהם מוכנסים מחדש לתור המשימות.",
 	"right-transcode-status": "הצגת [[Special:TimedMediaHandler|מידע על פעילות המרת־המשנה הנוכחית]]",
-	"action-transcode-status": "הצגת מצב המרת־המשנה"
+	"action-transcode-status": "הצגת מצב המרת־המשנה",
+	"orphanedtimedtext": "דפי טקסט מתוזמן יתומים",
+	"orphanedtimedtext-summary": "רשימה של כל דפי [[{{#special:AllPages/TimedText:}}|{{ns:TimedText}}]] שלא משויך להם קובץ.",
+	"orphanedtimedtext-unsupported": "הדף המיוחד הזה נתמך רק במסדי נתונים MySQL.",
+	"orphanedtimedtext-notimedtext": "ההרחבה TimedText אינה מופעלת בוויקי הזה."
 }

@@ -43,6 +43,7 @@ if ( !isset( $wgVersion ) ) {
 }
 
 // Set various default paths sensibly...
+
 if ( $wgScript === false ) {
 	$wgScript = "$wgScriptPath/index$wgScriptExtension";
 }
@@ -76,9 +77,12 @@ if ( $wgStyleDirectory === false ) {
 if ( $wgExtensionAssetsPath === false ) {
 	$wgExtensionAssetsPath = "$wgScriptPath/extensions";
 }
+if ( $wgResourceBasePath === null ) {
+	$wgResourceBasePath = $wgScriptPath;
+}
 
 if ( $wgLogo === false ) {
-	$wgLogo = "$wgStylePath/common/images/wiki.png";
+	$wgLogo = "$wgResourceBasePath/resources/assets/wiki.png";
 }
 
 if ( $wgUploadPath === false ) {
@@ -97,15 +101,24 @@ if ( $wgDeletedDirectory === false ) {
 	$wgDeletedDirectory = "{$wgUploadDirectory}/deleted";
 }
 
-if ( isset( $wgFileStore['deleted']['directory'] ) ) {
-	$wgDeletedDirectory = $wgFileStore['deleted']['directory'];
+if ( $wgGitInfoCacheDirectory === false && $wgCacheDirectory !== false ) {
+	$wgGitInfoCacheDirectory = "{$wgCacheDirectory}/gitinfo";
+}
+
+// Fix path to icon images after they were moved in 1.24
+if ( $wgRightsIcon ) {
+	$wgRightsIcon = str_replace(
+		"{$wgStylePath}/common/images/",
+		"{$wgResourceBasePath}/resources/assets/licenses/",
+		$wgRightsIcon
+	);
 }
 
 if ( isset( $wgFooterIcons['copyright'] )
 	&& isset( $wgFooterIcons['copyright']['copyright'] )
 	&& $wgFooterIcons['copyright']['copyright'] === array()
 ) {
-	if ( isset( $wgCopyrightIcon ) && $wgCopyrightIcon ) {
+	if ( $wgCopyrightIcon ) {
 		$wgFooterIcons['copyright']['copyright'] = $wgCopyrightIcon;
 	} elseif ( $wgRightsIcon || $wgRightsText ) {
 		$wgFooterIcons['copyright']['copyright'] = array(
@@ -122,7 +135,8 @@ if ( isset( $wgFooterIcons['poweredby'] )
 	&& isset( $wgFooterIcons['poweredby']['mediawiki'] )
 	&& $wgFooterIcons['poweredby']['mediawiki']['src'] === null
 ) {
-	$wgFooterIcons['poweredby']['mediawiki']['src'] = "$wgStylePath/common/images/poweredby_mediawiki_88x31.png";
+	$wgFooterIcons['poweredby']['mediawiki']['src'] =
+		"$wgResourceBasePath/resources/assets/poweredby_mediawiki_88x31.png";
 }
 
 /**
@@ -159,11 +173,6 @@ $wgLockManagers[] = array(
  * Initialise $wgLocalFileRepo from backwards-compatible settings
  */
 if ( !$wgLocalFileRepo ) {
-	if ( isset( $wgFileStore['deleted']['hash'] ) ) {
-		$deletedHashLevel = $wgFileStore['deleted']['hash'];
-	} else {
-		$deletedHashLevel = $wgHashedUploadDirectory ? 3 : 0;
-	}
 	$wgLocalFileRepo = array(
 		'class' => 'LocalRepo',
 		'name' => 'local',
@@ -175,7 +184,7 @@ if ( !$wgLocalFileRepo ) {
 		'thumbScriptUrl' => $wgThumbnailScriptPath,
 		'transformVia404' => !$wgGenerateThumbnailOnParse,
 		'deletedDir' => $wgDeletedDirectory,
-		'deletedHashLevels' => $deletedHashLevel
+		'deletedHashLevels' => $wgHashedUploadDirectory ? 3 : 0
 	);
 }
 /**
@@ -249,7 +258,10 @@ if ( $wgRCFilterByAge ) {
 	// as determined by $wgRCMaxAge.
 	// Note that we allow 1 link higher than the max for things like 56 days but a 60 day link.
 	sort( $wgRCLinkDays );
+
+	// @codingStandardsIgnoreStart Generic.CodeAnalysis.ForLoopWithTestFunctionCall.NotAllowed
 	for ( $i = 0; $i < count( $wgRCLinkDays ); $i++ ) {
+		// @codingStandardsIgnoreEnd
 		if ( $wgRCLinkDays[$i] >= $wgRCMaxAge / ( 3600 * 24 ) ) {
 			$wgRCLinkDays = array_slice( $wgRCLinkDays, 0, $i + 1, false );
 			break;
@@ -260,6 +272,23 @@ if ( $wgRCFilterByAge ) {
 if ( $wgSkipSkin ) {
 	$wgSkipSkins[] = $wgSkipSkin;
 }
+
+// Register skins
+// Use a closure to avoid leaking into global state
+call_user_func( function () use ( $wgValidSkinNames ) {
+	$factory = SkinFactory::getDefaultInstance();
+	foreach ( $wgValidSkinNames as $name => $skin ) {
+		$factory->register( $name, $skin, function () use ( $name, $skin ) {
+			$class = "Skin$skin";
+			return new $class( $name );
+		} );
+	}
+	// Register a hidden "fallback" skin
+	$factory->register( 'fallback', 'Fallback', function () {
+		return new SkinFallback;
+	} );
+} );
+$wgSkipSkins[] = 'fallback';
 
 if ( $wgLocalInterwiki ) {
 	array_unshift( $wgLocalInterwikis, $wgLocalInterwiki );
@@ -283,7 +312,33 @@ if ( !$wgCookiePrefix ) {
 }
 $wgCookiePrefix = strtr( $wgCookiePrefix, '=,; +."\'\\[', '__________' );
 
-$wgUseEnotif = $wgEnotifUserTalk || $wgEnotifWatchlist;
+if ( $wgEnableEmail ) {
+	$wgUseEnotif = $wgEnotifUserTalk || $wgEnotifWatchlist;
+} else {
+	// Disable all other email settings automatically if $wgEnableEmail
+	// is set to false. - bug 63678
+	$wgAllowHTMLEmail = false;
+	$wgEmailAuthentication = false; // do not require auth if you're not sending email anyway
+	$wgEnableUserEmail = false;
+	$wgEnotifFromEditor = false;
+	$wgEnotifImpersonal = false;
+	$wgEnotifMaxRecips = 0;
+	$wgEnotifMinorEdits = false;
+	$wgEnotifRevealEditorAddress = false;
+	$wgEnotifUseJobQ = false;
+	$wgEnotifUseRealName = false;
+	$wgEnotifUserTalk = false;
+	$wgEnotifWatchlist = false;
+	unset( $wgGroupPermissions['user']['sendemail'] );
+	$wgUseEnotif = false;
+	$wgUserEmailUseReplyTo = false;
+	$wgUsersNotifiedOnAllChanges = array();
+}
+
+// Doesn't make sense to have if disabled.
+if ( !$wgEnotifMinorEdits ) {
+	$wgHiddenPrefs[] = 'enotifminoredits';
+}
 
 if ( $wgMetaNamespace === false ) {
 	$wgMetaNamespace = str_replace( ' ', '_', $wgSitename );
@@ -345,11 +400,6 @@ if ( $wgUseFileCache || $wgUseSquid ) {
 	$wgDebugToolbar = false;
 }
 
-// Doesn't make sense to have if disabled.
-if ( !$wgEnotifMinorEdits ) {
-	$wgHiddenPrefs[] = 'enotifminoredits';
-}
-
 // We always output HTML5 since 1.22, overriding these is no longer supported
 // we set them here for extensions that depend on its value.
 $wgHtml5 = true;
@@ -368,12 +418,10 @@ if ( !$wgHtml5Version && $wgAllowRdfaAttributes ) {
 // Blacklisted file extensions shouldn't appear on the "allowed" list
 $wgFileExtensions = array_values( array_diff ( $wgFileExtensions, $wgFileBlacklist ) );
 
-if ( $wgArticleCountMethod === null ) {
-	$wgArticleCountMethod = $wgUseCommaCount ? 'comma' : 'link';
-}
-
 if ( $wgInvalidateCacheOnLocalSettingsChange ) {
+	// @codingStandardsIgnoreStart Generic.PHP.NoSilencedErrors.Discouraged - No GlobalFunction here yet.
 	$wgCacheEpoch = max( $wgCacheEpoch, gmdate( 'YmdHis', @filemtime( "$IP/LocalSettings.php" ) ) );
+	// @codingStandardsIgnoreEnd
 }
 
 if ( $wgNewUserLog ) {
@@ -388,17 +436,23 @@ if ( $wgNewUserLog ) {
 	$wgLogActionsHandlers['newusers/autocreate'] = 'NewUsersLogFormatter';
 }
 
+if ( $wgPageLanguageUseDB ) {
+	$wgLogTypes[] = 'pagelang';
+	$wgLogActionsHandlers['pagelang/pagelang'] = 'PageLangLogFormatter';
+}
+
 if ( $wgCookieSecure === 'detect' ) {
 	$wgCookieSecure = ( WebRequest::detectProtocol() === 'https' );
 }
 
-if ( $wgRC2UDPAddress ) {
-	$wgRCFeeds['default'] = array(
-		'formatter' => 'IRCColourfulRCFeedFormatter',
-		'uri' => "udp://$wgRC2UDPAddress:$wgRC2UDPPort/$wgRC2UDPPrefix",
-		'add_interwiki_prefix' => &$wgRC2UDPInterwikiPrefix,
-		'omit_bots' => &$wgRC2UDPOmitBots,
-	);
+// Back compatibility for $wgRateLimitLog deprecated with 1.23
+if ( $wgRateLimitLog && !array_key_exists( 'ratelimit', $wgDebugLogGroups ) ) {
+	$wgDebugLogGroups['ratelimit'] = $wgRateLimitLog;
+}
+
+if ( $wgProfileOnly ) {
+	$wgDebugLogGroups['profileoutput'] = $wgDebugLogFile;
+	$wgDebugLogFile = '';
 }
 
 wfProfileOut( $fname . '-defaults' );
@@ -425,10 +479,49 @@ require_once "$IP/includes/normal/UtfNormalUtil.php";
 require_once "$IP/includes/normal/UtfNormalDefines.php";
 wfProfileOut( $fname . '-includes' );
 
+wfProfileIn( $fname . '-validation' );
+
+// T48998: Bail out early if $wgArticlePath is non-absolute
+if ( !preg_match( '/^(https?:\/\/|\/)/', $wgArticlePath ) ) {
+	throw new FatalError(
+		'If you use a relative URL for $wgArticlePath, it must start ' .
+		'with a slash (<code>/</code>).<br><br>See ' .
+		'<a href="https://www.mediawiki.org/wiki/Manual:$wgArticlePath">' .
+		'https://www.mediawiki.org/wiki/Manual:$wgArticlePath</a>.'
+	);
+}
+
+wfProfileOut( $fname . '-validation' );
+
 wfProfileIn( $fname . '-defaults2' );
+
+if ( $wgCanonicalServer === false ) {
+	$wgCanonicalServer = wfExpandUrl( $wgServer, PROTO_HTTP );
+}
+
+// Set server name
+$serverParts = wfParseUrl( $wgCanonicalServer );
+if ( $wgServerName !== false ) {
+	wfWarn( '$wgServerName should be derived from $wgCanonicalServer, '
+		. 'not customized. Overwriting $wgServerName.' );
+}
+$wgServerName = $serverParts['host'];
+unset( $serverParts );
+
+// Set defaults for configuration variables
+// that are derived from the server name by default
+if ( $wgEmergencyContact === false ) {
+	$wgEmergencyContact = 'wikiadmin@' . $wgServerName;
+}
+
+if ( $wgPasswordSender === false ) {
+	$wgPasswordSender = 'apache@' . $wgServerName;
+}
+
 if ( $wgSecureLogin && substr( $wgServer, 0, 2 ) !== '//' ) {
 	$wgSecureLogin = false;
-	wfWarn( 'Secure login was enabled on a server that only supports HTTP or HTTPS. Disabling secure login.' );
+	wfWarn( 'Secure login was enabled on a server that only supports '
+		. 'HTTP or HTTPS. Disabling secure login.' );
 }
 
 // Now that GlobalFunctions is loaded, set defaults that depend
@@ -437,37 +530,6 @@ if ( $wgTmpDirectory === false ) {
 	wfProfileIn( $fname . '-tempDir' );
 	$wgTmpDirectory = wfTempDir();
 	wfProfileOut( $fname . '-tempDir' );
-}
-
-if ( $wgCanonicalServer === false ) {
-	$wgCanonicalServer = wfExpandUrl( $wgServer, PROTO_HTTP );
-}
-
-// $wgHTCPMulticastRouting got renamed to $wgHTCPRouting in MediaWiki 1.22
-// ensure back compatibility.
-if ( !$wgHTCPRouting && $wgHTCPMulticastRouting ) {
-	$wgHTCPRouting = $wgHTCPMulticastRouting;
-}
-
-// Initialize $wgHTCPRouting from backwards-compatible settings that
-// comes from pre 1.20 version.
-if ( !$wgHTCPRouting && $wgHTCPMulticastAddress ) {
-	$wgHTCPRouting = array(
-		'' => array(
-			'host' => $wgHTCPMulticastAddress,
-			'port' => $wgHTCPPort,
-		)
-	);
-}
-
-// Back compatibility for $wgRateLimitLog deprecated with 1.23
-if ( $wgRateLimitLog && ! array_key_exists( 'ratelimit', $wgDebugLogGroups ) ) {
-	$wgDebugLogGroups['ratelimit'] = $wgRateLimitLog;
-}
-
-if ( $wgProfileOnly ) {
-	$wgDebugLogGroups['profileoutput'] = $wgDebugLogFile;
-	$wgDebugLogFile = '';
 }
 
 wfProfileOut( $fname . '-defaults2' );
@@ -532,43 +594,47 @@ wfRunHooks( 'SetupAfterCache' );
 
 wfProfileIn( $fname . '-session' );
 
-// If session.auto_start is there, we can't touch session name
-if ( !wfIniGetBool( 'session.auto_start' ) ) {
-	session_name( $wgSessionName ? $wgSessionName : $wgCookiePrefix . '_session' );
-}
-
 if ( !defined( 'MW_NO_SESSION' ) && !$wgCommandLineMode ) {
+	// If session.auto_start is there, we can't touch session name
+	if ( !wfIniGetBool( 'session.auto_start' ) ) {
+		session_name( $wgSessionName ? $wgSessionName : $wgCookiePrefix . '_session' );
+	}
+
 	if ( $wgRequest->checkSessionCookie() || isset( $_COOKIE[$wgCookiePrefix . 'Token'] ) ) {
 		wfSetupSession();
-		$wgSessionStarted = true;
-	} else {
-		$wgSessionStarted = false;
 	}
 }
 
 wfProfileOut( $fname . '-session' );
 wfProfileIn( $fname . '-globals' );
 
+/**
+ * @var Language $wgContLang
+ */
 $wgContLang = Language::factory( $wgLanguageCode );
 $wgContLang->initEncoding();
 $wgContLang->initContLang();
 
 // Now that variant lists may be available...
 $wgRequest->interpolateTitle();
+
+/**
+ * @var User $wgUser
+ */
 $wgUser = RequestContext::getMain()->getUser(); // BackCompat
 
 /**
- * @var $wgLang Language
+ * @var Language $wgLang
  */
 $wgLang = new StubUserLang;
 
 /**
- * @var OutputPage
+ * @var OutputPage $wgOut
  */
 $wgOut = RequestContext::getMain()->getOutput(); // BackCompat
 
 /**
- * @var $wgParser Parser
+ * @var Parser $wgParser
  */
 $wgParser = new StubObject( 'wgParser', $wgParserConf['class'], array( $wgParserConf ) );
 
@@ -577,9 +643,15 @@ if ( !is_object( $wgAuth ) ) {
 	wfRunHooks( 'AuthPluginSetup', array( &$wgAuth ) );
 }
 
-# Placeholders in case of DB error
+/**
+ * @var Title $wgTitle
+ */
 $wgTitle = null;
 
+/**
+ * @deprecated since 1.24 Use DeferredUpdates::addUpdate instead
+ * @var array
+ */
 $wgDeferredUpdateList = array();
 
 wfProfileOut( $fname . '-globals' );

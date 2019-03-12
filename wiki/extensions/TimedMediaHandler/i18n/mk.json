@@ -14,6 +14,7 @@
 	"timedmedia-ogg-long-multiplexed": "Ogg мултиплексирана аудио/видео снимка, $1, времетраење $2, $4 × $5 пиксели, вкупно $3",
 	"timedmedia-ogg-long-general": "Мултимедијална податотека Ogg, времетраење $2, $3",
 	"timedmedia-ogg-long-error": "Оштетена Ogg-податотека: $1",
+	"timedmedia-ogg-long-no-streams": "Ogg-податотека. Предупредување: Не препознав ниеден од користените кодеци.",
 	"timedmedia-webm-short-video": "WebM $1 видеоснимка, $2",
 	"timedmedia-webm-long-video": "WebM аудио/видео снимка, $1, должина: $2, $4 × $5 пиксели, вкупно $3",
 	"timedmedia-flac-short-audio": "Аудиоподатотека FLAC, $1",
@@ -23,7 +24,7 @@
 	"timedmedia-wav-pcm-required": "Можете да подигате само WAV-податотеки со PCM (импулсна кодна модулација).",
 	"timedmedia-mp4-short-video": "MP4 $1 видеоснимка, $2",
 	"timedmedia-mp4-long-video": "MP4 аудио/видео снимка, $1, времетраење $2, $4 × $5 пиксели, вкупно $3",
-	"timedmedia-no-player-js": "Нажалост, вашиот прелистувач или има оневозможено JavaScript, или нема ниту еден поддржан изведувач.<br />\nМожете да го <a href=\"$1\">преземете клипот</a> или <a href=\"//www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download\">да преземете изведувач</a> за да ја пуштите снимката во вашиот прелистувач.",
+	"timedmedia-no-player-js": "За жал, вашиот прелистувач или има оневозможено JavaScript, или нема ниту еден поддржан изведувач.<br />\nМожете да го <a href=\"$1\">преземете клипот</a> или <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">да преземете изведувач</a> за да ја пуштите снимката во вашиот прелистувач.",
 	"timedmedia-more": "Повеќе...",
 	"timedmedia-dismiss": "Затвори",
 	"timedmedia-download": "Преземи податотека",
@@ -103,5 +104,9 @@
 	"timedmedia-wav-audios": "{{PLURAL:$1|Една WAV-аудиоснимка|$1 WAV-аудиоснимки}}",
 	"right-transcode-reset": "Презадавањето не успеа или има прекодирани видеа, па затоа повторно се ставени во редицата на задачи.",
 	"right-transcode-status": "Преглед на [[Special:TimedMediaHandler|информации за тековните активности во прекодирањето]]",
-	"action-transcode-status": "преглед на тековниот статус на прекодирањето"
+	"action-transcode-status": "преглед на тековниот статус на прекодирањето",
+	"orphanedtimedtext": "Осамени страници со TimedText",
+	"orphanedtimedtext-summary": "Список на страници со [[{{#special:AllPages/TimedText:}}|{{ns:TimedText}}]] што немаат своја податотека.",
+	"orphanedtimedtext-unsupported": "Оваа службена страница е поддржана само на MySQL-бази.",
+	"orphanedtimedtext-notimedtext": "TimedText не е овозможен на ова вики."
 }

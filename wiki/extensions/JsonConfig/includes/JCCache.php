@@ -129,6 +129,7 @@ class JCCache {
 	 * Retrieves the config from the local storage, and sets $this->content to the content object or false
 	 */
 	private function loadLocal() {
+		wfProfileIn( __METHOD__ );
 		// @fixme @bug handle flagged revisions
 		$title = \Title::newFromTitleValue( $this->titleValue );
 		$result = \WikiPage::factory( $title )->getContent();
@@ -144,12 +145,14 @@ class JCCache {
 			}
 		}
 		$this->content = $result;
+		wfProfileOut( __METHOD__ );
 	}
 
 	/**
 	 * Retrieves the config using HTTP and sets $this->content to string or false
 	 */
 	private function loadRemote() {
+		wfProfileIn( __METHOD__ );
 		do {
 			$result = false;
 			$remote = $this->conf->remote;
@@ -169,13 +172,11 @@ class JCCache {
 						'titles' => $articleName,
 						'prop' => 'revisions',
 						'rvprop' => 'content',
-						'continue' => '',
 					)
 					: array(
 						'action' => 'query',
 						'titles' => $articleName,
 						'prop' => 'info|flagged',
-						'continue' => '',
 					) );
 			if ( $res !== false &&
 			     ( $flrevs === null || ( $flrevs === true && array_key_exists( 'flagged', $res ) ) )
@@ -189,7 +190,6 @@ class JCCache {
 						: $res['lastrevid'],
 					'prop' => 'revisions',
 					'rvprop' => 'content',
-					'continue' => '',
 				) );
 			}
 			if ( $res === false ) {
@@ -206,6 +206,8 @@ class JCCache {
 		} while( false );
 
 		$this->content = $result;
+
+		wfProfileOut( __METHOD__ );
 	}
 
 	/** Given a legal set of API parameters, return page from API

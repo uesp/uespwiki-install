@@ -135,10 +135,6 @@ class ApiOptions extends ApiBase {
 		$optionKinds[] = 'all';
 
 		return array(
-			'token' => array(
-				ApiBase::PARAM_TYPE => 'string',
-				ApiBase::PARAM_REQUIRED => true
-			),
 			'reset' => false,
 			'resetkinds' => array(
 				ApiBase::PARAM_TYPE => $optionKinds,
@@ -157,21 +153,8 @@ class ApiOptions extends ApiBase {
 		);
 	}
 
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'*' => array(
-					ApiBase::PROP_TYPE => array(
-						'success'
-					)
-				)
-			)
-		);
-	}
-
 	public function getParamDescription() {
 		return array(
-			'token' => 'An options token previously obtained through the action=tokens',
 			'reset' => 'Resets preferences to the site defaults',
 			'resetkinds' => 'List of types of options to reset when the "reset" option is set',
 			'change' => array( 'List of changes, formatted name=value (e.g. skin=vector), ' .
@@ -194,19 +177,8 @@ class ApiOptions extends ApiBase {
 		);
 	}
 
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array( 'code' => 'notloggedin', 'info' => 'Anonymous users cannot change preferences' ),
-			array( 'code' => 'nochanges', 'info' => 'No changes were requested' ),
-		) );
-	}
-
 	public function needsToken() {
-		return true;
-	}
-
-	public function getTokenSalt() {
-		return '';
+		return 'csrf';
 	}
 
 	public function getHelpUrls() {

@@ -37,7 +37,7 @@ class ApiQueryRevisions extends ApiQueryBase {
 	private $diffto, $difftotext, $expandTemplates, $generateXML, $section,
 		$token, $parseContent, $contentFormat;
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'rv' );
 	}
 
@@ -48,6 +48,7 @@ class ApiQueryRevisions extends ApiQueryBase {
 
 	private $tokenFunctions;
 
+	/** @deprecated since 1.24 */
 	protected function getTokenFunctions() {
 		// tokenname => function
 		// function prototype is func($pageid, $title, $rev)
@@ -72,10 +73,11 @@ class ApiQueryRevisions extends ApiQueryBase {
 	}
 
 	/**
-	 * @param $pageid
-	 * @param $title Title
-	 * @param $rev Revision
-	 * @return bool|String
+	 * @deprecated since 1.24
+	 * @param int $pageid
+	 * @param Title $title
+	 * @param Revision $rev
+	 * @return bool|string
 	 */
 	public static function getRollbackToken( $pageid, $title, $rev ) {
 		global $wgUser;
@@ -209,7 +211,7 @@ class ApiQueryRevisions extends ApiQueryBase {
 			$this->addWhereFld( 'ct_tag', $params['tag'] );
 		}
 
-		if ( isset( $prop['content'] ) || !is_null( $this->difftotext ) ) {
+		if ( isset( $prop['content'] ) || !is_null( $this->diffto ) || !is_null( $this->difftotext ) ) {
 			// For each page we will request, the user must have read rights for that page
 			$user = $this->getUser();
 			/** @var $title Title */
@@ -318,7 +320,7 @@ class ApiQueryRevisions extends ApiQueryBase {
 				// Paranoia: avoid brute force searches (bug 17342)
 				if ( !$this->getUser()->isAllowed( 'deletedhistory' ) ) {
 					$bitmask = Revision::DELETED_USER;
-				} elseif ( !$this->getUser()->isAllowed( 'suppressrevision' ) ) {
+				} elseif ( !$this->getUser()->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
 					$bitmask = Revision::DELETED_USER | Revision::DELETED_RESTRICTED;
 				} else {
 					$bitmask = 0;
@@ -624,10 +626,9 @@ class ApiQueryRevisions extends ApiQueryBase {
 		}
 
 		if ( $content && ( !is_null( $this->diffto ) || !is_null( $this->difftotext ) ) ) {
-			global $wgAPIMaxUncachedDiffs;
 			static $n = 0; // Number of uncached diffs we've had
 
-			if ( $n < $wgAPIMaxUncachedDiffs ) {
+			if ( $n < $this->getConfig()->get( 'APIMaxUncachedDiffs' ) ) {
 				$vals['diff'] = array();
 				$context = new DerivativeContext( $this->getContext() );
 				$context->setTitle( $title );
@@ -749,6 +750,7 @@ class ApiQueryRevisions extends ApiQueryBase {
 			'parse' => false,
 			'section' => null,
 			'token' => array(
+				ApiBase::PARAM_DEPRECATED => true,
 				ApiBase::PARAM_TYPE => array_keys( $this->getTokenFunctions() ),
 				ApiBase::PARAM_ISMULTI => true
 			),
@@ -808,70 +810,6 @@ class ApiQueryRevisions extends ApiQueryBase {
 		);
 	}
 
-	public function getResultProperties() {
-		$props = array(
-			'' => array(),
-			'ids' => array(
-				'revid' => 'integer',
-				'parentid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'flags' => array(
-				'minor' => 'boolean'
-			),
-			'user' => array(
-				'userhidden' => 'boolean',
-				'user' => 'string',
-				'anon' => 'boolean'
-			),
-			'userid' => array(
-				'userhidden' => 'boolean',
-				'userid' => 'integer',
-				'anon' => 'boolean'
-			),
-			'timestamp' => array(
-				'timestamp' => 'timestamp'
-			),
-			'size' => array(
-				'size' => 'integer'
-			),
-			'sha1' => array(
-				'sha1' => 'string'
-			),
-			'comment' => array(
-				'commenthidden' => 'boolean',
-				'comment' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'parsedcomment' => array(
-				'commenthidden' => 'boolean',
-				'parsedcomment' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			),
-			'content' => array(
-				'*' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'texthidden' => 'boolean',
-				'textmissing' => 'boolean',
-			),
-			'contentmodel' => array(
-				'contentmodel' => 'string'
-			),
-		);
-
-		self::addTokenProperties( $props, $this->getTokenFunctions() );
-
-		return $props;
-	}
-
 	public function getDescription() {
 		return array(
 			'Get revision information.',
@@ -881,33 +819,6 @@ class ApiQueryRevisions extends ApiQueryBase {
 			' 3) Get data about a set of revisions by setting their IDs with revids parameter.',
 			'All parameters marked as (enum) may only be used with a single page (#2).'
 		);
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array( 'nosuchrevid', 'diffto' ),
-			array(
-				'code' => 'revids',
-				'info' => 'The revids= parameter may not be used with the list options '
-					. '(limit, startid, endid, dirNewer, start, end).'
-			),
-			array(
-				'code' => 'multpages',
-				'info' => 'titles, pageids or a generator was used to supply multiple pages, '
-					. ' but the limit, startid, endid, dirNewer, user, excludeuser, '
-					. 'start and end parameters may only be used on a single page.'
-			),
-			array(
-				'code' => 'diffto',
-				'info' => 'rvdiffto must be set to a non-negative number, "prev", "next" or "cur"'
-			),
-			array( 'code' => 'badparams', 'info' => 'start and startid cannot be used together' ),
-			array( 'code' => 'badparams', 'info' => 'end and endid cannot be used together' ),
-			array( 'code' => 'badparams', 'info' => 'user and excludeuser cannot be used together' ),
-			array( 'code' => 'nosuchsection', 'info' => 'There is no section section in rID' ),
-			array( 'code' => 'badformat', 'info' => 'The requested serialization format can not be applied '
-				. ' to the page\'s content model' ),
-		) );
 	}
 
 	public function getExamples() {

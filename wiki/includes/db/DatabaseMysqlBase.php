@@ -321,7 +321,7 @@ abstract class DatabaseMysqlBase extends DatabaseBase {
 
 	/**
 	 * @param ResultWrapper|resource $res
-	 * @param $n int
+	 * @param int $n
 	 * @return string
 	 */
 	function fieldName( $res, $n ) {
@@ -336,7 +336,7 @@ abstract class DatabaseMysqlBase extends DatabaseBase {
 	 * Get the name of the specified field in a result
 	 *
 	 * @param ResultWrapper|resource $res
-	 * @param $n int
+	 * @param int $n
 	 * @return string
 	 */
 	abstract protected function mysqlFieldName( $res, $n );
@@ -344,7 +344,7 @@ abstract class DatabaseMysqlBase extends DatabaseBase {
 	/**
 	 * mysql_field_type() wrapper
 	 * @param ResultWrapper|resource $res
-	 * @param $n int
+	 * @param int $n
 	 * @return string
 	 */
 	public function fieldType( $res, $n ) {
@@ -638,47 +638,6 @@ abstract class DatabaseMysqlBase extends DatabaseBase {
 	}
 
 	/**
-	 * @deprecated in 1.19, use getLagFromSlaveStatus
-	 *
-	 * @return bool|int
-	 */
-	function getLagFromProcesslist() {
-		wfDeprecated( __METHOD__, '1.19' );
-		$res = $this->query( 'SHOW PROCESSLIST', __METHOD__ );
-		if ( !$res ) {
-			return false;
-		}
-		# Find slave SQL thread
-		foreach ( $res as $row ) {
-			/* This should work for most situations - when default db
-			 * for thread is not specified, it had no events executed,
-			 * and therefore it doesn't know yet how lagged it is.
-			 *
-			 * Relay log I/O thread does not select databases.
-			 */
-			if ( $row->User == 'system user' &&
-				$row->State != 'Waiting for master to send event' &&
-				$row->State != 'Connecting to master' &&
-				$row->State != 'Queueing master event to the relay log' &&
-				$row->State != 'Waiting for master update' &&
-				$row->State != 'Requesting binlog dump' &&
-				$row->State != 'Waiting to reconnect after a failed master event read' &&
-				$row->State != 'Reconnecting after a failed master event read' &&
-				$row->State != 'Registering slave on master'
-			) {
-				# This is it, return the time (except -ve)
-				if ( $row->Time > 0x7fffffff ) {
-					return false;
-				} else {
-					return $row->Time;
-				}
-			}
-		}
-
-		return false;
-	}
-
-	/**
 	 * Wait for the slave to catch up to a given master position.
 	 * @todo Return values for this and base class are rubbish
 	 *
@@ -847,8 +806,8 @@ abstract class DatabaseMysqlBase extends DatabaseBase {
 	/**
 	 * Check to see if a named lock is available. This is non-blocking.
 	 *
-	 * @param string $lockName name of lock to poll
-	 * @param string $method name of method calling us
+	 * @param string $lockName Name of lock to poll
+	 * @param string $method Name of method calling us
 	 * @return bool
 	 * @since 1.20
 	 */
@@ -942,7 +901,6 @@ abstract class DatabaseMysqlBase extends DatabaseBase {
 
 	/**
 	 * @param bool $value
-	 * @return mixed null|bool|ResultWrapper
 	 */
 	public function setBigSelects( $value = true ) {
 		if ( $value === 'default' ) {
@@ -961,12 +919,12 @@ abstract class DatabaseMysqlBase extends DatabaseBase {
 
 	/**
 	 * DELETE where the condition is a join. MySql uses multi-table deletes.
-	 * @param $delTable string
-	 * @param $joinTable string
-	 * @param $delVar string
-	 * @param $joinVar string
-	 * @param $conds array|string
-	 * @param bool|string $fname bool
+	 * @param string $delTable
+	 * @param string $joinTable
+	 * @param string $delVar
+	 * @param string $joinVar
+	 * @param array|string $conds
+	 * @param bool|string $fname
 	 * @throws DBUnexpectedError
 	 * @return bool|ResultWrapper
 	 */
@@ -1109,8 +1067,8 @@ abstract class DatabaseMysqlBase extends DatabaseBase {
 	}
 
 	/**
-	 * @param $tableName
-	 * @param $fName string
+	 * @param string $tableName
+	 * @param string $fName
 	 * @return bool|ResultWrapper
 	 */
 	public function dropTable( $tableName, $fName = __METHOD__ ) {
@@ -1282,7 +1240,7 @@ class MySQLMasterPos implements DBMasterPos {
 	/** @var string */
 	public $file;
 
-	/** @var int timestamp */
+	/** @var int Timestamp */
 	public $pos;
 
 	function __construct( $file, $pos ) {
@@ -1296,7 +1254,7 @@ class MySQLMasterPos implements DBMasterPos {
 	}
 
 	/**
-	 * @return array|false (int, int)
+	 * @return array|bool (int, int)
 	 */
 	protected function getCoordinates() {
 		$m = array();

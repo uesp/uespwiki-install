@@ -51,7 +51,8 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 	/* Test Methods */
 
 	/**
-	 * Ensures that the ResourceLoaderRegisterModules hook is called when a new ResourceLoader object is constructed
+	 * Ensures that the ResourceLoaderRegisterModules hook is called when a new
+	 * ResourceLoader object is constructed.
 	 * @covers ResourceLoader::__construct
 	 */
 	public function testCreatingNewResourceLoaderCallsRegistrationHook() {
@@ -88,6 +89,47 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		$module->setName( 'test.less' );
 		$styles = $module->getStyles( $context );
 		$this->assertStringEqualsFile( $basePath . '/styles.css', $styles['all'] );
+	}
+
+	/**
+	 * Strip @noflip annotations from CSS code.
+	 * @param string $css
+	 * @return string
+	 */
+	private function stripNoflip( $css ) {
+		return str_replace( '/*@noflip*/ ', '', $css );
+	}
+
+	/**
+	 * What happens when you mix @embed and @noflip?
+	 * This really is an integration test, but oh well.
+	 */
+	public function testMixedCssAnnotations(  ) {
+		$basePath = __DIR__ . '/../../data/css';
+		$testModule = new ResourceLoaderFileModule( array(
+			'localBasePath' => $basePath,
+			'styles' => array( 'test.css' ),
+		) );
+		$expectedModule = new ResourceLoaderFileModule( array(
+			'localBasePath' => $basePath,
+			'styles' => array( 'expected.css' ),
+		) );
+
+		$contextLtr = self::getResourceLoaderContext( 'en' );
+		$contextRtl = self::getResourceLoaderContext( 'he' );
+
+		// Since we want to compare the effect of @noflip+@embed against the effect of just @embed, and
+		// the @noflip annotations are always preserved, we need to strip them first.
+		$this->assertEquals(
+			$expectedModule->getStyles( $contextLtr ),
+			$this->stripNoflip( $testModule->getStyles( $contextLtr ) ),
+			"/*@noflip*/ with /*@embed*/ gives correct results in LTR mode"
+		);
+		$this->assertEquals(
+			$expectedModule->getStyles( $contextLtr ),
+			$this->stripNoflip( $testModule->getStyles( $contextRtl ) ),
+			"/*@noflip*/ with /*@embed*/ gives correct results in RTL mode"
+		);
 	}
 
 	/**
@@ -129,6 +171,76 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 				'single.module|foobar,foobaz',
 			),
 		);
+	}
+
+	public static function provideAddSource() {
+		return array(
+			array( 'examplewiki', '//example.org/w/load.php', 'examplewiki' ),
+			array( 'example2wiki', array( 'loadScript' => '//example.com/w/load.php' ), 'example2wiki' ),
+			array(
+				array( 'foowiki' => '//foo.org/w/load.php', 'bazwiki' => '//baz.org/w/load.php' ),
+				null,
+				array( 'foowiki', 'bazwiki' )
+			),
+			array(
+				array( 'foowiki' => '//foo.org/w/load.php' ),
+				null,
+				false,
+			),
+		);
+	}
+
+	/**
+	 * @dataProvider provideAddSource
+	 * @covers ResourceLoader::addSource
+	 */
+	public function testAddSource( $name, $info, $expected ) {
+		$rl = new ResourceLoader;
+		if ( $expected === false ) {
+			$this->setExpectedException( 'MWException', 'ResourceLoader duplicate source addition error' );
+			$rl->addSource( $name, $info );
+		}
+		$rl->addSource( $name, $info );
+		if ( is_array( $expected ) ) {
+			foreach ( $expected as $source ) {
+				$this->assertArrayHasKey( $source, $rl->getSources() );
+			}
+		} else {
+			$this->assertArrayHasKey( $expected, $rl->getSources() );
+		}
+	}
+
+	public static function fakeSources() {
+		return array(
+			'examplewiki' => array(
+				'loadScript' => '//example.org/w/load.php',
+				'apiScript' => '//example.org/w/api.php',
+			),
+			'example2wiki' => array(
+				'loadScript' => '//example.com/w/load.php',
+				'apiScript' => '//example.com/w/api.php',
+			),
+		);
+	}
+
+	/**
+	 * @covers ResourceLoader::getLoadScript
+	 */
+	public function testGetLoadScript() {
+		$this->setMwGlobals( 'wgResourceLoaderSources', array() );
+		$rl = new ResourceLoader();
+		$sources = self::fakeSources();
+		$rl->addSource( $sources );
+		foreach ( array( 'examplewiki', 'example2wiki' ) as $name ) {
+			$this->assertEquals( $rl->getLoadScript( $name ), $sources[$name]['loadScript'] );
+		}
+
+		try {
+			$rl->getLoadScript( 'thiswasneverreigstered' );
+			$this->assertTrue( false, 'ResourceLoader::getLoadScript should have thrown an exception' );
+		} catch ( MWException $e ) {
+			$this->assertTrue( true );
+		}
 	}
 }
 

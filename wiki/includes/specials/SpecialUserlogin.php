@@ -41,6 +41,29 @@ class LoginForm extends SpecialPage {
 	const USER_BLOCKED = 11;
 	const NEED_TOKEN = 12;
 	const WRONG_TOKEN = 13;
+	const USER_MIGRATED = 14;
+
+	/**
+	 * Valid error and warning messages
+	 *
+	 * Special:Userlogin can show an error or warning message on the form when
+	 * coming from another page. This is done via the ?error= or ?warning= GET
+	 * parameters.
+	 *
+	 * This array is the list of valid message keys. All other values will be
+	 * ignored.
+	 *
+	 * @since 1.24
+	 * @var string[]
+	 */
+	public static $validErrorMessages = array(
+		'exception-nologin-text',
+		'watchlistanontext',
+		'changeemail-no-info',
+		'resetpass-no-info',
+		'confirmemail_needlogin',
+		'prefsnologintext2',
+	);
 
 	public $mAbortLoginErrorMsg = null;
 
@@ -65,6 +88,8 @@ class LoginForm extends SpecialPage {
 	protected $mType;
 	protected $mReason;
 	protected $mRealName;
+	protected $mEntryError = '';
+	protected $mEntryErrorType = 'error';
 
 	private $mTempPasswordUsed;
 	private $mLoaded = false;
@@ -128,6 +153,37 @@ class LoginForm extends SpecialPage {
 		$this->mReturnTo = $request->getVal( 'returnto', '' );
 		$this->mReturnToQuery = $request->getVal( 'returntoquery', '' );
 
+		// Show an error or warning passed on from a previous page
+		$entryError = $this->msg( $request->getVal( 'error', '' ) );
+		$entryWarning = $this->msg( $request->getVal( 'warning', '' ) );
+		// bc: provide login link as a parameter for messages where the translation
+		// was not updated
+		$loginreqlink = Linker::linkKnown(
+			$this->getPageTitle(),
+			$this->msg( 'loginreqlink' )->escaped(),
+			array(),
+			array(
+				'returnto' => $this->mReturnTo,
+				'returntoquery' => $this->mReturnToQuery,
+				'uselang' => $this->mLanguage,
+				'fromhttp' => $this->mFromHTTP ? '1' : '0',
+			)
+		);
+
+		// Only show valid error or warning messages.
+		if ( $entryError->exists()
+			&& in_array( $entryError->getKey(), self::$validErrorMessages )
+		) {
+			$this->mEntryErrorType = 'error';
+			$this->mEntryError = $entryError->rawParams( $loginreqlink )->escaped();
+
+		} elseif ( $entryWarning->exists()
+			&& in_array( $entryWarning->getKey(), self::$validErrorMessages )
+		) {
+			$this->mEntryErrorType = 'warning';
+			$this->mEntryError = $entryWarning->rawParams( $loginreqlink )->escaped();
+		}
+
 		if ( $wgEnableEmail ) {
 			$this->mEmail = $request->getText( 'wpEmail' );
 		} else {
@@ -165,8 +221,8 @@ class LoginForm extends SpecialPage {
 		}
 	}
 
-	/*
-	 * @param $subPage string|null
+	/**
+	 * @param string|null $subPage
 	 */
 	public function execute( $subPage ) {
 		if ( session_id() == '' ) {
@@ -182,6 +238,22 @@ class LoginForm extends SpecialPage {
 		}
 		$this->setHeaders();
 
+		// In the case where the user is already logged in, and was redirected to the login form from a
+		// page that requires login, do not show the login page. The use case scenario for this is when
+		// a user opens a large number of tabs, is redirected to the login page on all of them, and then
+		// logs in on one, expecting all the others to work properly.
+		//
+		// However, do show the form if it was visited intentionally (no 'returnto' is present). People
+		// who often switch between several accounts have grown accustomed to this behavior.
+		if (
+			$this->mType !== 'signup' &&
+			!$this->mPosted &&
+			$this->getUser()->isLoggedIn() &&
+			( $this->mReturnTo !== '' || $this->mReturnToQuery !== '' )
+		) {
+			$this->successfulLogin();
+		}
+
 		// If logging in and not on HTTPS, either redirect to it or offer a link.
 		global $wgSecureLogin;
 		if ( $this->mRequest->getProtocol() !== 'https' ) {
@@ -191,9 +263,13 @@ class LoginForm extends SpecialPage {
 				'returntoquery' => $this->mReturnToQuery !== '' ?
 					$this->mReturnToQuery : null,
 				'title' => null,
+				( $this->mEntryErrorType === 'error' ? 'error' : 'warning' ) => $this->mEntryError,
 			) + $this->mRequest->getQueryValues();
 			$url = $title->getFullURL( $query, false, PROTO_HTTPS );
-			if ( $wgSecureLogin && wfCanIPUseHTTPS( $this->getRequest()->getIP() ) ) {
+			if ( $wgSecureLogin
+				&& wfCanIPUseHTTPS( $this->getRequest()->getIP() )
+				&& !$this->mFromHTTP ) // Avoid infinite redirect
+			{
 				$url = wfAppendQuery( $url, 'fromhttp=1' );
 				$this->getOutput()->redirect( $url );
 				// Since we only do this redir to change proto, always vary
@@ -229,7 +305,7 @@ class LoginForm extends SpecialPage {
 				return;
 			}
 		}
-		$this->mainLoginForm( '' );
+		$this->mainLoginForm( $this->mEntryError, $this->mEntryErrorType );
 	}
 
 	/**
@@ -435,7 +511,11 @@ class LoginForm extends SpecialPage {
 
 		// Normalize the name so that silly things don't cause "invalid username"
 		// errors. User::newFromName does some rather strict checking, rejecting
-		// e.g. leading/trailing/multiple spaces.
+		// e.g. leading/trailing/multiple spaces. But first we need to reject
+		// usernames that would be treated as titles with a fragment part.
+		if ( strpos( $this->mUsername, '#' ) !== false ) {
+			return Status::newFatal( 'noname' );
+		}
 		$title = Title::makeTitleSafe( NS_USER, $this->mUsername );
 		if ( !is_object( $title ) ) {
 			return Status::newFatal( 'noname' );
@@ -458,14 +538,11 @@ class LoginForm extends SpecialPage {
 				return Status::newFatal( 'badretype' );
 			}
 
-			# check for minimal password length
-			$valid = $u->getPasswordValidity( $this->mPassword );
-			if ( $valid !== true ) {
-				if ( !is_array( $valid ) ) {
-					$valid = array( $valid, $wgMinimalPasswordLength );
-				}
-
-				return call_user_func_array( 'Status::newFatal', $valid );
+			# check for password validity, return a fatal Status if invalid
+			$validity = $u->checkPasswordValidity( $this->mPassword );
+			if ( !$validity->isGood() ) {
+				$validity->ok = false; // make sure this Status is fatal
+				return $validity;
 			}
 		}
 
@@ -536,9 +613,9 @@ class LoginForm extends SpecialPage {
 	 * Actually add a user to the database.
 	 * Give it a User object that has been initialised with a name.
 	 *
-	 * @param $u User object.
-	 * @param $autocreate boolean -- true if this is an autocreation via auth plugin
-	 * @return Status object, with the User object in the value member on success
+	 * @param User $u
+	 * @param bool $autocreate True if this is an autocreation via auth plugin
+	 * @return Status Status object, with the User object in the value member on success
 	 * @private
 	 */
 	function initUser( $u, $autocreate ) {
@@ -626,6 +703,14 @@ class LoginForm extends SpecialPage {
 		}
 
 		$u = User::newFromName( $this->mUsername );
+
+		// Give extensions a way to indicate the username has been updated,
+		// rather than telling the user the account doesn't exist.
+		if ( !wfRunHooks( 'LoginUserMigrated', array( $u, &$msg ) ) ) {
+			$this->mAbortLoginErrorMsg = $msg;
+			return self::USER_MIGRATED;
+		}
+
 		if ( !( $u instanceof User ) || !User::isUsableName( $u->getName() ) ) {
 			return self::ILLEGAL;
 		}
@@ -720,7 +805,7 @@ class LoginForm extends SpecialPage {
 	 * Increment the login attempt throttle hit count for the (username,current IP)
 	 * tuple unless the throttle was already reached.
 	 * @param string $username The user name
-	 * @return Bool|Integer The integer hit count or True if it is already at the limit
+	 * @return bool|int The integer hit count or True if it is already at the limit
 	 */
 	public static function incLoginThrottle( $username ) {
 		global $wgPasswordAttemptThrottle, $wgMemc, $wgRequest;
@@ -762,9 +847,9 @@ class LoginForm extends SpecialPage {
 	 * Attempt to automatically create a user on login. Only succeeds if there
 	 * is an external authentication method which allows it.
 	 *
-	 * @param $user User
+	 * @param User $user
 	 *
-	 * @return integer Status code
+	 * @return int Status code
 	 */
 	function attemptAutoCreate( $user ) {
 		global $wgAuth;
@@ -922,7 +1007,17 @@ class LoginForm extends SpecialPage {
 				break;
 			case self::ABORTED:
 				$error = $this->mAbortLoginErrorMsg ?: 'login-abort-generic';
-				$this->mainLoginForm( $this->msg( $error )->text() );
+				$this->mainLoginForm( $this->msg( $error,
+						wfEscapeWikiText( $this->mUsername ) )->text() );
+				break;
+			case self::USER_MIGRATED:
+				$error = $this->mAbortLoginErrorMsg ?: 'login-migrated-generic';
+				$params = array();
+				if ( is_array( $error ) ) {
+					$error = array_shift( $this->mAbortLoginErrorMsg );
+					$params = $this->mAbortLoginErrorMsg;
+				}
+				$this->mainLoginForm( $this->msg( $error, $params )->text() );
 				break;
 			default:
 				throw new MWException( 'Unhandled case value' );
@@ -948,11 +1043,11 @@ class LoginForm extends SpecialPage {
 	}
 
 	/**
-	 * @param $u User object
-	 * @param $throttle Boolean
-	 * @param string $emailTitle message name of email title
-	 * @param string $emailText message name of email text
-	 * @return Status object
+	 * @param User $u
+	 * @param bool $throttle
+	 * @param string $emailTitle Message name of email title
+	 * @param string $emailText Message name of email text
+	 * @return Status
 	 */
 	function mailPasswordInternal( $u, $throttle = true, $emailTitle = 'passwordremindertitle',
 		$emailText = 'passwordremindertext'
@@ -1002,7 +1097,7 @@ class LoginForm extends SpecialPage {
 		wfRunHooks( 'UserLoginComplete', array( &$currentUser, &$injected_html ) );
 
 		if ( $injected_html !== '' ) {
-			$this->displaySuccessfulAction( $this->msg( 'loginsuccesstitle' ),
+			$this->displaySuccessfulAction( 'success', $this->msg( 'loginsuccesstitle' ),
 				'loginsuccess', $injected_html );
 		} else {
 			$this->executeReturnTo( 'successredirect' );
@@ -1030,18 +1125,22 @@ class LoginForm extends SpecialPage {
 		 */
 		wfRunHooks( 'BeforeWelcomeCreation', array( &$welcome_creation_msg, &$injected_html ) );
 
-		$this->displaySuccessfulAction( $this->msg( 'welcomeuser', $this->getUser()->getName() ),
-			$welcome_creation_msg, $injected_html );
+		$this->displaySuccessfulAction(
+			'signup',
+			$this->msg( 'welcomeuser', $this->getUser()->getName() ),
+			$welcome_creation_msg, $injected_html
+		);
 	}
 
 	/**
-	 * Display an "successful action" page.
+	 * Display a "successful action" page.
 	 *
-	 * @param string|Message $title page's title
-	 * @param $msgname string
-	 * @param $injected_html string
+	 * @param string $type Condition of return to; see `executeReturnTo`
+	 * @param string|Message $title Page's title
+	 * @param string $msgname
+	 * @param string $injected_html
 	 */
-	private function displaySuccessfulAction( $title, $msgname, $injected_html ) {
+	private function displaySuccessfulAction( $type, $title, $msgname, $injected_html ) {
 		$out = $this->getOutput();
 		$out->setPageTitle( $title );
 		if ( $msgname ) {
@@ -1050,7 +1149,7 @@ class LoginForm extends SpecialPage {
 
 		$out->addHTML( $injected_html );
 
-		$this->executeReturnTo( 'success' );
+		$this->executeReturnTo( $type );
 	}
 
 	/**
@@ -1058,7 +1157,7 @@ class LoginForm extends SpecialPage {
 	 * there is a block on them or their IP which prevents account creation.  Note that
 	 * User::isBlockedFromCreateAccount(), which gets this block, ignores the 'hardblock'
 	 * setting on blocks (bug 13611).
-	 * @param $block Block the block causing this error
+	 * @param Block $block The block causing this error
 	 * @throws ErrorPageError
 	 */
 	function userBlockedMessage( Block $block ) {
@@ -1094,8 +1193,9 @@ class LoginForm extends SpecialPage {
 	 * Extensions can use this to reuse the "return to" logic after
 	 * inject steps (such as redirection) into the login process.
 	 *
-	 * @param $type string, one of the following:
+	 * @param string $type One of the following:
 	 *    - error: display a return to link ignoring $wgRedirectOnLogin
+	 *    - signup: display a return to link using $wgRedirectOnLogin if needed
 	 *    - success: display a return to link using $wgRedirectOnLogin if needed
 	 *    - successredirect: send an HTTP redirect using $wgRedirectOnLogin if needed
 	 * @param string $returnTo
@@ -1115,8 +1215,9 @@ class LoginForm extends SpecialPage {
 	/**
 	 * Add a "return to" link or redirect to it.
 	 *
-	 * @param $type string, one of the following:
+	 * @param string $type One of the following:
 	 *    - error: display a return to link ignoring $wgRedirectOnLogin
+	 *    - signup: display a return to link using $wgRedirectOnLogin if needed
 	 *    - success: display a return to link using $wgRedirectOnLogin if needed
 	 *    - successredirect: send an HTTP redirect using $wgRedirectOnLogin if needed
 	 */
@@ -1130,6 +1231,9 @@ class LoginForm extends SpecialPage {
 			$returnTo = $this->mReturnTo;
 			$returnToQuery = wfCgiToArray( $this->mReturnToQuery );
 		}
+
+		// Allow modification of redirect behavior
+		wfRunHooks( 'PostLoginRedirect', array( &$returnTo, &$returnToQuery, &$type ) );
 
 		$returnToTitle = Title::newFromText( $returnTo );
 		if ( !$returnToTitle ) {
@@ -1156,6 +1260,8 @@ class LoginForm extends SpecialPage {
 	}
 
 	/**
+	 * @param string $msg
+	 * @param string $msgtype
 	 * @private
 	 */
 	function mainLoginForm( $msg, $msgtype = 'error' ) {
@@ -1197,6 +1303,8 @@ class LoginForm extends SpecialPage {
 		$out->addModuleStyles( array(
 			'mediawiki.ui',
 			'mediawiki.ui.button',
+			'mediawiki.ui.checkbox',
+			'mediawiki.ui.input',
 			'mediawiki.special.userlogin.common.styles'
 		) );
 		$out->addModules( array(
@@ -1344,7 +1452,7 @@ class LoginForm extends SpecialPage {
 	 * Whether the login/create account form should display a link to the
 	 * other form (in addition to whatever the skin provides).
 	 *
-	 * @param $user User
+	 * @param User $user
 	 * @return bool
 	 */
 	private function showCreateOrLoginLink( &$user ) {
@@ -1375,7 +1483,7 @@ class LoginForm extends SpecialPage {
 
 	/**
 	 * Get the login token from the current session
-	 * @return Mixed
+	 * @return mixed
 	 */
 	public static function getLoginToken() {
 		global $wgRequest;
@@ -1403,7 +1511,7 @@ class LoginForm extends SpecialPage {
 
 	/**
 	 * Get the createaccount token from the current session
-	 * @return Mixed
+	 * @return mixed
 	 */
 	public static function getCreateaccountToken() {
 		global $wgRequest;
@@ -1440,6 +1548,7 @@ class LoginForm extends SpecialPage {
 	}
 
 	/**
+	 * @param string $type
 	 * @private
 	 */
 	function cookieRedirectCheck( $type ) {
@@ -1455,6 +1564,7 @@ class LoginForm extends SpecialPage {
 	}
 
 	/**
+	 * @param string $type
 	 * @private
 	 */
 	function onCookieRedirectCheck( $type ) {

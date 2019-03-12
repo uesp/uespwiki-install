@@ -146,7 +146,8 @@ class SwiftFileBackend extends FileBackendStore {
 	}
 
 	public function getFeatures() {
-		return ( FileBackend::ATTR_HEADERS | FileBackend::ATTR_METADATA );
+		return ( FileBackend::ATTR_UNICODE_PATHS |
+			FileBackend::ATTR_HEADERS | FileBackend::ATTR_METADATA );
 	}
 
 	protected function resolveContainerPath( $container, $relStoragePath ) {
@@ -172,7 +173,7 @@ class SwiftFileBackend extends FileBackendStore {
 	 * Sanitize and filter the custom headers from a $params array.
 	 * We only allow certain Content- and X-Content- headers.
 	 *
-	 * @param array $headers
+	 * @param array $params
 	 * @return array Sanitized value of 'headers' field in $params
 	 */
 	protected function sanitizeHdrs( array $params ) {
@@ -1064,11 +1065,15 @@ class SwiftFileBackend extends FileBackendStore {
 		foreach ( $reqs as $path => $op ) {
 			list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $op['response'];
 			fclose( $op['stream'] ); // close open handle
-			if ( $rcode >= 200 && $rcode <= 299
-				// double check that the disk is not full/broken
-				&& $tmpFiles[$path]->getSize() == $rhdrs['content-length']
-			) {
-				// good
+			if ( $rcode >= 200 && $rcode <= 299 ) {
+				$size = $tmpFiles[$path] ? $tmpFiles[$path]->getSize() : 0;
+				// Double check that the disk is not full/broken
+				if ( $size != $rhdrs['content-length'] ) {
+					$tmpFiles[$path] = null;
+					$rerr = "Got {$size}/{$rhdrs['content-length']} bytes";
+					$this->onError( null, __METHOD__,
+						array( 'src' => $path ) + $ep, $rerr, $rcode, $rdesc );
+				}
 			} elseif ( $rcode === 404 ) {
 				$tmpFiles[$path] = false;
 			} else {
@@ -1394,7 +1399,7 @@ class SwiftFileBackend extends FileBackendStore {
 	 *
 	 * @param string $fullCont
 	 * @param string $type ('info' for a list of object detail maps, 'names' for names only)
-	 * @param integer $limit
+	 * @param int $limit
 	 * @param string|null $after
 	 * @param string|null $prefix
 	 * @param string|null $delim
@@ -1516,7 +1521,7 @@ class SwiftFileBackend extends FileBackendStore {
 					'mtime' => $this->convertSwiftDate( $rhdrs['last-modified'], TS_MW ),
 					// Empty objects actually return no content-length header in Ceph
 					'size'  => isset( $rhdrs['content-length'] ) ? (int)$rhdrs['content-length'] : 0,
-					'sha1'  => $rhdrs[ 'x-object-meta-sha1base36'],
+					'sha1'  => $rhdrs['x-object-meta-sha1base36'],
 					// Note: manifiest ETags are not an MD5 of the file
 					'md5'   => ctype_xdigit( $rhdrs['etag'] ) ? $rhdrs['etag'] : null,
 					'xattr' => array( 'metadata' => $metadata, 'headers' => $headers )
@@ -1641,7 +1646,7 @@ class SwiftFileBackend extends FileBackendStore {
 	 * @param string $func
 	 * @param array $params
 	 * @param string $err Error string
-	 * @param integer $code HTTP status
+	 * @param int $code HTTP status
 	 * @param string $desc HTTP status description
 	 */
 	public function onError( $status, $func, array $params, $err = '', $code = 0, $desc = '' ) {
@@ -1786,7 +1791,7 @@ abstract class SwiftFileBackendList implements Iterator {
 	 *
 	 * @param string $container Resolved container name
 	 * @param string $dir Resolved path relative to container
-	 * @param string $after null
+	 * @param string $after
 	 * @param int $limit
 	 * @param array $params
 	 * @return Traversable|array

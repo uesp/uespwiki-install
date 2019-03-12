@@ -10,7 +10,7 @@
  * @author Nimish Gautam <nimish@wikimedia.org>
  * @author Adam Miller <amiller@wikimedia.org>
  * @license GPL v2 or later
- * @version 0.3.1
+ * @version 0.4.0
  */
 
 /* Configuration */
@@ -140,6 +140,8 @@ $wgResourceModules += array(
 		'dependencies' => array(
 			'jquery.wikiEditor',
 			'jquery.wikiEditor.toolbar.i18n',
+			'jquery.cookie',
+			'jquery.async',
 		),
 	),
 	'jquery.wikiEditor.toolbar.config' => $wikiEditorTpl + array(
@@ -148,8 +150,6 @@ $wgResourceModules += array(
 			'jquery.wikiEditor',
 			'jquery.wikiEditor.toolbar.i18n',
 			'jquery.wikiEditor.toolbar',
-			'jquery.cookie',
-			'jquery.async',
 		)
 	),
 	'jquery.wikiEditor.toolbar.i18n' => $wikiEditorTpl + array(
@@ -424,6 +424,9 @@ $wgResourceModules += array(
 			'jquery.wikiEditor.toolbar',
 			'jquery.wikiEditor.toolbar.config',
 		)
+	),
+	'ext.wikiEditor.toolbar.styles' => $wikiEditorTpl + array(
+		'styles' => 'ext.wikiEditor.toolbar.styles.css',
 	),
 	'ext.wikiEditor.toolbar.hideSig' => $wikiEditorTpl + array(
 		'scripts' => 'ext.wikiEditor.toolbar.hideSig.js',

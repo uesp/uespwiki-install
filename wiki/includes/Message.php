@@ -175,9 +175,15 @@ class Message {
 	protected $language = null;
 
 	/**
-	 * @var string|string[] The message key or array of keys.
+	 * @var string The message key. If $keysToTry has more than one element,
+	 * this may change to one of the keys to try when fetching the message text.
 	 */
 	protected $key;
+
+	/**
+	 * @var string[] List of keys to try when fetching the message.
+	 */
+	protected $keysToTry;
 
 	/**
 	 * @var array List of parameters which will be substituted into the message.
@@ -224,30 +230,61 @@ class Message {
 	 * non-empty message for.
 	 * @param array $params Message parameters.
 	 * @param Language $language Optional language of the message, defaults to $wgLang.
+	 *
+	 * @throws InvalidArgumentException
 	 */
 	public function __construct( $key, $params = array(), Language $language = null ) {
 		global $wgLang;
 
-		$this->key = $key;
+		if ( !is_string( $key ) && !is_array( $key ) ) {
+			throw new InvalidArgumentException( '$key must be a string or an array' );
+		}
+
+		$this->keysToTry = (array)$key;
+
+		if ( empty( $this->keysToTry ) ) {
+			throw new InvalidArgumentException( '$key must not be an empty list' );
+		}
+
+		$this->key = reset( $this->keysToTry );
+
 		$this->parameters = array_values( $params );
 		$this->language = $language ? $language : $wgLang;
 	}
 
 	/**
-	 * Returns the message key or the first from an array of message keys.
+	 * @since 1.24
+	 *
+	 * @return bool True if this is a multi-key message, that is, if the key provided to the
+	 * constructor was a fallback list of keys to try.
+	 */
+	public function isMultiKey() {
+		return count( $this->keysToTry ) > 1;
+	}
+
+	/**
+	 * @since 1.24
+	 *
+	 * @return string[] The list of keys to try when fetching the message text,
+	 * in order of preference.
+	 */
+	public function getKeysToTry() {
+		return $this->keysToTry;
+	}
+
+	/**
+	 * Returns the message key.
+	 *
+	 * If a list of multiple possible keys was supplied to the constructor, this method may
+	 * return any of these keys. After the message ahs been fetched, this method will return
+	 * the key that was actually used to fetch the message.
 	 *
 	 * @since 1.21
 	 *
 	 * @return string
 	 */
 	public function getKey() {
-		if ( is_array( $this->key ) ) {
-			// May happen if some kind of fallback is applied.
-			// For now, just use the first key. We really need a better solution.
-			return $this->key[0];
-		} else {
-			return $this->key;
-		}
+		return $this->key;
 	}
 
 	/**
@@ -291,7 +328,7 @@ class Message {
 	 * @since 1.17
 	 *
 	 * @param string|string[] $key Message key or array of keys.
-	 * @param mixed [$param,...] Parameters as strings.
+	 * @param mixed $param,... Parameters as strings.
 	 *
 	 * @return Message
 	 */
@@ -308,7 +345,7 @@ class Message {
 	 *
 	 * @since 1.18
 	 *
-	 * @param string|string[] [$keys,...] Message keys, or first argument as an array of all the
+	 * @param string|string[] $keys,... Message keys, or first argument as an array of all the
 	 * message keys.
 	 *
 	 * @return Message
@@ -332,7 +369,7 @@ class Message {
 	 *
 	 * @since 1.17
 	 *
-	 * @param mixed [$params,...] Parameters as strings, or a single argument that is
+	 * @param mixed $params,... Parameters as strings, or a single argument that is
 	 * an array of strings.
 	 *
 	 * @return Message $this
@@ -355,7 +392,7 @@ class Message {
 	 *
 	 * @since 1.17
 	 *
-	 * @param mixed [$params,...] Raw parameters as strings, or a single argument that is
+	 * @param mixed $params,... Raw parameters as strings, or a single argument that is
 	 * an array of raw parameters.
 	 *
 	 * @return Message $this
@@ -377,7 +414,7 @@ class Message {
 	 *
 	 * @since 1.18
 	 *
-	 * @param mixed [$param,...] Numeric parameters, or a single argument that is
+	 * @param mixed $param,... Numeric parameters, or a single argument that is
 	 * an array of numeric parameters.
 	 *
 	 * @return Message $this
@@ -399,7 +436,7 @@ class Message {
 	 *
 	 * @since 1.22
 	 *
-	 * @param int|int[] [$param,...] Duration parameters, or a single argument that is
+	 * @param int|int[] $param,... Duration parameters, or a single argument that is
 	 * an array of duration parameters.
 	 *
 	 * @return Message $this
@@ -421,7 +458,7 @@ class Message {
 	 *
 	 * @since 1.22
 	 *
-	 * @param string|string[] [$param,...] Expiry parameters, or a single argument that is
+	 * @param string|string[] $param,... Expiry parameters, or a single argument that is
 	 * an array of expiry parameters.
 	 *
 	 * @return Message $this
@@ -443,7 +480,7 @@ class Message {
 	 *
 	 * @since 1.22
 	 *
-	 * @param number|number[] [$param,...] Time period parameters, or a single argument that is
+	 * @param int|int[] $param,... Time period parameters, or a single argument that is
 	 * an array of time period parameters.
 	 *
 	 * @return Message $this
@@ -465,7 +502,7 @@ class Message {
 	 *
 	 * @since 1.22
 	 *
-	 * @param int|int[] [$param,...] Size parameters, or a single argument that is
+	 * @param int|int[] $param,... Size parameters, or a single argument that is
 	 * an array of size parameters.
 	 *
 	 * @return Message $this
@@ -487,7 +524,7 @@ class Message {
 	 *
 	 * @since 1.22
 	 *
-	 * @param int|int[] [$param,...] Bit rate parameters, or a single argument that is
+	 * @param int|int[] $param,... Bit rate parameters, or a single argument that is
 	 * an array of bit rate parameters.
 	 *
 	 * @return Message $this
@@ -508,7 +545,7 @@ class Message {
 	 *
 	 * @since 1.19
 	 *
-	 * @param $context IContextSource
+	 * @param IContextSource $context
 	 *
 	 * @return Message $this
 	 */
@@ -545,6 +582,7 @@ class Message {
 				. "passed a String or Language object; $type given"
 			);
 		}
+		$this->message = null;
 		$this->interface = false;
 		return $this;
 	}
@@ -565,8 +603,7 @@ class Message {
 		}
 
 		global $wgContLang;
-		$this->interface = false;
-		$this->language = $wgContLang;
+		$this->inLanguage( $wgContLang );
 		return $this;
 	}
 
@@ -604,7 +641,7 @@ class Message {
 	 *
 	 * @since 1.18
 	 *
-	 * @param $title Title object
+	 * @param Title $title
 	 *
 	 * @return Message $this
 	 */
@@ -637,7 +674,7 @@ class Message {
 		$string = $this->fetchMessage();
 
 		if ( $string === false ) {
-			$key = htmlspecialchars( is_array( $this->key ) ? $this->key[0] : $this->key );
+			$key = htmlspecialchars( $this->key );
 			if ( $this->format === 'plain' ) {
 				return '<' . $key . '>';
 			}
@@ -659,10 +696,7 @@ class Message {
 		# Maybe transform using the full parser
 		if ( $this->format === 'parse' ) {
 			$string = $this->parseText( $string );
-			$m = array();
-			if ( preg_match( '/^<p>(.*)\n?<\/p>\n?$/sU', $string, $m ) ) {
-				$string = $m[1];
-			}
+			$string = Parser::stripOuterParagraph( $string );
 		} elseif ( $this->format === 'block-parse' ) {
 			$string = $this->parseText( $string );
 		} elseif ( $this->format === 'text' ) {
@@ -890,7 +924,7 @@ class Message {
 	 * @param string $message The message text.
 	 * @param string $type Either "before" or "after".
 	 *
-	 * @return String
+	 * @return string
 	 */
 	protected function replaceParameters( $message, $type = 'before' ) {
 		$replacementKeys = array();
@@ -960,7 +994,14 @@ class Message {
 	 * @return string Wikitext parsed into HTML.
 	 */
 	protected function parseText( $string ) {
-		$out = MessageCache::singleton()->parse( $string, $this->title, /*linestart*/true, $this->interface, $this->language );
+		$out = MessageCache::singleton()->parse(
+			$string,
+			$this->title,
+			/*linestart*/true,
+			$this->interface,
+			$this->language
+		);
+
 		return $out instanceof ParserOutput ? $out->getText() : $out;
 	}
 
@@ -974,7 +1015,12 @@ class Message {
 	 * @return string Wikitext with {{-constructs replaced with their values.
 	 */
 	protected function transformText( $string ) {
-		return MessageCache::singleton()->transform( $string, $this->interface, $this->language, $this->title );
+		return MessageCache::singleton()->transform(
+			$string,
+			$this->interface,
+			$this->language,
+			$this->title
+		);
 	}
 
 	/**
@@ -986,22 +1032,20 @@ class Message {
 	 * @throws MWException If message key array is empty.
 	 */
 	protected function fetchMessage() {
-		if ( !isset( $this->message ) ) {
+		if ( $this->message === null ) {
 			$cache = MessageCache::singleton();
-			if ( is_array( $this->key ) ) {
-				if ( !count( $this->key ) ) {
-					throw new MWException( "Given empty message key array." );
+
+			foreach ( $this->keysToTry as $key ) {
+				$message = $cache->get( $key, $this->useDatabase, $this->language );
+				if ( $message !== false && $message !== '' ) {
+					break;
 				}
-				foreach ( $this->key as $key ) {
-					$message = $cache->get( $key, $this->useDatabase, $this->language );
-					if ( $message !== false && $message !== '' ) {
-						break;
-					}
-				}
-				$this->message = $message;
-			} else {
-				$this->message = $cache->get( $this->key, $this->useDatabase, $this->language );
 			}
+
+			// NOTE: The constructor makes sure keysToTry isn't empty,
+			//       so we know that $key and $message are initialized.
+			$this->key = $key;
+			$this->message = $message;
 		}
 		return $this->message;
 	}
@@ -1029,13 +1073,20 @@ class RawMessage extends Message {
 	 *
 	 * @see Message::__construct
 	 *
-	 * @param string|string[] $key Message to use.
+	 * @param string $text Message to use.
 	 * @param array $params Parameters for the message.
+	 *
+	 * @throws InvalidArgumentException
 	 */
-	public function __construct( $key, $params = array() ) {
-		parent::__construct( $key, $params );
+	public function __construct( $text, $params = array() ) {
+		if ( !is_string( $text ) ) {
+			throw new InvalidArgumentException( '$text must be a string' );
+		}
+
+		parent::__construct( $text, $params );
+
 		// The key is the message.
-		$this->message = $key;
+		$this->message = $text;
 	}
 
 	/**
@@ -1045,9 +1096,10 @@ class RawMessage extends Message {
 	 */
 	public function fetchMessage() {
 		// Just in case the message is unset somewhere.
-		if ( !isset( $this->message ) ) {
+		if ( $this->message === null ) {
 			$this->message = $this->key;
 		}
+
 		return $this->message;
 	}
 

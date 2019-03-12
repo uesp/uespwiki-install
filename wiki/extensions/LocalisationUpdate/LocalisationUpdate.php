@@ -12,13 +12,13 @@ $wgLocalisationUpdateDirectory = false;
 
 /**
  * Default repository source to use.
- * @since 2013-03
+ * @since 2014-03
  */
 $wgLocalisationUpdateRepository = 'github';
 
 /**
  * Available repository sources.
- * @since 2013-03
+ * @since 2014-03
  */
 $wgLocalisationUpdateRepositories = array();
 $wgLocalisationUpdateRepositories['github'] = array(
@@ -40,12 +40,13 @@ $wgExtensionCredits['other'][] = array(
 	'path' => __FILE__,
 	'name' => 'LocalisationUpdate',
 	'author' => array( 'Tom Maaswinkel', 'Niklas Laxström', 'Roan Kattouw' ),
-	'version' => '1.2.0',
+	'version' => '1.3.0',
 	'url' => 'https://www.mediawiki.org/wiki/Extension:LocalisationUpdate',
 	'descriptionmsg' => 'localisationupdate-desc',
 );
 
 $wgHooks['LocalisationCacheRecache'][] = 'LocalisationUpdate::onRecache';
+$wgHooks['LocalisationCacheRecacheFallback'][] = 'LocalisationUpdate::onRecacheFallback';
 
 $dir = __DIR__;
 $wgMessagesDirs['LocalisationUpdate'] = __DIR__ . '/i18n';

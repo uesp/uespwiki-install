@@ -18,7 +18,8 @@ require_once( "$IP/extensions/ConfirmEdit/ConfirmEdit.php" );
 require_once("$IP/extensions/ConfirmEdit/QuestyCaptcha.php");
 $wgCaptchaClass = 'QuestyCaptcha';
 
-# Generate a random string
+# Now a more complicated one
+# Generate a random string 10 characters long
 $myChallengeLength = rand(2, 5);
 $myChallengeIndex = rand(0, 12 - $myChallengeLength);
 $myChallengeString = md5(uniqid(mt_rand(), true));
@@ -116,3 +117,5 @@ require_once( "$IP/extensions/UespLegendsCards/UespLegendsCards.php" );
 require_once( "$IP/extensions/JsonConfig/JsonConfig.php" );
 require_once( "$IP/extensions/Graph/Graph.php" );
 $wgEnableGraphParserTag = true;
+
+REQUIre_once( "$IP/extensions/RecentPopularPages/RecentPopularPages.php");

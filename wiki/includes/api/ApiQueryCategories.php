@@ -31,7 +31,7 @@
  */
 class ApiQueryCategories extends ApiQueryGeneratorBase {
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'cl' );
 	}
 
@@ -48,7 +48,7 @@ class ApiQueryCategories extends ApiQueryGeneratorBase {
 	}
 
 	/**
-	 * @param $resultPageSet ApiPageSet
+	 * @param ApiPageSet $resultPageSet
 	 */
 	private function run( $resultPageSet = null ) {
 		if ( $this->getPageSet()->getGoodTitleCount() == 0 ) {
@@ -234,33 +234,8 @@ class ApiQueryCategories extends ApiQueryGeneratorBase {
 		);
 	}
 
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'ns' => 'namespace',
-				'title' => 'string'
-			),
-			'sortkey' => array(
-				'sortkey' => 'string',
-				'sortkeyprefix' => 'string'
-			),
-			'timestamp' => array(
-				'timestamp' => 'timestamp'
-			),
-			'hidden' => array(
-				'hidden' => 'boolean'
-			)
-		);
-	}
-
 	public function getDescription() {
 		return 'List all categories the page(s) belong to.';
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(), array(
-			array( 'show' ),
-		) );
 	}
 
 	public function getExamples() {

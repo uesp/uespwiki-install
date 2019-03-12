@@ -1,8 +1,7 @@
 <?php
 /** Upper Sorbian (hornjoserbsce)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -36,8 +35,8 @@ $namespaceAliases = array(
 );
 
 $namespaceGenderAliases = array(
-        NS_USER => array( 'male' => 'Wužiwar', 'female' => 'Wužiwarka' ),
-        NS_USER_TALK => array( 'male' => 'Diskusija_z_wužiwarjom', 'female' => 'Diskusija_z_wužiwarku' ),
+	NS_USER => array( 'male' => 'Wužiwar', 'female' => 'Wužiwarka' ),
+	NS_USER_TALK => array( 'male' => 'Diskusija_z_wužiwarjom', 'female' => 'Diskusija_z_wužiwarku' ),
 );
 
 $datePreferences = array(
@@ -100,6 +99,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'Strony_z_najwjace_wersijemi' ),
 	'Movepage'                  => array( 'Přesunyć' ),
 	'Mycontributions'           => array( 'Moje_přinoški' ),
+	'MyLanguage'                => array( 'Moja_rěč' ),
 	'Mypage'                    => array( 'Moja_wužiwarska_strona' ),
 	'Mytalk'                    => array( 'Moja_diskusijna_strona' ),
 	'Newimages'                 => array( 'Nowe_dataje' ),

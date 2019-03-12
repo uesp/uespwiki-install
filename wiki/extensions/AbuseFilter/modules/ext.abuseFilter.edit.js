@@ -100,10 +100,14 @@
 
 	/**
 	 * Acts on errors after doSyntaxCheck
+	 *
+	 * @param {string} error Error code returned from the AJAX request
+	 * @param {Object} details Details about the error
 	 */
-	function processSyntaxResultFailure() {
+	function processSyntaxResultFailure( error, details ) {
+		var msg = error === 'http' ? 'abusefilter-http-error' : 'unknown-error';
 		processSyntaxResultAlways(
-			mw.msg( 'unknown-error' ),
+			mw.msg( msg, details && details.exception ),
 			'mw-abusefilter-syntaxresult-error',
 			false
 		);
@@ -296,11 +300,10 @@
 		$( '#wpFilterBuilder' ).change( addText );
 		$( '#mw-abusefilter-edit-group-input' ).change( onFilterGroupChange );
 
-		$( '#mw-abusefilter-export-link' ).toggle(
-			function() {
-				$exportBox.show();
-			}, function() {
-				$exportBox.hide();
+		$( '#mw-abusefilter-export-link' ).click(
+			function( e ) {
+				e.preventDefault();
+				$exportBox.toggle();
 			}
 		);
 	} );

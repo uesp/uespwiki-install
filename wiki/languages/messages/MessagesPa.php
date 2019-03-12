@@ -1,8 +1,7 @@
 <?php
 /** Punjabi (ਪੰਜਾਬੀ)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -116,6 +115,7 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'ਸਭ_ਤੋਂ_ਵੱਧ_ਰੀਵਿਜ਼ਨ' ),
 	'Movepage'                  => array( 'ਸਿਰਲੇਖ_ਬਦਲੋ' ),
 	'Mycontributions'           => array( 'ਮੇਰੇ_ਯੋਗਦਾਨ' ),
+	'MyLanguage'                => array( 'ਮੇਰੀ_ਭਾਸ਼ਾ', 'ਮੇਰੀ_ਬੋਲੀ' ),
 	'Mypage'                    => array( 'ਮੇਰਾ_ਸਫ਼ਾ' ),
 	'Mytalk'                    => array( 'ਮੇਰੀ_ਚਰਚਾ' ),
 	'Myuploads'                 => array( 'ਮੇਰੇ_ਅੱਪਲੋਡ' ),

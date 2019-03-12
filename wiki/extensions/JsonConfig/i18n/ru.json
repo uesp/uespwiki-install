@@ -20,10 +20,5 @@
 	"jsonconfig-err-url": "Параметр «$1» должен быть действительным URL-адресом",
 	"jsonconfig-move-aborted-model": "конфигурационная модель JSON «$1» этой страницы не соответствует модели нового заголовка «$2»",
 	"jsonconfig-move-aborted-ns": "новый заголовок страницы не настроен для хранения конфигурации JSON",
-	"jsonconfig-optional-field": "(необязательно)",
-	"apihelp-jsonconfig-description": "Обеспечивает прямой доступ к подсистеме JsonConfig.",
-	"apihelp-jsonconfig-param-title": "Заголовок для обработки.",
-	"apihelp-jsonconfig-example-1": "Показать настройки",
-	"apihelp-jsonconfig-example-2": "Сбросить [[Zero:TEST]]",
-	"apihelp-jsonconfig-example-3": "Перегрузить [[Zero:TEST]]"
+	"jsonconfig-optional-field": "(необязательно)"
 }

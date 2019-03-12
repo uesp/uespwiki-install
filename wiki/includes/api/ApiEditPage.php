@@ -48,6 +48,9 @@ class ApiEditPage extends ApiBase {
 		$apiResult = $this->getResult();
 
 		if ( $params['redirect'] ) {
+			if ( $params['prependtext'] === null && $params['appendtext'] === null && $params['section'] !== 'new' ) {
+				$this->dieUsage( 'You have attempted to edit using the "redirect"-following mode, which must be used in conjuction with section=new, prependtext, or appendtext.', 'redirect-appendonly' );
+			}
 			if ( $titleObj->isRedirect() ) {
 				$oldTitle = $titleObj;
 
@@ -167,7 +170,7 @@ class ApiEditPage extends ApiBase {
 					$content = null;
 				} else {
 					// Process the content for section edits
-					$section = intval( $params['section'] );
+					$section = $params['section'];
 					$content = $content->getSection( $section );
 
 					if ( !$content ) {
@@ -249,7 +252,8 @@ class ApiEditPage extends ApiBase {
 			'format' => $contentFormat,
 			'model' => $contentHandler->getModelID(),
 			'wpEditToken' => $params['token'],
-			'wpIgnoreBlankSummary' => ''
+			'wpIgnoreBlankSummary' => '',
+			'wpIgnoreBlankArticle' => true
 		);
 
 		if ( !is_null( $params['summary'] ) ) {
@@ -288,12 +292,12 @@ class ApiEditPage extends ApiBase {
 		}
 
 		if ( !is_null( $params['section'] ) ) {
-			$section = intval( $params['section'] );
-			if ( $section == 0 && $params['section'] != '0' && $params['section'] != 'new' ) {
-				$this->dieUsage( "The section parameter must be set to an integer or 'new'", "invalidsection" );
+			$section = $params['section'];
+			if ( !preg_match( '/^((T-)?\d+|new)$/', $section ) ) {
+				$this->dieUsage( "The section parameter must be a valid section id or 'new'", "invalidsection" );
 			}
 			$content = $pageObj->getContent();
-			if ( $section !== 0 && ( !$content || !$content->getSection( $section ) ) ) {
+			if ( $section !== '0' && $section != 'new' && ( !$content || !$content->getSection( $section ) ) ) {
 				$this->dieUsage( "There is no section {$section}.", 'nosuchsection' );
 			}
 			$requestArray['wpSection'] = $params['section'];
@@ -305,8 +309,10 @@ class ApiEditPage extends ApiBase {
 
 		// Deprecated parameters
 		if ( $params['watch'] ) {
+			$this->logFeatureUsage( 'action=edit&watch' );
 			$watch = true;
 		} elseif ( $params['unwatch'] ) {
+			$this->logFeatureUsage( 'action=edit&unwatch' );
 			$watch = false;
 		}
 
@@ -396,7 +402,6 @@ class ApiEditPage extends ApiBase {
 
 		$status = $ep->internalAttemptSave( $result, $user->isAllowed( 'bot' ) && $params['bot'] );
 		$wgRequest = $oldRequest;
-		global $wgMaxArticleSize;
 
 		switch ( $status->value ) {
 			case EditPage::AS_HOOK_ERROR:
@@ -420,7 +425,7 @@ class ApiEditPage extends ApiBase {
 
 			case EditPage::AS_MAX_ARTICLE_SIZE_EXCEEDED:
 			case EditPage::AS_CONTENT_TOO_BIG:
-				$this->dieUsageMsg( array( 'contenttoobig', $wgMaxArticleSize ) );
+				$this->dieUsageMsg( array( 'contenttoobig', $this->getConfig()->get( 'MaxArticleSize' ) ) );
 
 			case EditPage::AS_READ_ONLY_PAGE_ANON:
 				$this->dieUsageMsg( 'noedit-anon' );
@@ -498,63 +503,6 @@ class ApiEditPage extends ApiBase {
 		return 'Create and edit pages.';
 	}
 
-	public function getPossibleErrors() {
-		global $wgMaxArticleSize;
-
-		return array_merge( parent::getPossibleErrors(),
-			$this->getTitleOrPageIdErrorMessage(),
-			array(
-				array( 'missingtext' ),
-				array( 'createonly-exists' ),
-				array( 'nocreate-missing' ),
-				array( 'nosuchrevid', 'undo' ),
-				array( 'nosuchrevid', 'undoafter' ),
-				array( 'revwrongpage', 'id', 'text' ),
-				array( 'undo-failure' ),
-				array( 'hashcheckfailed' ),
-				array( 'hookaborted' ),
-				array( 'code' => 'parseerror', 'info' => 'Failed to parse the given text.' ),
-				array( 'noimageredirect-anon' ),
-				array( 'noimageredirect-logged' ),
-				array( 'spamdetected', 'spam' ),
-				array( 'summaryrequired' ),
-				array( 'blockedtext' ),
-				array( 'contenttoobig', $wgMaxArticleSize ),
-				array( 'noedit-anon' ),
-				array( 'noedit' ),
-				array( 'actionthrottledtext' ),
-				array( 'wasdeleted' ),
-				array( 'nocreate-loggedin' ),
-				array( 'blankpage' ),
-				array( 'editconflict' ),
-				array( 'emptynewsection' ),
-				array( 'unknownerror', 'retval' ),
-				array( 'code' => 'nosuchsection', 'info' => 'There is no section section.' ),
-				array(
-					'code' => 'invalidsection',
-					'info' => 'The section parameter must be set to an integer or \'new\''
-				),
-				array(
-					'code' => 'sectionsnotsupported',
-					'info' => 'Sections are not supported for this type of page.'
-				),
-				array(
-					'code' => 'editnotsupported',
-					'info' => 'Editing of this type of page is not supported using the text based edit API.'
-				),
-				array(
-					'code' => 'appendnotsupported',
-					'info' => 'This type of page can not be edited by appending or prepending text.' ),
-				array(
-					'code' => 'badformat',
-					'info' => 'The requested serialization format can not be applied to the page\'s content model'
-				),
-				array( 'customcssprotected' ),
-				array( 'customjsprotected' ),
-			)
-		);
-	}
-
 	public function getAllowedParams() {
 		return array(
 			'title' => array(
@@ -568,10 +516,6 @@ class ApiEditPage extends ApiBase {
 				ApiBase::PARAM_TYPE => 'string',
 			),
 			'text' => null,
-			'token' => array(
-				ApiBase::PARAM_TYPE => 'string',
-				ApiBase::PARAM_REQUIRED => true
-			),
 			'summary' => null,
 			'minor' => false,
 			'notminor' => false,
@@ -630,8 +574,8 @@ class ApiEditPage extends ApiBase {
 			'sectiontitle' => 'The title for a new section',
 			'text' => 'Page content',
 			'token' => array(
-				'Edit token. You can get one of these through prop=info.',
-				"The token should always be sent as the last parameter, or at " .
+				/* Standard description is automatically prepended */
+				'The token should always be sent as the last parameter, or at ' .
 					"least, after the {$p}text parameter"
 			),
 			'summary'
@@ -644,7 +588,8 @@ class ApiEditPage extends ApiBase {
 				'Used to detect edit conflicts; leave unset to ignore conflicts'
 			),
 			'starttimestamp' => array(
-				'Timestamp when you obtained the edit token.',
+				'Timestamp when you began the editing process, e.g. when the current page content ' .
+					'was loaded for editing.',
 				'Used to detect edit conflicts; leave unset to ignore conflicts'
 			),
 			'recreate' => 'Override any errors about the article having been deleted in the meantime',
@@ -670,47 +615,8 @@ class ApiEditPage extends ApiBase {
 		);
 	}
 
-	public function getResultProperties() {
-		return array(
-			'' => array(
-				'new' => 'boolean',
-				'result' => array(
-					ApiBase::PROP_TYPE => array(
-						'Success',
-						'Failure'
-					),
-				),
-				'pageid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'title' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'nochange' => 'boolean',
-				'oldrevid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'newrevid' => array(
-					ApiBase::PROP_TYPE => 'integer',
-					ApiBase::PROP_NULLABLE => true
-				),
-				'newtimestamp' => array(
-					ApiBase::PROP_TYPE => 'string',
-					ApiBase::PROP_NULLABLE => true
-				)
-			)
-		);
-	}
-
 	public function needsToken() {
-		return true;
-	}
-
-	public function getTokenSalt() {
-		return '';
+		return 'csrf';
 	}
 
 	public function getExamples() {

@@ -26,10 +26,10 @@ class ApiImageRotate extends ApiBase {
 
 	/**
 	 * Add all items from $values into the result
-	 * @param array $result output
-	 * @param array $values values to add
-	 * @param string $flag the name of the boolean flag to mark this element
-	 * @param string $name if given, name of the value
+	 * @param array $result Output
+	 * @param array $values Values to add
+	 * @param string $flag The name of the boolean flag to mark this element
+	 * @param string $name If given, name of the value
 	 */
 	private static function addValues( array &$result, $values, $flag = null, $name = null ) {
 		foreach ( $values as $val ) {
@@ -51,6 +51,8 @@ class ApiImageRotate extends ApiBase {
 	public function execute() {
 		$params = $this->extractRequestParams();
 		$rotation = $params['rotation'];
+
+		$this->getResult()->beginContinuation( $params['continue'], array(), array() );
 
 		$pageSet = $this->getPageSet();
 		$pageSet->execute();
@@ -131,6 +133,7 @@ class ApiImageRotate extends ApiBase {
 		$apiResult = $this->getResult();
 		$apiResult->setIndexedTagName( $result, 'page' );
 		$apiResult->addValue( null, $this->getModuleName(), $result );
+		$apiResult->endContinuation();
 	}
 
 	/**
@@ -181,10 +184,7 @@ class ApiImageRotate extends ApiBase {
 				ApiBase::PARAM_TYPE => array( '90', '180', '270' ),
 				ApiBase::PARAM_REQUIRED => true
 			),
-			'token' => array(
-				ApiBase::PARAM_TYPE => 'string',
-				ApiBase::PARAM_REQUIRED => true
-			),
+			'continue' => '',
 		);
 		if ( $flags ) {
 			$result += $this->getPageSet()->getFinalParams( $flags );
@@ -198,7 +198,7 @@ class ApiImageRotate extends ApiBase {
 
 		return $pageSet->getFinalParamDescription() + array(
 			'rotation' => 'Degrees to rotate image clockwise',
-			'token' => 'Edit token. You can get one of these through action=tokens',
+			'continue' => 'When more results are available, use this to continue',
 		);
 	}
 
@@ -207,20 +207,7 @@ class ApiImageRotate extends ApiBase {
 	}
 
 	public function needsToken() {
-		return true;
-	}
-
-	public function getTokenSalt() {
-		return '';
-	}
-
-	public function getPossibleErrors() {
-		$pageSet = $this->getPageSet();
-
-		return array_merge(
-			parent::getPossibleErrors(),
-			$pageSet->getFinalPossibleErrors()
-		);
+		return 'csrf';
 	}
 
 	public function getExamples() {

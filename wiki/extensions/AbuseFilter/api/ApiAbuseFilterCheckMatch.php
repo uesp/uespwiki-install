@@ -12,7 +12,11 @@ class ApiAbuseFilterCheckMatch extends ApiBase {
 
 		$vars = null;
 		if ( $params['vars'] ) {
-			$vars = FormatJson::decode( $params['vars'], true );
+			$vars = new AbuseFilterVariableHolder;
+			$pairs = FormatJson::decode( $params['vars'], true );
+			foreach ( $pairs as $name => $value ) {
+				$vars->setVar( $name, $value );
+			}
 		} elseif ( $params['rcid'] ) {
 			$dbr = wfGetDB( DB_SLAVE );
 			$row = $dbr->selectRow(
@@ -87,18 +91,6 @@ class ApiAbuseFilterCheckMatch extends ApiBase {
 			'Check to see if an AbuseFilter matches a set of variables, edit'
 			. 'or logged AbuseFilter event.',
 			'vars, rcid or logid is required however only one may be used',
-		);
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(),
-			$this->getRequireOnlyOneParameterErrorMessages( array( 'vars', 'rcid', 'logid' ) ),
-			array(
-				array( 'code' => 'permissiondenied', 'info' => 'You don\'t have permission to test abuse filters' ),
-				array( 'nosuchrcid' ),
-				array( 'code' => 'nosuchlogid', 'info' => 'There is no abuselog entry with the id given' ),
-				array( 'code' => 'badsyntax', 'info' => 'The filter has invalid syntax' ),
-			)
 		);
 	}
 

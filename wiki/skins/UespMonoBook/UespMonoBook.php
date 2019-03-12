@@ -21,12 +21,10 @@ $wgExtensionCredits['skin'][] = array(
 $wgValidSkinNames['uespmonobook'] = 'UespMonoBook';
 $wgAutoloadClasses['SkinUespMonoBook'] = dirname(__FILE__).'/UespMonoBook.skin.php';
 //$wgExtensionMessagesFiles['MySkin'] = dirname(__FILE__).'/MySkin.i18n.php';
+
  
 $wgResourceModules['skins.uespmonobook'] = array(
 	'styles' => array(
-		'common/commonElements.css' => array( 'media' => 'screen' ),
-		'common/commonContent.css' => array( 'media' => 'screen' ),
-		'common/commonInterface.css' => array( 'media' => 'screen' ),
 		'UespMonoBook/main.css' => array( 'media' => 'screen' ),
 	),
 	'remoteBasePath' => &$GLOBALS['wgStylePath'],

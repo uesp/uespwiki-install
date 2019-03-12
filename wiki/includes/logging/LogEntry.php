@@ -88,8 +88,8 @@ interface LogEntry {
 	public function getDeleted();
 
 	/**
-	 * @param $field Integer: one of LogPage::DELETED_* bitfield constants
-	 * @return Boolean
+	 * @param int $field One of LogPage::DELETED_* bitfield constants
+	 * @return bool
 	 */
 	public function isDeleted( $field );
 }
@@ -407,7 +407,7 @@ class ManualLogEntry extends LogEntryBase {
 	 * Declare arbitrary tag/value relations to this log entry.
 	 * These can be used to filter log entries later on.
 	 *
-	 * @param array $relations Map of (tag => (list of values))
+	 * @param array $relations Map of (tag => (list of values|value))
 	 * @since 1.22
 	 */
 	public function setRelations( array $relations ) {
@@ -463,7 +463,7 @@ class ManualLogEntry extends LogEntryBase {
 	 *
 	 * @since 1.19
 	 *
-	 * @param integer $deleted
+	 * @param int $deleted
 	 */
 	public function setDeleted( $deleted ) {
 		$this->deleted = $deleted;
@@ -504,6 +504,10 @@ class ManualLogEntry extends LogEntryBase {
 			'log_comment' => $comment,
 			'log_params' => serialize( (array)$this->getParameters() ),
 		);
+		if ( isset( $this->deleted ) ) {
+			$data['log_deleted'] = $this->deleted;
+		}
+
 		$dbw->insert( 'logging', $data, __METHOD__ );
 		$this->id = !is_null( $id ) ? $id : $dbw->insertId();
 
@@ -512,6 +516,11 @@ class ManualLogEntry extends LogEntryBase {
 			if ( !strlen( $tag ) ) {
 				throw new MWException( "Got empty log search tag." );
 			}
+
+			if ( !is_array( $values ) ) {
+				$values = array( $values );
+			}
+
 			foreach ( $values as $value ) {
 				$rows[] = array(
 					'ls_field' => $tag,
@@ -523,6 +532,10 @@ class ManualLogEntry extends LogEntryBase {
 		if ( count( $rows ) ) {
 			$dbw->insert( 'log_search', $rows, __METHOD__, 'IGNORE' );
 		}
+
+		// Update any bloom filter cache
+		$member = $this->getTarget()->getNamespace() . ':' . $this->getTarget()->getDBkey();
+		BloomCache::get( 'main' )->insert( wfWikiId(), 'TitleHasLogs', $member );
 
 		return $this->id;
 	}
@@ -569,8 +582,8 @@ class ManualLogEntry extends LogEntryBase {
 
 	/**
 	 * Publishes the log entry.
-	 * @param int $newId id of the log entry.
-	 * @param string $to rcandudp (default), rc, udp
+	 * @param int $newId Id of the log entry.
+	 * @param string $to One of: rcandudp (default), rc, udp
 	 */
 	public function publish( $newId, $to = 'rcandudp' ) {
 		$log = new LogPage( $this->getType() );

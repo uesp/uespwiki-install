@@ -275,7 +275,10 @@ CREATE TABLE /*_*/page (
   page_len int unsigned NOT NULL,
 
   -- content model, see CONTENT_MODEL_XXX constants
-  page_content_model varbinary(32) DEFAULT NULL
+  page_content_model varbinary(32) DEFAULT NULL,
+
+  -- Page content language
+  page_lang varbinary(35) DEFAULT NULL
 ) /*$wgDBTableOptions*/;
 
 CREATE UNIQUE INDEX /*i*/name_title ON /*_*/page (page_namespace,page_title);
@@ -470,6 +473,8 @@ CREATE INDEX /*i*/ar_revid ON /*_*/archive (ar_rev_id);
 CREATE TABLE /*_*/pagelinks (
   -- Key to the page_id of the page containing the link.
   pl_from int unsigned NOT NULL default 0,
+  -- Namespace for this page
+  pl_from_namespace int NOT NULL default 0,
 
   -- Key to page_namespace/page_title of the target page.
   -- The target page may or may not exist, and due to renames
@@ -480,7 +485,8 @@ CREATE TABLE /*_*/pagelinks (
 ) /*$wgDBTableOptions*/;
 
 CREATE UNIQUE INDEX /*i*/pl_from ON /*_*/pagelinks (pl_from,pl_namespace,pl_title);
-CREATE UNIQUE INDEX /*i*/pl_namespace ON /*_*/pagelinks (pl_namespace,pl_title,pl_from);
+CREATE INDEX /*i*/pl_namespace ON /*_*/pagelinks (pl_namespace,pl_title,pl_from);
+CREATE INDEX /*i*/pl_backlinks_namespace ON /*_*/pagelinks (pl_namespace,pl_title,pl_from_namespace,pl_from);
 
 
 --
@@ -489,6 +495,8 @@ CREATE UNIQUE INDEX /*i*/pl_namespace ON /*_*/pagelinks (pl_namespace,pl_title,p
 CREATE TABLE /*_*/templatelinks (
   -- Key to the page_id of the page containing the link.
   tl_from int unsigned NOT NULL default 0,
+  -- Namespace for this page
+  tl_from_namespace int NOT NULL default 0,
 
   -- Key to page_namespace/page_title of the target page.
   -- The target page may or may not exist, and due to renames
@@ -499,7 +507,8 @@ CREATE TABLE /*_*/templatelinks (
 ) /*$wgDBTableOptions*/;
 
 CREATE UNIQUE INDEX /*i*/tl_from ON /*_*/templatelinks (tl_from,tl_namespace,tl_title);
-CREATE UNIQUE INDEX /*i*/tl_namespace ON /*_*/templatelinks (tl_namespace,tl_title,tl_from);
+CREATE INDEX /*i*/tl_namespace ON /*_*/templatelinks (tl_namespace,tl_title,tl_from);
+CREATE INDEX /*i*/tl_backlinks_namespace ON /*_*/templatelinks (tl_namespace,tl_title,tl_from_namespace,tl_from);
 
 
 --
@@ -510,6 +519,8 @@ CREATE UNIQUE INDEX /*i*/tl_namespace ON /*_*/templatelinks (tl_namespace,tl_tit
 CREATE TABLE /*_*/imagelinks (
   -- Key to page_id of the page containing the image / media link.
   il_from int unsigned NOT NULL default 0,
+  -- Namespace for this page
+  il_from_namespace int NOT NULL default 0,
 
   -- Filename of target image.
   -- This is also the page_title of the file's description page;
@@ -518,7 +529,8 @@ CREATE TABLE /*_*/imagelinks (
 ) /*$wgDBTableOptions*/;
 
 CREATE UNIQUE INDEX /*i*/il_from ON /*_*/imagelinks (il_from,il_to);
-CREATE UNIQUE INDEX /*i*/il_to ON /*_*/imagelinks (il_to,il_from);
+CREATE INDEX /*i*/il_to ON /*_*/imagelinks (il_to,il_from);
+CREATE INDEX /*i*/il_backlinks_namespace ON /*_*/imagelinks (il_to,il_from_namespace,il_from);
 
 
 --
@@ -724,7 +736,7 @@ CREATE UNIQUE INDEX /*i*/ss_row_id ON /*_*/site_stats (ss_row_id);
 --
 CREATE TABLE /*_*/hitcounter (
   hc_id int unsigned NOT NULL
-) ENGINE=HEAP MAX_ROWS=25000;
+) ENGINE=MEMORY MAX_ROWS=25000;
 
 
 --
@@ -835,7 +847,8 @@ CREATE TABLE /*_*/image (
 
   -- major part of a MIME media type as defined by IANA
   -- see http://www.iana.org/assignments/media-types/
-  img_major_mime ENUM("unknown", "application", "audio", "image", "text", "video", "message", "model", "multipart") NOT NULL default "unknown",
+  -- for "chemical" cf. http://dx.doi.org/10.1021/ci9803233 by the ACS
+  img_major_mime ENUM("unknown", "application", "audio", "image", "text", "video", "message", "model", "multipart", "chemical") NOT NULL default "unknown",
 
   -- minor part of a MIME media type as defined by IANA
   -- the minor parts are not required to adher to any standard
@@ -894,7 +907,7 @@ CREATE TABLE /*_*/oldimage (
 
   oi_metadata mediumblob NOT NULL,
   oi_media_type ENUM("UNKNOWN", "BITMAP", "DRAWING", "AUDIO", "VIDEO", "MULTIMEDIA", "OFFICE", "TEXT", "EXECUTABLE", "ARCHIVE") default NULL,
-  oi_major_mime ENUM("unknown", "application", "audio", "image", "text", "video", "message", "model", "multipart") NOT NULL default "unknown",
+  oi_major_mime ENUM("unknown", "application", "audio", "image", "text", "video", "message", "model", "multipart", "chemical") NOT NULL default "unknown",
   oi_minor_mime varbinary(100) NOT NULL default "unknown",
   oi_deleted tinyint unsigned NOT NULL default 0,
   oi_sha1 varbinary(32) NOT NULL default ''
@@ -944,7 +957,7 @@ CREATE TABLE /*_*/filearchive (
   fa_metadata mediumblob,
   fa_bits int default 0,
   fa_media_type ENUM("UNKNOWN", "BITMAP", "DRAWING", "AUDIO", "VIDEO", "MULTIMEDIA", "OFFICE", "TEXT", "EXECUTABLE", "ARCHIVE") default NULL,
-  fa_major_mime ENUM("unknown", "application", "audio", "image", "text", "video", "message", "model", "multipart") default "unknown",
+  fa_major_mime ENUM("unknown", "application", "audio", "image", "text", "video", "message", "model", "multipart", "chemical") default "unknown",
   fa_minor_mime varbinary(100) default "unknown",
   fa_description tinyblob,
   fa_user int unsigned default 0,
@@ -1001,12 +1014,12 @@ CREATE TABLE /*_*/uploadstash (
   -- chunk counter starts at 0, current offset is stored in us_size
   us_chunk_inx int unsigned NULL,
 
-  -- Serialized file properties from File::getPropsFromPath
+  -- Serialized file properties from FSFile::getProps()
   us_props blob,
 
   -- file size in bytes
   us_size int unsigned NOT NULL,
-  -- this hash comes from File::sha1Base36(), and is 31 characters
+  -- this hash comes from FSFile::getSha1Base36(), and is 31 characters
   us_sha1 varchar(31) NOT NULL,
   us_mime varchar(255),
   -- Media type as defined by the MEDIATYPE_xxx constants, should duplicate definition in the image table
@@ -1034,11 +1047,6 @@ CREATE INDEX /*i*/us_timestamp ON /*_*/uploadstash (us_timestamp);
 CREATE TABLE /*_*/recentchanges (
   rc_id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
   rc_timestamp varbinary(14) NOT NULL default '',
-
-  -- This is no longer used
-  -- Field kept in database for downgrades
-  -- @todo: add drop patch with 1.24
-  rc_cur_time varbinary(14) NOT NULL default '',
 
   -- As in revision
   rc_user int unsigned NOT NULL default 0,
@@ -1134,6 +1142,7 @@ CREATE TABLE /*_*/watchlist (
 
 CREATE UNIQUE INDEX /*i*/wl_user ON /*_*/watchlist (wl_user, wl_namespace, wl_title);
 CREATE INDEX /*i*/namespace_title ON /*_*/watchlist (wl_namespace, wl_title);
+CREATE INDEX /*i*/wl_user_notificationtimestamp ON /*_*/watchlist (wl_user, wl_notificationtimestamp);
 
 
 --
@@ -1429,12 +1438,13 @@ CREATE INDEX /*i*/pt_timestamp ON /*_*/protected_titles (pt_timestamp);
 CREATE TABLE /*_*/page_props (
   pp_page int NOT NULL,
   pp_propname varbinary(60) NOT NULL,
-  pp_value blob NOT NULL
+  pp_value blob NOT NULL,
+  pp_sortkey float DEFAULT NULL
 ) /*$wgDBTableOptions*/;
 
 CREATE UNIQUE INDEX /*i*/pp_page_propname ON /*_*/page_props (pp_page,pp_propname);
 CREATE UNIQUE INDEX /*i*/pp_propname_page ON /*_*/page_props (pp_propname,pp_page);
-
+CREATE UNIQUE INDEX /*i*/pp_propname_sortkey_page ON /*_*/page_props (pp_propname,pp_sortkey,pp_page);
 
 -- A table to log updates, one text key row per update.
 CREATE TABLE /*_*/updatelog (

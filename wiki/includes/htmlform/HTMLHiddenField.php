@@ -5,7 +5,7 @@ class HTMLHiddenField extends HTMLFormField {
 		parent::__construct( $params );
 
 		# Per HTML5 spec, hidden fields cannot be 'required'
-		# http://dev.w3.org/html5/spec/states-of-the-type-attribute.html#hidden-state
+		# http://www.w3.org/TR/html5/forms.html#hidden-state-%28type=hidden%29
 		unset( $this->mParams['required'] );
 	}
 
@@ -21,6 +21,8 @@ class HTMLHiddenField extends HTMLFormField {
 	}
 
 	/**
+	 * @param string $value
+	 * @return string
 	 * @since 1.20
 	 */
 	public function getDiv( $value ) {
@@ -28,6 +30,8 @@ class HTMLHiddenField extends HTMLFormField {
 	}
 
 	/**
+	 * @param string $value
+	 * @return string
 	 * @since 1.20
 	 */
 	public function getRaw( $value ) {

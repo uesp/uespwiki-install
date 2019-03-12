@@ -38,18 +38,21 @@ abstract class Action {
 
 	/**
 	 * Page on which we're performing the action
+	 * @since 1.17
 	 * @var WikiPage|Article|ImagePage|CategoryPage|Page $page
 	 */
 	protected $page;
 
 	/**
 	 * IContextSource if specified; otherwise we'll use the Context from the Page
+	 * @since 1.17
 	 * @var IContextSource $context
 	 */
 	protected $context;
 
 	/**
 	 * The fields used to create the HTMLForm
+	 * @since 1.17
 	 * @var array $fields
 	 */
 	protected $fields;
@@ -82,6 +85,7 @@ abstract class Action {
 
 	/**
 	 * Get an appropriate Action subclass for the given action
+	 * @since 1.17
 	 * @param string $action
 	 * @param Page $page
 	 * @param IContextSource $context
@@ -152,6 +156,7 @@ abstract class Action {
 
 	/**
 	 * Check if a given action is recognised, even if it's disabled
+	 * @since 1.17
 	 *
 	 * @param string $name Name of an action
 	 * @return bool
@@ -162,6 +167,7 @@ abstract class Action {
 
 	/**
 	 * Get the IContextSource in use here
+	 * @since 1.17
 	 * @return IContextSource
 	 */
 	final public function getContext() {
@@ -179,6 +185,7 @@ abstract class Action {
 
 	/**
 	 * Get the WebRequest being used for this instance
+	 * @since 1.17
 	 *
 	 * @return WebRequest
 	 */
@@ -188,6 +195,7 @@ abstract class Action {
 
 	/**
 	 * Get the OutputPage being used for this instance
+	 * @since 1.17
 	 *
 	 * @return OutputPage
 	 */
@@ -197,6 +205,7 @@ abstract class Action {
 
 	/**
 	 * Shortcut to get the User being used for this instance
+	 * @since 1.17
 	 *
 	 * @return User
 	 */
@@ -206,6 +215,7 @@ abstract class Action {
 
 	/**
 	 * Shortcut to get the Skin being used for this instance
+	 * @since 1.17
 	 *
 	 * @return Skin
 	 */
@@ -223,18 +233,9 @@ abstract class Action {
 	}
 
 	/**
-	 * Shortcut to get the user Language being used for this instance
-	 *
-	 * @deprecated since 1.19 Use getLanguage instead
-	 * @return Language
-	 */
-	final public function getLang() {
-		wfDeprecated( __METHOD__, '1.19' );
-		return $this->getLanguage();
-	}
-
-	/**
 	 * Shortcut to get the Title object from the page
+	 * @since 1.17
+	 *
 	 * @return Title
 	 */
 	final public function getTitle() {
@@ -273,6 +274,8 @@ abstract class Action {
 
 	/**
 	 * Return the name of the action this object responds to
+	 * @since 1.17
+	 *
 	 * @return string Lowercase name
 	 */
 	abstract public function getName();
@@ -280,6 +283,8 @@ abstract class Action {
 	/**
 	 * Get the permission required to perform this action.  Often, but not always,
 	 * the same as the action name
+	 * @since 1.17
+	 *
 	 * @return string|null
 	 */
 	public function getRestriction() {
@@ -290,10 +295,10 @@ abstract class Action {
 	 * Checks if the given user (identified by an object) can perform this action.  Can be
 	 * overridden by sub-classes with more complicated permissions schemes.  Failures here
 	 * must throw subclasses of ErrorPageError
+	 * @since 1.17
 	 *
 	 * @param User $user The user to check, or null to use the context user
 	 * @throws UserBlockedError|ReadOnlyError|PermissionsError
-	 * @return bool True on success
 	 */
 	protected function checkCanExecute( User $user ) {
 		$right = $this->getRestriction();
@@ -315,11 +320,12 @@ abstract class Action {
 		if ( $this->requiresWrite() && wfReadOnly() ) {
 			throw new ReadOnlyError();
 		}
-		return true;
 	}
 
 	/**
 	 * Whether this action requires the wiki not to be locked
+	 * @since 1.17
+	 *
 	 * @return bool
 	 */
 	public function requiresWrite() {
@@ -328,6 +334,8 @@ abstract class Action {
 
 	/**
 	 * Whether this action can still be executed by a blocked user
+	 * @since 1.17
+	 *
 	 * @return bool
 	 */
 	public function requiresUnblock() {
@@ -337,12 +345,13 @@ abstract class Action {
 	/**
 	 * Set output headers for noindexing etc.  This function will not be called through
 	 * the execute() entry point, so only put UI-related stuff in here.
+	 * @since 1.17
 	 */
 	protected function setHeaders() {
 		$out = $this->getOutput();
 		$out->setRobotPolicy( "noindex,nofollow" );
 		$out->setPageTitle( $this->getPageTitle() );
-		$this->getOutput()->setSubtitle( $this->getDescription() );
+		$out->setSubtitle( $this->getDescription() );
 		$out->setArticleRelated( true );
 	}
 
@@ -357,6 +366,7 @@ abstract class Action {
 
 	/**
 	 * Returns the description that goes below the \<h1\> tag
+	 * @since 1.17
 	 *
 	 * @return string
 	 */
@@ -368,13 +378,9 @@ abstract class Action {
 	 * The main action entry point.  Do all output for display and send it to the context
 	 * output.  Do not use globals $wgOut, $wgRequest, etc, in implementations; use
 	 * $this->getOutput(), etc.
+	 * @since 1.17
+	 *
 	 * @throws ErrorPageError
 	 */
 	abstract public function show();
-
-	/**
-	 * Execute the action in a silent fashion: do not display anything or release any errors.
-	 * @return bool whether execution was successful
-	 */
-	abstract public function execute();
 }

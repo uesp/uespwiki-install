@@ -15,7 +15,7 @@ $uespWikiDBName = $uespWikiDB . $uespLanguageSuffix;
 
 if ($uespIsDev)
 {
-	$wgDBname = "uesp_net_wiki5_dev";
+	$wgDBname = "uesp_net_wikidev";
 	
 	$wgDBservers = array(
 		array(          # content3 is the only dev wiki database
@@ -39,7 +39,7 @@ else
 				'password' => $uespWikiPW,
 				'type' => "mysql",
 				'flag' => DBO_DEFAULT,
-				'load' => 0.0001,
+				'load' => 1,
 		),
 		array(          # db2 - Primary Read
 				'host' => $UESP_SERVER_DB2,
@@ -48,9 +48,10 @@ else
 				'password' => $uespWikiPW,
 				'type' => "mysql",
 				'flag' => DBO_DEFAULT,
-				//'max lag' => 10,
-				'load' => 1,
+				'load' => 0,
+				'max lag' => 10,
 		),
+/* Comment out to prevent issue with slave lag reading
 		array(          # content3 - Backup Read
 				'host' => $UESP_SERVER_CONTENT3,
 				'dbname' => $uespWikiDBName,
@@ -59,7 +60,7 @@ else
 				'type' => "mysql",
 				'flag' => DBO_DEFAULT,
 				'load' => 0,
-		),
+		), */
 	);
 }
 
@@ -72,4 +73,4 @@ if ($uespLanguageSuffix != "")
 	$wgSharedTables[] = 'interwiki';
 }
 
-# $wgMasterWaitTimeout = 100;
+# $wgMasterWaitTimeout = 6000;

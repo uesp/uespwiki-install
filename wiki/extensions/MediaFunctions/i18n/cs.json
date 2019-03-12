@@ -1,10 +1,11 @@
 {
-    "@metadata": {
-        "authors": [
-            "Danny B."
-        ]
-    },
-    "mediafunctions-desc": "Funkce parseru pro získávání informací o multimediálních souborech",
-    "mediafunctions-invalid-title": "„$1“ není platný název",
-    "mediafunctions-not-exist": "„$1“ neexistuje"
+	"@metadata": {
+		"authors": [
+			"Danny B.",
+			"Matěj Grabovský"
+		]
+	},
+	"mediafunctions-desc": "Funkce syntaktického analyzátoru pro získávání informací o multimediálních souborech",
+	"mediafunctions-invalid-title": "„$1“ není platný název",
+	"mediafunctions-not-exist": "„$1“ neexistuje"
 }

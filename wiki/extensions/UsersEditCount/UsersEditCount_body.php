@@ -1,7 +1,7 @@
 <?php
 global $IP;
 
-require_once "$IP/includes/QueryPage.php";
+require_once "$IP/includes/specialpage/QueryPage.php";
 
 /** UsersEditCountPage extends QueryPage.
  * This does the real work of generating the page contents

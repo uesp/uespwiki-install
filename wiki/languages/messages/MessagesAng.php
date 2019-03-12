@@ -1,8 +1,7 @@
 <?php
 /** Old English (Ænglisc)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -24,11 +23,16 @@ $namespaceNames = array(
 
 $namespaceAliases = array(
 	'Gesprec'       => NS_TALK,
+	'Motung'        => NS_TALK,
 	'Brucend'       => NS_USER,
 	'Brucendmotung' => NS_USER_TALK,
 	'Biliþgesprec'  => NS_FILE_TALK,
+	'Biliþmotung'   => NS_FILE_TALK,
 	'Bysengesprec'  => NS_TEMPLATE_TALK,
+	'Bysenmotung'   => NS_TEMPLATE_TALK,
 	'Helpgesprec'   => NS_HELP_TALK,
+	'Helpmotung'    => NS_HELP_TALK,
 	'Floccgesprec'  => NS_CATEGORY_TALK,
+	'Floccmotung'   => NS_CATEGORY_TALK,
 );
 

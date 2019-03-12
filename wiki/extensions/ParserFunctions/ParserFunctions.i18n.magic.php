@@ -128,6 +128,8 @@ $magicWords['diq'] = array(
 	'ifeq' => array( 0, 'sek' ),
 	'ifexpr' => array( 0, 'ifadeyose' ),
 	'iferror' => array( 0, 'çınyose' ),
+	'switch' => array( 0, 'rayek' ),
+	'default' => array( 0, '#hesıbyaye' ),
 	'time' => array( 0, 'zeman' ),
 	'sub' => array( 0, 'bın' ),
 	'count' => array( 0, 'hesabk' ),
@@ -520,6 +522,24 @@ $magicWords['pt'] = array(
 	'len' => array( 0, 'comprimento' ),
 );
 
+/** Quechua (Runa Simi) */
+$magicWords['qu'] = array(
+	'expr' => array( 0, 'rikuchiy' ),
+	'if' => array( 0, 'kaptin' ),
+	'ifeq' => array( 0, 'kaqllakaptin' ),
+	'ifexpr' => array( 0, 'rikuchiykaptin' ),
+	'iferror' => array( 0, 'pantasqakaptin' ),
+	'switch' => array( 0, 'winkuy' ),
+	'default' => array( 0, '#kikinmanta' ),
+	'ifexist' => array( 0, 'kachkaptin' ),
+	'time' => array( 0, 'pacha' ),
+	'timel' => array( 0, 'pachal' ),
+	'len' => array( 0, 'suni' ),
+	'pos' => array( 0, 'tiyay' ),
+	'replace' => array( 0, 'rantichay', 'huknachay' ),
+	'explode' => array( 0, 'phatmay' ),
+);
+
 /** Russian (русский) */
 $magicWords['ru'] = array(
 	'if' => array( 0, 'если' ),
@@ -577,7 +597,7 @@ $magicWords['uk'] = array(
 	'ifexpr' => array( 0, 'якщовираз' ),
 	'iferror' => array( 0, 'якщопомилка' ),
 	'switch' => array( 0, 'вибірка' ),
-	'default' => array( 0, '#інакше' ),
+	'default' => array( 0, '#інакше', '#за_замовчуванням' ),
 	'ifexist' => array( 0, 'якщоіснує' ),
 	'replace' => array( 0, 'заміна' ),
 );
@@ -658,20 +678,25 @@ $magicWords['zh'] = array(
 
 /** Simplified Chinese (中文（简体）‎) */
 $magicWords['zh-hans'] = array(
+	'expr' => array( 0, '表达式' ),
 	'if' => array( 0, '若', '如果' ),
 	'ifeq' => array( 0, '若相等', '如果相等' ),
+	'ifexpr' => array( 0, '若表达式' ),
 	'iferror' => array( 0, '如果错误' ),
 	'switch' => array( 0, '开关', '转换' ),
 	'default' => array( 0, '#默认' ),
-	'ifexist' => array( 0, '若有', '如果存在' ),
+	'ifexist' => array( 0, '若有', '如有' ),
 	'time' => array( 0, '时间' ),
 	'timel' => array( 0, '时间l' ),
-	'titleparts' => array( 0, '标题部分' ),
+	'titleparts' => array( 0, '标题组成部分' ),
+	'len' => array( 0, '长度' ),
 	'pos' => array( 0, '终端' ),
 	'rpos' => array( 0, '反终端' ),
 	'sub' => array( 0, 'PF子' ),
 	'count' => array( 0, '计数' ),
 	'replace' => array( 0, '取代' ),
+	'explode' => array( 0, '粉碎' ),
+	'urldecode' => array( 0, 'url解码' ),
 );
 
 /** Traditional Chinese (中文（繁體）‎) */
