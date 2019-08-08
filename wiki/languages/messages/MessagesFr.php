@@ -100,7 +100,7 @@ $specialPageAliases = array(
 	'PagesWithProp'             => array( 'Pages_avec_la_propriété' ),
 	'PasswordReset'             => array( 'Réinitialisation_du_mot_de_passe', 'RéinitialisationDuMotDePasse' ),
 	'PermanentLink'             => array( 'LienPermanent', 'Lien_permanent' ),
-	'Popularpages'              => array( 'Pages_les_plus_visitées', 'Pages_les_plus_visitees', 'Pageslesplusvisitées', 'Pageslesplusvisitees' ),
+
 	'Preferences'               => array( 'Préférences' ),
 	'Prefixindex'               => array( 'Index', 'Préfixes', 'Prefixes' ),
 	'Protectedpages'            => array( 'Pages_protégées', 'PagesProtégées', 'Pages_protegees', 'PagesProtegees' ),
@@ -176,7 +176,6 @@ $magicWords = array(
 	'numberofusers'             => array( '1', 'NOMBREUTILISATEURS', 'NUMBEROFUSERS' ),
 	'numberofactiveusers'       => array( '1', 'NOMBREUTILISATEURSACTIFS', 'NUMBEROFACTIVEUSERS' ),
 	'numberofedits'             => array( '1', 'NOMBREMODIFS', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'NOMBREVUES', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'NOMPAGE', 'PAGENAME' ),
 	'pagenamee'                 => array( '1', 'NOMPAGEX', 'PAGENAMEE' ),
 	'namespace'                 => array( '1', 'ESPACENOMMAGE', 'NAMESPACE' ),

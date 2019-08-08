@@ -5,38 +5,20 @@ instance you run these tests against See
 
 These include:
 * GeoData extension must be installed for the purpose of the nearby tests
-* Sitename needs to be set to Wikipedia (for purpose of login_required_uploads.feature)
 * Ensure you have [//www.mediawiki.org/wiki/Extension:ConfirmEdit Extension:ConfirmEdit] installed
 ** and setup with FancyCaptcha
 * Create an account Selenium_newuser which has an edit count of 0
 * Create an account and store the username in MEDIAWIKI_USER which has
-an edit count of greater than 0
-* Ensure the Main Page has languages enabled
-* Ensure the page "New York" exists and has content:
+** an edit count of greater than 0
+** Ensure user has bureaucrat and admin rights (set via Special:UserRights)
+* Setup a Spanish Interwiki link using sql:
 <pre>
-{{#coordinates:43|-75|primary}}
+INSERT INTO interwiki (iw_prefix, iw_url, iw_local, iw_trans) VALUES ("es", "http://wikifoo.org/es/index.php/$1", 0, 0);
 </pre>
-* Ensure an article called "Foo bar" (without quotes) exists and is not protected
-* A "Diff test" page is used by the test suite thus cannot be used for another purpose.
-* Ensure there is a San Francisco article
-** and it has languages
-* Ensure there is a page called "Duel Masters" which has at least 2 sections and is editable by MEDIAWIKI_USER
-Sample content:
-<pre>
-== Section 1 ==
-Howdy.
-== Section 2 ==
-Howdy 2.
-== Section 3 ==
-Howdy 3.
-</pre>
-* Ensure there is a Barack Obama article
-** and it is a protected page
-* Edit MediaWiki:mobile-frontend-terms-text with text 'Terms of use'
 * In LocalSettings.php place the following code:
 <pre>
-  $wgRightsUrl = '//creativecommons.org/licenses/by-sa/3.0/';
-  $wgMFNearbyEndpoint = 'https://en.m.wikipedia.org/w/api.php';
+  $wgMFNearbyEndpoint = 'https://en.m.wikipedia.org/w/api.php'; // required for nearby.feature
+  $wgSiteName = 'Wikipedia'; // required for purpose of login_required_uploads.feature
 </pre>
 * Make sure that $wgRightsPage is not set in LocalSettings.php
 
@@ -93,7 +75,7 @@ If you want to run a single set of tests, go to the tests/browser directory and
 call 'bundle exec cucumber' with the path to the test file. For example, to run
 only the watchlist tests:
 
-  bundle exec cucumber features/watchlist.feature
+  bundle exec cucumber features/watchstar.feature
 
 XML report (for Jenkins) is created at tests/browser/reports/junit.
 

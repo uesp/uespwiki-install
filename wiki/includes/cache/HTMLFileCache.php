@@ -132,7 +132,7 @@ class HTMLFileCache extends FileCacheBase {
 			return false;
 		}
 		// Allow extensions to disable caching
-		return wfRunHooks( 'HTMLFileCache::useFileCache', array( $context ) );
+		return Hooks::run( 'HTMLFileCache::useFileCache', array( $context ) );
 	}
 
 	/**

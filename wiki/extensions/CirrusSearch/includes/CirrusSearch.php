@@ -92,7 +92,7 @@ class CirrusSearch extends SearchEngine {
 		}
 
 		$request = $context->getRequest();
-		$dumpQuery = $request && $request->getVal( 'cirrusDumpQuery' ) === 'yes';
+		$dumpQuery = $request && $request->getVal( 'cirrusDumpQuery' ) !== null;
 		$searcher->setReturnQuery( $dumpQuery );
 		// Delegate to either searchText or moreLikeThisArticle and dump the result into $status
 		if ( substr( $term, 0, strlen( self::MORE_LIKE_THIS_PREFIX ) ) === self::MORE_LIKE_THIS_PREFIX ) {
@@ -227,7 +227,7 @@ class CirrusSearch extends SearchEngine {
 	 * @return array
 	 */
 	public function getValidSorts() {
-		return array( 'relevance', 'title_asc', 'title_desc', 'random' );
+		return array( 'relevance', 'title_asc', 'title_desc' );
 	}
 
 	/**

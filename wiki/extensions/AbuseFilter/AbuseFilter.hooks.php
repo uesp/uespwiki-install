@@ -288,6 +288,22 @@ class AbuseFilterHooks {
 		return true;
 	}
 
+	public static function onMovePageCheckPermissions( Title $oldTitle, Title $newTitle, User $user, $reason, Status $status ) {
+		$vars = new AbuseFilterVariableHolder;
+		$vars->addHolders(
+			AbuseFilter::generateUserVars( $user ),
+			AbuseFilter::generateTitleVars( $oldTitle, 'MOVED_FROM' ),
+			AbuseFilter::generateTitleVars( $newTitle, 'MOVED_TO' )
+		);
+		$vars->setVar( 'SUMMARY', $reason );
+		$vars->setVar( 'ACTION', 'move' );
+
+		$result = AbuseFilter::filterAction( $vars, $oldTitle );
+		$status->merge( $result );
+
+		return $result->isOK();
+	}
+
 	/**
 	 * @param $oldTitle Title
 	 * @param $newTitle Title
@@ -297,8 +313,6 @@ class AbuseFilterHooks {
 	 * @return bool
 	 */
 	public static function onAbortMove( $oldTitle, $newTitle, $user, &$error, $reason ) {
-		$vars = new AbuseFilterVariableHolder;
-
 		global $wgUser;
 		// HACK: This is a secret userright so system actions
 		// can bypass AbuseFilter. Should not be assigned to
@@ -308,18 +322,13 @@ class AbuseFilterHooks {
 			return true;
 		}
 
-		$vars->addHolders(
-			AbuseFilter::generateUserVars( $wgUser ),
-			AbuseFilter::generateTitleVars( $oldTitle, 'MOVED_FROM' ),
-			AbuseFilter::generateTitleVars( $newTitle, 'MOVED_TO' )
-		);
-		$vars->setVar( 'SUMMARY', $reason );
-		$vars->setVar( 'ACTION', 'move' );
+		$status = new Status();
+		self::onMovePageCheckPermissions( $oldTitle, $newTitle, $wgUser, $reason, $status );
+		if ( !$status->isOK() ) {
+			$error = $status->getHTML();
+		}
 
-		$filter_result = AbuseFilter::filterAction( $vars, $oldTitle );
-
-		$error = $filter_result->isOK() ? '' : $filter_result->getWikiText();
-		return $filter_result->isOK();
+		return $status->isOK();
 	}
 
 	/**
@@ -345,7 +354,7 @@ class AbuseFilterHooks {
 		$filter_result = AbuseFilter::filterAction( $vars, $article->getTitle() );
 
 		$status->merge( $filter_result );
-		$error = $filter_result->isOK() ? '' : $filter_result->getWikiText();
+		$error = $filter_result->isOK() ? '' : $filter_result->getHTML();
 
 		return $filter_result->isOK();
 	}
@@ -433,29 +442,50 @@ class AbuseFilterHooks {
 	}
 
 	/**
-	 * @param $emptyTags array
+	 * @param array $tags
+	 * @param bool $enabled
 	 * @return bool
 	 */
-	public static function onListDefinedTags( &$emptyTags ) {
+	private static function fetchAllTags( array &$tags, $enabled ) {
 		# This is a pretty awful hack.
 		$dbr = wfGetDB( DB_SLAVE );
 
+		$where = array( 'afa_consequence' => 'tag', 'af_deleted' => false );
+		if ( $enabled ) {
+			$where['af_enabled'] = true;
+		}
 		$res = $dbr->select(
 			array( 'abuse_filter_action', 'abuse_filter' ),
 			'afa_parameters',
-			array( 'afa_consequence' => 'tag', 'af_enabled' => true ),
+			$where,
 			__METHOD__,
 			array(),
 			array( 'abuse_filter' => array( 'INNER JOIN', 'afa_filter=af_id' ) )
 		);
 
 		foreach ( $res as $row ) {
-			$emptyTags = array_filter(
-				array_merge( explode( "\n", $row->afa_parameters ), $emptyTags )
+			$tags = array_filter(
+				array_merge( explode( "\n", $row->afa_parameters ), $tags )
 			);
 		}
 
 		return true;
+	}
+
+	/**
+	 * @param array $tags
+	 * @return bool
+	 */
+	public static function onListDefinedTags( array &$tags ) {
+		return self::fetchAllTags( $tags, false );
+	}
+
+	/**
+	 * @param array $tags
+	 * @return bool
+	 */
+	public static function onChangeTagsListActive( array &$tags ) {
+		return self::fetchAllTags( $tags, true );
 	}
 
 	/**
@@ -608,6 +638,7 @@ class AbuseFilterHooks {
 		}
 
 		$vars->setVar( 'file_sha1', $sha1 );
+		$vars->setVar( 'file_size', $upload->getFileSize() );
 
 		$filter_result = AbuseFilter::filterAction( $vars, $title );
 

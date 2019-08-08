@@ -84,7 +84,6 @@ $magicWords = array(
 	'numberofusers'             => array( '1', 'JUMLAHPENGGUNA', 'JUMPENG', 'NUMBEROFUSERS' ),
 	'numberofactiveusers'       => array( '1', 'JUMLAHPENGGUNAAKTIF', 'JUMPENGTIF', 'NUMBEROFACTIVEUSERS' ),
 	'numberofedits'             => array( '1', 'JUMLAHSUNTINGAN', 'JUMTING', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'JUMLAHTAMPILAN', 'JUMTAM', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'NAMAHALAMAN', 'NAMMAN', 'PAGENAME' ),
 	'pagenamee'                 => array( '1', 'NAMAHALAMANE', 'NAMMANE', 'PAGENAMEE' ),
 	'namespace'                 => array( '1', 'RUANGNAMA', 'RUNAM', 'NAMESPACE' ),
@@ -253,7 +252,7 @@ $specialPageAliases = array(
 	'Newpages'                  => array( 'Halaman_baru', 'HalamanBaru' ),
 	'PasswordReset'             => array( 'Reset_sandi', 'ResetSandi' ),
 	'PermanentLink'             => array( 'Pranala_permanen' ),
-	'Popularpages'              => array( 'Halaman_populer', 'HalamanPopuler' ),
+
 	'Preferences'               => array( 'Preferensi' ),
 	'Prefixindex'               => array( 'Indeks_awalan', 'IndeksAwalan' ),
 	'Protectedpages'            => array( 'Halaman_yang_dilindungi', 'HalamanDilindungi' ),

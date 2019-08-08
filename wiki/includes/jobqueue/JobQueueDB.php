@@ -221,7 +221,7 @@ class JobQueueDB extends JobQueue {
 		}
 
 		$rowSet = array(); // (sha1 => job) map for jobs that are de-duplicated
-		$rowList = array(); // list of jobs for jobs that are are not de-duplicated
+		$rowList = array(); // list of jobs for jobs that are not de-duplicated
 		foreach ( $jobs as $job ) {
 			$row = $this->insertFields( $job );
 			if ( $job->ignoreDuplicates() ) {
@@ -686,7 +686,9 @@ class JobQueueDB extends JobQueue {
 					$affected = $dbw->affectedRows();
 					$count += $affected;
 					JobQueue::incrStats( 'job-recycle', $this->type, $affected, $this->wiki );
+					// The tasks recycled jobs or release delayed jobs into the queue
 					$this->cache->set( $this->getCacheKey( 'empty' ), 'false', self::CACHE_TTL_LONG );
+					$this->aggr->notifyQueueNonEmpty( $this->wiki, $this->type );
 				}
 			}
 

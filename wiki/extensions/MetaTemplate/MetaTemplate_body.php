@@ -1181,3 +1181,22 @@ function efMetaTemplateIfExist( &$parser ) {
 	return $else;
 }
 
+// Dynamic function
+function efMetaTemplateArg( &$parser, $name = '', $default = '' ) {
+	global $wgRequest;
+	$parser->disableCache();
+	return $wgRequest->getVal($name, $default);
+}
+
+ 
+function efMetaTemplateRand( &$parser, $a = 0, $b = 1 ) {
+	$parser->disableCache();
+	return mt_rand( intval($a), intval($b) );
+}
+
+ 
+function efMetaTemplateSkin( &$parser ) {
+	global $wgUser, $wgRequest;
+	$parser->disableCache();
+	return $wgRequest->getVal('useskin', $wgUser->getOption('skin'));
+}

@@ -24,6 +24,7 @@ $wgExtensionCredits['other'][] = array(
 	'author' => array( 'Dan Andreescu', 'Yuri Astrakhan' ),
 	'url' => 'https://www.mediawiki.org/wiki/Extension:Graph',
 	'descriptionmsg' => 'graph-desc',
+	'license-name' => 'MIT',
 );
 
 $wgMessagesDirs['Graph'] = __DIR__ . DIRECTORY_SEPARATOR . 'i18n';
@@ -31,65 +32,37 @@ $wgMessagesDirs['Graph'] = __DIR__ . DIRECTORY_SEPARATOR . 'i18n';
 $graphBodyFile = __DIR__ . DIRECTORY_SEPARATOR . 'Graph.body.php';
 $wgAutoloadClasses['Graph\Singleton'] = $graphBodyFile;
 $wgAutoloadClasses['Graph\Content'] = $graphBodyFile;
-$wgAutoloadClasses['Graph\ContentView'] = $graphBodyFile;
 unset( $graphBodyFile );
 
-/**
- * @var bool Set to true to enable <graph> tag in wiki markup
- */
-$wgEnableGraphParserTag = false;
-
-/**
- * @var false|string[] a list of domains that the vega code is allowed to pull data from.
+/** @var false|string[] $wgGraphDataDomains a list of domains that the vega code is allowed to pull data from.
  * If false, there are no restrictions. An empty list disables any external data (inline only).
  * NOTE: Setting this value to anything other than 'false' will also enable safe mode formula/filter evaluation
  */
 $wgGraphDataDomains = array();
 
-$wgHooks['ParserFirstCallInit'][] = 'Graph\Singleton::onParserFirstCallInit';
-
-
-// ResourceLoader modules
-/**
- * A boilerplate for resource loader modules
+/** @var string|false $wgGraphImgServiceUrl A format string to form a backend service request for the img.
+ * For example:
+ * 		/api/v1/%1$s/pages/%2$s/graph/%3$s/%4$s.png
+ * 		http://graph.wmflabs.org:8080?server=%1$s&title=%2$s&revid=%3$s&id=%4$s.png
+ * Parameters will be supplied in this order: server, title, revid, graph-hash-id
+ * All parameters will be escaped with rawurlencode()
+ * If the value is false, no <noscript> urls will be generated
  */
+$wgGraphImgServiceUrl = false;
+
+$wgHooks['ParserFirstCallInit'][] = 'Graph\Singleton::onParserFirstCallInit';
+$wgHooks['EditPage::showEditForm:initial'][] = 'Graph\Singleton::editPageShowEditFormInitial';
+$wgHooks['ParserAfterParse'][] = 'Graph\Singleton::onParserAfterParse';
+
 $extGraphBoilerplate = array(
     'localBasePath' => __DIR__,
     'remoteExtPath' => 'Graph',
     'targets' => array( 'mobile', 'desktop' ),
 );
 
-$wgResourceModules['mediawiki.libs.d3'] = array(
-    'scripts' => array(
-        'lib/d3.js',
-        //'lib/d3.geo.projection.min.js',
-    ),
-) + $extGraphBoilerplate;
-$wgResourceModules['mediawiki.libs.topojson'] = array(
-    'scripts' => array(
-        'lib/topojson.js',
-    ),
-) + $extGraphBoilerplate;
-$wgResourceModules['mediawiki.libs.vega'] = array(
-    'dependencies' => array(
-        'mediawiki.libs.d3',
-        'mediawiki.libs.topojson',
-    ),
-    'scripts' => array(
-        'lib/vega.js',
-    ),
-) + $extGraphBoilerplate;
 $wgResourceModules['ext.graph'] = array(
-    // TODO: dependencies don't work.  Symptoms:
-    // * Firefox works
-    // * Chrome works in debug mode
-    // * Chrome does not work in production mode (debug=false)
-    //'dependencies' => array(
-        //'mediawiki.libs.vega',
-    //),
     'scripts' => array(
         'lib/d3.js',
-        // 'lib/d3.geo.projection.min.js',
         'lib/topojson.js',
         'lib/vega.js',
         'js/graph.js',
@@ -98,4 +71,11 @@ $wgResourceModules['ext.graph'] = array(
         'styles/common.less',
     ),
 ) + $extGraphBoilerplate;
+
+$wgResourceModules['ext.graph.editor'] = array(
+    'scripts' => array(
+        'js/graph.editor.js',
+    )
+) + $extGraphBoilerplate;
+
 unset( $extGraphBoilerplate );

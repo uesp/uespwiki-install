@@ -1,6 +1,9 @@
 <?php
 
 class MockApiMobileView extends ApiMobileView {
+	/** @var PHPUnit_Framework_MockObject_MockObject */
+	public $mockFile;
+
 	protected function makeTitle( $name ) {
 		$t = Title::newFromText( $name );
 		$row = new stdClass();
@@ -14,7 +17,7 @@ class MockApiMobileView extends ApiMobileView {
 	protected function getParserOutput( WikiPage $wp, ParserOptions $parserOptions ) {
 		$params = $this->extractRequestParams();
 		if ( !isset( $params['text'] ) ) {
-			throw new MWException( 'Must specify page text' );
+			throw new Exception( 'Must specify page text' );
 		}
 		$parser = new Parser();
 		$po = $parser->parse( $params['text'], $wp->getTitle(), $parserOptions );
@@ -34,6 +37,14 @@ class MockApiMobileView extends ApiMobileView {
 
 	public function getAllowedParams() {
 		return array_merge( parent::getAllowedParams(), array( 'text' => null ) );
+	}
+
+	protected function findFile( $title, $options = array() ) {
+		return $this->mockFile;
+	}
+
+	protected function getPageImage( Title $title ) {
+		return $this->findFile( $title );
 	}
 }
 
@@ -58,6 +69,7 @@ class MockWikiPage extends WikiPage {
  * @group MobileFrontend
  */
 class ApiMobileViewTest extends MediaWikiTestCase {
+
 	/**
 	 * @dataProvider provideSections
 	 */
@@ -98,23 +110,84 @@ class ApiMobileViewTest extends MediaWikiTestCase {
 		);
 	}
 
-	/**
-	 * @dataProvider provideView
-	 */
-	public function testView( array $input, array $expected ) {
-		$this->setMwGlobals( 'wgAPIModules', array( 'mobileview' => 'MockApiMobileView' ) );
+	public function setUp() {
+		parent::setUp();
 
+		$this->setMwGlobals( 'wgAPIModules', array( 'mobileview' => 'MockApiMobileView' ) );
+	}
+
+	private function getMobileViewApi( $input ) {
 		$request = new FauxRequest( $input );
 		$context = new RequestContext();
 		$context->setRequest( $request );
-		$api = new MockApiMobileView( new ApiMain( $context ), 'mobileview' );
+
+		if ( !defined( 'PAGE_IMAGES_INSTALLED' ) ) {
+			define( 'PAGE_IMAGES_INSTALLED', true );
+		}
+
+		return new MockApiMobileView( new ApiMain( $context ), 'mobileview' );
+	}
+
+	private function executeMobileViewApi( $api, $expected ) {
 		$api->execute();
-		$result = $api->getResultData();
+		if ( defined( 'ApiResult::META_CONTENT' ) ) {
+			$result = $api->getResult()->getResultData( null, array(
+				'BC' => array(),
+				'Types' => array(),
+				'Strip' => 'all',
+			) );
+		} else {
+			$result = $api->getResultData();
+		}
 		$this->assertTrue(
 			isset( $result['mobileview'] ),
 			'API output should be encloded in mobileview element'
 		);
 		$this->assertArrayEquals( $expected, $result['mobileview'], false, true );
+	}
+
+	/**
+	 * @dataProvider provideView
+	 */
+	public function testView( array $input, array $expected ) {
+		$api = $this->getMobileViewApi( $input );
+		$this->executeMobileViewApi( $api, $expected );
+	}
+
+	/**
+	 * @dataProvider provideViewWithTransforms
+	 */
+	public function testViewWithTransforms( array $input, array $expected ) {
+		if ( version_compare(
+			PHPUnit_Runner_Version::id(),
+			'4.0.0',
+			'<'
+		) ) {
+			$this->markTestSkipped( 'testViewWithTransforms requires PHPUnit 4.0.0 or greater.' );
+		}
+
+		$api = $this->getMobileViewApi( $input );
+		$api->mockFile = $this->getMock( 'MockFSFile',
+			array( 'getWidth', 'getHeight', 'getTitle', 'transform' ),
+			array(), '', false
+		);
+		$api->mockFile->method( 'getWidth' )->will( $this->returnValue( 640 ) );
+		$api->mockFile->method( 'getHeight' )->will( $this->returnValue( 480 ) );
+		$api->mockFile->method( 'getTitle' )
+			->will( $this->returnValue( Title::newFromText( 'File:Foo.jpg' ) ) );
+		$api->mockFile->method( 'transform' )
+			->will( $this->returnCallback( array( $this, 'mockTransform' ) ) );
+
+		$this->executeMobileViewApi( $api, $expected );
+	}
+
+	public function mockTransform( array $params ) {
+		$thumb = $this->getMock( 'MediaTransformOutput' );
+		$thumb->method( 'getUrl' )->will( $this->returnValue( 'http://dummy' ) );
+		$thumb->method( 'getWidth' )->will( $this->returnValue( $params['width'] ) );
+		$thumb->method( 'getHeight' )->will( $this->returnValue( $params['height'] ) );
+
+		return $thumb;
 	}
 
 	public function provideView() {
@@ -208,5 +281,124 @@ Text 2
 				),
 			),
 		);
+	}
+
+	public function provideViewWithTransforms() {
+
+		// Note that the dimensions are values passed to #transform, not actual
+		// thumbnail dimensions.
+		return array(
+			array(
+				array(
+					'page' => 'Foo',
+					'text' => '',
+					'prop' => 'thumb',
+				),
+				array(
+					'sections' => array(),
+					'thumb' => array(
+						'url' => 'http://dummy',
+						'width' => 50,
+						'height' => 50,
+					)
+				),
+			),
+			array(
+				array(
+					'page' => 'Foo',
+					'text' => '',
+					'prop' => 'thumb',
+					'thumbsize' => 55,
+				),
+				array(
+					'sections' => array(),
+					'thumb' => array(
+						'url' => 'http://dummy',
+						'width' => 55,
+						'height' => 55,
+					)
+				),
+			),
+			array(
+				array(
+					'page' => 'Foo',
+					'text' => '',
+					'prop' => 'thumb',
+					'thumbwidth' => 100,
+				),
+				array(
+					'sections' => array(),
+					'thumb' => array(
+						'url' => 'http://dummy',
+						'width' => 100,
+						'height' => 480,
+					)
+				),
+			),
+			array(
+				array(
+					'page' => 'Foo',
+					'text' => '',
+					'prop' => 'thumb',
+					'thumbheight' => 200,
+				),
+				array(
+					'sections' => array(),
+					'thumb' => array(
+						'url' => 'http://dummy',
+						'width' => 640,
+						'height' => 200,
+					)
+				),
+			),
+		);
+	}
+
+	public function testRedirectToSpecialPageDoesntTriggerNotices() {
+		$props = array(
+			'lastmodified',
+			'lastmodifiedby',
+			'revision',
+			'id',
+			'languagecount',
+			'hasvariants',
+			'displaytitle'
+		);
+
+		$this->setMwGlobals( 'wgAPIModules', array( 'mobileview' => 'MockApiMobileView' ) );
+
+		$request = new FauxRequest( array(
+			'action' => 'mobileview',
+			'page' => 'Foo',
+			'sections' => '1-',
+			'noheadings' => '',
+			'text' => 'Lead
+== Section 1 ==
+Text 1
+== Section 2 ==
+Text 2
+',
+			'prop' => implode( '|', $props ),
+			'page' => 'Redirected',
+			'redirect' => 'yes',
+		) );
+		$context = new RequestContext();
+		$context->setRequest( $request );
+		$api = new MockApiMobileView( new ApiMain( $context ), 'mobileview' );
+
+		$api->execute();
+
+		if ( defined( 'ApiResult::META_CONTENT' ) ) {
+			$result = $api->getResult()->getResultData();
+		} else {
+			$result = $api->getResultData();
+		}
+
+		foreach ( $props as $prop ) {
+			$this->assertFalse(
+				isset( $result[$prop] ),
+				"{$prop} isn't included in the response when it can't be fetched."
+			);
+		}
 	}
 }

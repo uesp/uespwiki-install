@@ -1,49 +1,90 @@
-// FIXME: Refactor to use modules/nearby/Nearby
-( function( M, $ ) {
-var CACHE_KEY_RESULTS = 'mfNearbyLastSearchResult',
-	overlay,
-	Nearby = M.require( 'modules/nearby/Nearby' );
+( function ( M, $ ) {
+	var Icon = M.require( 'Icon' ),
+		router = M.require( 'router' ),
+		Nearby = M.require( 'modules/nearby/Nearby' );
 
-$( function() {
-	var
-		$userBtn = $( '#secondary-button' ),
-		cache = M.settings.saveUserSetting,
-		lastSearchResult = M.settings.getUserSetting( CACHE_KEY_RESULTS ),
-		// FIXME: Adapt modules/nearby/Nearby.js and use that instead
-		pendingQuery = false, $btn;
+	$( function () {
+		var
+			nearby,
+			options = {
+				el: $( '#mw-mf-nearby' )
+			},
+			$btn = $( '#secondary-button' ),
+			icon, $icon;
 
-	overlay = new Nearby( {
-		el: $( '#mw-mf-nearby' )
-	} ).on( 'end-load-from-current-location', function() {
-		$btn.removeClass( 'loading' );
-		pendingQuery = false;
-	} ).on( 'searchResult', function( pages ) {
-		cache( CACHE_KEY_RESULTS, $.toJSON( pages ) );
-	} );
-
-	function refresh() {
-		if ( pendingQuery ) {
-			return;
-		} else {
-			$btn.addClass( 'loading' );
-			pendingQuery = true;
-			overlay.loadFromCurrentLocation();
+		// Remove user button
+		if ( $btn.length ) {
+			$btn.remove();
 		}
-	}
 
-	// render from cache or render from current location
-	if ( lastSearchResult && window.location.hash ) {
-		overlay.render( { pages: $.parseJSON( lastSearchResult ) } );
-	} else {
-		overlay.loadFromCurrentLocation();
-	}
+		// Create refresh button on the header
+		icon = new Icon( {
+			name: 'refresh',
+			id: 'secondary-button',
+			additionalClassNames: 'main-header-button',
+			tagName: 'a',
+			title: mw.msg( 'mobile-frontend-nearby-refresh' ),
+			label: mw.msg( 'mobile-frontend-nearby-refresh' )
+		} );
+		$icon = $( icon.toHtmlString() ).on( 'click', refreshCurrentLocation ).appendTo( '.header' );
 
-	// replace user button with refresh button
-	if ( $userBtn.length ) {
-		$userBtn.remove();
-	}
-	// FIXME: i18n
-	$btn = $( '<a class="refresh" id="secondary-button">' ).on( 'click', refresh ).appendTo( '.header' );
-} );
+		/**
+		 * Initialize or instantiate Nearby with options
+		 * @method
+		 * @ignore
+		 * @param {Object} options
+		 */
+		function refresh( options ) {
+			if ( nearby ) {
+				nearby.initialize( options );
+			} else {
+				nearby = new Nearby( options );
+			}
+		}
+
+		// Routing on the nearby view
+
+		/*
+		 * #/coords/lat,long
+		 */
+		router.route( /^\/coord\/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/, function ( lat, lon ) {
+			$icon.hide();
+			// Search with coordinates
+			refresh( $.extend( {}, options, {
+				latitude: lat,
+				longitude: lon
+			} ) );
+		} );
+
+		/*
+		 * #/page/PageTitle
+		 */
+		router.route( /^\/page\/(.+)$/, function ( pageTitle ) {
+			$icon.hide();
+			refresh( $.extend( {}, options, {
+				pageTitle: pageTitle
+			} ) );
+		} );
+
+		/**
+		 * Refresh the current view using browser geolocation api
+		 * @ignore
+		 */
+		function refreshCurrentLocation() {
+			$icon.show();
+			refresh( $.extend( {}, options, {
+				useCurrentLocation: true
+			} ) );
+		}
+
+		/*
+		 * Anything else search with current location
+		 * FIXME: The regex has to negate the rest of the routes because every time we
+		 * define a route with router.route that route gets matched against the
+		 * current hash.
+		 */
+		router.route( /^(?!.coord|.page).*$/, refreshCurrentLocation );
+
+	} );
 
 }( mw.mobileFrontend, jQuery ) );

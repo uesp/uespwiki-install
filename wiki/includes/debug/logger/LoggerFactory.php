@@ -20,30 +20,97 @@
 
 namespace MediaWiki\Logger;
 
+use ObjectFactory;
+
 /**
- * Backwards compatible PSR-3 logger instance factory.
+ * PSR-3 logger instance factory.
  *
- * PSR-3 debug logging was introduced to MediaWiki in 1.25. This class
- * provides a backward compatible PSR-3 logging layer to make backporting
- * critical updates from 1.25+ easier. It also serves to allow extensions that
- * maintain backwards compatibility with the 1.23 LTS releases to migrate to
- * the new logging system.
+ * Creation of \Psr\Log\LoggerInterface instances is managed via the
+ * LoggerFactory::getInstance() static method which in turn delegates to the
+ * currently registered service provider.
  *
- * @since 1.24.4
+ * A service provider is any class implementing the Spi interface.
+ * There are two possible methods of registering a service provider. The
+ * LoggerFactory::registerProvider() static method can be called at any time
+ * to change the service provider. If LoggerFactory::getInstance() is called
+ * before any service provider has been registered, it will attempt to use the
+ * $wgMWLoggerDefaultSpi global to bootstrap Spi registration.
+ * $wgMWLoggerDefaultSpi is expected to be an array usable by
+ * ObjectFactory::getObjectFromSpec() to create a class.
+ *
+ * @see \MediaWiki\Logger\Spi
+ * @since 1.25
  * @author Bryan Davis <bd808@wikimedia.org>
- * @copyright © 2015 Bryan Davis and Wikimedia Foundation.
+ * @copyright © 2014 Bryan Davis and Wikimedia Foundation.
  */
 class LoggerFactory {
 
 	/**
-	 * Get a named logger instance.
+	 * Service provider.
+	 * @var Spi $spi
+	 */
+	private static $spi;
+
+
+	/**
+	 * Register a service provider to create new \Psr\Log\LoggerInterface
+	 * instances.
+	 *
+	 * @param Spi $provider Provider to register
+	 */
+	public static function registerProvider( Spi $provider ) {
+		self::$spi = $provider;
+	}
+
+
+	/**
+	 * Get the registered service provider.
+	 *
+	 * If called before any service provider has been registered, it will
+	 * attempt to use the $wgMWLoggerDefaultSpi global to bootstrap
+	 * Spi registration. $wgMWLoggerDefaultSpi is expected to be an
+	 * array usable by ObjectFactory::getObjectFromSpec() to create a class.
+	 *
+	 * @return Spi
+	 * @see registerProvider()
+	 * @see ObjectFactory::getObjectFromSpec()
+	 */
+	public static function getProvider() {
+		if ( self::$spi === null ) {
+			global $wgMWLoggerDefaultSpi;
+			$provider = ObjectFactory::getObjectFromSpec(
+				$wgMWLoggerDefaultSpi
+			);
+			self::registerProvider( $provider );
+		}
+		return self::$spi;
+	}
+
+
+	/**
+	 * Get a named logger instance from the currently configured logger factory.
 	 *
 	 * @param string $channel Logger channel (name)
 	 * @return \Psr\Log\LoggerInterface
 	 */
 	public static function getInstance( $channel ) {
-		return new BackcompatLogger( $channel );
+		if ( !interface_exists( 'Psr\Log\LoggerInterface' ) ) {
+			$message = (
+				'MediaWiki requires the <a href="https://github.com/php-fig/log">PSR-3 logging ' .
+				"library</a> to be present. This library is not embedded directly in MediaWiki's " .
+				"git repository and must be installed separately by the end user.\n\n" .
+				'Please see <a href="https://www.mediawiki.org/wiki/Download_from_Git' .
+				'#Fetch_external_libraries">mediawiki.org</a> for help on installing ' .
+				'the required components.'
+			);
+			echo $message;
+			trigger_error( $message, E_USER_ERROR );
+			die( 1 );
+		}
+
+		return self::getProvider()->getLogger( $channel );
 	}
+
 
 	/**
 	 * Construction of utility class is not allowed.

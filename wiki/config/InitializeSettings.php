@@ -7,7 +7,7 @@
 
 # dev.uesp.net
 $uespIsDev = false;
-if ($_SERVER['HTTP_HOST'] == "dev.uesp.net") $uespIsDev = true;
+if ($_SERVER['HTTP_HOST'] == "dev.uesp.net" || $_SERVER['HTTP_HOST'] == "dev.m.uesp.net") $uespIsDev = true;
 
 # Mobile sites
 $uespIsMobile = false;

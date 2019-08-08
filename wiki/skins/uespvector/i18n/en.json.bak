@@ -1,7 +1,0 @@
-{
-	"@metadata": {
-		"authors": [ "Robert Morley" ]
-	},
-	"skinname-uespvector": "UESP Vector",
-	"uespvector-desc": "A UESP-specific version of the built-in Vector skin."
-}

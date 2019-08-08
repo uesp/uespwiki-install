@@ -215,7 +215,7 @@ abstract class RedirectSpecialArticle extends RedirectSpecialPage {
 			'ctype', 'maxage', 'smaxage',
 		);
 
-		wfRunHooks( "RedirectSpecialArticleRedirectParams", array( &$redirectParams ) );
+		Hooks::run( "RedirectSpecialArticleRedirectParams", array( &$redirectParams ) );
 		$this->mAllowedRedirectParams = $redirectParams;
 	}
 }

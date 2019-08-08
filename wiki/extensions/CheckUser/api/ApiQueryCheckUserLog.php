@@ -81,8 +81,12 @@ class ApiQueryCheckUserLog extends ApiQueryBase {
 			}
 		}
 
-		$result->setIndexedTagName_internal(
-			array( 'query', $this->getModuleName(), 'entries' ), 'entry' );
+		if ( defined( 'ApiResult::META_CONTENT' ) ) {
+			$result->addIndexedTagName( array( 'query', $this->getModuleName(), 'entries' ), 'entry' );
+		} else {
+			$result->setIndexedTagName_internal(
+				array( 'query', $this->getModuleName(), 'entries' ), 'entry' );
+		}
 	}
 
 	public function getAllowedParams() {
@@ -101,7 +105,9 @@ class ApiQueryCheckUserLog extends ApiQueryBase {
 				ApiBase::PARAM_TYPE => array(
 					'newer',
 					'older'
-				)
+				),
+				/** @todo Once support for MediaWiki < 1.25 is dropped, just use ApiBase::PARAM_HELP_MSG directly */
+				constant( 'ApiBase::PARAM_HELP_MSG' ) ?: '' => 'api-help-param-direction',
 			),
 			'from'  => array(
 				ApiBase::PARAM_TYPE => 'timestamp',
@@ -109,10 +115,16 @@ class ApiQueryCheckUserLog extends ApiQueryBase {
 			'to'    => array(
 				ApiBase::PARAM_TYPE => 'timestamp',
 			),
-			'continue' => null,
+			'continue' => array(
+				/** @todo Once support for MediaWiki < 1.25 is dropped, just use ApiBase::PARAM_HELP_MSG directly */
+				constant( 'ApiBase::PARAM_HELP_MSG' ) ?: '' => 'api-help-param-continue',
+			),
 		);
 	}
 
+	/**
+	 * @deprecated since MediaWiki core 1.25
+	 */
 	public function getParamDescription() {
 		$p = $this->getModulePrefix();
 		return array(
@@ -128,18 +140,16 @@ class ApiQueryCheckUserLog extends ApiQueryBase {
 		);
 	}
 
+	/**
+	 * @deprecated since MediaWiki core 1.25
+	 */
 	public function getDescription() {
 		return 'Allows get entries of CheckUser log';
 	}
 
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(),
-			array(
-				array( 'code' => 'permissionerror', 'info' => 'You need the checkuser-log right' ),
-			)
-		);
-	}
-
+	/**
+	 * @deprecated since MediaWiki core 1.25
+	 */
 	public function getExamples() {
 		return array(
 			'api.php?action=query&list=checkuserlog&culuser=WikiSysop&cullimit=25',
@@ -147,11 +157,19 @@ class ApiQueryCheckUserLog extends ApiQueryBase {
 		);
 	}
 
-	public function getHelpUrls() {
-		return 'http://www.mediawiki.org/wiki/Extension:CheckUser#API';
+	/**
+	 * @see ApiBase::getExamplesMessages()
+	 */
+	protected function getExamplesMessages() {
+		return array(
+			'action=query&list=checkuserlog&culuser=Example&cullimit=25'
+				=> 'apihelp-query+checkuserlog-example-1',
+			'action=query&list=checkuserlog&cultarget=192.0.2.0/24&culfrom=2011-10-15T23:00:00Z'
+				=> 'apihelp-query+checkuserlog-example-2',
+		);
 	}
 
-	public function getVersion() {
-		return __CLASS__ . ': $Id$';
+	public function getHelpUrls() {
+		return 'https://www.mediawiki.org/wiki/Extension:CheckUser#API';
 	}
 }

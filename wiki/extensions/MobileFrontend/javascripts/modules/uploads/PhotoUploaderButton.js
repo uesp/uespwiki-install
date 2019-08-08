@@ -1,107 +1,78 @@
-( function( M, $ ) {
-	var View = M.require( 'View' ),
-		LoadingOverlay = M.require( 'LoadingOverlayNew' ),
+( function ( M, $ ) {
+	var browser = M.require( 'browser' ),
+		View = M.require( 'View' ),
+		Icon = M.require( 'Icon' ),
+		photoIcon = new Icon( {
+			name: 'photo',
+			hasText: true,
+			additionalClassNames: 'mw-ui-progressive mw-ui-button button'
+		} ),
+		router = M.require( 'router' ),
 		PhotoUploaderButton;
 
-	function isSupported() {
-		// FIXME: create a module for browser detection stuff
-		// deal with known false positives which don't support file input (bug 47374)
-		if ( navigator.userAgent.match( /Windows Phone (OS 7|8.0)/ ) ) {
-			return false;
-		}
-		var browserSupported = (
-			typeof FileReader !== 'undefined' &&
-			typeof FormData !== 'undefined' &&
-			($('<input type="file"/>').prop('type') === 'file') // Firefox OS 1.0 turns <input type="file"> into <input type="text">
-		);
-
-		return browserSupported && !mw.config.get( 'wgImagesDisabled', false );
-	}
-
 	/**
+	 * @class PhotoUploaderButton
+	 * @extends View
+	 * @uses Icon
 	 * PhotoUploaderButton is a component for uploading images to the wiki.
 	 *
-	 * @example
-	 * <code>
-	 * var photoUploaderButton = new PhotoUploaderButton( {
-	 *     buttonCaption: 'Add a photo',
-	 * } );
-	 * photoUploaderButton.
-	 *     insertAfter( 'h1' ).
-	 *     on( 'upload', function( fileName, url ) {
-	 *         $( '.someImage' ).attr( 'src', url );
+	 *     @example
+	 *     <code>
+	 *     var photoUploaderButton = new PhotoUploaderButton( {
+	 *         buttonCaption: 'Add a photo',
 	 *     } );
-	 * </code>
+	 *     photoUploaderButton.
+	 *         insertAfter( 'h1' ).
+	 *         on( 'upload', function ( fileName, url ) {
+	 *             $( '.someImage' ).attr( 'src', url );
+	 *         } );
+	 *     </code>
 	 *
-	 * @constructor
 	 * @param {Object} options Uploader options.
-	 * @param {string} options.buttonCaption Caption for the upload button.
-	 * @param {boolean} options.insertInPage If the image should be prepended
+	 * @param {String} options.buttonCaption Caption for the upload button.
+	 * @param {Boolean} options.insertInPage If the image should be prepended
 	 * to the wikitext of a page specified by options.pageTitle.
-	 * @param {string} options.pageTitle Title of the page to which the image
+	 * @param {String} options.pageTitle Title of the page to which the image
 	 * belongs (image name will be based on this) and to which it should be
 	 * prepended (if options.insertInPage is true).
-	 * @param {string} options.funnel Funnel for EventLogging.
-	 * @fires PhotoUploader#start
-	 * @fires PhotoUploader#success
-	 * @fires PhotoUploader#error
-	 * @fires PhotoUploader#cancel
-	 */
-	/**
-	 * Triggered when image upload starts.
-	 *
-	 * @event PhotoUploader#start
-	 */
-	/**
-	 * Triggered when image upload is finished successfully.
-	 *
-	 * @event PhotoUploader#success
-	 * @property {Object} data Uploaded image data.
-	 * @property {string} data.fileName Name of the uploaded image.
-	 * @property {string} data.description Name of the uploaded image.
-	 * @property {string} data.url URL to the uploaded image (can be a
-	 * local data URL).
-	 */
-	/**
-	 * Triggered when image upload fails.
-	 *
-	 * @event PhotoUploader#error
-	 */
-	/**
-	 * Triggered when image upload is cancelled.
-	 *
-	 * @event PhotoUploader#cancel
+	 * @param {String} options.funnel Funnel for EventLogging.
 	 */
 	PhotoUploaderButton = View.extend( {
-		template: M.template.get( 'uploads/PhotoUploaderButton' ),
-		className: 'mw-ui-progressive mw-ui-button button photo',
+		template: mw.template.get( 'mobile.upload.ui', 'Button.hogan' ),
+		className: photoIcon.getClassName(),
+		events: {
+			'change input': 'onFileSelected'
+		},
 
-		postRender: function() {
-			var self = this, $input = this.$( 'input' );
+		/**
+		 * Event handler, called when a file is selected in the input
+		 * @param {jQuery.Event} ev
+		 */
+		onFileSelected: function ( ev ) {
+			var $input = $( ev.target );
+			this.handleFile( $input[0].files[0] );
+			// clear so that change event is fired again when user selects the same file
+			$input.val( '' );
+		},
 
-			function handleFile( file ) {
-				var loadingOverlay = new LoadingOverlay();
+		/**
+		 * Handle a selected file for upload, emit event and route to the
+		 * appropiate url
+		 * @param {File} file associated with file upload input
+		 */
+		handleFile: function ( file ) {
+			// FIXME: this is hacky but it would be hard to pass a file in a route
+			M.emit( '_upload-preview', file );
+			router.navigate( '#/upload-preview/' + this.options.funnel );
+		},
 
-				loadingOverlay.show();
-
-				mw.loader.using( 'mobile.uploads', function() {
-					loadingOverlay.hide();
-					// FIXME: this is hacky but it would be hard to pass a file in a route
-					M.emit( '_upload-preview', file );
-					M.router.navigate( '#/upload-preview/' + self.options.funnel );
-				} );
-			}
-
-			$input.
-				on( 'change', function() {
-					handleFile( $input[0].files[0] );
-					// clear so that change event is fired again when user selects the same file
-					$input.val( '' );
-				} );
+		/** @inheritdoc */
+		postRender: function () {
+			this.$el.removeClass( 'hidden' );
 		}
 	} );
 
-	PhotoUploaderButton.isSupported = isSupported();
+	PhotoUploaderButton.isSupported = browser.supportsFileUploads();
 
 	M.define( 'modules/uploads/PhotoUploaderButton', PhotoUploaderButton );
 

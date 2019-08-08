@@ -1,65 +1,50 @@
-( function( M, $ ) {
-	var View = M.require( 'View' ), Checkbox;
+( function ( M, $ ) {
+	var Checkbox,
+		context = M.require( 'context' ),
+		View = M.require( 'View' ),
+		settings = M.require( 'settings' );
 
-	function supportsTouchEvents() {
-		return 'ontouchstart' in window;
-	}
-
-	function enhanceCheckboxes() {
-
-		function clickChkBox() {
-			var $parent = $( this ),
-				box = $parent.children( 'input' )[ 0 ];
-
-			if ( $parent.hasClass( 'checked' ) ) {
-				$parent.removeClass( 'checked' );
-				box.checked = false;
-			} else {
-				$parent.addClass( 'checked' );
-				box.checked = true;
-			}
-		}
-
-		$( '.mw-mf-checkbox-css3 > input[type=checkbox]' ).each( function( i, el ) {
-			var $parent = $( el ).parent(),
-				eventName = supportsTouchEvents() ? 'touchstart' : 'click';
-			$parent.on( eventName, clickChkBox );
-			if ( el.checked ) {
-				$parent.addClass( 'checked ');
-			}
-		} );
-	}
-
+	/**
+	 * Wrapper for checkboxes styled as in MediaWiki UI style guide
+	 * @class Checkbox
+	 * @extends View
+	 */
 	Checkbox = View.extend( {
-		template: M.template.get( 'specials/mobileoptions/checkbox' ),
-		tagName: 'li',
-		defaults: {
-			onMsg: mw.msg( 'mobile-frontend-on' ),
-			offMsg: mw.msg( 'mobile-frontend-off' ),
+		template: mw.template.get( 'mobile.special.mobileoptions.scripts', 'Checkbox.hogan' ),
+		/**
+		 * Save the current state of the checkbox to the settings
+		 * @method
+		 */
+		save: function () {
+			settings.save( this.options.name, this.cb.prop( 'checked' ) ? 'true' : 'false', true );
 		},
-		save: function() {
-			M.settings.saveUserSetting( this.options.name, this.cb.prop( 'checked' ) ? 'true' : 'false', true );
-		},
-		postRender: function() {
+		/** @inheritdoc */
+		postRender: function () {
 			var cbview = this;
 			this.cb = this.$( 'input[type=checkbox]' );
-			this.cb.prop( 'checked', M.settings.getUserSetting( this.options.name, true ) === 'true' );
-			$( 'form.mw-mf-settings' ).on( 'submit', function() { cbview.save(); } );
-		},
+			this.cb.prop( 'checked', settings.get( this.options.name, true ) === 'true' );
+			$( 'form.mw-mf-settings' ).on( 'submit', $.proxy( cbview, 'save' ) );
+		}
 	} );
 
+	/**
+	 * Add a new 'expand sections' checkbox in alpha.
+	 * The checkbox is used for turning on/off expansion of all sections on page load.
+	 * @method
+	 */
 	function initLocalStorageCheckboxes() {
-		var saveLI = $( '#mw-mf-settings-save' ).parent(), cb;
-		if ( M.isAlphaGroupMember() ) {
+		var cb,
+			saveLI = $( '#mw-mf-settings-save' );
+
+		if ( context.isAlphaGroupMember() ) {
 			cb = new Checkbox( {
 				name: 'expandSections',
-				enableMsg: mw.msg( 'mobile-frontend-expand-sections-status' ),
-				descriptionMsg: mw.msg( 'mobile-frontend-expand-sections-description' ),
+				label: mw.msg( 'mobile-frontend-expand-sections-status' ),
+				description: mw.msg( 'mobile-frontend-expand-sections-description' )
 			} );
 			cb.insertBefore( saveLI );
 		}
 	}
 
 	$( initLocalStorageCheckboxes );
-	$( enhanceCheckboxes );
 }( mw.mobileFrontend, jQuery ) );

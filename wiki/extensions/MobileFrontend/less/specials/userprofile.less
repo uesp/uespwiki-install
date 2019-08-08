@@ -25,49 +25,6 @@
 		font-size: 0.9em;
 	}
 
-	.user-description-container {
-		padding: 0 (@contentMargin * 2) 1.5em;
-		position: relative;
-
-		.user-description-placeholder,
-		.user-description {
-			display: inline;
-			font-family: @fontFamilyHeading;
-			font-style: italic;
-			font-size: 1.2em;
-			line-height: @contentLineHeight;
-		}
-
-		.edit-button {
-			display: inline-block;
-			vertical-align: middle;
-			background: url(images/profile/edit.png) 50% 30% no-repeat;
-			.background-size( 16px, auto );
-			text-indent: 9999px;
-			width: 32px;
-			height: 32px;
-			cursor: pointer;
-		}
-
-		.editor {
-			text-align: right;
-		}
-
-		textarea {
-			.box-sizing( border-box );
-			width: 100%;
-			height: 120px;
-			margin-bottom: 1em;
-		}
-
-		.character-counter {
-			margin-right: 1em;
-			&.warning {
-				color: @redBase;
-			}
-		}
-	}
-
 	h2 {
 		color: @grayLight;
 		text-transform: uppercase;
@@ -86,38 +43,10 @@
 		margin: 0 @cardMargin @cardMargin;
 		text-align: left;
 
-		.listThumb,
-		.caption {
-			display: inline-block;
-		}
-
-		// FIXME: Rename all instances of listThumb to list-thumb
-		.listThumb {
-			width: 33%;
-			vertical-align: middle;
-
-			&.list-thumb-placeholder {
-				.background-size( 32px, auto );
-				padding: @captionPadding 0;
-				background-color: @grayLightest;
-				min-height: @wgMFThumbnailTiny;
-				background-position: center center;
-			}
-
-			&.list-thumb-edit {
-				background-image: url(images/profile/placeholder-edit.png);
-			}
-
-			&.list-thumb-thanks {
-				background-image: url(images/profile/placeholder-thank.png);
-			}
-		}
-
 		.caption {
 			width: 66%;
 			vertical-align: top;
 			padding: @captionPadding;
-			.box-sizing(border-box);
 		}
 	}
 
@@ -127,12 +56,16 @@
 		clear: both;
 		padding: 2em 0 0;
 
-		.talk {
+		.icon-talk,
+		// FIXME: Remove above selector when mw-ui-icon in stable
+		.mw-ui-icon {
 			margin-top: 1.5em;
-			color: @blueBase;
+		}
+
+		// FIXME: Remove when mw-ui-icon in stable
+		.icon-talk {
 			padding-left: 40px;
-			background: url(images/profile/talk.png) 10px 50% no-repeat;
-			.background-size( 24px, auto );
+			background-position: left 10px center;
 		}
 	}
 }
@@ -140,13 +73,15 @@
 // Tablet styling
 @media all and (min-width: @wgMFDeviceWidthTablet) {
 	.profile {
+		margin: 0 auto;
 		.card {
 			margin: @cardMargin auto;
 			min-height: @wgMFThumbnailSmall;
 
-			.listThumb {
+			.list-thumb {
 
 				&.list-thumb-placeholder {
+					// FIXME: Make this a generic responsive class in icons.less
 					.background-size( 64px, auto );
 					min-height: @wgMFThumbnailSmall;
 				}

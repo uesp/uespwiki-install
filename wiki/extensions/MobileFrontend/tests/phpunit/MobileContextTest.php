@@ -372,8 +372,9 @@ class MobileContextTest extends MediaWikiTestCase {
 
 	public function testIsLocalUrl() {
 		global $wgServer;
-		$this->assertTrue( MobileContext::isLocalUrl( $wgServer ) );
-		$this->assertFalse( MobileContext::isLocalUrl( 'http://www.google.com' ) );
+		$context = $this->makeContext();
+		$this->assertTrue( $context->isLocalUrl( $wgServer ) );
+		$this->assertFalse( $context->isLocalUrl( 'http://www.google.com' ) );
 	}
 
 	/**
@@ -399,10 +400,13 @@ class MobileContextTest extends MediaWikiTestCase {
 	/**
 	 * @dataProvider getXAnalyticsHeaderProvider
 	 */
-	public function testGetXAnalyticsHeader( $logItems, $expectedHeader ) {
+	public function testGetXAnalyticsHeader( $existingHeader, $logItems, $expectedHeader ) {
 		$context = $this->makeContext();
 		foreach ( $logItems as $key => $val ) {
 			$context->addAnalyticsLogItem( $key, $val );
+		}
+		if ( $existingHeader ) {
+			$context->getRequest()->response()->header( 'X-Analytics: ' . $existingHeader, true );
 		}
 		$this->assertEquals( $context->getXAnalyticsHeader(), $expectedHeader );
 	}
@@ -410,18 +414,27 @@ class MobileContextTest extends MediaWikiTestCase {
 	public function getXAnalyticsHeaderProvider() {
 		return array(
 			array(
+				null,
 				array( 'mf-m' => 'a', 'zero' => '502-13' ),
 				'X-Analytics: mf-m=a;zero=502-13',
 			),
 			// check key/val trimming
 			array(
+				null,
 				array( '  foo' => '  bar  ', 'baz' => ' blat ' ),
 				'X-Analytics: foo=bar;baz=blat'
 			),
 			// check urlencoding key/val pairs
 			array(
+				null,
 				array( 'foo' => 'bar baz', 'blat' => '$blammo' ),
 				'X-Analytics: foo=bar+baz;blat=%24blammo'
+			),
+			// check handling of existing header value
+			array(
+				'existing=value; another=item',
+				array( 'mf-m' => 'a', 'zero' => '502-13' ),
+				'X-Analytics: existing=value;another=item;mf-m=a;zero=502-13',
 			),
 		);
 	}
@@ -556,9 +569,6 @@ class MobileContextTest extends MediaWikiTestCase {
 		);
 	}
 
-	/**
-	 * @group Broken
-	 */
 	public function testBug71329() {
 		SpecialPageFactory::resetList();
 		RequestContext::resetMain();
@@ -609,6 +619,6 @@ class MFFauxRequest extends FauxRequest {
 
 class BogusMobileContext {
 	public function __call( $who, $cares ) {
-		throw new MWException( "Don't touch me!" );
+		throw new Exception( "Don't touch me!" );
 	}
 }

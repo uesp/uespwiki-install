@@ -1,107 +1,41 @@
 <?php
+/**
+ * SpecialUserProfile.php
+ */
 
+/**
+ * Show a mobile specific user profile page
+ */
 class SpecialUserProfile extends MobileSpecialPage {
-	protected $mode = 'beta';
-	protected $disableSearchAndFooter = false;
-	protected $hasDesktopVersion = false;
+	/** @var boolean $hasDesktopVersion Whether this special page has or has not a desktop version */
+	protected $hasDesktopVersion = true;
 
 	/**
 	 * Maximum number of characters to display as the user description
 	 */
 	const MAX_DESCRIPTION_CHARS = 255;
 
-	/**
-	 * @var User
-	 */
+	/** @var User $targetUser The user object of the user to show on page */
 	private $targetUser;
-	/**
-	 * @var MobileUserInfo
-	 */
+	/** @var MobileUserInfo $userInfo MobileUserInfo with informationen about the user */
 	private $userInfo;
-	/**
-	 * The user's description of himself or herself
-	 * @var String
-	 */
-	public $userDescription;
-	/**
-	 * Whether or not the page is editable by the current user
-	 * @var Boolean
-	 */
-	private $editable = false;
 
+	/**
+	 * Construct function
+	 */
 	public function __construct() {
 		parent::__construct( 'UserProfile' );
 	}
 
+	/**
+	 * Get the difference between now and the timestamp provided
+	 * @param MWTimestamp $ts The timstamp
+	 * @return integer The difference in days
+	 */
 	protected function getDaysAgo( MWTimestamp $ts ) {
 		$now = new MWTimestamp();
 		$diff = $ts->diff( $now );
 		return $diff->days;
-	}
-
-	/**
-	 * Returns HTML to show the last upload or an empty string when there has been no last upload
-	 *
-	 * @return String HTML string representing the last upload by the user
-	 */
-	protected function getLastUploadHtml() {
-		wfProfileIn( __METHOD__ );
-
-		$file = $this->userInfo->getLastUpload();
-		if ( !$file ) {
-			wfProfileOut( __METHOD__ );
-			return '';
-		}
-
-		$title = $file->getTitle();
-		$ts = new MWTimestamp( $file->getTimestamp() );
-		$daysAgo = $this->getDaysAgo( $ts );
-		$page = new MobilePage( $title, $file );
-		$img = Html::openElement( 'div', array( 'class' => 'card' ) ) .
-			Html::openElement( 'a', array(
-				'class' => 'container image',
-				'href' => $title->getLocalUrl() )
-			) .
-			$page->getMediumThumbnailHtml() .
-			Html::openElement( 'div', array( 'class' => 'caption' ) ) .
-			$this->msg( 'mobile-frontend-profile-last-upload-caption' )
-				->numParams( $daysAgo ) // $1
-				->params( $this->targetUser->getName() ) // $2
-				->parse() .
-			Html::closeElement( 'div' ) .
-			Html::closeElement( 'a' ) .
-			Html::closeElement( 'div' );
-		wfProfileOut( __METHOD__ );
-		return $img;
-	}
-
-	/**
-	 * Returns HTML to show the user's description as well as a hidden form for editing
-	 * the description.
-	 *
-	 * @return String HTML
-	 *
-	 */
-	protected function getUserSummary() {
-		$out = '';
-		if ( $this->editable || $this->userDescription ) {
-			$out = Html::openElement( 'div', array( 'class' => 'user-description-container' ) );
-				if ( $this->userDescription ) {
-					$out .= Html::openElement( 'p', array( 'class' => 'user-description' ) );
-					// FIXME: Use quotation-marks message
-					// NOTE: This outputs WikiText as raw text (not parsed). This is on
-					// purpose, but may be changed in the future.
-					$out .= htmlspecialchars( $this->userDescription );
-					$out .= Html::closeElement( 'p' );
-				} elseif ( $this->editable ) {
-					$out .= Html::openElement( 'p', array( 'class' => 'user-description-placeholder' ) );
-					$out .= $this->msg( 'mobile-frontend-profile-description-placeholder',
-						$this->targetUser );
-					$out .= Html::closeElement( 'p' );
-				}
-			$out .= Html::closeElement( 'div' );
-		}
-		return $out;
 	}
 
 	/**
@@ -110,14 +44,12 @@ class SpecialUserProfile extends MobileSpecialPage {
 	 * @return String HTML string representing the last thank by the user
 	 */
 	protected function getLastThanksHtml() {
-		wfProfileIn( __METHOD__ );
 		$html = '';
 		$thank = $this->userInfo->getLastThanking();
 		if ( $thank ) {
 			$user = $thank['user'];
 			$html = Html::openElement( 'div', array( 'class' => 'card' ) )
 				. Html::openElement( 'div', array( 'class' => 'container' ) )
-				. MobilePage::getPlaceHolderThumbnailHtml( 'list-thumb-thanks' )
 				. Html::openElement( 'div', array( 'class' => 'caption' ) )
 				. $this->msg( 'mobile-frontend-profile-last-thank',
 					$user,
@@ -127,7 +59,7 @@ class SpecialUserProfile extends MobileSpecialPage {
 				. '</div>'
 				. '</div>';
 		}
-		wfProfileOut( __METHOD__ );
+
 		return $html;
 	}
 
@@ -137,19 +69,11 @@ class SpecialUserProfile extends MobileSpecialPage {
 	 * @return String HTML string representing the last edit by the user
 	 */
 	protected function getLastEditHtml() {
-		wfProfileIn( __METHOD__ );
 		$rev = $this->userInfo->getLastEdit();
 		if ( $rev ) {
 			$daysAgo = $this->getDaysAgo( new MWTimestamp( wfTimestamp( TS_UNIX, $rev->getTimestamp() ) ) );
-			$page = new MobilePage( $rev->getTitle() );
-			if ( $page->hasThumbnail() ) {
-				$thumbnail = $page->getMediumThumbnailHtml();
-			} else {
-				$thumbnail = $page->getPlaceHolderThumbnailHtml( 'list-thumb-edit' );
-			}
 			$html = Html::openElement( 'div', array( 'class' => 'card' ) )
 				. Html::openElement( 'div', array( 'class' => 'container image' ) )
-				. $thumbnail
 				. Html::openElement( 'div', array( 'class' => 'caption' ) )
 				. $this->msg( 'mobile-frontend-profile-last-edit',
 					$rev->getTitle(),
@@ -163,14 +87,17 @@ class SpecialUserProfile extends MobileSpecialPage {
 			$html = '';
 		}
 
-		wfProfileOut( __METHOD__ );
 		return $html;
 	}
 
+	/**
+	 * Get the link to users talk page
+	 * @return string
+	 */
 	protected function getTalkLink() {
 		// replace secondary icon
 		$attrs = array(
-			'class' => 'talk button mw-ui-button',
+			'class' => MobileUI::iconClass( 'talk', 'before', MobileUI::buttonClass() ),
 			'href' => $this->targetUser->getTalkPage()->getLocalUrl(),
 		);
 		// FIXME: What if this is the user's own profile? Should we change the message?
@@ -182,14 +109,30 @@ class SpecialUserProfile extends MobileSpecialPage {
 		);
 	}
 
-	protected function getHtmlNoUser() {
+	/**
+	 * Show error page, that the user does not exist, or no user provided
+	 * @param string $msgKey Message key to use as error message body
+	 * @return string
+	 */
+	protected function displayNoUserError( $msgKey ) {
+		$out = $this->getOutput();
+
+		// generate a user friendly error with a meaningful message
 		$html = Html::openElement( 'div', array( 'class' => 'alert error' ) );
 		$html .= Html::element( 'h2', array(), $this->msg( 'mobile-frontend-profile-error' ) );
-		$html .= Html::element( 'p', array(), $this->msg( 'mobile-frontend-profile-nouser' ) );
+		$html .= Html::element( 'p', array(), $this->msg( $msgKey ) );
 		$html .= Html::closeElement( 'div' );
-		return $html;
+
+		// return page with status code 404, instead of 200 and output the error page
+		$out->setStatusCode( 404 );
+		$out->addHtml( $html );
 	}
 
+	/**
+	 * Get the footer with user information (when joined, how
+	 * many edits/uploads, visit user page and talk page)
+	 * @return string
+	 */
 	protected function getUserFooterHtml() {
 		$fromDate = $this->targetUser->getRegistration();
 		$ts = new MWTimestamp( wfTimestamp( TS_UNIX, $fromDate ) );
@@ -217,37 +160,40 @@ class SpecialUserProfile extends MobileSpecialPage {
 			$uploadCount = 500;
 		}
 
+		$username = $this->targetUser->getName();
+
 		return Html::openElement( 'div', array( 'class' => 'footer' ) )
 			. Html::openElement( 'div' )
-			. $this->msg( $msg, $this->targetUser->getName() )->
+			. $this->msg( $msg, $username )->
 				numParams( $units, $editCount, $uploadCount )->parse()
 			. Html::closeElement( 'div' )
 			. Html::openElement( 'div' )
 			. Linker::link( $this->targetUser->getUserPage(),
-				$this->msg( 'mobile-frontend-profile-userpage-link' )->escaped()
+				$this->msg( 'mobile-frontend-profile-userpage-link', $username )->escaped()
 			)
 			. Html::closeElement( 'div' )
-			. $this->getTalkLink();
+			. $this->getTalkLink()
+			. Html::closeElement( 'div' );
 	}
 
+	/**
+	 * Render the page
+	 * @param string $par The username of the user to display
+	 */
 	public function executeWhenAvailable( $par ) {
-		wfProfileIn( __METHOD__ );
 		$out = $this->getOutput();
-		$this->addModules();
-		$out->addModuleStyles( 'skins.minerva.special.styles' );
-		$out->setProperty( 'unstyledContent', true );
+		$this->setHeaders();
 		$out->addJsConfigVars( array( 'wgMFMaxDescriptionChars' => self::MAX_DESCRIPTION_CHARS ) );
 		if ( $par ) {
 			$this->targetUser = User::newFromName( $par );
-			$pageTitle = $this->targetUser->getName();
+			$pageTitle = $this->targetUser ? $this->targetUser->getName() : $par;
 			$out->setPageTitle( $pageTitle );
 			// Make sure this is a valid registered user and not an invalid username (e.g. ip see bug 56822)
 			if ( $this->targetUser && $this->targetUser->getId() ) {
 
 				// Prepare content
 				$this->userInfo = new MobileUserInfo( $this->targetUser );
-				$activityHtml = $this->getLastEditHtml() . $this->getLastUploadHtml()
-					. $this->getLastThanksHtml();
+				$activityHtml = $this->getLastEditHtml() . $this->getLastThanksHtml();
 
 				$html = Html::openElement( 'div', array( 'class' => 'profile content' ) );
 
@@ -262,15 +208,14 @@ class SpecialUserProfile extends MobileSpecialPage {
 				$html .= $this->getUserFooterHtml()
 					. Html::closeElement( 'div' );
 
+				$out->addHtml( $html );
 			} else {
-				$html = $this->getHtmlNoUser();
+				$this->displayNoUserError( 'mobile-frontend-profile-nouser' );
 			}
-			$out->addHtml( $html );
 		} else {
-			wfHttpError( 404, $this->msg( 'mobile-frontend-profile-error' )->text(),
-				$this->msg( 'mobile-frontend-profile-noargs' )->text() );
+			$out->setPageTitle( $this->msg( 'mobile-frontend-profile-title' ) );
+			$this->displayNoUserError( 'mobile-frontend-profile-noargs' );
 		}
-		wfProfileOut( __METHOD__ );
 	}
 
 	/**

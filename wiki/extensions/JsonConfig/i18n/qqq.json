@@ -5,10 +5,11 @@
 			"Shirayuki",
 			"Yuri Astrakhan",
 			"Siebrand",
-			"Amire80"
+			"Amire80",
+			"Umherirrender"
 		]
 	},
-	"jsonconfig-desc": "{{desc|name=JsonConfig|url=http://www.mediawiki.org/wiki/Extension:JsonConfig}}",
+	"jsonconfig-desc": "{{desc|name=JsonConfig|url=https://www.mediawiki.org/wiki/Extension:JsonConfig}}",
 	"jsonconfig-bad-json": "Text on the page is not in a valid JSON format, and there is not much more we can do with it.",
 	"jsonconfig-duplicate-field": "Field (<code>$1</code>) was present more than once but with different capitalization in the JSON, e.g. \"field\" and \"Field\".\n\nParameters:\n* $1 - field name",
 	"jsonconfig-err-array": "A field named \"$1\" is not a valid non-associative array (not a list). Parameters:\n* $1 - field name",
@@ -23,5 +24,12 @@
 	"jsonconfig-err-url": "A field named \"$1\" is not a valid URL. Parameters:\n* $1 - field name",
 	"jsonconfig-move-aborted-model": "JSON configuration page is being renamed to a new title, and that title (namespace) contains configurations of a different type (model).\n\nParameters:\n* $1 - current model\n* $2 - default model for the new title",
 	"jsonconfig-move-aborted-ns": "the new article name is not valid for json configuration",
-	"jsonconfig-optional-field": "A short suffix appended to one of these messages to indicate that the field is optional.\n* {{msg-mw|Jsonconfig-err-bool}}\n* {{msg-mw|Jsonconfig-err-string}}\n* {{msg-mw|Jsonconfig-err-integer}}\n* Or any other field error message provided by another extension\n{{Identical|Optional}}"
+	"jsonconfig-optional-field": "A short suffix appended to one of these messages to indicate that the field is optional.\n* {{msg-mw|Jsonconfig-err-bool}}\n* {{msg-mw|Jsonconfig-err-string}}\n* {{msg-mw|Jsonconfig-err-integer}}\n* Or any other field error message provided by another extension\n{{Identical|Optional}}",
+	"apihelp-jsonconfig-description": "{{doc-apihelp-description|jsonconfig}}",
+	"apihelp-jsonconfig-param-command": "{{doc-apihelp-param|jsonconfig|command}}",
+	"apihelp-jsonconfig-param-title": "{{doc-apihelp-param|jsonconfig|title}}",
+	"apihelp-jsonconfig-param-content": "{{doc-apihelp-param|jsonconfig|content}}",
+	"apihelp-jsonconfig-example-1": "{{doc-apihelp-example|jsonconfig}}",
+	"apihelp-jsonconfig-example-2": "{{doc-apihelp-example|jsonconfig}}",
+	"apihelp-jsonconfig-example-3": "{{doc-apihelp-example|jsonconfig}}"
 }

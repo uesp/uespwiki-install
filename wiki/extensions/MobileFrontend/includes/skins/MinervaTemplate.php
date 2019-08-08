@@ -1,55 +1,158 @@
 <?php
+/**
+ * MinervaTemplate.php
+ */
+
+/**
+ * Extended Template class of BaseTemplate for mobile devices
+ */
 class MinervaTemplate extends BaseTemplate {
-	/**
-	 * @var Boolean
-	 */
+	/** @var boolean Temporary variable that decides whether
+	 * history link should be rendered before the content. */
+	protected $renderHistoryLinkBeforeContent = true;
+	/** @var string $searchPlaceHolderMsg Message used as placeholder in search input */
+	protected $searchPlaceHolderMsg = 'mobile-frontend-placeholder';
+
+	/** @var boolean Specify whether the page is a special page */
 	protected $isSpecialPage;
 
+	/** @var boolean Whether or not the user is on the Special:MobileMenu page */
+	protected $isSpecialMobileMenuPage;
+
+	/** @var boolean Specify whether the page is main page */
+	protected $isMainPage;
+
+	/**
+	 * Renders the header content for the top chrome.
+	 * @param array $data Data used to build the page
+	 */
+	protected function makeChromeHeaderContent( $data ) {
+		echo $this->makeSearchForm( $data );
+	}
+
+	/**
+	 * Generates the HTML required to render the search form.
+	 *
+	 * @param array $data The data used to render the page
+	 * @return string
+	 */
+	protected function makeSearchForm( $data ) {
+		return Html::openElement( 'form',
+				array(
+					'action' => $data['wgScript'],
+					'class' => 'search-box',
+				)
+			) .
+			$this->makeSearchInput( $this->getSearchAttributes() ) .
+			$this->makeSearchButton(
+				'fulltext',
+				array(
+					'class' => 'fulltext-search no-js-only icon icon-search',
+				)
+			) .
+			Html::closeElement( 'form' );
+	}
+
+	/**
+	 * Get elements for personal toolbar
+	 * @return array
+	 */
 	public function getPersonalTools() {
 		return $this->data['personal_urls'];
 	}
 
+	/**
+	 * Start render the page in template
+	 */
 	public function execute() {
-		$this->isSpecialPage = $this->getSkin()->getTitle()->isSpecialPage();
-		wfRunHooks( 'MinervaPreRender', array( $this ) );
+		$title = $this->getSkin()->getTitle();
+		$this->isSpecialPage = $title->isSpecialPage();
+		$this->isSpecialMobileMenuPage = $this->isSpecialPage &&
+			$title->equals( SpecialPage::getTitleFor( 'MobileMenu' ) );
+		$this->isMainPage = $title->isMainPage();
+		Hooks::run( 'MinervaPreRender', array( $this ) );
 		$this->render( $this->data );
 	}
 
+	/**
+	 * Returns the available languages for this page
+	 * @return array
+	 */
 	public function getLanguageVariants() {
 		return $this->data['content_navigation']['variants'];
 	}
 
+	/**
+	 * Get the language links for this page
+	 * @return array
+	 */
 	public function getLanguages() {
 		return $this->data['language_urls'];
 	}
 
+	/**
+	 * Returns main sidebar menu elements
+	 * @return array
+	 */
 	public function getDiscoveryTools() {
 		return $this->data['discovery_urls'];
 	}
 
+	/**
+	 * Returns sidebar footer links
+	 * @return array
+	 */
 	public function getSiteLinks() {
 		return $this->data['site_urls'];
 	}
 
+	/**
+	 * Returns available page actions
+	 * @return array
+	 */
 	public function getPageActions() {
 		return $this->data['page_actions'];
 	}
 
+	/**
+	 * Returns footer links
+	 * @param string $option
+	 * @return array
+	 */
 	public function getFooterLinks( $option = null ) {
 		return $this->data['footerlinks'];
 	}
 
+	/**
+	 * Get attributes to create search input
+	 * @return array Array with attributes for search bar
+	 */
+	protected function getSearchAttributes() {
+		$searchBox = array(
+			'id' => 'searchInput',
+			'class' => 'search',
+			'autocomplete' => 'off',
+			// The placeholder gets fed to HTML::element later which escapes all
+			// attribute values, so no need to escape the string here.
+			'placeholder' =>  wfMessage( $this->searchPlaceHolderMsg )->text(),
+		);
+		return $searchBox;
+	}
+
+	/**
+	 * Render Footer elements
+	 * @param array $data Data used to build the footer
+	 */
 	protected function renderFooter( $data ) {
-		if ( !$data['disableSearchAndFooter'] ) {
 		?>
 		<div id="footer">
 			<?php
-				foreach( $this->getFooterLinks() as $category => $links ):
+				foreach ( $this->getFooterLinks() as $category => $links ) {
 			?>
 				<ul class="footer-<?php echo $category; ?>">
 					<?php
-						foreach( $links as $link ) {
-							if ( isset( $this->data[$link] ) ) {
+						foreach ( $links as $link ) {
+							if ( isset( $this->data[$link] ) && $this->data[$link] !== '' ) {
 								echo Html::openElement( 'li', array( 'id' => "footer-{$category}-{$link}" ) );
 								$this->html( $link );
 								echo Html::closeElement( 'li' );
@@ -58,24 +161,30 @@ class MinervaTemplate extends BaseTemplate {
 					?>
 				</ul>
 			<?php
-				endforeach;
+				}
 			?>
 		</div>
 		<?php
-		}
 	}
 
+	/**
+	 * Render available page actions
+	 * @param array $data Data used to build page actions
+	 */
 	protected function renderPageActions( $data ) {
-		?><ul id="page-actions" class="hlist"><?php
-		foreach( $this->getPageActions() as $key => $val ):
-			echo $this->makeListItem( $key, $val );
-		endforeach;
-		?></ul><?php
+		$actions = $this->getPageActions();
+		if ( $actions ) {
+			?><ul id="page-actions" class="hlist"><?php
+			foreach ( $actions as $key => $val ) {
+				echo $this->makeListItem( $key, $val );
+			}
+			?></ul><?php
+		}
 	}
 
 	/**
 	 * Outputs the 'Last edited' message, e.g. 'Last edited on...'
-	 * @param Array $data Data used to build the page
+	 * @param array $data Data used to build the page
 	 */
 	protected function renderHistoryLink( $data ) {
 		if ( isset( $data['historyLink'] ) ) {
@@ -87,28 +196,64 @@ class MinervaTemplate extends BaseTemplate {
 	}
 
 	/**
-	 * Renders history link at top of page
-	 * @param Array $data Data used to build the page
+	 * Renders history link at top of page if it isn't the main page
+	 * @param array $data Data used to build the page
 	 */
-	protected function renderHistoryLinkBottom( $data ) {
-		$this->renderHistoryLink( $data );
+	protected function renderHistoryLinkTop( $data ) {
+		if ( !$this->isMainPage ) {
+			$this->renderHistoryLink( $data );
+		}
 	}
 
-	protected function renderMetaSections() {
-		echo Html::openElement( 'div', array( 'id' => 'page-secondary-actions' ) );
+	/**
+	 * Renders history link at bottom of page if it is the main page
+	 * @param array $data Data used to build the page
+	 */
+	protected function renderHistoryLinkBottom( $data ) {
+		if ( $this->isMainPage ) {
+			$this->renderHistoryLink( $data );
+		}
+	}
 
-		// If languages are available, render a languages link
+	/**
+	 * Get page secondary actions
+	 */
+	protected function getSecondaryActions() {
+		$result = $this->data['secondary_actions'];
+
+		// If languages are available, add a languages link
 		if ( $this->getLanguages() || $this->getLanguageVariants() ) {
 			$languageUrl = SpecialPage::getTitleFor(
 				'MobileLanguages',
 				$this->getSkin()->getTitle()
 			)->getLocalURL();
-			$languageLabel = wfMessage( 'mobile-frontend-language-article-heading' )->text();
 
-			echo Html::element( 'a', array(
-				'class' => 'mw-ui-button mw-ui-progressive button languageSelector',
-				'href' => $languageUrl
-			), $languageLabel );
+			$result['language'] = array(
+				'attributes' => array(
+					'class' => 'languageSelector',
+					'href' => $languageUrl,
+				),
+				'label' => wfMessage( 'mobile-frontend-language-article-heading' )->text()
+			);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Render secondary page actions like language selector
+	 */
+	protected function renderSecondaryActions() {
+		$baseClass = MobileUI::buttonClass( '', 'button' );
+		echo Html::openElement( 'div', array( 'id' => 'page-secondary-actions' ) );
+
+		foreach ( $this->getSecondaryActions() as $el ) {
+			if ( isset( $el['attributes']['class'] ) ) {
+				$el['attributes']['class'] .= ' ' . $baseClass;
+			} else {
+				$el['attributes']['class'] = $baseClass;
+			}
+			echo Html::element( 'a', $el['attributes'], $el['label'] );
 		}
 
 		echo Html::closeElement( 'div' );
@@ -116,7 +261,7 @@ class MinervaTemplate extends BaseTemplate {
 
 	/**
 	 * Renders the content of a page
-	 * @param Array $data Data used to build the page
+	 * @param array $data Data used to build the page
 	 */
 	protected function renderContent( $data ) {
 		if ( !$data[ 'unstyledContent' ] ) {
@@ -128,20 +273,24 @@ class MinervaTemplate extends BaseTemplate {
 			) );
 			?>
 			<?php
+				echo $data[ 'bodytext' ];
 				if ( isset( $data['subject-page'] ) ) {
 					echo $data['subject-page'];
 				}
-				echo $data[ 'bodytext' ];
-				$this->renderMetaSections();
+				$this->renderSecondaryActions();
 				$this->renderHistoryLinkBottom( $data );
 			?>
-		</div>
-		<?php
+			</div>
+			<?php
 		} else {
 			echo $data[ 'bodytext' ];
 		}
 	}
 
+	/**
+	 * Renders pre-content (e.g. heading)
+	 * @param array $data Data used to build the page
+	 */
 	protected function renderPreContent( $data ) {
 		$internalBanner = $data[ 'internalBanner' ];
 		$isSpecialPage = $this->isSpecialPage;
@@ -165,7 +314,19 @@ class MinervaTemplate extends BaseTemplate {
 		}
 	}
 
+	/**
+	 * Render wrapper for loading content
+	 * @param array $data Data used to build the page
+	 */
 	protected function renderContentWrapper( $data ) {
+		if ( $this->renderHistoryLinkBeforeContent ) {
+			$this->renderHistoryLinkTop( $data );
+		?>
+			<script>
+				if ( window.mw && mw.mobileFrontend ) { mw.mobileFrontend.emit( 'history-link-loaded' ); }
+			</script>
+		<?php
+		}
 		?>
 		<script>
 			if ( window.mw && mw.mobileFrontend ) { mw.mobileFrontend.emit( 'header-loaded' ); }
@@ -173,94 +334,91 @@ class MinervaTemplate extends BaseTemplate {
 		<?php
 			$this->renderPreContent( $data );
 			$this->renderContent( $data );
+			if ( !$this->renderHistoryLinkBeforeContent ) {
+				$this->renderHistoryLinkTop( $data );
+		?>
+				<script>
+					if ( window.mw && mw.mobileFrontend ) { mw.mobileFrontend.emit( 'history-link-loaded' ); }
+				</script>
+		<?php
+			}
 	}
 
+	/**
+	 * Renders the main menu.
+	 *
+	 * @param array $data Data used to build the page
+	 */
 	protected function renderMainMenu( $data ) {
 		?>
-		<ul>
+		<nav id="mw-mf-page-left" class="navigation-drawer">
 		<?php
-		foreach( $this->getDiscoveryTools() as $key => $val ):
-			echo $this->makeListItem( $key, $val );
-		endforeach;
+		$this->renderMainMenuItems();
 		?>
-		</ul>
-		<ul>
-		<?php
-		foreach( $this->getPersonalTools() as $key => $val ):
-			echo $this->makeListItem( $key, $val );
-		endforeach;
-		?>
-		</ul>
-		<ul class="hlist">
-		<?php
-		foreach( $this->getSiteLinks() as $key => $val ):
-			echo $this->makeListItem( $key, $val );
-		endforeach;
-		?>
-		</ul>
+		</nav>
 		<?php
 	}
 
-	protected function render( $data ) { // FIXME: replace with template engines
-		global $uespIsMobile, $uespIsApp;
+	/**
+	 * Renders the contents of the main menu.
+	 */
+	protected function renderMainMenuItems() {
+		?>
+		<ul>
+			<?php
+				foreach ( $this->getDiscoveryTools() as $key => $val ) {
+					echo $this->makeListItem( $key, $val );
+				}
+			?>
+			</ul>
+			<ul>
+			<?php
+				foreach ( $this->getPersonalTools() as $key => $val ){
+					echo $this->makeListItem( $key, $val );
+				}
+			?>
+			</ul>
+			<ul class="hlist">
+			<?php
+				foreach ( $this->getSiteLinks() as $key => $val ) {
+					echo $this->makeListItem( $key, $val );
+				}
+			?>
+			</ul>
+		<?php
+	}
+
+	/**
+	 * Render Header elements
+	 * @param array $data Data used to build the header
+	 */
+	protected function renderHeader( $data ) {
+		$this->html( 'menuButton' );
+		$this->makeChromeHeaderContent( $data );
+		echo $data['secondaryButton'];
+	}
+
+	/**
+	 * Render the entire page
+	 * @param array $data Data used to build the page
+	 * @todo replace with template engines
+	 */
+	protected function render( $data ) {
 
 		// begin rendering
 		echo $data[ 'headelement' ];
 		?>
 		<div id="mw-mf-viewport">
-			<div id="mw-mf-page-left" class="navigation-drawer">
+			<?php $this->renderMainMenu( $data ); ?>
+			<div id="mw-mf-page-center">
 				<?php
-					$this->renderMainMenu( $data );
-				?>
-			</div>
-			<div id='mw-mf-page-center'>
-			<!-- UESP: Mobile Banner Header -->
-			<div id='uespTopBannerMobileAd'>
-				<?php
-					if ($uespIsApp)
-					{
-				?>
-				<ins class="adsbygoogle"
-				     style="display:inline-block;width:320px;height:50px"
-				     data-ad-client="ca-pub-3886949899853833"
-				     data-ad-slot="2164082426"></ins>
-				<script>
-					    (adsbygoogle = window.adsbygoogle || []).push({});
-				</script>
-     			<?php
-					}
-					else
-					{
-						echo "<div id='cdm-zone-01'></div>";
-					}				
-				?>
-			</div>
-
-				<?php
-					foreach( $this->data['banners'] as $banner ):
+					foreach ( $this->data['banners'] as $banner ){
 						echo $banner;
-					endforeach;
+					}
 				?>
 				<div class="header">
 					<?php
-						$this->html( 'menuButton' );
-						if ( $data['disableSearchAndFooter'] ) {
-							echo $data['specialPageHeader'];
-						} else {
-							?>
-							<form action="<?php echo $data['wgScript'] ?>" class="search-box">
-							<?php
-							echo $this->makeSearchInput( $data['searchBox'] );
-							// FIXME: change this into a search icon instead of a text button
-							echo $this->makeSearchButton(
-								'fulltext',
-								array( 'class' => 'searchSubmit mw-ui-button mw-ui-progressive' )
-							);
-							?>
-							</form>
-							<?php
-						}
-						echo $data['secondaryButton'];
+						$this->renderHeader( $data );
 					?>
 				</div>
 				<div id="content_wrapper">
@@ -268,31 +426,6 @@ class MinervaTemplate extends BaseTemplate {
 					$this->renderContentWrapper( $data );
 				?>
 				</div>
-				<p><br/>
-				<!-- UESP: Mobile Banner Footer -->
-				<?php
-					if ($uespIsApp)
-					{
-						echo '<div style="text-align: center;  left-margin: auto;  margin-left: auto; margin-right: auto; width: 300px; height: 250px;">';
-				?>
-				<ins class="adsbygoogle"
-					     style="display:inline-block;width:300px;height:250px"
-					     data-ad-client="ca-pub-3886949899853833"
-					     data-ad-slot="5640293000"></ins>
-				<script>
-					    (adsbygoogle = window.adsbygoogle || []).push({});
-				</script>
-     			<?php
-     					echo '</div>';
-					}
-					else
-					{
-						echo '<div style="text-align: center;  left-margin: auto;  margin-left: auto; margin-right: auto; width: 300px; height: 250px;">';
-						echo "<div id='cdm-zone-02'></div>";
-						echo '</div>';
-					}				
-				?>
-				
 				<?php
 					$this->renderFooter( $data );
 				?>

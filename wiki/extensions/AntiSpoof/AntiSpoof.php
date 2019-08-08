@@ -53,7 +53,6 @@ $wgExtensionMessagesFiles['AntiSpoof'] = "$dir/AntiSpoof.i18n.php";
 $wgAutoloadClasses['AntiSpoof'] = "$dir/AntiSpoof_body.php";
 $wgAutoloadClasses['AntiSpoofHooks'] = "$dir/AntiSpoofHooks.php";
 $wgAutoloadClasses['SpoofUser'] = "$dir/SpoofUser.php";
-$wgAutoloadClasses['BatchAntiSpoof'] = "$dir/maintenance/batchAntiSpoof.php";
 
 // Register the API method
 $wgAutoloadClasses['ApiAntiSpoof'] = "$dir/api/ApiAntiSpoof.php";
@@ -64,4 +63,5 @@ $wgHooks['AbortNewAccount'][] = 'AntiSpoofHooks::asAbortNewAccountHook';
 $wgHooks['UserCreateForm'][] = 'AntiSpoofHooks::asUserCreateFormHook';
 $wgHooks['AddNewAccount'][] = 'AntiSpoofHooks::asAddNewAccountHook';
 $wgHooks['RenameUserComplete'][] = 'AntiSpoofHooks::asAddRenameUserHook';
+$wgHooks['DeleteAccount'][] = 'AntiSpoofHooks::asDeleteAccount';
 $wgHooks['UnitTestsList'][] = 'AntiSpoofHooks::asUnitTestsList';

@@ -11,8 +11,6 @@ use \CirrusSearch\Search\IdResultsType;
 use \CirrusSearch\Search\ResultsType;
 use \Language;
 use \MWNamespace;
-use \PoolCounterWorkViaCallback;
-use \ProfileSection;
 use \RequestContext;
 use \Sanitizer;
 use \SearchResultSet;
@@ -188,6 +186,12 @@ class Searcher extends ElasticsearchIntermediary {
 	private $normalizedNamespaceWeights = null;
 
 	/**
+	 * @var array queries that don't use Elastic's "query string" query, for more
+	 * advanced searching (e.g. match_phrase_prefix for regular quoted strings).
+	 */
+	private $nonTextQueries = array();
+
+	/**
 	 * Constructor
 	 * @param int $offset Offset the results by this much
 	 * @param int $limit Limit the results to this many
@@ -247,8 +251,6 @@ class Searcher extends ElasticsearchIntermediary {
 	public function nearMatchTitleSearch( $search ) {
 		global $wgCirrusSearchAllFields;
 
-		$profiler = new ProfileSection( __METHOD__ );
-
 		self::checkTitleSearchRequestLength( $search );
 
 		// Elasticsearch seems to have trouble extracting the proper terms to highlight
@@ -260,7 +262,7 @@ class Searcher extends ElasticsearchIntermediary {
 			'title.near_match_asciifolding', 'redirect.title.near_match_asciifolding',
 		) );
 		if ( $wgCirrusSearchAllFields[ 'use' ] ) {
-			// Inseat of using the highlight query we need to make one like it that uses the all_near_match field.
+			// Instead of using the highlight query we need to make one like it that uses the all_near_match field.
 			$allQuery = new \Elastica\Query\MultiMatch();
 			$allQuery->setQuery( $search );
 			$allQuery->setFields( array( 'all_near_match', 'all_near_match.asciifolding' ) );
@@ -278,48 +280,39 @@ class Searcher extends ElasticsearchIntermediary {
 	 * @param Status(mixed) status containing results defined by resultsType on success
 	 */
 	public function prefixSearch( $search ) {
-		global $wgCirrusSearchPrefixSearchStartsWithAnyWord;
-
-		$profiler = new ProfileSection( __METHOD__ );
+		global $wgCirrusSearchPrefixSearchStartsWithAnyWord,
+			$wgCirrusSearchPrefixWeights;
 
 		self::checkTitleSearchRequestLength( $search );
 
-		if ( $wgCirrusSearchPrefixSearchStartsWithAnyWord ) {
-			$match = new \Elastica\Query\Match();
-			$match->setField( 'title.word_prefix', array(
-				'query' => $search,
-				'analyzer' => 'plain',
-				'operator' => 'and',
-			) );
-			$this->filters[] = new \Elastica\Filter\Query( $match );
+		if ( $search ) {
+			if ( $wgCirrusSearchPrefixSearchStartsWithAnyWord ) {
+				$match = new \Elastica\Query\Match();
+				$match->setField( 'title.word_prefix', array(
+					'query' => $search,
+					'analyzer' => 'plain',
+					'operator' => 'and',
+				) );
+				$this->filters[] = new \Elastica\Filter\Query( $match );
+			} else {
+				// Elasticsearch seems to have trouble extracting the proper terms to highlight
+				// from the default query we make so we feed it exactly the right query to highlight.
+				$this->query = new \Elastica\Query\MultiMatch();
+				$this->query->setQuery( $search );
+				$this->query->setFields( array(
+					'title.prefix^' . $wgCirrusSearchPrefixWeights[ 'title' ],
+					'redirect.title.prefix^' . $wgCirrusSearchPrefixWeights[ 'redirect' ],
+					'title.prefix_asciifolding^' . $wgCirrusSearchPrefixWeights[ 'title_asciifolding' ],
+					'redirect.title.prefix_asciifolding^' . $wgCirrusSearchPrefixWeights[ 'redirect_asciifolding' ],
+				) );
+			}
 		} else {
-			// Elasticsearch seems to have trouble extracting the proper terms to highlight
-			// from the default query we make so we feed it exactly the right query to highlight.
-			$this->query = new \Elastica\Query\MultiMatch();
-			$this->query->setQuery( $search );
-			$this->query->setFields( array(
-				'title.prefix^10', 'redirect.title.prefix^10',
-				'title.prefix_asciifolding', 'redirect.title.prefix_asciifolding'
-			) );
+			$this->query = new \Elastica\Query\MatchAll();
 		}
 		$this->boostTemplates = self::getDefaultBoostTemplates();
 		$this->boostLinks = true;
 
 		return $this->search( 'prefix', $search );
-	}
-
-	/**
-	 * Perform a random search
-	 * @param int $seed Seed for the random number generator
-	 * @param Status(mixed) status containing results defined by resultsType on success
-	 */
-	public function randomSearch( $seed ) {
-		$profiler = new ProfileSection( __METHOD__ );
-
-		$this->setResultsType( new IdResultsType() );
-		$this->sort = 'random';
-
-		return $this->search( 'random', $seed );
 	}
 
 	/**
@@ -347,17 +340,14 @@ class Searcher extends ElasticsearchIntermediary {
 			$wgCirrusSearchAllFields,
 			$wgCirrusSearchAllFieldsForRescore;
 
-		$profiler = new ProfileSection( __METHOD__ );
-
 		// Transform Mediawiki specific syntax to filters and extra (pre-escaped) query string
 		$searcher = $this;
 		$originalTerm = $term;
 		$searchContainedSyntax = false;
-		$this->term = trim( $term );
+		$this->term = trim( str_replace( "\t", ' ', $term ) );
 		$this->boostLinks = $wgCirrusSearchBoostLinks;
 		$searchType = 'full_text';
 		// Handle title prefix notation
-		wfProfileIn( __METHOD__ . '-prefix-filter' );
 		$prefixPos = strpos( $this->term, 'prefix:' );
 		if ( $prefixPos !== false ) {
 			$value = substr( $this->term, 7 + $prefixPos );
@@ -379,9 +369,7 @@ class Searcher extends ElasticsearchIntermediary {
 				}
 			}
 		}
-		wfProfileOut( __METHOD__ . '-prefix-filter' );
 
-		wfProfileIn( __METHOD__ . '-prefer-recent' );
 		$preferRecentDecayPortion = $wgCirrusSearchPreferRecentDefaultDecayPortion;
 		$preferRecentHalfLife = $wgCirrusSearchPreferRecentDefaultHalfLife;
 		// Matches "prefer-recent:" and then an optional floating point number <= 1 but >= 0 (decay
@@ -405,9 +393,7 @@ class Searcher extends ElasticsearchIntermediary {
 		);
 		$this->preferRecentDecayPortion = $preferRecentDecayPortion;
 		$this->preferRecentHalfLife = $preferRecentHalfLife;
-		wfProfileOut( __METHOD__ . '-prefer-recent' );
 
-		wfProfileIn( __METHOD__ . '-local' );
 		$this->extractSpecialSyntaxFromTerm(
 			'/^\s*local:/',
 			function ( $matches ) use ( $searcher ) {
@@ -415,10 +401,8 @@ class Searcher extends ElasticsearchIntermediary {
 				return '';
 			}
 		);
-		wfProfileOut( __METHOD__ . '-local' );
 
 		// Handle other filters
-		wfProfileIn( __METHOD__ . '-other-filters' );
 		$filters = $this->filters;
 		$notFilters = $this->notFilters;
 		$boostTemplates = self::getDefaultBoostTemplates();
@@ -428,7 +412,8 @@ class Searcher extends ElasticsearchIntermediary {
 			function ( $matches ) use ( $searcher, &$filters, &$notFilters, &$searchContainedSyntax, &$searchType, &$highlightSource ) {
 				global $wgLanguageCode,
 					$wgCirrusSearchWikimediaExtraPlugin,
-					$wgCirrusSearchEnableRegex;
+					$wgCirrusSearchEnableRegex,
+					$wgCirrusSearchRegexMaxDeterminizedStates;
 
 				if ( !$wgCirrusSearchEnableRegex ) {
 					return;
@@ -451,10 +436,14 @@ class Searcher extends ElasticsearchIntermediary {
 				if ( isset( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] ) &&
 						in_array( 'use', $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] ) ) {
 					$filter = new SourceRegex( $matches[ 'pattern' ], 'source_text', 'source_text.trigram' );
-					if ( isset( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ][ 'max_inspect'] ) ) {
-						$filter->setMaxInspect( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ][ 'max_inspect'] );
+					if ( isset( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ][ 'max_inspect' ] ) ) {
+						$filter->setMaxInspect( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ][ 'max_inspect' ] );
 					} else {
 						$filter->setMaxInspect( 10000 );
+					}
+					$filter->setMaxDeterminizedStates( $wgCirrusSearchRegexMaxDeterminizedStates );
+					if ( isset( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ][ 'max_ngrams_extracted' ] ) ) {
+						$filter->setMaxNgramExtracted( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ][ 'max_ngrams_extracted' ] );
 					}
 					$filter->setCaseSensitive( !$insensitive );
 					$filter->setLocale( $wgLanguageCode );
@@ -553,26 +542,12 @@ GROOVY;
 						$searchContainedSyntax = true;
 						return '';
 					case 'insource':
-						$field = 'source_text.plain';
-						$keepText = false;
-						// intentionally fall through
+						$updateReferences = Filters::insource( $escaper, $searcher, $value );
+						$updateReferences( $fuzzyQuery, $filterDestination, $highlightSource, $searchContainedSyntax );
+						return '';
 					case 'intitle':
-						if ( !isset( $field ) ) {
-							$field = 'title';
-						}
-						list( $queryString, $fuzzyQuery ) = $escaper->fixupWholeQueryString(
-							$escaper->fixupQueryStringPart( $value ) );
-						$query = new \Elastica\Query\QueryString( $queryString );
-						$query->setFields( array( $field ) );
-						$query->setDefaultOperator( 'AND' );
-						$query->setAllowLeadingWildcard( false );
-						$query->setFuzzyPrefixLength( 2 );
-						$query->setRewrite( 'top_terms_128' );
-						$filterDestination[] = new \Elastica\Filter\Query( $query );
-						if ( $key === 'insource' ) {
-							$highlightSource[] = array( 'query_string' => $query );
-						}
-						$searchContainedSyntax = true;
+						$updateReferences = Filters::intitle( $escaper, $searcher, $value );
+						$updateReferences( $fuzzyQuery, $filterDestination, $highlightSource, $searchContainedSyntax );
 						return $keepText ? "$value " : '';
 					default:
 						return $matches[0];
@@ -585,11 +560,9 @@ GROOVY;
 		$this->searchContainedSyntax = $searchContainedSyntax;
 		$this->fuzzyQuery = $fuzzyQuery;
 		$this->highlightSource = $highlightSource;
-		wfProfileOut( __METHOD__ . '-other-filters' );
 
 		$this->term = $this->escaper->escapeQuotes( $this->term );
 
-		wfProfileIn( __METHOD__ . '-find-phrase-queries' );
 		// Match quoted phrases including those containing escaped quotes
 		// Those phrases can optionally be followed by ~ then a number (this is the phrase slop)
 		// That can optionally be followed by a ~ (this matches stemmed words in phrases)
@@ -599,6 +572,16 @@ GROOVY;
 				global $wgCirrusSearchPhraseSlop;
 				$negate = $matches[ 'negate' ][ 0 ] ? 'NOT ' : '';
 				$main = $escaper->fixupQueryStringPart( $matches[ 'main' ][ 0 ] );
+
+				if ( !$negate && !isset( $matches[ 'fuzzy' ] ) && !isset( $matches[ 'slop' ] ) &&
+						 preg_match( '/^"([^"*]+)[*]"/', $main, $matches ) ) {
+					$phraseMatch = new Elastica\Query\Match( );
+					$phraseMatch->setFieldQuery( "all.plain", $matches[1] );
+					$phraseMatch->setFieldType( "all.plain", "phrase_prefix" );
+					$this->nonTextQueries[] = $phraseMatch;
+					return array( );
+				}
+
 				if ( !isset( $matches[ 'fuzzy' ] ) ) {
 					if ( !isset( $matches[ 'slop' ] ) ) {
 						$main = $main . '~' . $wgCirrusSearchPhraseSlop[ 'precise' ];
@@ -613,8 +596,6 @@ GROOVY;
 				}
 				return array( 'escaped' => $negate . $main );
 			} );
-		wfProfileOut( __METHOD__ . '-find-phrase-queries' );
-		wfProfileIn( __METHOD__ . '-switch-prefix-to-plain' );
 		// Find prefix matches and force them to only match against the plain analyzed fields.  This
 		// prevents prefix matches from getting confused by stemming.  Users really don't expect stemming
 		// in prefix queries.
@@ -626,9 +607,7 @@ GROOVY;
 					'nonAll' => $searcher->switchSearchToExact( $term, false ),
 				);
 			} );
-		wfProfileOut( __METHOD__ . '-switch-prefix-to-plain' );
 
-		wfProfileIn( __METHOD__ . '-escape' );
 		$escapedQuery = array();
 		$nonAllQuery = array();
 		$nearMatchQuery = array();
@@ -651,7 +630,6 @@ GROOVY;
 			}
 			wfLogWarning( 'Unknown query part:  ' . serialize( $queryPart ) );
 		}
-		wfProfileOut( __METHOD__ . '-escape' );
 
 		// Actual text query
 		list( $queryStringQueryString, $this->fuzzyQuery ) =
@@ -664,7 +642,6 @@ GROOVY;
 				// We're unlikey to make good suggestions for query string with special syntax in them....
 				$showSuggestion = false;
 			}
-			wfProfileIn( __METHOD__ . '-build-query' );
 			$fields = array_merge(
 				$this->buildFullTextSearchFields( 1, '.plain', true ),
 				$this->buildFullTextSearchFields( $wgCirrusSearchStemmedWeight, '', true ) );
@@ -680,7 +657,7 @@ GROOVY;
 					$this->buildFullTextSearchFields( 1, '.plain', false ),
 					$this->buildFullTextSearchFields( $wgCirrusSearchStemmedWeight, '', false ) );
 				list( $nonAllQueryString, /*_*/ ) = $escaper->fixupWholeQueryString( implode( ' ', $nonAllQuery ) );
-				$this->highlightQuery = $this->buildSearchTextQueryForFields( $nonAllFields, $nonAllQueryString, 1 );
+				$this->highlightQuery = $this->buildSearchTextQueryForFields( $nonAllFields, $nonAllQueryString, 1, false );
 			} else {
 				$nonAllFields = $fields;
 			}
@@ -704,7 +681,7 @@ GROOVY;
 					'window_size' => $wgCirrusSearchPhraseRescoreWindowSize,
 					'query' => array(
 						'rescore_query' => $this->buildSearchTextQueryForFields( $rescoreFields,
-							'"' . $queryStringQueryString . '"', $wgCirrusSearchPhraseSlop[ 'boost' ] ),
+							'"' . $queryStringQueryString . '"', $wgCirrusSearchPhraseSlop[ 'boost' ], true ),
 						'query_weight' => 1.0,
 						'rescore_query_weight' => $wgCirrusSearchPhraseRescoreBoost,
 					)
@@ -719,12 +696,10 @@ GROOVY;
 					'suggest' => $this->buildSuggestConfig( 'suggest' ),
 				);
 			}
-			wfProfileOut( __METHOD__ . '-build-query' );
 
 			$result = $this->search( $searchType, $originalTerm );
 
 			if ( !$result->isOK() && $this->isParseError( $result ) ) {
-				wfProfileIn( __METHOD__ . '-degraded-query' );
 				// Elasticsearch has reported a parse error and we've already logged it when we built the status
 				// so at this point all we can do is retry the query as a simple query string query.
 				$this->query = new \Elastica\Query\Simple( array( 'simple_query_string' => array(
@@ -737,7 +712,6 @@ GROOVY;
 				// If that doesn't work we're out of luck but it should.  There no guarantee it'll work properly
 				// with the syntax we've built above but it'll do _something_ and we'll still work on fixing all
 				// the parse errors that come in.
-				wfProfileOut( __METHOD__ . '-degraded-query' );
 			}
 		} else {
 			$result = $this->search( $searchType, $originalTerm );
@@ -778,8 +752,6 @@ GROOVY;
 	 */
 	public function moreLikeTheseArticles( $titles, $options = Searcher::MORE_LIKE_THESE_NONE ) {
 		global $wgCirrusSearchMoreLikeThisConfig;
-
-		$profiler = new ProfileSection( __METHOD__ );
 
 		// It'd be better to be able to have Elasticsearch fetch this during the query rather than make
 		// two passes but it doesn't support that at this point
@@ -824,15 +796,13 @@ GROOVY;
 	 *    or an error if there was an error
 	 */
 	public function get( $pageIds, $sourceFiltering ) {
-		global $wgCirrusSearchPoolCounterKey;
-
-		$profiler = new ProfileSection( __METHOD__ );
-
 		$indexType = $this->pickIndexTypeFromNamespaces();
 		$searcher = $this;
 		$indexBaseName = $this->indexBaseName;
-		$getWork = new PoolCounterWorkViaCallback( 'CirrusSearch-Search', $wgCirrusSearchPoolCounterKey, array(
-			'doWork' => function() use ( $searcher, $pageIds, $sourceFiltering, $indexType, $indexBaseName ) {
+		return Util::doPoolCounterWork(
+			'CirrusSearch-Search',
+			$this->user,
+			function() use ( $searcher, $pageIds, $sourceFiltering, $indexType, $indexBaseName ) {
 				try {
 					global $wgCirrusSearchClientSideSearchTimeout;
 					$searcher->start( "get of $indexType." . implode( ', ', $pageIds ) );
@@ -851,22 +821,16 @@ GROOVY;
 				} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 					return $searcher->failure( $e );
 				}
-			},
-			'error' => function( $status ) {
-				$status = $status->getErrorsArray();
-				wfLogWarning( 'Pool error performing a get against Elasticsearch:  ' . $status[ 0 ][ 0 ] );
-				return Status::newFatal( 'cirrussearch-backend-error' );
-			}
-		) );
-		return $getWork->execute();
+			});
 	}
 
 	public function findNamespace( $name ) {
-		global $wgCirrusSearchPoolCounterKey;
 		$searcher = $this;
 		$indexBaseName = $this->indexBaseName;
-		$getWork = new PoolCounterWorkViaCallback( 'CirrusSearch-NamespaceLookup', $wgCirrusSearchPoolCounterKey, array(
-			'doWork' => function() use ( $searcher, $name, $indexBaseName ) {
+		return Util::doPoolCounterWork(
+			'CirrusSearch-NamespaceLookup',
+			$this->user,
+			function() use ( $searcher, $name, $indexBaseName ) {
 				try {
 					$searcher->start( "lookup namespace for $name" );
 					$pageType = Connection::getNamespaceType( $indexBaseName );
@@ -880,14 +844,7 @@ GROOVY;
 				} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 					return $searcher->failure( $e );
 				}
-			},
-			'error' => function( $status ) {
-				$status = $status->getErrorsArray();
-				wfLogWarning( 'Pool error performing a namespace lookup against Elasticsearch:  ' . $status[ 0 ][ 0 ] );
-				return Status::newFatal( 'cirrussearch-backend-error' );
-			}
-		) );
-		return $getWork->execute();
+			});
 	}
 
 	private function extractSpecialSyntaxFromTerm( $regex, $callback ) {
@@ -947,10 +904,18 @@ GROOVY;
 	private function search( $type, $for ) {
 		global $wgCirrusSearchMoreAccurateScoringMode,
 			$wgCirrusSearchSearchShardTimeout,
-			$wgCirrusSearchClientSideSearchTimeout,
-			$wgCirrusSearchPoolCounterKey;
+			$wgCirrusSearchClientSideSearchTimeout;
 
-		$profiler = new ProfileSection( __METHOD__ );
+		if ( sizeof( $this->nonTextQueries ) > 0 ) {
+			$bool = new \Elastica\Query\Bool();
+			if ( $this->query !== null ) {
+				$bool->addMust( $this->query );
+			}
+			foreach ( $this->nonTextQueries as $nonTextQuery ) {
+				$bool->addMust( $nonTextQuery );
+			}
+			$this->query = $bool;
+		}
 
 		if ( $this->resultsType === null ) {
 			$this->resultsType = new FullTextResultsType( FullTextResultsType::HIGHLIGHT_ALL );
@@ -1048,13 +1013,6 @@ GROOVY;
 				'missing' => '_last',
 			) ) );
 			break;
-		case 'random':
-			// Random scoring is funky - you have to wrap the query in a FunctionScore query.
-			$funcScore = new \Elastica\Query\FunctionScore();
-			$funcScore->setRandomScore( $for );
-			$funcScore->setQuery( $this->query );
-			$query->setQuery( $funcScore );
-			break;
 		default:
 			wfLogWarning( "Invalid sort type:  $this->sort" );
 		}
@@ -1064,11 +1022,18 @@ GROOVY;
 			$queryOptions[ 'search_type' ] = 'dfs_query_then_fetch';
 		}
 
-		if ( $type === 'regex' ) {
+		switch( $type ) {
+		case 'regex':
 			$poolCounterType = 'CirrusSearch-Regex';
 			$queryOptions[ 'timeout' ] = $wgCirrusSearchSearchShardTimeout[ 'regex' ];
 			Connection::setTimeout( $wgCirrusSearchClientSideSearchTimeout[ 'regex' ] );
-		} else {
+			break;
+		case 'prefix':
+			$poolCounterType = 'CirrusSearch-Prefix';
+			$queryOptions[ 'timeout' ] = $wgCirrusSearchSearchShardTimeout[ 'default' ];
+			Connection::setTimeout( $wgCirrusSearchClientSideSearchTimeout[ 'default' ] );
+			break;
+		default:
 			$poolCounterType = 'CirrusSearch-Search';
 			$queryOptions[ 'timeout' ] = $wgCirrusSearchSearchShardTimeout[ 'default' ];
 			Connection::setTimeout( $wgCirrusSearchClientSideSearchTimeout[ 'default' ] );
@@ -1094,9 +1059,11 @@ GROOVY;
 
 		// Perform the search
 		$searcher = $this;
-		$key = $wgCirrusSearchPoolCounterKey;
-		$work = new PoolCounterWorkViaCallback( $poolCounterType, $key, array(
-			'doWork' => function() use ( $searcher, $search, $description ) {
+		$user = $this->user;
+		$result = Util::doPoolCounterWork(
+			$poolCounterType,
+			$this->user,
+			function() use ( $searcher, $search, $description ) {
 				try {
 					$searcher->start( $description );
 					return $searcher->success( $search->search() );
@@ -1104,21 +1071,20 @@ GROOVY;
 					return $searcher->failure( $e );
 				}
 			},
-			'error' => function( $status ) use ( $type, $key, $description ) {
-				$status = $status->getErrorsArray();
-				wfLogWarning( "Elasticsearch pool error on key $key during $description:  " . $status[ 0 ][ 0 ] );
-				if ( $status[ 0 ][ 0 ] === 'pool-queuefull' ) {
+			function( $error, $key ) use ( $type, $description, $user ) {
+				wfLogWarning( "Pool error on key $key during $description:  $error" );
+				if ( $error === 'pool-queuefull' ) {
+					if ( strpos( $key, 'CirrusSearch:_per_user' ) === 0 ) {
+						$loggedIn = $user->isLoggedIn() ? 'logged-in' : 'anonymous';
+						return Status::newFatal( "cirrussearch-too-busy-for-you-{$loggedIn}-error" );
+					}
 					if ( $type === 'regex' ) {
 						return Status::newFatal( 'cirrussearch-regex-too-busy-error' );
 					}
 					return Status::newFatal( 'cirrussearch-too-busy-error' );
 				}
 				return Status::newFatal( 'cirrussearch-backend-error' );
-			}
-		) );
-		wfProfileIn( __METHOD__ . '-execute' );
-		$result = $work->execute();
-		wfProfileOut( __METHOD__ . '-execute' );
+			});
 		if ( $result->isOK() ) {
 			$responseData = $result->getValue()->getResponse()->getData();
 			$result->setResult( true, $this->resultsType->transformElasticsearchResult( $this->suggestPrefixes,
@@ -1163,7 +1129,7 @@ GROOVY;
 		global $wgCirrusSearchPhraseSlop;
 
 		$queryForMostFields = $this->buildSearchTextQueryForFields( $fields, $queryString,
-				$wgCirrusSearchPhraseSlop[ 'default' ] );
+				$wgCirrusSearchPhraseSlop[ 'default' ], false );
 		if ( $nearMatchQuery ) {
 			// Build one query for the full text fields and one for the near match fields so that
 			// the near match can run unescaped.
@@ -1179,7 +1145,7 @@ GROOVY;
 		return $queryForMostFields;
 	}
 
-	private function buildSearchTextQueryForFields( $fields, $queryString, $phraseSlop ) {
+	private function buildSearchTextQueryForFields( $fields, $queryString, $phraseSlop, $isRescore ) {
 		$query = new \Elastica\Query\QueryString( $queryString );
 		$query->setFields( $fields );
 		$query->setAutoGeneratePhraseQueries( true );
@@ -1187,8 +1153,21 @@ GROOVY;
 		$query->setDefaultOperator( 'AND' );
 		$query->setAllowLeadingWildcard( false );
 		$query->setFuzzyPrefixLength( 2 );
-		$query->setRewrite( 'top_terms_128' );
-		return $query;
+		$query->setRewrite( 'top_terms_boost_1024' );
+		return $this->wrapInSaferIfPossible( $query, $isRescore );
+	}
+
+	public function wrapInSaferIfPossible( $query, $isRescore ) {
+		global $wgCirrusSearchWikimediaExtraPlugin;
+
+		if ( !isset( $wgCirrusSearchWikimediaExtraPlugin[ 'safer' ] ) ) {
+			return $query;
+		}
+		$saferQuery = $wgCirrusSearchWikimediaExtraPlugin[ 'safer' ];
+		$saferQuery[ 'query' ] = $query->toArray();
+		$tooLargeAction = $isRescore ? 'convert_to_match_all_query' : 'convert_to_term_queries';
+		$saferQuery[ 'phrase' ][ 'phrase_too_large_action' ] = 'convert_to_term_queries';
+		return new \Elastica\Query\Simple( array( 'safer' => $saferQuery ) );
 	}
 
 	/**
@@ -1510,7 +1489,7 @@ GROOVY;
 	private function checkTitleSearchRequestLength( $search ) {
 		$requestLength = strlen( $search );
 		if ( $requestLength > self::MAX_TITLE_SEARCH ) {
-			throw new UsageException( 'Prefix search request was longer longer than the maximum allowed length.' .
+			throw new UsageException( 'Prefix search request was longer than the maximum allowed length.' .
 				" ($requestLength > " . self::MAX_TITLE_SEARCH . ')', 'request_too_long', 400 );
 		}
 	}

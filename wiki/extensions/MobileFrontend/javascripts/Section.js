@@ -1,21 +1,28 @@
-( function( M, $ ) {
+( function ( M, $ ) {
 
-	var
-		View = M.require( 'View' ),
-		Section;
+	var View = M.require( 'View' ),
+		Section,
+		icons = M.require( 'icons' );
 
 	/**
+	 * Builds a section of a page
 	 * @class Section
 	 * @extends View
 	 */
 	Section = View.extend( {
-		template: M.template.get( 'section.hogan' ),
+		template: mw.template.get( 'mobile.startup', 'Section.hogan' ),
+		/**
+		 * @cfg {Object} defaults Default options hash.
+		 * @cfg {String} defaults.text Section text.
+		 * @cfg {String} defaults.spinner HTML of the spinner icon.
+		 */
 		defaults: {
-			line: '',
+			line: undefined,
 			text: '',
-			editLabel: mw.msg( 'mobile-frontend-editor-edit' )
+			spinner: icons.spinner().toHtmlString()
 		},
-		initialize: function( options ) {
+		/** @inheritdoc */
+		initialize: function ( options ) {
 			var self = this;
 			options.tag = 'h' + options.level;
 			this.line = options.line;
@@ -24,7 +31,7 @@
 			this.id = options.id || null;
 			this.anchor = options.anchor;
 			this.children = [];
-			$.each( options.children || [], function() {
+			$.each( options.children || [], function () {
 				self.children.push( new Section( this ) );
 			} );
 			View.prototype.initialize.apply( self, arguments );

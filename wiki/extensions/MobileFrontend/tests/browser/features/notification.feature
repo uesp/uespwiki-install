@@ -1,4 +1,4 @@
-@chrome @en.m.wikipedia.beta.wmflabs.org @en.m.wikipedia.org @firefox @login @test2.m.wikipedia.org
+@chrome @en.m.wikipedia.beta.wmflabs.org @extension-echo @firefox @login @test2.m.wikipedia.org @vagrant
 Feature: Notification
 
   Background:
@@ -6,6 +6,7 @@ Feature: Notification
     When I click on the notification icon
       And the notifications overlay appears
 
+  @smoke
   Scenario: Opening notifications
     Then I should see the notifications overlay
 

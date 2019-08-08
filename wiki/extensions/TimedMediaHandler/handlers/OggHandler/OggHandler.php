@@ -56,14 +56,15 @@ class OggHandlerTMH extends TimedMediaHandler {
 	 * with comments from all the streams combined
 	 *
 	 * @param File $file
+	 * @param bool|IContextSource $context Context to use (optional)
 	 * @return array|bool
 	 */
-	public function formatMetadata( $file ) {
+	public function formatMetadata( $file, $context = false ) {
 		$meta = $this->getCommonMetaArray( $file );
 		if ( count( $meta ) === 0 ) {
 			return false;
 		}
-		return $this->formatMetadataHelper( $meta );
+		return $this->formatMetadataHelper( $meta, $context );
 	}
 
 	/**
@@ -77,7 +78,6 @@ class OggHandlerTMH extends TimedMediaHandler {
 		if ( !$metadata || isset( $metadata['error'] ) || !isset( $metadata['streams'] ) ) {
 			return array();
 		}
-		wfProfileIn( __METHOD__ );
 
 		// See http://www.xiph.org/vorbis/doc/v-comment.html
 		// http://age.hobba.nl/audio/mirroredpages/ogg-tagging.html
@@ -138,7 +138,7 @@ class OggHandlerTMH extends TimedMediaHandler {
 			$type = array_unique( $type );
 			$type = array_values( $type );
 		}
-		wfProfileOut( __METHOD__ );
+
 		return $props;
 	}
 

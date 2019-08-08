@@ -1,12 +1,20 @@
-( function( M, $ ) {
+( function ( M, $ ) {
 
 	var
 		funnel = $.cookie( 'mwUploadsFunnel' ) || 'article',
 		LeadPhotoUploaderButton = M.require( 'modules/uploads/LeadPhotoUploaderButton' ),
-		PhotoUploaderButton = M.require( 'modules/uploads/PhotoUploaderButton' ),
 		user = M.require( 'user' ),
-		isSupported = PhotoUploaderButton.isSupported;
+		skin = M.require( 'skin' ),
+		isSupported = LeadPhotoUploaderButton.isSupported;
 
+	/**
+	 * Checks whether there is no suitable image in the container.
+	 * Judges this based on selector in wgMFLeadPhotoUploadCssSelector
+	 *
+	 * @param {jQuery.Object} $container
+	 * @return {Boolean}
+	 * @ignore
+	 */
 	function needsPhoto( $container ) {
 		return $container.find( mw.config.get( 'wgMFLeadPhotoUploadCssSelector' ) ).length === 0;
 	}
@@ -16,35 +24,46 @@
 		$.cookie( 'mwUploadsFunnel', null );
 	}
 
+	/**
+	 * Initialise interface would uploading an image to the top of the current page.
+	 *
+	 * @ignore
+	 */
 	function initialize() {
-		// FIXME: make some general function for that (or a page object with a method)
 		var
-			// FIXME: not updated on dynamic page loads
-			isEditable = mw.config.get( 'wgIsPageEditable' ),
-			validNamespace = ( M.inNamespace( '' ) || M.inNamespace( 'user' ) || M.inNamespace( 'file' ) );
+			page = M.getCurrentPage(),
+			$lead = page.getLeadSectionElement(),
+			inFileNamespace = page.inNamespace( 'file' ),
+			validNamespace = ( page.inNamespace( '' ) || page.inNamespace( 'user' ) || inFileNamespace );
 
 		// Only show upload page action in File namespace if page doesn't already exist.
-		if ( M.inNamespace( 'file' ) ) {
+		if ( inFileNamespace ) {
 			if ( mw.config.get( 'wgArticleId' ) ) {
 				$( '#ca-upload' ).remove();
 			}
 		} else {
-			if ( !isEditable || !validNamespace ||
+			if ( !page.isEditable( user ) || !validNamespace ||
 					// FIXME: Anonymous users cannot upload but really this should also check rights of user via getRights
 					// (without triggering an additional HTTP request)
 					user.isAnon() ||
-					mw.util.getParamValue( 'action' ) || !needsPhoto( M.getLeadSection() ) || mw.config.get( 'wgIsMainPage' ) ) {
+					mw.util.getParamValue( 'action' ) || !needsPhoto( $lead ) || mw.config.get( 'wgIsMainPage' ) ) {
 				$( '#ca-upload' ).remove();
 			}
 		}
 
-		new LeadPhotoUploaderButton( { funnel: funnel } );
+		new LeadPhotoUploaderButton( {
+			funnel: funnel
+		} );
+		skin.emit( 'changed' );
 	}
 
 	if ( isSupported ) {
 		$( initialize );
-		M.on( 'page-loaded', function() {
-			initialize();
+	} else {
+			// FIXME: We want to enable it to these users however we must first deal with what to show
+			// to users who haven't uploaded anything to make the page useful.
+		$( function () {
+			$( '#mw-mf-page-left li.icon-uploads' ).remove();
 		} );
 	}
 

@@ -1,83 +1,94 @@
-( function( M, $ ) {
+( function ( M, $ ) {
 
-	var Overlay = M.require( 'Overlay' ), ContentOverlay;
+	var ContentOverlay,
+		context = M.require( 'context' ),
+		skin = M.require( 'skin' ),
+		Overlay = M.require( 'Overlay' );
 
 	/**
 	 * An {@link Overlay} that points at an element on the page.
-	 * @name ContentOverlay
-	 * @class
+	 * @class ContentOverlay
 	 * @extends Overlay
 	 */
 	ContentOverlay = Overlay.extend( {
-		className: 'content-overlay',
+		/** @inheritdoc */
+		templatePartials: {},
+		className: 'overlay content-overlay',
 		/**
-		 * @name ContentOverlay.prototype.fullScreen
-		 * @type Boolean
+		 * @inheritdoc
 		 */
 		fullScreen: false,
 		/**
-		 * @name ContentOverlay.prototype.closeOnContentTap
-		 * @type Boolean
+		 * @inheritdoc
 		 */
 		closeOnContentTap: true,
 		/**
-		 * @name ContentOverlay.prototype.appendTo
-		 * @type String
+		 * @inheritdoc
 		 */
-		appendTo: '#mw-mf-page-center',
-		postRender: function( options ) {
-			var self = this, $target;
-			this._super( options );
+		appendToElement: '#mw-mf-page-center',
+		/** @inheritdoc */
+		postRender: function ( options ) {
+			var $target,
+				self = this;
+
+			Overlay.prototype.postRender.apply( this, arguments );
 			if ( options.target ) {
 				$target = $( options.target );
 				// Ensure we position the overlay correctly but do not show the arrow
 				self._position( $target );
-				// Ensure that any reflows due to tablet styles have happened before showing
-				// the arrow.
-				setTimeout( function() {
-					self.addPointerArrow( $target );
-					M.on( 'resize', $.proxy( self, 'refreshPointerArrow', options.target ) );
-				}, 0 );
+				this.addPointerArrow( $target );
 			}
 		},
 		/**
 		 * Refreshes the pointer arrow.
-		 * @name ContentOverlay.prototype.refreshPointerArrow
-		 * @function
+		 * @method
+		 * @param {String} target jQuery selector
 		 */
-		refreshPointerArrow: function( target ) {
+		refreshPointerArrow: function ( target ) {
 			this.$pointer.remove();
 			this.addPointerArrow( $( target ) );
 		},
 		/**
+		 * Position the overlay under a specified element
+		 * @private
 		 * @param {jQuery.Object} $pa An element that should be pointed at by the overlay
 		 */
-		_position: function( $pa ) {
+		_position: function ( $pa ) {
 			var paOffset = $pa.offset(),
-				h = $pa.outerHeight( true );
+				h = $pa.outerHeight( true ),
+				y = paOffset.top;
 
-			this.$el.css( 'top', paOffset.top + h );
+			// We only care about this in a border-box world which is disabled in alpha.
+			if ( !context.isAlphaGroupMember() ) {
+				y += h;
+			}
+
+			this.$el.css( 'top', y );
 		},
 		/**
-		 * @name ContentOverlay.prototype.addPointerArrow
-		 * @function
+		 * Position overlay and add pointer arrow that points at specified element
+		 * @method
 		 * @param {jQuery.Object} $pa An element that should be pointed at by the overlay
 		 */
-		addPointerArrow: function( $pa ) {
+		addPointerArrow: function ( $pa ) {
 			var tb = 'solid 10px transparent',
 				paOffset = $pa.offset(),
-				overlayOffset = this.$el.offset();
+				overlayOffset = this.$el.offset(),
+				center = $pa.width() / 2;
 
 			this._position( $pa );
 			this.$pointer = $( '<div>' ).css( {
-				'border-bottom': 'solid 10px #006398',
+				'border-bottom': 'solid 10px #2E76FF',
 				'border-right': tb,
 				'border-left': tb,
 				position: 'absolute',
 				top: -10,
+				// Add half of the element width and subtract 10px for half of the arrow
 				// remove the left offset of the overlay as margin auto may be applied to it
-				left: paOffset.left + 10 - overlayOffset.left
+				left: paOffset.left + center - 10 - overlayOffset.left
 			} ).appendTo( this.$el );
+			skin.on( 'changed', $.proxy( this, 'refreshPointerArrow', this.options.target ) );
+			M.on( 'resize', $.proxy( this, 'refreshPointerArrow', this.options.target ) );
 		}
 	} );
 	M.define( 'modules/tutorials/ContentOverlay', ContentOverlay );

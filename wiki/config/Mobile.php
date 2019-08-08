@@ -13,7 +13,7 @@ if (class_exists("MobileContext"))
 	# Force a mobile site display 
 if ($uespIsMobile)
 {
-	if ($_COOKIE['mobileaction'] != 'toggle_view_desktop')
+	if (array_key_exists('mobileaction', $_COOKIE) && $_COOKIE['mobileaction'] != 'toggle_view_desktop')
 	{
 		$_GET['useformat'] = 'mobile';
 	}

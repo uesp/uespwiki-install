@@ -2,10 +2,12 @@
 	<p class="content-header">
 		{{explanation}}
 	</p>
-	<ul class="page-list">
+	<ul class="topic-title-list">
+		{{#headings}}
+			<li>
+				<a data-id="{{id}}" href="#/talk/{{id}}">{{line}}</a>
+			</li>
+		{{/headings}}
 	</ul>
-	<a class="mw-ui-progressive mw-ui-button mw-ui-quiet mw-ui-block hidden talk-fullpage" href="{{talkLink}}">
-		{{talkMessage}}
-	</a>
 </div>
-<div class="spinner loading"></div>
+{{{spinner}}}

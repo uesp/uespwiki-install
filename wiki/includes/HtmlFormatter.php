@@ -63,7 +63,15 @@ class HtmlFormatter {
 	 */
 	public function getDoc() {
 		if ( !$this->doc ) {
-			$html = mb_convert_encoding( $this->html, 'HTML-ENTITIES', 'UTF-8' );
+			// DOMDocument::loadHTML apparently isn't very good with encodings, so
+			// convert input to ASCII by encoding everything above 128 as entities.
+			if ( function_exists( 'mb_convert_encoding' ) ) {
+				$html = mb_convert_encoding( $this->html, 'HTML-ENTITIES', 'UTF-8' );
+			} else {
+				$html = preg_replace_callback( '/[\x{80}-\x{10ffff}]/u', function ( $m ) {
+					return '&#' . UtfNormal\Utils::utf8ToCodepoint( $m[0] ) . ';';
+				}, $this->html );
+			}
 
 			// Workaround for bug that caused spaces before references
 			// to disappear during processing:
@@ -133,7 +141,6 @@ class HtmlFormatter {
 	 * @return array Array of removed DOMElements
 	 */
 	public function filterContent() {
-		wfProfileIn( __METHOD__ );
 		$removals = $this->parseItemsToRemove();
 
 		// Bail out early if nothing to do
@@ -143,7 +150,6 @@ class HtmlFormatter {
 			},
 			true
 		) ) {
-			wfProfileOut( __METHOD__ );
 			return array();
 		}
 
@@ -178,7 +184,7 @@ class HtmlFormatter {
 
 		// CSS Classes
 		$domElemsToRemove = array();
-		$xpath = new DOMXpath( $doc );
+		$xpath = new DOMXPath( $doc );
 		foreach ( $removals['CLASS'] as $classToRemove ) {
 			$elements = $xpath->query( '//*[contains(@class, "' . $classToRemove . '")]' );
 
@@ -202,7 +208,6 @@ class HtmlFormatter {
 			$removed = array_merge( $removed, $this->removeElements( $elements ) );
 		}
 
-		wfProfileOut( __METHOD__ );
 		return $removed;
 	}
 
@@ -235,7 +240,6 @@ class HtmlFormatter {
 	 * @return string
 	 */
 	private function fixLibXML( $html ) {
-		wfProfileIn( __METHOD__ );
 		static $replacements;
 		if ( !$replacements ) {
 			// We don't include rules like '&#34;' => '&amp;quot;' because entities had already been
@@ -248,8 +252,14 @@ class HtmlFormatter {
 			) );
 		}
 		$html = $replacements->replace( $html );
-		$html = mb_convert_encoding( $html, 'UTF-8', 'HTML-ENTITIES' );
-		wfProfileOut( __METHOD__ );
+
+		if ( function_exists( 'mb_convert_encoding' ) ) {
+			// Just in case the conversion in getDoc() above used named
+			// entities that aren't known to html_entity_decode().
+			$html = mb_convert_encoding( $html, 'UTF-8', 'HTML-ENTITIES' );
+		} else {
+			$html = html_entity_decode( $html, ENT_COMPAT, 'utf-8' );
+		}
 		return $html;
 	}
 
@@ -264,10 +274,8 @@ class HtmlFormatter {
 	 * @return string Processed HTML
 	 */
 	public function getText( $element = null ) {
-		wfProfileIn( __METHOD__ );
 
 		if ( $this->doc ) {
-			wfProfileIn( __METHOD__ . '-dom' );
 			if ( $element !== null && !( $element instanceof DOMElement ) ) {
 				$element = $this->doc->getElementById( $element );
 			}
@@ -283,9 +291,7 @@ class HtmlFormatter {
 				$body->appendChild( $element );
 			}
 			$html = $this->doc->saveHTML();
-			wfProfileOut( __METHOD__ . '-dom' );
 
-			wfProfileIn( __METHOD__ . '-fixes' );
 			$html = $this->fixLibXml( $html );
 			if ( wfIsWindows() ) {
 				// Cleanup for CRLF misprocessing of unknown origin on Windows.
@@ -294,7 +300,6 @@ class HtmlFormatter {
 				// XML code paths if possible and fix there.
 				$html = str_replace( '&#13;', '', $html );
 			}
-			wfProfileOut( __METHOD__ . '-fixes' );
 		} else {
 			$html = $this->html;
 		}
@@ -302,14 +307,11 @@ class HtmlFormatter {
 		$html = preg_replace( '/<!--.*?-->|^.*?<body>|<\/body>.*$/s', '', $html );
 		$html = $this->onHtmlReady( $html );
 
-		wfProfileIn( __METHOD__ . '-flatten' );
 		if ( $this->elementsToFlatten ) {
 			$elements = implode( '|', $this->elementsToFlatten );
 			$html = preg_replace( "#</?($elements)\\b[^>]*>#is", '', $html );
 		}
-		wfProfileOut( __METHOD__ . '-flatten' );
 
-		wfProfileOut( __METHOD__ );
 		return $html;
 	}
 
@@ -322,6 +324,7 @@ class HtmlFormatter {
 	 * @param string $type The type of selector (ID, CLASS, TAG_CLASS, or TAG)
 	 * @param string $rawName The raw name of the selector
 	 * @return bool Whether the selector was successfully recognised
+	 * @throws MWException
 	 */
 	protected function parseSelector( $selector, &$type, &$rawName ) {
 		if ( strpos( $selector, '.' ) === 0 ) {
@@ -349,7 +352,6 @@ class HtmlFormatter {
 	 * @return array
 	 */
 	protected function parseItemsToRemove() {
-		wfProfileIn( __METHOD__ );
 		$removals = array(
 			'ID' => array(),
 			'TAG' => array(),
@@ -371,7 +373,6 @@ class HtmlFormatter {
 			$removals['TAG'][] = 'video';
 		}
 
-		wfProfileOut( __METHOD__ );
 		return $removals;
 	}
 }

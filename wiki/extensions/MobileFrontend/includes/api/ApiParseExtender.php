@@ -1,4 +1,7 @@
 <?php
+/**
+ * ApiParseExtender.php
+ */
 
 /**
  * Extends API action=parse with mobile goodies
@@ -59,47 +62,51 @@ class ApiParseExtender {
 	 * @return bool
 	 */
 	public static function onAPIAfterExecute( ApiBase &$module ) {
+		global $wgMFSpecialCaseMainPage;
+
 		if ( $module->getModuleName() == 'parse' ) {
-			wfProfileIn( __METHOD__ );
-			$data = $module->getResultData();
+			if ( defined( 'ApiResult::META_CONTENT' ) ) {
+				$data = $module->getResult()->getResultData();
+			} else {
+				$data = $module->getResultData();
+			}
 			$params = $module->extractRequestParams();
 			if ( isset( $data['parse']['text'] ) && $params['mobileformat'] ) {
-				wfProfileIn( __METHOD__ . '-mobiletransform' );
 				$result = $module->getResult();
 				$result->reset();
 
 				$title = Title::newFromText( $data['parse']['title'] );
-				$html = MobileFormatter::wrapHTML( $data['parse']['text']['*'] );
+				$text = $data['parse']['text'];
+				if ( is_array( $text ) ) {
+					if ( defined( 'ApiResult::META_CONTENT' ) &&
+						isset( $text[ApiResult::META_CONTENT] )
+					) {
+						$contentKey = $text[ApiResult::META_CONTENT];
+					} else {
+						$contentKey = '*';
+					}
+					$html = MobileFormatter::wrapHTML( $text[$contentKey] );
+				} else {
+					$html = MobileFormatter::wrapHTML( $text );
+				}
 				$mf = new MobileFormatter( $html, $title );
 				$mf->setRemoveMedia( $params['noimages'] );
-				$mf->setIsMainPage( $params['mainpage'] );
+				$mf->setIsMainPage( $params['mainpage'] && $wgMFSpecialCaseMainPage );
 				$mf->enableExpandableSections( !$params['mainpage'] );
 				// HACK: need a nice way to request a TOC- and edit link-free HTML in the first place
-				$mf->remove( array( '.toc', 'mw-editsection' ) );
+				// FIXME: Should this be .mw-editsection?
+				$mf->remove( array( '.toc', 'mw-editsection', '.mw-headline-anchor' ) );
 				$mf->filterContent();
-				// HACK: older version of this code had a bug that made its output incompatible
-				// with vanilla action==parse. Older callers that assume that mobileformat is a string
-				// parameter that needs either 'html' or 'wml' get the older version, while newer callers
-				// that treat it as a bool parameter get a fixed version of output structure.
-				// @todo: Remove this no earlier than 6 months from Oct 31, 2013
-				$mobileformat = $module->getRequest()->getText( 'mobileformat' );
-				if ( $mobileformat === 'html' || $mobileformat === 'wml' ) {
-					$result->setWarning( 'mobileformat parameter calling style have changed '
-						. 'and current usage will be  deprecated. See '
-						. 'https://lists.wikimedia.org/pipermail/mediawiki-api/2013-October/003131.html'
-						. ' for details.'
-					);
-					$data['parse']['text'] = $mf->getText();
+
+				if ( is_array( $text ) ) {
+					$text[$contentKey] = $mf->getText();
 				} else {
-					$arr = array();
-					ApiResult::setContent( $arr, $mf->getText() );
-					$data['parse']['text'] = $arr;
+					$text = $mf->getText();
 				}
+				$data['parse']['text'] = $text;
 
 				$result->addValue( null, $module->getModuleName(), $data['parse'] );
-				wfProfileOut( __METHOD__ . '-mobiletransform' );
 			}
-			wfProfileOut( __METHOD__ );
 		}
 		return true;
 	}

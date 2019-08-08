@@ -1,7 +1,7 @@
-( function( M, $ ) {
+( function ( M, $ ) {
 
-var Panel = M.require( 'Panel' ),
-	Drawer;
+	var Panel = M.require( 'Panel' ),
+		Drawer;
 
 	/**
 	 * A {@link View} that pops up from the bottom of the screen.
@@ -10,36 +10,55 @@ var Panel = M.require( 'Panel' ),
 	 */
 	Drawer = Panel.extend( {
 		className: 'drawer position-fixed',
-		appendToElement: '#notifications',
+		appendToElement: '#mw-mf-viewport',
+		closeOnScroll: true,
+		events: $.extend( {}, Panel.prototype.events, {
+			click: 'stopPropagation'
+		} ),
 
-		postRender: function() {
-			var self = this;
+		/** @inheritdoc */
+		postRender: function () {
 			Panel.prototype.postRender.apply( this, arguments );
-			this.on( 'show', function() {
-				setTimeout( function() {
-					$( 'body' ).one( M.tapEvent( 'click' ) + '.drawer', $.proxy( self, 'hide' ) );
+			this.on( 'show', $.proxy( this, 'onShowDrawer' ) );
+			this.on( 'hide', $.proxy( this, 'onHideDrawer' ) );
+		},
+		/**
+		 * Stop Propagation event handler
+		 * @param {Object} ev event object
+		 * Allow the drawer itself to be clickable (e.g. for copying and pasting references
+		 * clicking links in reference)
+		 */
+		stopPropagation: function ( ev ) {
+			ev.stopPropagation();
+		},
+
+		/**
+		 * ShowDrawer event handler
+		 */
+		onShowDrawer: function () {
+			var self = this;
+			setTimeout( function () {
+				$( 'body' ).one( 'click.drawer', $.proxy( self, 'hide' ) );
+				if ( self.closeOnScroll ) {
 					$( window ).one( 'scroll.drawer', $.proxy( self, 'hide' ) );
-					// FIXME change when micro.tap.js in stable
-					// can't use 'body' because the drawer will be closed when
-					// tapping on it and clicks will be prevented
-					$( '#mw-mf-page-center' ).one( M.tapEvent( 'click' ) + '.drawer', $.proxy( self, 'hide' ) );
-				}, self.minHideDelay );
-			} );
+				}
+				// can't use 'body' because the drawer will be closed when
+				// tapping on it and clicks will be prevented
+				$( '#mw-mf-page-center' ).one( 'click.drawer', $.proxy( self, 'hide' ) );
+			}, self.minHideDelay );
+		},
 
-			this.on( 'hide', function() {
-				// .one() registers one callback for scroll and click independently
-				// if one fired, get rid of the other one
-				$( window ).off( '.drawer' );
-				$( '#mw-mf-page-center' ).off( '.drawer' );
-			} );
-
-			// Allow the drawer itself to be clickable (e.g. for copying and pasting references / clicking links in reference)
-			this.$el.on( M.tapEvent( 'click' ), function( ev ) {
-				ev.stopPropagation();
-			} );
+		/**
+		 * HideDrawer event handler
+		 */
+		onHideDrawer: function () {
+			// .one() registers one callback for scroll and click independently
+			// if one fired, get rid of the other one
+			$( window ).off( '.drawer' );
+			$( '#mw-mf-page-center' ).off( '.drawer' );
 		}
 	} );
 
-M.define( 'Drawer', Drawer );
+	M.define( 'Drawer', Drawer );
 
 }( mw.mobileFrontend, jQuery ) );

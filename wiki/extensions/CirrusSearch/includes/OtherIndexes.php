@@ -1,6 +1,7 @@
 <?php
 
 namespace CirrusSearch;
+use MediaWiki\Logger\LoggerFactory;
 use \Title;
 
 /**
@@ -175,7 +176,7 @@ GROOVY;
 			$this->start( "updating $updatesInBulk documents in other indexes" );
 			$bulk->send();
 		} catch ( \Elastica\Exception\Bulk\ResponseException $e ) {
-			if ( $this->bulkResponseExceptionIsJustDocumentMissing( $e, null ) ) {
+			if ( $this->bulkResponseExceptionIsJustDocumentMissing( $e ) ) {
 				$exception = $e;
 			}
 		} catch ( \Elastica\Exception\ExceptionInterface $e ) {
@@ -188,8 +189,8 @@ GROOVY;
 			$articleIDs = array_map( function( $title ) {
 				return $title->getArticleID();
 			}, $titles );
-			wfDebugLog( 'CirrusSearchChangeFailed', "Other Index $actionName for article ids: " .
-				implode( ',', $articleIDs ) );
+			LoggerFactory::getInstance( 'CirrusSearchChangeFailed' )->info(
+				"Other Index $actionName for article ids: " . implode( ',', $articleIDs ) );
 			return false;
 		}
 	}

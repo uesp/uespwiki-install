@@ -129,7 +129,8 @@ function wfGzipHandler( $s ) {
 	$headers = headers_list();
 	$foundVary = false;
 	foreach ( $headers as $header ) {
-		if ( substr( $header, 0, 5 ) == 'Vary:' ) {
+		$headerName = strtolower( substr( $header, 0, 5 ) );
+		if ( $headerName == 'vary:' ) {
 			$foundVary = true;
 			break;
 		}
@@ -153,8 +154,8 @@ function wfGzipHandler( $s ) {
  */
 function wfMangleFlashPolicy( $s ) {
 	# Avoid weird excessive memory usage in PCRE on big articles
-	if ( preg_match( '/\<\s*cross-domain-policy\s*\>/i', $s ) ) {
-		return preg_replace( '/\<\s*cross-domain-policy\s*\>/i', '<NOT-cross-domain-policy>', $s );
+	if ( preg_match( '/\<\s*cross-domain-policy(?=\s|\>)/i', $s ) ) {
+		return preg_replace( '/\<(\s*)(cross-domain-policy(?=\s|\>))/i', '<$1NOT-$2', $s );
 	} else {
 		return $s;
 	}

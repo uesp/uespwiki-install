@@ -134,6 +134,7 @@ foreach ($pages as $pageIndex => &$page)
 	$card['ward'] = $page['setVars']['ward'];
 	$card['obtainable'] = $page['setVars']['obtainable'];
 	$card['shout'] = $page['setVars']['shout'];
+	$card['unique'] = $page['setVars']['isUnique'];
 	
 	$cards[$name] = $card; 
 }
@@ -160,6 +161,7 @@ foreach ($cards as $name => $card)
 	$set = $card['availability'];		if ($set == null) $set = "";
 	$uses = $card['uses'];				if ($uses == null) $uses = 0;
 	$obtainable = $card['obtainable'];	if ($obtainable == null) $obtainable = "No";
+	$unique = $card['unique'];		    if ($unique == null) $unique = 0;
 		
 	$magicka = intval($card['cost']);
 	$power = intval($card['power']);
@@ -214,7 +216,7 @@ foreach ($cards as $name => $card)
 	$writeQuery = "";
 	$setQuery  = "text='$text', type='$type', subtype='$subtype', image='$image', rarity='$rarity', attribute='$attribute', ";
 	$setQuery .= "attribute2='$attribute2', `class`='$class', `set`='$set', magicka='$magicka', power='$power', health='$health', ";
-	$setQuery .= "obtainable='$obtainable', uses='$uses'";
+	$setQuery .= "obtainable='$obtainable', uses='$uses', `unique`='$unqiue'";
 		
 	if ($doInsert)
 	{

@@ -1,8 +1,18 @@
-( function( M, $ ) {
+// FIXME: Merge this code with OverlayManager
+( function ( M, $ ) {
 
-	var EventEmitter = M.require( 'eventemitter' ), key;
+	var key, router,
+		EventEmitter = M.require( 'eventemitter' );
 
-	// FIXME: remove when OverlayManager used everywhere
+	/**
+	 * Does hash match entry.path?
+	 * @method
+	 * @private
+	 * @ignore
+	 * @param {String} hash String to match
+	 * @param {Object} entry Entry object
+	 * @returns {Boolean} Whether hash matches entry.path
+	 */
 	function matchRoute( hash, entry ) {
 		var match = hash.match( entry.path );
 		if ( match ) {
@@ -13,7 +23,9 @@
 	}
 
 	/**
+	 * Provides navigation routing and location information
 	 * @class Router
+	 * @uses EventEmitter
 	 */
 	function Router() {
 		EventEmitter.prototype.initialize.apply( this, arguments );
@@ -28,12 +40,14 @@
 			self.emit( 'popstate' );
 		} );
 
-		$( window ).on( 'hashchange', function() {
+		$( window ).on( 'hashchange', function () {
 			// ev.originalEvent.newURL is undefined on Android 2.x
 			var routeEv;
 
 			if ( self._enabled ) {
-				routeEv = $.Event( 'route', { path: self.getPath() } );
+				routeEv = $.Event( 'route', {
+					path: self.getPath()
+				} );
 				self.emit( 'route', routeEv );
 
 				if ( !routeEv.isDefaultPrevented() ) {
@@ -52,37 +66,37 @@
 		} );
 	}
 
-	for( key in EventEmitter.prototype ) {
-		Router.prototype[ key ] = EventEmitter.prototype[ key ];
+	for ( key in EventEmitter.prototype ) {
+		if ( EventEmitter.prototype.hasOwnProperty( key ) ) {
+			Router.prototype[ key ] = EventEmitter.prototype[ key ];
+		}
 	}
 
-	// FIXME: remove when OverlayManager used everywhere
 	/**
 	 * Check the current route and run appropriate callback if it matches.
 	 * @method
 	 */
-	Router.prototype.checkRoute = function() {
+	Router.prototype.checkRoute = function () {
 		var hash = this.getPath();
 
-		$.each( this.routes, function( id, entry ) {
+		$.each( this.routes, function ( id, entry ) {
 			return !matchRoute( hash, entry );
 		} );
 	};
 
 	/**
 	 * Bind a specific callback to a hash-based route, e.g.
-	 * FIXME: remove when OverlayManager used everywhere
 	 *
 	 *     @example
-	 *     route( 'alert', function() { alert( 'something' ); } );
-	 *     route( /hi-(.*)/, function( name ) { alert( 'Hi ' + name ) } );
+	 *     route( 'alert', function () { alert( 'something' ); } );
+	 *     route( /hi-(.*)/, function ( name ) { alert( 'Hi ' + name ) } );
 	 *
 	 * @method
 	 * @param {Object} path String or RegExp to match.
 	 * @param {Function} callback Callback to be run when hash changes to one
 	 * that matches.
 	 */
-	Router.prototype.route = function( path, callback ) {
+	Router.prototype.route = function ( path, callback ) {
 		var entry = {
 			path: typeof path === 'string' ? new RegExp( '^' + path + '$' ) : path,
 			callback: callback
@@ -96,9 +110,9 @@
 	 * hash now.
 	 *
 	 * @method
-	 * @param {string} path String with a route (hash without #).
+	 * @param {String} path String with a route (hash without #).
 	 */
-	Router.prototype.navigate = function( path ) {
+	Router.prototype.navigate = function ( path ) {
 		window.location.hash = path;
 	};
 
@@ -107,21 +121,29 @@
 	 * @method
 	 * @return {jQuery.Deferred}
 	 */
-	Router.prototype.back = function() {
-		var deferredRequest = new $.Deferred;
+	Router.prototype.back = function () {
+		var deferredRequest = $.Deferred(),
+			self = this,
+			timeoutID;
+
 		this.once( 'popstate', function () {
+			clearTimeout( timeoutID );
 			deferredRequest.resolve();
 		} );
 
-		// Check for onpopstate for older browser compatibility (ie8/9)
-		// Otherwise, deferred request is resolved in onpopstate
-		if ( !( 'onpopstate' in window ) ) {
-			// give browser a few ms to update its history
-			setTimeout( function() {
-				deferredRequest.resolve();
-			}, 50 );
-		}
 		window.history.back();
+
+		// If for some reason (old browser, bug in IE/windows 8.1, etc) popstate doesn't fire,
+		// resolve manually. Since we don't know for sure which browsers besides IE10/11 have
+		// this problem, it's better to fall back this way rather than singling out browsers
+		// and resolving the deferred request for them individually.
+		// See https://connect.microsoft.com/IE/feedback/details/793618/history-back-popstate-not-working-as-expected-in-webview-control
+		// Give browser a few ms to update its history.
+		timeoutID = setTimeout( function () {
+			self.off( 'popstate' );
+			deferredRequest.resolve();
+		}, 50 );
+
 		return deferredRequest;
 	};
 
@@ -129,20 +151,24 @@
 	 * Get current path (hash).
 	 *
 	 * @method
-	 * @return {string} Current path.
+	 * @return {String} Current path.
 	 */
-	Router.prototype.getPath = function() {
+	Router.prototype.getPath = function () {
 		return window.location.hash.slice( 1 );
 	};
 
 	/**
+	 * Determine if current browser supports onhashchange event
 	 * @method
 	 * @return {Boolean}
 	 */
-	Router.prototype.isSupported = function() {
+	Router.prototype.isSupported = function () {
 		return 'onhashchange' in window;
 	};
 
+	router = new Router();
+
+	M.define( 'router', router );
 	M.define( 'Router', Router );
 
 }( mw.mobileFrontend, jQuery ) );

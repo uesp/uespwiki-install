@@ -1,31 +1,34 @@
 /* Defines all possible routes in MobileFrontend and where to find the code to provide them. */
-( function( M, $ ) {
-	var lastFile;
+( function ( M, $ ) {
+	var lastFile,
+		overlayManager = M.require( 'overlayManager' ),
+		loader = M.require( 'loader' );
+
 	// FIXME: this is hacky but it would be hard to pass a file in a route
-	M.on( '_upload-preview', function( file ) {
+	M.on( '_upload-preview', function ( file ) {
 		lastFile = file;
 	} );
 
 	// Upload Tutorial
-	M.overlayManager.add( /^\/upload-tutorial\/?(.*)$/, function( funnel ) {
+	overlayManager.add( /^\/upload-tutorial\/?(.*)$/, function ( funnel ) {
 		var result = $.Deferred();
-		// FIXME: find a generic way of showing loading (make showing a loader
-		// part of OverlayManager?)
-		mw.loader.using( 'mobile.uploads', function() {
+		loader.loadModule( 'mobile.uploads' ).done( function () {
 			var UploadTutorialNew = M.require( 'modules/uploads/UploadTutorial' );
-			result.resolve( new UploadTutorialNew( { funnel: funnel || null } ) );
+			result.resolve( new UploadTutorialNew( {
+				funnel: funnel || null
+			} ) );
 		} );
 		return result;
 	} );
 
 	// Upload Preview
-	M.overlayManager.add( /^\/upload-preview\/?(.*)$/, function( funnel ) {
+	overlayManager.add( /^\/upload-preview\/?(.*)$/, function ( funnel ) {
 		var result = $.Deferred();
-		// FIXME: find a generic way of showing loading (make showing a loader
-		// part of OverlayManager?)
-		mw.loader.using( 'mobile.uploads', function() {
+		loader.loadModule( 'mobile.uploads' ).done( function () {
 			var PhotoUploadOverlay = M.require( 'modules/uploads/PhotoUploadOverlay' );
 			result.resolve( new PhotoUploadOverlay( {
+				page: M.getCurrentPage(),
+				// FIXME: Remove this and use page option instead
 				pageTitle: mw.config.get( 'wgTitle' ),
 				file: lastFile,
 				funnel: funnel,

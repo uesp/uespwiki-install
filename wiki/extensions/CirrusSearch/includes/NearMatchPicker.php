@@ -1,7 +1,7 @@
 <?php
 
 namespace CirrusSearch;
-use \ProfileSection;
+use MediaWiki\Logger\LoggerFactory;
 
 /**
  * Picks the best "near match" title.
@@ -56,8 +56,6 @@ class NearMatchPicker {
 	 * @return Title|null title if there is a near match and null otherwise
 	 */
 	public function pickBest() {
-		$profiler = new ProfileSection( __METHOD__ );
-
 		if ( !$this->titles ) {
 			return null;
 		}
@@ -71,7 +69,8 @@ class NearMatchPicker {
 			if ( isset( $this->titles[ 0 ][ 'redirectMatches' ][ 0 ] ) ) {
 				return $this->titles[ 0 ][ 'redirectMatches' ][ 0 ];
 			}
-			wfDebugLog( 'CirrusSearch', 'NearMatchPicker built with busted matches.  Assuming no near match');
+			LoggerFactory::getInstance( 'CirrusSearch' )->info(
+				'NearMatchPicker built with busted matches.  Assuming no near match' );
 			return null;
 		}
 

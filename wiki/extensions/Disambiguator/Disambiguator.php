@@ -25,6 +25,11 @@
  * @license MIT "Expat" License
  */
 
+/**
+ * This PHP entry point is deprecated. Please use wfLoadExtension() and the extension.json file instead.
+ * See https://www.mediawiki.org/wiki/Manual:Extension_registration for more details.
+ */
+
 $wgExtensionCredits['other'][] = array(
 	'path' => __FILE__,
 	'name' => 'Disambiguator',
@@ -34,20 +39,19 @@ $wgExtensionCredits['other'][] = array(
 	'version'  => '1.1',
 	'url' => 'https://www.mediawiki.org/wiki/Extension:Disambiguator',
 	'descriptionmsg' => 'disambig-desc',
+	'license-name' => 'MIT',
 );
 
 /* Setup */
 
-$dir = __DIR__;
-
 // Register files
-$wgAutoloadClasses['DisambiguatorHooks'] = $dir . '/Disambiguator.hooks.php';
-$wgAutoloadClasses['SpecialDisambiguationPages'] = $dir . '/specials/SpecialDisambiguationPages.php';
-$wgAutoloadClasses['SpecialDisambiguationPageLinks'] = $dir . '/specials/SpecialDisambiguationPageLinks.php';
+$wgAutoloadClasses['DisambiguatorHooks'] = __DIR__ . '/Disambiguator.hooks.php';
+$wgAutoloadClasses['SpecialDisambiguationPages'] = __DIR__ . '/specials/SpecialDisambiguationPages.php';
+$wgAutoloadClasses['SpecialDisambiguationPageLinks'] = __DIR__ . '/specials/SpecialDisambiguationPageLinks.php';
 $wgMessagesDirs['Disambiguator'] = __DIR__ . '/i18n';
-$wgExtensionMessagesFiles['Disambiguator'] = $dir . '/Disambiguator.i18n.php';
-$wgExtensionMessagesFiles['DisambiguatorAlias'] = $dir . '/Disambiguator.i18n.alias.php';
-$wgExtensionMessagesFiles['DisambiguatorMagic'] = $dir . '/Disambiguator.i18n.magic.php';
+$wgExtensionMessagesFiles['Disambiguator'] = __DIR__ . '/Disambiguator.i18n.php';
+$wgExtensionMessagesFiles['DisambiguatorAlias'] = __DIR__ . '/Disambiguator.i18n.alias.php';
+$wgExtensionMessagesFiles['DisambiguatorMagic'] = __DIR__ . '/Disambiguator.i18n.magic.php';
 
 // Register hooks
 $wgHooks['GetDoubleUnderscoreIDs'][] = 'DisambiguatorHooks::onGetDoubleUnderscoreIDs';
@@ -58,9 +62,7 @@ $wgHooks['GetLinkColours'][] = 'DisambiguatorHooks::onGetLinkColours';
 
 // Register special pages
 $wgSpecialPages['DisambiguationPages'] = 'SpecialDisambiguationPages';
-$wgSpecialPageGroups['DisambiguationPages'] = 'pages';
 $wgSpecialPages['DisambiguationPageLinks'] = 'SpecialDisambiguationPageLinks';
-$wgSpecialPageGroups['DisambiguationPageLinks'] = 'pages';
 
 $wgResourceModules['ext.disambiguator.visualEditor'] = array(
 	'localBasePath' => __DIR__,

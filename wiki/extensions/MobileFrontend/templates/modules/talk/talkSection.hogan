@@ -4,7 +4,7 @@
 
 <div class="content talk-section">
 	{{{section.text}}}
-	<div class="loading"></div>
+	{{{spinner}}}
 	<div class="comment">
 		<div class="list-header">{{reply}}</div>
 		<div class="comment-content">
@@ -13,7 +13,7 @@
 				{{info}}
 				{{{licenseMsg}}}
 			</p>
-			<button class="mw-ui-button mw-ui-constructive mw-ui-block">{{confirmMsg}}</button>
+			<button class="mw-ui-button mw-ui-constructive mw-ui-block save-button">{{saveMsg}}</button>
 		</div>
 	</div>
 </div>

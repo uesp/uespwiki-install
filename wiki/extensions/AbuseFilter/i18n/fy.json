@@ -2,14 +2,20 @@
 	"@metadata": {
 		"authors": [
 			"Pyt",
-			"Snakesteuben"
+			"Snakesteuben",
+			"Robin0van0der0vliet"
 		]
 	},
 	"abusefilter-desc": "Fiert automatyske heuristyske analyse út op bewurkings",
 	"abusefilter": "Misbrûkfilterkonfiguraasje",
 	"abusefilter-log-search-user": "Meidogger:",
 	"abusefilter-log-search-submit": "Sykje",
+	"abusefilter-log-details-val": "Wearde",
 	"abusefilter-log-noactions": "gjin",
-	"abusefilter-list-edit": "Wizigje",
-	"abusefilter-history-user": "Meidogger"
+	"abusefilter-list-edit": "Bewurkje",
+	"abusefilter-list-options": "Opsjes",
+	"abusefilter-edit-throttle-seconds": "$1 {{PLURAL:$1|sekonde|sekonden}}",
+	"abusefilter-edit-history": "Skiednis:",
+	"abusefilter-history-user": "Meidogger",
+	"abusefilter-examine-submit": "Sykje"
 }

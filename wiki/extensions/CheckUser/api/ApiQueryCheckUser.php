@@ -72,8 +72,13 @@ class ApiQueryCheckUser extends ApiQueryBase {
 				CheckUser::addLogEntry( 'userips', 'user', $target, $reason, $user_id );
 				$result->addValue( array( 
 					'query', $this->getModuleName() ), 'userips', $resultIPs );
-				$result->setIndexedTagName_internal( array( 
-					'query', $this->getModuleName(), 'userips' ), 'ip' );
+				if ( defined( 'ApiResult::META_CONTENT' ) ) {
+					$result->addIndexedTagName( array( 
+						'query', $this->getModuleName(), 'userips' ), 'ip' );
+				} else {
+					$result->setIndexedTagName_internal( array( 
+						'query', $this->getModuleName(), 'userips' ), 'ip' );
+				}
 				break;
 
 			case 'edits':
@@ -135,8 +140,13 @@ class ApiQueryCheckUser extends ApiQueryBase {
 					$target, $reason, isset($user_id) ? $user_id : '0' );
 				$result->addValue( array( 
 					'query', $this->getModuleName() ), 'edits', $edits );
-				$result->setIndexedTagName_internal( array(
-					'query', $this->getModuleName(), 'edits' ), 'action' );
+				if ( defined( 'ApiResult::META_CONTENT' ) ) {
+					$result->addIndexedTagName( array(
+						'query', $this->getModuleName(), 'edits' ), 'action' );
+				} else {
+					$result->setIndexedTagName_internal( array(
+						'query', $this->getModuleName(), 'edits' ), 'action' );
+				}
 				break;
 
 			case 'ipusers':
@@ -192,8 +202,13 @@ class ApiQueryCheckUser extends ApiQueryBase {
 				CheckUser::addLogEntry( $log_type, 'ip', $target, $reason );
 				$result->addValue( array( 
 					'query', $this->getModuleName() ), 'ipusers', $resultUsers );
-				$result->setIndexedTagName_internal( array( 
-					'query', $this->getModuleName(), 'ipusers' ), 'user' );
+				if ( defined( 'ApiResult::META_CONTENT' ) ) {
+					$result->addIndexedTagName( array( 
+						'query', $this->getModuleName(), 'ipusers' ), 'user' );
+				} else {
+					$result->setIndexedTagName_internal( array( 
+						'query', $this->getModuleName(), 'ipusers' ), 'user' );
+				}
 				break;
 
 			default:
@@ -241,6 +256,9 @@ class ApiQueryCheckUser extends ApiQueryBase {
 		);
 	}
 
+	/**
+	 * @deprecated since MediaWiki core 1.25
+	 */
 	public function getParamDescription() {
 		return array(
 			'request'  => array(
@@ -257,23 +275,16 @@ class ApiQueryCheckUser extends ApiQueryBase {
 		);
 	}
 
+	/**
+	 * @deprecated since MediaWiki core 1.25
+	 */
 	public function getDescription() {
 		return 'Allows check which IPs are used by a given username and which usernames are used by a given IP';
 	}
 
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(),
-			array(
-				array( 'code' => 'nosuchuser', 'info' => 'Target user does not exist' ),
-				array( 'code' => 'invalidip', 'info' => 'IP or range is invalid' ),
-				array( 'code' => 'permissionerror', 'info' => 'You need the checkuser right' ),
-				array( 'code' => 'invalidmode', 'info' => 'Invalid request mode' ),
-				array( 'code' => 'missingdata', 'info' => 'You must define reason for check' ),
-				array( 'code' => 'invalidtime', 'info' => 'You need use correct time limit (like "2 weeks")' ),
-			)
-		);
-	}
-
+	/**
+	 * @deprecated since MediaWiki core 1.25
+	 */
 	public function getExamples() {
 		return array(
 			'api.php?action=query&list=checkuser&curequest=userips&cutarget=Jimbo_Wales',
@@ -281,12 +292,20 @@ class ApiQueryCheckUser extends ApiQueryBase {
 		);
 	}
 
-	public function getHelpUrls() {
-		return 'http://www.mediawiki.org/wiki/Extension:CheckUser#API';
+	/**
+	 * @see ApiBase::getExamplesMessages()
+	 */
+	protected function getExamplesMessages() {
+		return array(
+			'action=query&list=checkuser&curequest=userips&cutarget=Jimbo_Wales'
+				=> 'apihelp-query+checkuser-example-1',
+			'action=query&list=checkuser&curequest=edits&cutarget=127.0.0.1/16&xff=1&cureason=Some_check'
+				=> 'apihelp-query+checkuser-example-2',
+		);
 	}
 
-	public function getVersion() {
-		return __CLASS__ . ': $Id$';
+	public function getHelpUrls() {
+		return 'https://www.mediawiki.org/wiki/Extension:CheckUser#API';
 	}
 
 	public function getTokenSalt() {
@@ -294,6 +313,6 @@ class ApiQueryCheckUser extends ApiQueryBase {
 	}
 
 	public function needsToken() {
-		return true;
+		return 'csrf';
 	}
 }

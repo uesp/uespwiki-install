@@ -28,7 +28,8 @@
 	"mwe-embedplayer-seek_to": "Suche $1",
 	"mwe-embedplayer-paused": "pausiert",
 	"mwe-embedplayer-download_segment": "Auswahl herunterladen:",
-	"mwe-embedplayer-download_full": "Ganze Videodatei herunterladen:",
+	"mwe-embedplayer-download_full_video": "Ganze Videodatei herunterladen:",
+	"mwe-embedplayer-download_full_audio": "Ganze Audiodatei herunterladen:",
 	"mwe-embedplayer-download_right_click": "Zum Herunterladen die rechte Maustaste nutzen und <i>Link speichern unter …</i> auswählen",
 	"mwe-embedplayer-download_clip": "Video herunterladen",
 	"mwe-embedplayer-download_text": "Text herunterladen",
@@ -41,6 +42,7 @@
 	"mwe-embedplayer-choose_player": "Videoplayer auswählen",
 	"mwe-embedplayer-no-player": "Es ist für $1 kein Player verfügbar",
 	"mwe-embedplayer-share_this_video": "Dieses Video teilen",
+	"mwe-embedplayer-share_this_audio": "Diese Audiodatei teilen",
 	"mwe-embedplayer-video_credits": "Videocredits",
 	"mwe-embedplayer-no-video_credits": "Keine Urheberangaben verfügbar",
 	"mwe-embedplayer-kaltura-platform-title": "Kaltura Open-Source-Video-Plattform",
@@ -54,6 +56,7 @@
 	"mwe-embedplayer-ogg-player-webmNative": "HTML5 WebM-Player",
 	"mwe-embedplayer-ogg-player-oggPlugin": "Allgemeines Ogg-Plugin",
 	"mwe-embedplayer-ogg-player-vlcAppPlayer": "VLC für die iOS-App",
+	"mwe-embedplayer-ogg-player-IEWebMPrompt": "IE-WebM-Plugin-Downloader",
 	"mwe-embedplayer-ogg-player-quicktime-mozilla": "QuickTime-Plugin",
 	"mwe-embedplayer-ogg-player-quicktime-activex": "QuickTime ActiveX",
 	"mwe-embedplayer-ogg-player-cortado": "Java Cortado",
@@ -88,5 +91,8 @@
 	"mwe-embedplayer-vlcapp-downloadapp": "Die VLC-App aus dem App Store herunterladen",
 	"mwe-embedplayer-vlcapp-openvideo": "Dieses Video in der VLC-App öffnen",
 	"mwe-embedplayer-vlcapp-downloadvideo": "Dieses Video herunterladen",
-	"mwe-embedplayer-vlcapp-vlcapppopup": "Um Videos auf dieser Website abzuspielen, benötigst du die kostenlose VLC-App. Jetzt installieren?"
+	"mwe-embedplayer-vlcapp-vlcapppopup": "Um Videos auf dieser Website abzuspielen, benötigst du die kostenlose VLC-App. Jetzt installieren?",
+	"mwe-embedplayer-iewebmprompt-intro": "Huch! Eine weitere Sache, bevor du dieses Video abspielen kannst …",
+	"mwe-embedplayer-iewebmprompt-linktext": "Installiere WebM-Medienkomponenten für den Microsoft Internet Explorer",
+	"mwe-embedplayer-iewebmprompt-outro": "Lade nach der Installation diese Seite neu."
 }

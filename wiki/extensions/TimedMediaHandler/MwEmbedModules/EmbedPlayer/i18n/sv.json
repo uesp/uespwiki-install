@@ -3,14 +3,16 @@
 		"authors": [
 			"Ainali",
 			"Dafer45",
-			"Lokal Profil"
+			"Lokal Profil",
+			"WikiPhoenix",
+			"Jenniesarina"
 		]
 	},
 	"mwe-embedplayer-credit-title": "Titel: $1",
 	"mwe-embedplayer-credit-date": "Datum: $1",
 	"mwe-embedplayer-credit-author": "Författare: $1",
 	"mwe-embedplayer-nocredits": "Inga erkännanden tillgängliga",
-	"mwe-embedplayer-loading_plugin": "laddar plugin...",
+	"mwe-embedplayer-loading_plugin": "laddar insticksmodul...",
 	"mwe-embedplayer-select_playback": "Ange uppspelningsinställningar",
 	"mwe-embedplayer-link_back": "Länka tillbaka",
 	"mwe-embedplayer-error_swap_vid": "Fel: mwEmbed kunde inte att byta videoetiketten för mwEmbed-gränssnittet",
@@ -28,7 +30,8 @@
 	"mwe-embedplayer-seek_to": "Sök $1",
 	"mwe-embedplayer-paused": "pausad",
 	"mwe-embedplayer-download_segment": "Hämta urval:",
-	"mwe-embedplayer-download_full": "Ladda ner den fullständiga videofilen:",
+	"mwe-embedplayer-download_full_video": "Ladda ner den fullständiga videofilen:",
+	"mwe-embedplayer-download_full_audio": "Ladda ned fullständig ljudfil:",
 	"mwe-embedplayer-download_right_click": "För att ladda ner, högerklicka och välj <i>Spara länk som ...</i>",
 	"mwe-embedplayer-download_clip": "Ladda ner video",
 	"mwe-embedplayer-download_text": "Ladda ner text",
@@ -41,6 +44,7 @@
 	"mwe-embedplayer-choose_player": "Välj videouppspelare",
 	"mwe-embedplayer-no-player": "Ingen spelare tillgänglig för $1",
 	"mwe-embedplayer-share_this_video": "Dela denna video",
+	"mwe-embedplayer-share_this_audio": "Dela denna ljudfil",
 	"mwe-embedplayer-video_credits": "Videoerkännanden",
 	"mwe-embedplayer-no-video_credits": "Inga erkännanden tillgängliga",
 	"mwe-embedplayer-kaltura-platform-title": "Kaltura öppen källkod videoplattform",
@@ -54,7 +58,7 @@
 	"mwe-embedplayer-ogg-player-webmNative": "HTML5 WebM spelare",
 	"mwe-embedplayer-ogg-player-oggPlugin": "Generiella Ogg-tillägg",
 	"mwe-embedplayer-ogg-player-vlcAppPlayer": "VLC för iOS-app",
-	"mwe-embedplayer-ogg-player-quicktime-mozilla": "QuickTime plugin",
+	"mwe-embedplayer-ogg-player-quicktime-mozilla": "QuickTime-insticksmodul",
 	"mwe-embedplayer-ogg-player-quicktime-activex": "QuickTime ActiveX",
 	"mwe-embedplayer-ogg-player-flowplayer": "Flowplayer",
 	"mwe-embedplayer-ogg-player-kplayer": "Kaltura spelare",
@@ -87,5 +91,6 @@
 	"mwe-embedplayer-vlcapp-downloadapp": "Ladda ner VLC-appen från App Store",
 	"mwe-embedplayer-vlcapp-openvideo": "Öppna denna video i VLC-appen",
 	"mwe-embedplayer-vlcapp-downloadvideo": "Ladda ner denna video",
-	"mwe-embedplayer-vlcapp-vlcapppopup": "För att spela upp video på denna webbplats, behöver du den kostnadsfria VLC-appen. Installera nu?"
+	"mwe-embedplayer-vlcapp-vlcapppopup": "För att spela upp video på denna webbplats, behöver du den kostnadsfria VLC-appen. Installera nu?",
+	"mwe-embedplayer-iewebmprompt-intro": "Oops! En sak till innan du kan spela denna video..."
 }

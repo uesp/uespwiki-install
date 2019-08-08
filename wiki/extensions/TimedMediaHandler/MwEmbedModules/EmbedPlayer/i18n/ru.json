@@ -30,7 +30,8 @@
 	"mwe-embedplayer-seek_to": "Перейти к $1",
 	"mwe-embedplayer-paused": "пауза",
 	"mwe-embedplayer-download_segment": "Выбор загрузки:",
-	"mwe-embedplayer-download_full": "Загрузить полный видео-файл:",
+	"mwe-embedplayer-download_full_video": "Загрузить полный видео-файл:",
+	"mwe-embedplayer-download_full_audio": "Загрузить полный аудио-файл:",
 	"mwe-embedplayer-download_right_click": "Чтобы загрузить, нажмите правую кнопку и выберите «Сохранить объект как…»",
 	"mwe-embedplayer-download_clip": "Загрузить видео",
 	"mwe-embedplayer-download_text": "Загрузить текст",
@@ -43,6 +44,7 @@
 	"mwe-embedplayer-choose_player": "Выбор проигрывателя",
 	"mwe-embedplayer-no-player": "Нет проигрывателя для $1",
 	"mwe-embedplayer-share_this_video": "Поделиться этим видео",
+	"mwe-embedplayer-share_this_audio": "Поделиться этим аудио-файлом",
 	"mwe-embedplayer-video_credits": "О создателях видео",
 	"mwe-embedplayer-no-video_credits": "Нет сведений о создателях",
 	"mwe-embedplayer-kaltura-platform-title": "Видео-платформа с открытым исходным кодом Kaltura",
@@ -56,6 +58,7 @@
 	"mwe-embedplayer-ogg-player-webmNative": "Проигрыватель HTML5 WebM",
 	"mwe-embedplayer-ogg-player-oggPlugin": "Общий плагин Ogg",
 	"mwe-embedplayer-ogg-player-vlcAppPlayer": "Приложение VLC для iOS",
+	"mwe-embedplayer-ogg-player-IEWebMPrompt": "Загрузчик плагина IE WebM",
 	"mwe-embedplayer-ogg-player-quicktime-mozilla": "Плагин QuickTime",
 	"mwe-embedplayer-ogg-player-quicktime-activex": "QuickTime ActiveX",
 	"mwe-embedplayer-ogg-player-cortado": "Java Cortado",
@@ -90,5 +93,8 @@
 	"mwe-embedplayer-vlcapp-downloadapp": "Загрузить приложение VLC из App Store",
 	"mwe-embedplayer-vlcapp-openvideo": "Открыть это видео в приложении VLC",
 	"mwe-embedplayer-vlcapp-downloadvideo": "Скачать это видео",
-	"mwe-embedplayer-vlcapp-vlcapppopup": "Для воспроизведения видео на этом сайте вам необходимо бесплатное приложение VLC. Установить сейчас?"
+	"mwe-embedplayer-vlcapp-vlcapppopup": "Для воспроизведения видео на этом сайте вам необходимо бесплатное приложение VLC. Установить сейчас?",
+	"mwe-embedplayer-iewebmprompt-intro": "Упс! Ещё кое-что, прежде чем вы сможете просмотреть это видео…",
+	"mwe-embedplayer-iewebmprompt-linktext": "Установите медиа-компоненты WebM для Microsoft Internet Explorer",
+	"mwe-embedplayer-iewebmprompt-outro": "После установки перезагрузите эту страницу."
 }

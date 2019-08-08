@@ -41,10 +41,7 @@
 			baseHref = $form.attr( 'action' );
 			baseHref += baseHref.indexOf( '?' ) > -1 ? '&' : '?';
 
-			linkParams = {};
-			$.each( $form.serializeArray(), function ( idx, obj ) {
-				linkParams[ obj.name ] = obj.value;
-			} );
+			linkParams = $form.serializeObject();
 
 			return {
 				textParam: context.data.$textbox.attr( 'name' ),
@@ -122,7 +119,7 @@
 		];
 		$( searchboxesSelectors.join( ', ' ) )
 			.suggestions( {
-				fetch: function ( query, response ) {
+				fetch: function ( query, response, maxRows ) {
 					var node = this[0];
 
 					api = api || new mw.Api();
@@ -130,7 +127,8 @@
 					$.data( node, 'request', api.get( {
 						action: 'opensearch',
 						search: query,
-						namespace: '0|102|104|106|108|110|112|114|116|118|120|122|124|126|128|130|132|134|136|138|140|142|144|146|148|150',
+						namespace: '0|102|104|106|108|110|112|114|116|118|120|122|124|126|128|130|132|134|136|138|140|142|144|146|148|150|152',
+						limit: maxRows,
 						suggest: ''
 					} ).done( function ( data ) {
 						response( data[ 1 ] );

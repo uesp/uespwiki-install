@@ -96,7 +96,7 @@ $specialPageAliases = array(
 	'Myuploads'                 => array( 'NgarkimeteMia' ),
 	'Newimages'                 => array( 'SkedaTëReja' ),
 	'Newpages'                  => array( 'FaqeteReja' ),
-	'Popularpages'              => array( 'FaqetëFamshme' ),
+
 	'Preferences'               => array( 'Preferencat' ),
 	'Protectedpages'            => array( 'FaqeteMbrojtura' ),
 	'Protectedtitles'           => array( 'TitujteMbrojtur' ),
@@ -156,7 +156,6 @@ $magicWords = array(
 	'numberofusers'             => array( '1', 'NUMRIIPËRDORUESVE', 'NUMBEROFUSERS' ),
 	'numberofactiveusers'       => array( '1', 'NUMRIIPËRDORUESVEAKTIVË', 'NUMBEROFACTIVEUSERS' ),
 	'numberofedits'             => array( '1', 'NUMRIREDAKTIMEVE', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'NUMRIISHIKIMEVE', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'EMRIFAQES', 'PAGENAME' ),
 	'namespace'                 => array( '1', 'HAPËSIRA', 'NAMESPACE' ),
 	'fullpagename'              => array( '1', 'EMRIIPLOTËIFAQES', 'FULLPAGENAME' ),

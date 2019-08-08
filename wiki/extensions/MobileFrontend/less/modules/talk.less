@@ -1,19 +1,6 @@
 @import "minerva.variables";
 @import "minerva.mixins";
 
-
-.alpha #page-actions #ca-talk.count {
-	a {
-		text-indent: 0;
-		text-align: center;
-		line-height: 38px;
-		font-weight: bold;
-		color: #FFF;
-		padding-left: 4px;
-		font-size: 9px; // FIXME: use pixels for time being as the icon in pixels.
-	}
-}
-
 .overlay {
 	.error {
 		border: solid 1px @redBase;
@@ -36,6 +23,14 @@
 		button.mw-ui-block {
 			max-width: 10em;
 		}
+	}
+
+	.overlay-content {
+		padding-bottom: 3.5em;
+	}
+
+	a {
+		cursor: pointer;
 	}
 }
 

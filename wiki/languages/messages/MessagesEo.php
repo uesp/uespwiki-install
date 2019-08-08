@@ -109,7 +109,7 @@ $specialPageAliases = array(
 	'Newpages'                  => array( 'Novaj_paĝoj' ),
 	'PasswordReset'             => array( 'Ŝanĝo_de_pasvorto' ),
 	'PermanentLink'             => array( 'Daŭra_ligilo' ),
-	'Popularpages'              => array( 'Popularaj_paĝoj' ),
+
 	'Preferences'               => array( 'Preferoj' ),
 	'Prefixindex'               => array( 'Indekso_de_prefiksoj' ),
 	'Protectedpages'            => array( 'Protektitaj_paĝoj' ),
@@ -184,7 +184,6 @@ $magicWords = array(
 	'numberofusers'             => array( '1', 'NOMBRODEUZANTOJ', 'NUMBEROFUSERS' ),
 	'numberofactiveusers'       => array( '1', 'NOMBRODEAKTIVAJUZANTOJ', 'NUMBEROFACTIVEUSERS' ),
 	'numberofedits'             => array( '1', 'NOMBRODEREDAKTOJ', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'NOMBRODEVIZITOJ', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'PAĜONOMO', 'PAGXONOMO', 'PAĜNOMO', 'PAGXNOMO', 'PAGENAME' ),
 	'pagenamee'                 => array( '1', 'PAĜONOMOO', 'PAGXONOMOO', 'PAĜNOMOO', 'PAGXNOMOO', 'PAGENAMEE' ),
 	'namespace'                 => array( '1', 'NOMSPACO', 'NAMESPACE' ),

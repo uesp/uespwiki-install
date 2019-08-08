@@ -3,18 +3,22 @@
 
 @borderBottomColor: #CACACA;
 
-// FIXME: hide in stable till talk code is stable
-.mw-mobile-mode.stable #ca-talk,
+@titleSectionSpacingTop: 20px;
+@titleSectionSpacingBottom: 25px;
+
 // hide menu items when not possible to use
-.client-nojs #ca-watch.cta,
+.client-nojs #ca-watch,
 .client-nojs #ca-edit,
 .client-nojs #ca-upload,
 #ca-talk.selected {
 	display: none;
 }
 
-#section_0 {
+.pre-content {
 	padding: 12px @contentMargin 7px;
+}
+
+#section_0 {
 	// FIXME: Use a gray defined in variables e.g. @grayMediumLight
 	border-bottom: dotted 1px @colorGray12;
 }
@@ -30,12 +34,8 @@
 		// Needed for non-JavaScript users
 		position: relative;
 		cursor: pointer;
-		// FIXME: why is this necessary?
-		vertical-align: top;
-		height: 30px;
-		width: 40px;
-		background-position: 50% 0;
-		margin: 0 16px 0 0;
+		// Override .hlist rule.
+		margin-right: 0;
 
 		// FIXME: use .cloaked class
 		// file inputs are notoriously difficult to style
@@ -44,7 +44,8 @@
 		}
 
 		input,
-		a {
+		a,
+		span {
 			// Needed for non-JavaScript users
 			position: absolute;
 			display: block;
@@ -52,6 +53,15 @@
 			height: 100%;
 			// needed for ContentOverlay pointer arrow
 			margin: 0 0 @verticalMargin;
+		}
+
+		// FIXME: Remove when mw-ui-icon moved to stable
+		&.icon {
+			vertical-align: top;
+			height: 30px;
+			width: 40px;
+			background-position: 50% 0;
+			margin: 0 16px 0 0;
 		}
 	}
 }
@@ -70,14 +80,25 @@
 }
 
 #ca-upload {
-	.background-image('images/pagemenu/upload-locked.png');
+	// FIXME: Remove when cache clears
+	&.icon {
+		.background-image('images/pagemenu/upload-locked.png');
+	}
+
 	input {
 		display: none;
 	}
 	&.enabled {
-		.background-image('images/pagemenu/upload.png');
+		// FIXME: Remove when cache clears
+		&.icon {
+			.background-image('images/pagemenu/upload.png');
+		}
 		input {
 			display: block;
+		}
+		// webkit-file-upload-button for pointer cursor in chrome.
+		input, ::-webkit-file-upload-button {
+			cursor: pointer;
 		}
 	}
 }

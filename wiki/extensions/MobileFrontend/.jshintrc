@@ -6,12 +6,8 @@
 		"Hogan": true,
 		"QUnit": true,
 		"mw": true,
-		"mwMobileFrontendConfig": true,
-
-		"strictEqual": true,
-		"deepEqual": true,
-		"ok": true,
-		"sinon": true
+		"CodeMirror": true,
+		"OO": true
 	},
 
 	"browser": true,

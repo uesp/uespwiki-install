@@ -8,6 +8,9 @@
 node_modules/
 tmp/
 docs/
-scripts/remotes
+dev-scripts/remotes
 vendor/
 composer.phar
+.DS_Store
+composer.lock
+tests/report

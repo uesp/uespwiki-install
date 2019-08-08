@@ -1,24 +1,27 @@
-@import "minerva.variables";
+	@import "minerva.variables";
 @import "minerva.mixins";
 
-
-.mw-mf-overlay.media-viewer {
-	// http://stackoverflow.com/a/10910802/36523i8
-	// http://www.w3.org/Style/Examples/007/center.en.html#vertical
-	display: table;
-	// Bug 57435
-	width: 100%;
+.overlay.media-viewer {
 	background: #000;
+	padding-top: 0;
 
-	.container {
+	.main {
+		height: 100%;
+		position: relative;
+		width: 100%;
+	}
+
+	.image-wrapper {
 		width: 100%;
 		height: 100%;
-		display: table-row;
 		text-align: center;
+		display: table;
 
-		div {
+		.image {
 			display: table-cell;
 			vertical-align: middle;
+			height: 100%;
+			width: 100%;
 		}
 	}
 
@@ -42,26 +45,20 @@
 		position: absolute;
 		right: 10px;
 		top: 10px;
-		text-indent: -9999px;
-		width: 24px;
-		height: 24px;
-		background: url(../common/images/close-button-beta.png) no-repeat;
+		opacity: .75;
 	}
 
+	// FIXME: Merge with overlay-footer-container
 	.details {
-		position: absolute;
+		z-index: @z-indexOverOverlay;
 		bottom: 0;
-		left: 0;
-		right: 0;
+		height: auto;
+		position: fixed;
+		width: 100%;
 		padding: 8px 10px;
 		margin: 0;
-		opacity: 0;
-		color: #ccc;
-		background: rgba(0, 0, 0, .5);
-
-		&.visible {
-			opacity: 1;
-		}
+		background: white;
+		overflow-y: auto;
 
 		.button {
 			float: right;

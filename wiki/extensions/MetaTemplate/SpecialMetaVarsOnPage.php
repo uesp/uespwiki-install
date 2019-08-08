@@ -110,21 +110,6 @@ class SpecialMetaVarsOnPage extends SpecialPage {
 		} else {
 			$out->addWikiMsg( 'mt_varsonpage-no-page' );
 		}
-
-		if ( count( $otherBlockLink ) ) {
-			$out->addHTML(
-				Html::rawElement(
-					'h2',
-					array(),
-					$this->msg( 'ipblocklist-otherblocks', count( $otherBlockLink ) )->parse()
-				) . "\n"
-			);
-			$list = '';
-			foreach ( $otherBlockLink as $link ) {
-				$list .= Html::rawElement( 'li', array(), $link ) . "\n";
-			}
-			$out->addHTML( Html::rawElement( 'ul', array( 'class' => 'mw-ipblocklist-otherblocks' ), $list ) . "\n" );
-		}
 	}
 
 	protected function getGroupName() {

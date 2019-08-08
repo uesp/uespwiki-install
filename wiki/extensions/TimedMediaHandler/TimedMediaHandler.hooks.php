@@ -24,6 +24,11 @@ class TimedMediaHandlerHooks {
 			}
 		}
 
+		if( !class_exists( 'MwEmbedResourceManager' ) ) {
+			echo "TimedMediaHandler requires the MwEmbedSupport extension.\n";
+			exit( 1 );
+		}
+
 		// Register the Timed Media Handler javascript resources ( MwEmbed modules )
 		MwEmbedResourceManager::register( 'extensions/TimedMediaHandler/MwEmbedModules/EmbedPlayer' );
 		MwEmbedResourceManager::register( 'extensions/TimedMediaHandler/MwEmbedModules/TimedText' );
@@ -37,6 +42,7 @@ class TimedMediaHandlerHooks {
 
 		// Setup media Handlers:
 		$wgMediaHandlers['application/ogg'] = 'OggHandlerTMH';
+		$wgMediaHandlers['audio/webm'] = 'WebMHandler';
 		$wgMediaHandlers['video/webm'] = 'WebMHandler';
 		$wgMediaHandlers['video/mp4'] = 'Mp4Handler';
 		$wgMediaHandlers['audio/x-flac'] = 'FLACHandler';
@@ -72,6 +78,10 @@ class TimedMediaHandlerHooks {
 			'ext.tmh.transcodetable' => $baseExtensionResource + array(
 				'scripts' => 'resources/ext.tmh.transcodetable.js',
 				'styles' => 'resources/transcodeTable.css',
+				'dependencies' => array(
+					'mediawiki.api.edit',
+					'mw.MwEmbedSupport',
+				),
 				'messages'=> array(
 					'mwe-ok',
 					'mwe-cancel',

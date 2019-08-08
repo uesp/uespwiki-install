@@ -85,7 +85,7 @@ class SearchPostgres extends SearchDatabase {
 				if ( strtolower( $terms[2] ) === 'and' ) {
 					$searchstring .= ' & ';
 				}
-				elseif ( strtolower( $terms[2] ) === 'or' or $terms[2] === '|' ) {
+				elseif ( strtolower( $terms[2] ) === 'or' || $terms[2] === '|' ) {
 					$searchstring .= ' | ';
 				}
 				elseif ( strtolower( $terms[2] ) === 'not' ) {
@@ -186,7 +186,7 @@ class SearchPostgres extends SearchDatabase {
 	function update( $pageid, $title, $text ) {
 		## We don't want to index older revisions
 		$sql = "UPDATE pagecontent SET textvector = NULL WHERE textvector IS NOT NULL and old_id IN " .
-				"(SELECT DISTINCT rev_text_id FROM revision WHERE rev_page = " . intval( $pageid ) .
+				"(SELECT rev_text_id FROM revision WHERE rev_page = " . intval( $pageid ) .
 				" ORDER BY rev_text_id DESC OFFSET 1)";
 		$this->db->query( $sql );
 		return true;

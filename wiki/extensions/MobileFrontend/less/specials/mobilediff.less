@@ -1,33 +1,36 @@
 @import "minerva.variables";
 @import "minerva.mixins";
 
+@userinfoBackgroundColor: #f0f0f0;
+@userinfoBorderColor: #c0c0c0;
+@diffDateColor: #c6c6c6;
+
+// FIXME: Not a long term solution (see bug 64607) - footers and position fixed elements do not play well
+#footer {
+	display: none;
+}
 
 #mw-mf-diffview {
 	@userInfoHeight: 5em;
 
-	h2 {
-		.watchlist-heading();
-		a {
-			color: inherit;
+	// FIXME: Remove when mw-ui-icon in stable
+	.icon {
+		padding-left: 18px;
+
+		// FIXME: Remove when mw-ui-icon in stable
+		&.mw-mf-bytesadded {
+			.background-image('images/positive.png');
 		}
-	}
 
-	.mw-mf-bytesremoved,
-	.mw-mf-bytesadded {
-		padding-left: 1.5em;
-		.background-size( 1em, 1em );
-		background-position: left center;
-		background-repeat: no-repeat;
-		display: inline-block;
-		line-height: 1em;
-	}
+		// FIXME: Remove when mw-ui-icon in stable
+		&.mw-mf-bytesremoved {
+			.background-image('images/negative.png');
+		}
 
-	.mw-mf-bytesadded {
-		background-image: url(images/positive.png);
-	}
-
-	.mw-mf-bytesremoved {
-		background-image: url(images/negative.png);
+		// FIXME: Remove when mw-ui-icon in stable
+		&.mw-mf-bytesneutral {
+			.background-image('images/neutral.png');
+		}
 	}
 
 	.meta {
@@ -36,7 +39,7 @@
 	}
 
 	.mw-mf-diff-date {
-		color: #c6c6c6;
+		color: @colorGray9;
 	}
 
 	#mw-mf-diffarea {
@@ -60,13 +63,10 @@
 
 	#mw-mf-userinfo {
 		min-height: @userInfoHeight;
-		-moz-box-sizing: border-box;
-		-webkit-box-sizing: border-box;
-		box-sizing: border-box;
 		width: 100%;
 		padding: 1em;
-		background-color: #f0f0f0;
-		border-top: solid 1px #c0c0c0;
+		background-color: @colorGray15;
+		border-top: solid 1px @colorGray12;
 		bottom: 0;
 		left: 0;
 		right: 0;
@@ -79,14 +79,14 @@
 			display: inline-block;
 			text-align: left;
 			margin-top: 1.2em;
-			color: #333;
+			color: @colorGray3;
 			line-height: 1;
 
 			/* the edit count number */
 			div {
 				text-align: center;
 				font-size: 1.85em;
-				color: #888;
+				color: @colorGray8;
 			}
 		}
 	}
