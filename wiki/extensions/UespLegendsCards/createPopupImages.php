@@ -22,6 +22,7 @@ while (($card = $queryResult->fetch_assoc()))
 	$cardCount++;
 	
 	$obtainable = $card['obtainable'];
+	$obtainable = true;
 	
 	//$result = CreateLegendsPopupImage($card['name'], $card['image'], "./cardimages/", true);
 	

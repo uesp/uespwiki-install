@@ -1,9 +1,16 @@
 <?php
+/**
+ * InlineDifferenceEngine.php
+ */
 
+/**
+ * Extends the basic DifferenceEngine from core to enable inline difference view
+ * using only one column instead of two column diff system.
+ */
 class InlineDifferenceEngine extends DifferenceEngine {
 	/**
 	 * Checks whether the given Revision was deleted
-	 * FIXME: Upstream to DifferenceEngine - refactor showDiffPage
+	 * @todo FIXME: Upstream to DifferenceEngine - refactor showDiffPage
 	 *
 	 * @return boolean
 	 */
@@ -26,7 +33,7 @@ class InlineDifferenceEngine extends DifferenceEngine {
 	/**
 	 * Checks whether the current user has permission to view the old
 	 * and current revisions.
-	 * FIXME: Upstream to DifferenceEngine - refactor showDiffPage
+	 * @todo FIXME: Upstream to DifferenceEngine - refactor showDiffPage
 	 *
 	 * @return boolean
 	 */
@@ -45,7 +52,7 @@ class InlineDifferenceEngine extends DifferenceEngine {
 	 * Checks whether the diff should be hidden from the current user
 	 * This is based on whether the user is allowed to see it and whether
 	 * the flag unhide is set to allow viewing deleted revisions.
-	 * FIXME: Upstream to DifferenceEngine - refactor showDiffPage
+	 * @todo FIXME: Upstream to DifferenceEngine - refactor showDiffPage
 	 *
 	 * @return boolean
 	 */
@@ -94,14 +101,10 @@ class InlineDifferenceEngine extends DifferenceEngine {
 	function generateTextDiffBody( $otext, $ntext ) {
 		global $wgContLang;
 
-		wfProfileIn( __METHOD__ );
 		# First try wikidiff2
 		if ( function_exists( 'wikidiff2_inline_diff' ) ) {
-			wfProfileIn( 'wikidiff2_inline_diff' );
 			$text = wikidiff2_inline_diff( $otext, $ntext, 2 );
 			$text .= $this->debug( 'wikidiff2-inline' );
-			wfProfileOut( 'wikidiff2_inline_diff' );
-			wfProfileOut( __METHOD__ );
 
 			return $text;
 		}
@@ -111,18 +114,22 @@ class InlineDifferenceEngine extends DifferenceEngine {
 		$nta = explode( "\n", $wgContLang->segmentForDiff( $ntext ) );
 		$diffs = new Diff( $ota, $nta );
 		$formatter = new InlineDiffFormatter();
-		$difftext = $wgContLang->unsegmentForDiff( $formatter->format( $diffs ) ) .
-		wfProfileOut( __METHOD__ );
+		$difftext = $wgContLang->unsegmentForDiff( $formatter->format( $diffs ) );
 
 		return $difftext;
 	}
 
 	/**
+	 * Reimplements getDiffBodyCacheKey from DifferenceEngine
+	 * Returns the cache key for diff body text or content.
+	 *
+	 * @throws Exception when no mOldid and mNewid is set
 	 * @see DifferenceEngine:getDiffBodyCacheKey
+	 * @return string
 	 */
 	protected function getDiffBodyCacheKey() {
 		if ( !$this->mOldid || !$this->mNewid ) {
-			throw new MWException( 'mOldid and mNewid must be set to get diff cache key.' );
+			throw new Exception( 'mOldid and mNewid must be set to get diff cache key.' );
 		}
 
 		return wfMemcKey( 'diff', 'inline', MW_DIFF_VERSION,

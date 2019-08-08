@@ -16,6 +16,7 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 		$out = $this->getOutput();
 		$request = $this->getRequest();
 		$out->setPageTitle( $this->msg( 'abusefilter-edit' ) );
+		$out->addHelpLink( 'Extension:AbuseFilter/Rules format' );
 
 		$filter = $this->mFilter;
 		$history_id = $this->mHistoryID;
@@ -676,7 +677,7 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 					Xml::input(
 						'wpFilterWarnMessageOther',
 						45,
-						$warnMsg ? $warnMsg : 'abusefilter-warning-',
+						$warnMsg,
 						array( 'id' => 'mw-abusefilter-warn-message-other' ) + $cbReadOnlyAttrib
 					);
 

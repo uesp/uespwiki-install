@@ -30,17 +30,20 @@ class WebVideoTranscode {
 	const ENC_OGV_360P = '360p.ogv';
 	const ENC_OGV_480P = '480p.ogv';
 	const ENC_OGV_720P = '720p.ogv';
+	const ENC_OGV_1080P = '1080p.ogv';
 
 	// WebM profiles:
 	const ENC_WEBM_160P = '160p.webm';
 	const ENC_WEBM_360P = '360p.webm';
 	const ENC_WEBM_480P = '480p.webm';
 	const ENC_WEBM_720P = '720p.webm';
+	const ENC_WEBM_1080P = '1080p.webm';
 
 	// mp4 profiles:
 	const ENC_H264_320P = '320p.mp4';
 	const ENC_H264_480P = '480p.mp4';
 	const ENC_H264_720P = '720p.mp4';
+	const ENC_H264_1080P = '1080p.mp4';
 
 	const ENC_OGG_VORBIS = 'ogg';
 	const ENC_OGG_OPUS = 'opus';
@@ -114,6 +117,17 @@ class WebVideoTranscode {
 				'type'                       => 'video/ogg; codecs="theora, vorbis"',
 			),
 
+		WebVideoTranscode::ENC_OGV_1080P =>
+			array(
+				'maxSize'                    => '1920x1080',
+				'videoQuality'               => 6,
+				'audioQuality'               => 3,
+				'noUpscaling'                => 'true',
+				'keyframeInterval'           => '128',
+				'videoCodec'                 => 'theora',
+				'type'                       => 'video/ogg; codecs="theora, vorbis"',
+			),
+
 		// WebM transcode:
 		WebVideoTranscode::ENC_WEBM_160P =>
 			array(
@@ -156,8 +170,17 @@ class WebVideoTranscode {
 				'type'                       => 'video/webm; codecs="vp8, vorbis"',
 			),
 		WebVideoTranscode::ENC_WEBM_720P =>
-			 array(
+			array(
 				'maxSize'                    => '1280x720',
+				'videoQuality'               => 7,
+				'audioQuality'               => 3,
+				'noUpscaling'                => 'true',
+				'videoCodec'                 => 'vp8',
+				'type'                       => 'video/webm; codecs="vp8, vorbis"',
+			),
+		WebVideoTranscode::ENC_WEBM_1080P =>
+			 array(
+				'maxSize'                    => '1920x1080',
 				'videoQuality'               => 7,
 				'audioQuality'               => 3,
 				'noUpscaling'                => 'true',
@@ -200,6 +223,17 @@ class WebVideoTranscode {
 				'videoCodec' => 'h264',
 				'preset' => '720p',
 				'videoBitrate' => '2500k',
+				'audioCodec' => 'aac',
+				'channels' => '2',
+				'audioBitrate' => '128k',
+				'type' => 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+			),
+
+		WebVideoTranscode::ENC_H264_1080P =>
+			array(
+				'maxSize' => '1920x1080',
+				'videoCodec' => 'h264',
+				'videoBitrate' => '5000k',
 				'audioCodec' => 'aac',
 				'channels' => '2',
 				'audioBitrate' => '128k',
@@ -283,8 +317,9 @@ class WebVideoTranscode {
 	/**
 	 * Get url for a transcode.
 	 *
-	 * @param $file
-	 * @param $suffix Transcode key
+	 * @param $file File
+	 * @param $suffix string Transcode key
+	 * @return string
 	 */
 	static public function getTranscodedUrlForFile( $file, $suffix = '' ) {
 		return $file->getTranscodedUrl( self::getTranscodeFileBaseName( $file, $suffix ) );
@@ -575,7 +610,6 @@ class WebVideoTranscode {
 		global $wgTranscodeBackgroundTimeLimit;
 		$fileName = $file->getName();
 		if( ! isset( self::$transcodeState[$fileName] ) ){
-			wfProfileIn( __METHOD__ );
 			if ( $db === false ) {
 				$db = $file->repo->getSlaveDB();
 			}
@@ -620,7 +654,6 @@ class WebVideoTranscode {
 					array( 'LIMIT' => count( $overTimeout ) )
 				);
 			}
-			wfProfileOut( __METHOD__ );
 		}
 		return self::$transcodeState[ $fileName ];
 	}
@@ -785,8 +818,6 @@ class WebVideoTranscode {
 	 * @return array
 	 */
 	static public function getDerivativeSourceAttributes($file, $transcodeKey, $options = array() ){
-		$dataPrefix = in_array( 'nodata', $options )? '': 'data-';
-
 		$fileName = $file->getTitle()->getDbKey();
 
 		$src = self::getTranscodedUrlForFile( $file, $transcodeKey );
@@ -816,9 +847,14 @@ class WebVideoTranscode {
 				// eventually we will define a manifest xml entry point.
 				"width" => intval( $width ),
 				"height" => intval( $height ),
-				// a "ready" transcode should have a bitrate:
-				"bandwidth" => intval( self::$transcodeState[$fileName][ $transcodeKey ]['final_bitrate'] ),
 			);
+
+		// a "ready" transcode should have a bitrate:
+		if ( isset( self::$transcodeState[$fileName] ) ) {
+			$fields["bandwidth"] = intval(
+				self::$transcodeState[$fileName][ $transcodeKey ]['final_bitrate']
+			);
+		}
 
 		if ( !$file->getHandler()->isAudio( $file ) ) {
 			$fields += array( "framerate" => floatval( $framerate ) );
@@ -832,69 +868,41 @@ class WebVideoTranscode {
 	 * @param $transcodeKey String transcode key
 	 */
 	public static function updateJobQueue( &$file, $transcodeKey ){
-		global $wgMemc;
-
-		wfProfileIn( __METHOD__ );
-
 		$fileName = $file->getTitle()->getDbKey();
 		$db = $file->repo->getMasterDB();
 
-		// Check if we need to update the transcode state:
 		$transcodeState = self::getTranscodeState( $file, $db );
-		// Check if the job has been added:
-		if( !isset( $transcodeState[ $transcodeKey ] )
-			|| is_null( $transcodeState[ $transcodeKey ]['time_addjob'] )
-		) {
-			// Avoid lock wait timeout due to duplicated work
-			$cKey = wfMemcKey( 'transcode', md5( $fileName ), $transcodeKey );
-			if ( !$wgMemc->lock( $cKey, 1 ) ) {
-				return; // assume another process is doing this
-			}
-			$unlocker = new ScopedCallback( function() use ( $cKey ) {
-				global $wgMemc;
-				$wgMemc->unlock( $cKey );
-			} );
 
-			// update the transcode state:
-			if( ! isset( $transcodeState[$transcodeKey] ) ){
-				// insert the transcode row with jobadd time
-				$db->insert(
-					'transcode',
-					array(
-						'transcode_image_name' => $fileName,
-						'transcode_key' => $transcodeKey,
-						'transcode_time_addjob' => $db->timestamp(),
-						'transcode_error' => "",
-						'transcode_final_bitrate' => 0
-					),
-					__METHOD__,
-					array( 'IGNORE' )
-				);
-			} else {
-				// update job start time
-				$db->update(
-					'transcode',
-					array(
-						'transcode_time_addjob' => $db->timestamp()
-					),
-					array(
-						'transcode_image_name' => $fileName,
-						'transcode_key' => $transcodeKey,
-					),
-					__METHOD__
-				);
+		// If the job hasn't been added yet, attempt to do so
+		if ( !isset( $transcodeState[ $transcodeKey ] ) ) {
+			$db->insert(
+				'transcode',
+				array(
+					'transcode_image_name' => $fileName,
+					'transcode_key' => $transcodeKey,
+					'transcode_time_addjob' => $db->timestamp(),
+					'transcode_error' => "",
+					'transcode_final_bitrate' => 0
+				),
+				__METHOD__,
+				array( 'IGNORE' )
+			);
+
+			if ( !$db->affectedRows() ) {
+				// There is already a row for that job added by another request, no need to continue
+				return;
 			}
-			// Add to job queue and update the db
+
 			$job = new WebVideoTranscodeJob( $file->getTitle(), array(
 				'transcodeMode' => 'derivative',
 				'transcodeKey' => $transcodeKey,
 			) );
-			$jobId = $job->insert();
-			if( $jobId ){
+
+			if ( $job->insert() ) {
 				// Clear the state cache ( now that we have updated the page )
 				self::clearTranscodeCache( $fileName );
 			} else {
-				//adding job failed, update transcode
+				// Adding job failed, update transcode row
 				$db->update(
 					'transcode',
 					array(
@@ -910,7 +918,6 @@ class WebVideoTranscode {
 				);
 			}
 		}
-		wfProfileOut( __METHOD__ );
 	}
 
 	/**
@@ -976,13 +983,12 @@ class WebVideoTranscode {
 	 */
 	public static function getMaxSize( $targetMaxSize ){
 		$maxSize = array();
-		$targetMaxSize = explode('x', $targetMaxSize);
-		if (count($targetMaxSize) == 1) {
-			$maxSize['width'] = intval($targetMaxSize[0]);
-			$maxSize['height'] = intval($targetMaxSize[0]);
+		$targetMaxSize = explode( 'x', $targetMaxSize );
+		$maxSize['width'] = intval( $targetMaxSize[0] );
+		if ( count( $targetMaxSize ) == 1 ) {
+			$maxSize['height'] = intval( $targetMaxSize[0] );
 		} else {
-			$maxSize['width'] = intval($targetMaxSize[0]);
-			$maxSize['height'] = intval($targetMaxSize[1]);
+			$maxSize['height'] = intval( $targetMaxSize[1] );
 		}
 		// check for zero size ( audio )
 		if( $maxSize['width'] === 0 || $maxSize['height'] == 0 ){

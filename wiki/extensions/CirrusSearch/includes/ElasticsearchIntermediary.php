@@ -1,8 +1,9 @@
 <?php
 
 namespace CirrusSearch;
+use Elastica\Exception\PartialShardFailureException;
 use Elastica\Exception\ResponseException;
-use \ElasticaConnection;
+use MediaWiki\Logger\LoggerFactory;
 use \Status;
 
 /**
@@ -109,12 +110,21 @@ class ElasticsearchIntermediary {
 	/**
 	 * Extract an error message from an exception thrown by Elastica.
 	 * @param RuntimeException $exception exception from which to extract a message
-	 * @return message from the exception
+	 * @return string message from the exception
 	 */
 	public static function extractMessage( $exception ) {
-		return $exception instanceof ResponseException ?
-			$exception->getElasticsearchException()->getMessage() :
-			$exception->getMessage();
+		if ( !( $exception instanceof ResponseException ) ) {
+			return $exception->getMessage();
+		}
+		if ( $exception instanceof PartialShardFailureException ) {
+			$shardStats = $exception->getResponse()->getShardsStatistics();
+			$message = array();
+			foreach ( $shardStats[ 'failures' ] as $failure ) {
+				$message[] = $failure[ 'reason' ];
+			}
+			return 'Partial failure:  ' . implode( ',', $message );
+		}
+		return $exception->getElasticsearchException()->getMessage();
 	}
 
 	/**
@@ -151,7 +161,7 @@ class ElasticsearchIntermediary {
 		$this->searchMetrics['wgCirrusEndTime'] = $endTime;
 
 		// Extract the amount of time Elasticsearch reported the last request took if possible.
-		$result = ElasticaConnection::getClient()->getLastResponse();
+		$result = Connection::getClient()->getLastResponse();
 		if ( $result ) {
 			$data = $result->getData();
 			if ( isset( $data[ 'took' ] ) ) {
@@ -162,10 +172,10 @@ class ElasticsearchIntermediary {
 		}
 
 		// Now log and clear our state.
-		wfDebugLog( 'CirrusSearchRequests', $logMessage );
+		LoggerFactory::getInstance( 'CirrusSearchRequests' )->debug( $logMessage );
 		if ( $this->slowMillis && $took >= $this->slowMillis ) {
 			$logMessage .= $this->user ? ' for ' . $this->user->getName() : '';
-			wfDebugLog( 'CirrusSearchSlowRequests', $logMessage );
+			LoggerFactory::getInstance( 'CirrusSearchSlowRequests' )->info( $logMessage );
 		}
 		$this->requestStart = null;
 		return $took;
@@ -192,6 +202,17 @@ class ElasticsearchIntermediary {
 			return array( Status::newFatal( 'cirrussearch-parse-error' ), 'Parse error on ' . $parseError );
 		}
 
+		$marker = 'Determinizing';
+		$markerLocation = strpos( $message, $marker );
+		if ( $markerLocation !== false ) {
+			$startOfMessage = $markerLocation;
+			$endOfMessage = strpos( $message, ']; nested', $startOfMessage );
+			if ( $endOfMessage === false ) {
+				$endOfMessage = strpos( $message, '; Determinizing', $startOfMessage );
+			}
+			$extracted = substr( $message, $startOfMessage, $endOfMessage - $startOfMessage );
+			return array( Status::newFatal( 'cirrussearch-regex-too-complex-error' ), $extracted );
+		}
 		// This is _probably_ a regex syntax error so lets call it that. I can't think of
 		// what else would have automatons and illegal argument exceptions. Just looking
 		// for the exception won't suffice because other weird things could cause it.

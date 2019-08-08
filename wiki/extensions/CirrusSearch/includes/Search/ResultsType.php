@@ -3,6 +3,7 @@
 namespace CirrusSearch\Search;
 
 use \CirrusSearch\Searcher;
+use MediaWiki\Logger\LoggerFactory;
 use \Title;
 
 /**
@@ -180,8 +181,10 @@ class FancyTitleResultsType extends TitleResultsType {
 			}
 			if ( count( $resultForTitle ) === 0 ) {
 				// We're not really sure where the match came from so lets just pretend it was the title.
-				wfDebugLog( 'CirrusSearch', "Title search result type hit a match but we can't " .
-					"figure out what caused the match:  $r->namespace:$r->title");
+				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
+					"Title search result type hit a match but we can't " .
+					"figure out what caused the match:  $r->namespace:$r->title"
+				);
 				$resultForTitle[ 'titleMatch' ] = $title;
 			}
 			$results[] = $resultForTitle;
@@ -359,6 +362,7 @@ class FullTextResultsType implements ResultsType {
 	}
 
 	private function configureHighlightingForSource( &$config, $highlightSource ) {
+		global $wgCirrusSearchRegexMaxDeterminizedStates;
 		$patterns = array();
 		$locale = null;
 		$caseInsensitive = false;
@@ -376,6 +380,7 @@ class FullTextResultsType implements ResultsType {
 				'regex_flavor' => 'lucene',
 				'skip_query' => true,
 				'regex_case_insensitive' => (boolean)$caseInsensitive,
+				'max_determinized_states' => $wgCirrusSearchRegexMaxDeterminizedStates,
 			);
 			$config[ 'fields' ][ 'source_text.plain' ][ 'options' ] = array_merge(
 				$config[ 'fields' ][ 'source_text.plain' ][ 'options' ], $options );
@@ -383,8 +388,8 @@ class FullTextResultsType implements ResultsType {
 		}
 		$queryStrings = array();
 		foreach ( $highlightSource as $part ) {
-			if ( isset( $part[ 'query_string' ] ) ) {
-				$queryStrings[] = $part[ 'query_string' ];
+			if ( isset( $part[ 'query' ] ) ) {
+				$queryStrings[] = $part[ 'query' ];
 			}
 		}
 		if ( count( $queryStrings ) ) {

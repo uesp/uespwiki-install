@@ -6,6 +6,7 @@ use \ApiMain;
 use \BetaFeatures;
 use \CirrusSearch;
 use \CirrusSearch\Search\FancyTitleResultsType;
+use \CirrusSearch\Search\TitleResultsType;
 use \DeferredUpdates;
 use \JobQueueGroup;
 use \LinksUpdate;
@@ -49,7 +50,7 @@ class Hooks {
 	 * @return bool
 	 */
 	public static function onBeforeInitialize( $title, $unused, $outputPage, $user, $request, $mediaWiki ) {
-		self::initializeForUser( $user, $request );
+		self::initializeForRequest( $request );
 		return true;
 	}
 
@@ -59,22 +60,18 @@ class Hooks {
 	 * @return bool
 	 */
 	public static function onApiBeforeMain( $apiMain ) {
-		self::initializeForUser( $apiMain->getUser(), $apiMain->getRequest() );
+		self::initializeForRequest( $apiMain->getRequest() );
 		return true;
 	}
 
 	/**
-	 * Initializes the portions of Cirrus that require the $user to be fully initialized and therefore
-	 * cannot be done in $wgExtensionFunctions.  Specifically this means the beta features check and
-	 * installing the prefix search hook, because it needs information from the beta features check.
+	 * Initializes the portions of Cirrus that require the $request to be fully initialized
 	 *
-	 * @param User $user
 	 * @param WebRequest $request
 	 */
-	private static function initializeForUser( $user, $request ) {
-		global $wgSearchType, $wgSearchTypeAlternatives, $wgHooks,
+	private static function initializeForRequest( $request ) {
+		global $wgSearchType, $wgHooks,
 			$wgCirrusSearchUseExperimentalHighlighter,
-			$wgCirrusSearchEnablePref,
 			$wgCirrusSearchPhraseRescoreWindowSize,
 			$wgCirrusSearchFunctionRescoreWindowSize,
 			$wgCirrusSearchFragmentSize,
@@ -82,16 +79,6 @@ class Hooks {
 			$wgCirrusSearchAllFields,
 			$wgCirrusSearchAllFieldsForRescore,
 			$wgCirrusSearchPhraseSlop;
-
-		// If the user has the BetaFeature enabled, use Cirrus as default.
-		if ( $wgCirrusSearchEnablePref && $user->isLoggedIn() && class_exists( 'BetaFeatures' )
-				&& BetaFeatures::isFeatureEnabled( $user, 'cirrussearch-default' ) ) {
-			// Make the old search an alternative
-			$wgSearchTypeAlternatives[] = $wgSearchType;
-			// And remove Cirrus as an alternative
-			$wgSearchTypeAlternatives = array_diff( $wgSearchTypeAlternatives, array( 'CirrusSearch' ) );
-			$wgSearchType = 'CirrusSearch';
-		}
 
 		// Install our prefix search hook only if we're enabled.
 		if ( $wgSearchType === 'CirrusSearch' ) {
@@ -289,31 +276,6 @@ class Hooks {
 	}
 
 	/**
-	 * Adds using CirrusSearch as default as a BetaFeature
-	 * @param User $user
-	 * @param array $prefs
-	 * @return bool
-	 */
-	public static function onGetBetaFeaturePreferences( $user, &$prefs ) {
-		global $wgCirrusSearchEnablePref, $wgExtensionAssetsPath;
-
-		if ( $wgCirrusSearchEnablePref ) {
-			$prefs['cirrussearch-default'] = array(
-				'label-message' => 'cirrussearch-pref-label',
-				'desc-message' => 'cirrussearch-pref-desc',
-				'info-link' => 'https://www.mediawiki.org/wiki/Search',
-				'discussion-link' => 'https://www.mediawiki.org/wiki/Talk:Search',
-				'screenshot' => array(
-					'ltr' => "$wgExtensionAssetsPath/CirrusSearch/cirrus-beta-ltr.svg",
-					'rtl' => "$wgExtensionAssetsPath/CirrusSearch/cirrus-beta-rtl.svg",
-				),
-			);
-		}
-
-		return true;
-	}
-
-	/**
 	 * Hooked to update the search index when pages change directly or when templates that
 	 * they include change.
 	 * @param LinksUpdate $linksUpdate source of all links update information
@@ -384,17 +346,27 @@ class Hooks {
 	 * @param string $search search text
 	 * @param int $limit maximum number of titles to return
 	 * @param array(string) $results outbound variable with string versions of titles
+	 * @param int $offset Number of results to offset
 	 * @return bool always false because we are the authoritative prefix search
 	 */
-	public static function prefixSearch( $namespaces, $search, $limit, &$results ) {
+	public static function prefixSearch( $namespaces, $search, $limit, &$results, $offset = 0 ) {
 		$user = RequestContext::getMain()->getUser();
-		$searcher = new Searcher( 0, $limit, $namespaces, $user );
-		$searcher->setResultsType( new FancyTitleResultsType( 'prefix' ) );
+		$searcher = new Searcher( $offset, $limit, $namespaces, $user );
+		if ( $search ) {
+			$searcher->setResultsType( new FancyTitleResultsType( 'prefix' ) );
+		} else {
+			// Empty searches always find the title.
+			$searcher->setResultsType( new TitleResultsType() );
+		}
 		$status = $searcher->prefixSearch( $search );
 		// There is no way to send errors or warnings back to the caller here so we have to make do with
 		// only sending results back if there are results and relying on the logging done at the status
 		// constrution site to log errors.
 		if ( $status->isOK() ) {
+			if ( !$search ) {
+				// No need to unpack the simple title matches from non-fancy TitleResultsType
+				return $status->getValue();
+			}
 			$results = array();
 			foreach ( $status->getValue() as $match ) {
 				if ( isset( $match[ 'titleMatch' ] ) ) {
@@ -482,48 +454,6 @@ class Hooks {
 				'indexType' => $oldIndexType,
 				'id' => $oldId
 			) ) );
-		}
-
-		return true;
-	}
-
-	/**
-	 * Get a random page
-	 *
-	 * @param string $randstr A random seed given from MediaWiki.
-	 * @param bool $isRedir Are we wanting a random redirect?
-	 * @param array(int) $namespaces An array of namespaces to pick a page from
-	 * @param array $extra Extra query params for the database-backed random. Unused.
-	 * @param Title $title The title we want to return, if any
-	 * @return bool False if we've set $title, true otherwise
-	 */
-	public static function onSpecialRandomGetRandomTitle( &$randstr, &$isRedir, &$namespaces, &$extra, &$title ) {
-		global $wgCirrusSearchPowerSpecialRandom;
-
-		if ( !$wgCirrusSearchPowerSpecialRandom ) {
-			return true;
-		}
-		// We don't index redirects so don't try to find one.
-		if ( !$isRedir && !$extra ) {
-			// Remove decimal from seed, we want an int
-			$seed = (int)str_replace( '.', '', $randstr );
-
-			$searcher = new Searcher( 0, 1, $namespaces,
-				RequestContext::getMain()->getUser() );
-			$searcher->limitSearchToLocalWiki( true );
-			$randSearch = $searcher->randomSearch( $seed );
-			if ( $randSearch->isOk() ) {
-				$results = $randSearch->getValue();
-				// should almost never happen unless you're developing
-				// on a completely empty wiki with no pages
-				if ( isset( $results[ 0 ] ) ) {
-					$page = WikiPage::newFromID( $results[ 0 ] );
-					if ( $page ) {
-						$title = $page->getTitle();
-						return false;
-					}
-				}
-			}
 		}
 
 		return true;

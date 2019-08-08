@@ -123,11 +123,13 @@ class AbuseFilter {
 			'article_restrictions_create' => 'restrictions-create',
 			'article_restrictions_upload' => 'restrictions-upload',
 			'article_recent_contributors' => 'recent-contributors',
+			'article_first_contributor' => 'first-contributor',
 #			'old_text' => 'old-text-stripped', # Disabled, performance
 #			'old_html' => 'old-html', # Disabled, performance
 			'old_links' => 'old-links',
 			'minor_edit' => 'minor-edit',
 			'file_sha1' => 'file-sha1',
+			'file_size' => 'file-size',
 		),
 	);
 
@@ -275,6 +277,9 @@ class AbuseFilter {
 		} else {
 			$dbr = wfGetDB( DB_SLAVE );
 		}
+		if ( $filter === 'new' ) {
+			return false;
+		};
 		$hidden = $dbr->selectField(
 			'abuse_filter',
 			'af_hidden',
@@ -319,9 +324,16 @@ class AbuseFilter {
 		$vars->setVar( $prefix . '_NAMESPACE', $title->getNamespace() );
 		$vars->setVar( $prefix . '_TEXT', $title->getText() );
 		$vars->setVar( $prefix . '_PREFIXEDTEXT', $title->getPrefixedText() );
+
 		global $wgDisableCounters;
 		if ( !$wgDisableCounters && !$title->isSpecialPage() ) {
-			$vars->setVar( $prefix . '_VIEWS', WikiPage::factory( $title )->getCount() );
+			// Support: MediaWiki 1.24 and earlier
+			if ( method_exists( 'WikiPage', 'getCount' ) ) {
+				$vars->setVar( $prefix . '_VIEWS', WikiPage::factory( $title )->getCount() );
+			// Support: MediaWiki 1.25+ with HitCounters extension
+			} elseif ( method_exists( 'HitCounters\HitCounters', 'getCount' ) ) {
+				$vars->setVar( $prefix . '_VIEWS', HitCounters\HitCounters::getCount( $title ) );
+			}
 		}
 
 		// Use restrictions.
@@ -338,6 +350,12 @@ class AbuseFilter {
 		$vars->setLazyLoadVar( "{$prefix}_recent_contributors", 'load-recent-authors',
 				array(
 					'cutoff' => wfTimestampNow(),
+					'title' => $title->getText(),
+					'namespace' => $title->getNamespace()
+				) );
+
+		$vars->setLazyLoadVar( "{$prefix}_first_contributor", 'load-first-author',
+				array(
 					'title' => $title->getText(),
 					'namespace' => $title->getNamespace()
 				) );
@@ -392,8 +410,6 @@ class AbuseFilter {
 
 		static $parser, $lastVars;
 
-		wfProfileIn( __METHOD__ );
-
 		if ( is_null( $parser ) || $vars !== $lastVars ) {
 			/** @var $parser AbuseFilterParser */
 			$parser = new $wgAbuseFilterParserClass( $vars );
@@ -413,8 +429,6 @@ class AbuseFilter {
 			}
 		}
 
-		wfProfileOut( __METHOD__ );
-
 		return $result;
 	}
 
@@ -422,14 +436,12 @@ class AbuseFilter {
 	 * Returns an associative array of filters which were tripped
 	 *
 	 * @param $vars array
-	 * @param $group string The filter group to check against.
+	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 *
 	 * @return array
 	 */
 	public static function checkAllFilters( $vars, $group = 'default' ) {
 		// Fetch from the database.
-		wfProfileIn( __METHOD__ );
-
 		$filter_matched = array();
 
 		$dbr = wfGetDB( DB_SLAVE );
@@ -485,8 +497,6 @@ class AbuseFilter {
 
 		// Update statistics, and disable filters which are over-blocking.
 		self::recordStats( $filter_matched, $group );
-
-		wfProfileOut( __METHOD__ );
 
 		return $filter_matched;
 	}
@@ -711,7 +721,6 @@ class AbuseFilter {
 	 */
 	public static function executeFilterActions( $filters, $title, $vars ) {
 		global $wgMainCacheType;
-		wfProfileIn( __METHOD__ );
 
 		$actionsByFilter = self::getConsequencesForFilters( $filters );
 		$actionsTaken = array_fill_keys( $filters, array() );
@@ -806,10 +815,7 @@ class AbuseFilter {
 			}
 		}
 
-		$status = self::buildStatus( $actionsTaken, $messages );
-
-		wfProfileOut( __METHOD__ );
-		return $status;
+		return self::buildStatus( $actionsTaken, $messages );
 	}
 
 	/**
@@ -841,13 +847,11 @@ class AbuseFilter {
 	/**
 	 * @param $vars AbuseFilterVariableHolder
 	 * @param $title Title
-	 * @param $group string
+	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 * @return Status
 	 */
 	public static function filterAction( $vars, $title, $group = 'default' ) {
 		global $wgUser, $wgTitle, $wgRequest;
-
-		wfProfileIn( __METHOD__ );
 
 		$context = RequestContext::getMain();
 		$oldContextTitle = $context->getTitle();
@@ -913,8 +917,6 @@ class AbuseFilter {
 			$context->setTitle( $oldContextTitle );
 		}
 
-		wfProfileOut( __METHOD__ );
-
 		return $status;
 	}
 
@@ -923,11 +925,10 @@ class AbuseFilter {
 	 * @param $log_template
 	 * @param $action
 	 * @param $vars AbuseFilterVariableHolder
-	 * @param string $group
+	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 * @return mixed
 	 */
 	public static function addLogEntries( $actions_taken, $log_template, $action, $vars, $group = 'default' ) {
-		wfProfileIn( __METHOD__ );
 		$dbw = wfGetDB( DB_MASTER );
 
 		$central_log_template = array(
@@ -969,7 +970,6 @@ class AbuseFilter {
 		}
 
 		if ( !count( $log_rows ) ) {
-			wfProfileOut( __METHOD__ );
 			return;
 		}
 
@@ -1081,8 +1081,6 @@ class AbuseFilter {
 		self::checkEmergencyDisable( $group, $logged_local_filters, $total );
 
 		wfProfileOut( __METHOD__ . '-hitstats' );
-
-		wfProfileOut( __METHOD__ );
 	}
 
 	/**
@@ -1095,8 +1093,6 @@ class AbuseFilter {
 	 * @return int
 	 */
 	public static function storeVarDump( $vars, $global = false ) {
-		wfProfileIn( __METHOD__ );
-
 		global $wgCompressRevisions;
 
 		// Get all variables yet set and compute old and new wikitext if not yet done
@@ -1126,7 +1122,6 @@ class AbuseFilter {
 
 			if ( !$text ) {
 				// Not mission-critical, just return nothing
-				wfProfileOut( __METHOD__ );
 				return null;
 			}
 		}
@@ -1145,10 +1140,7 @@ class AbuseFilter {
 				'old_flags' => implode( ',', $flags ),
 			), __METHOD__
 		);
-		$text_id = $dbw->insertId();
-		wfProfileOut( __METHOD__ );
-
-		return $text_id;
+		return $dbw->insertId();
 	}
 
 	/**
@@ -1160,12 +1152,18 @@ class AbuseFilter {
 	 * @return object|AbuseFilterVariableHolder|bool
 	 */
 	public static function loadVarDump( $stored_dump ) {
-		wfProfileIn( __METHOD__ );
-
 		// Back-compat
-		if ( strpos( $stored_dump, 'stored-text:' ) === false ) {
-			wfProfileOut( __METHOD__ );
-			return unserialize( $stored_dump );
+		if ( substr( $stored_dump, 0, strlen( 'stored-text:' ) ) !== 'stored-text:' ) {
+			$data = unserialize( $stored_dump );
+			if ( is_array( $data ) ) {
+				$vh = new AbuseFilterVariableHolder;
+				foreach ( $data as $name => $value ) {
+					$vh->setVar( $name, $value );
+				}
+				return $vh;
+			} else {
+				return $data;
+			}
 		}
 
 		$text_id = substr( $stored_dump, strlen( 'stored-text:' ) );
@@ -1180,7 +1178,6 @@ class AbuseFilter {
 		);
 
 		if ( !$text_row ) {
-			wfProfileOut( __METHOD__ );
 			return new AbuseFilterVariableHolder;
 		}
 
@@ -1205,7 +1202,6 @@ class AbuseFilter {
 			}
 		}
 
-		wfProfileOut( __METHOD__ );
 		return $obj;
 	}
 
@@ -1530,7 +1526,7 @@ class AbuseFilter {
 	}
 
 	/**
-	 * @param $group
+	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 * @return String
 	 */
 	public static function getGlobalRulesKey( $group ) {
@@ -1559,12 +1555,10 @@ class AbuseFilter {
 	/**
 	 * Update statistics, and disable filters which are over-blocking.
 	 * @param $filters
-	 * @param $group
+	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 */
 	public static function recordStats( $filters, $group = 'default' ) {
 		global $wgAbuseFilterConditionLimit, $wgMemc;
-
-		wfProfileIn( __METHOD__ );
 
 		// Figure out if we've triggered overflows and blocks.
 		$overflow_triggered = ( self::$condCount > $wgAbuseFilterConditionLimit );
@@ -1578,7 +1572,7 @@ class AbuseFilter {
 		$storage_period = self::$statsStoragePeriod;
 
 		if ( !$total || $total > 10000 ) {
-			// This is for if the total doesn't exist, or has gone past 1000.
+			// This is for if the total doesn't exist, or has gone past 10,000.
 			// Recreate all the keys at the same time, so they expire together.
 			$wgMemc->set( $total_key, 0, $storage_period );
 			$wgMemc->set( $overflow_key, 0, $storage_period );
@@ -1596,11 +1590,10 @@ class AbuseFilter {
 		if ( $overflow_triggered ) {
 			$wgMemc->incr( $overflow_key );
 		}
-		wfProfileOut( __METHOD__ );
 	}
 
 	/**
-	 * @param $group
+	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 * @param $filters
 	 * @param $total
 	 */
@@ -1651,7 +1644,7 @@ class AbuseFilter {
 
 	/**
 	 * @param array $emergencyValue
-	 * @param string $group
+	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 * @return mixed
 	 */
 	public static function getEmergencyValue( array $emergencyValue, $group ) {
@@ -2237,7 +2230,7 @@ class AbuseFilter {
 	/**
 	 * Gives either the user-specified name for a group,
 	 * or spits the input back out
-	 * @param $group String: Internal name of the filter group
+	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 * @return String A name for that filter group, or the input.
 	 */
 	static function nameGroup($group) {

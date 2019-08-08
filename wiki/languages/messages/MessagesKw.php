@@ -118,7 +118,7 @@ $specialPageAliases = array(
 	'Newpages'                  => array( 'FolennowNowyth' ),
 	'PasswordReset'             => array( 'DassetyaGerTremena' ),
 	'PermanentLink'             => array( 'KevrenFast' ),
-	'Popularpages'              => array( 'FolennowGerysDa' ),
+
 	'Preferences'               => array( 'Dewisyansow' ),
 	'Prefixindex'               => array( 'MenegvaRagerow' ),
 	'Protectedpages'            => array( 'FolennowDifresys' ),
@@ -165,7 +165,6 @@ $magicWords = array(
 	'numberofusers'             => array( '1', 'NIVERADHEVNYDHYORYON', 'NUMBEROFUSERS' ),
 	'numberofactiveusers'       => array( '1', 'NIVERADHEVNYDHYORYONVYW', 'NUMBEROFACTIVEUSERS' ),
 	'numberofedits'             => array( '1', 'NIVERAJANJYOW', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'NIVERAWELYANSOW', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'HANOWANFOLEN', 'PAGENAME' ),
 	'fullpagename'              => array( '1', 'HANOWLEUNANFOLEN', 'FULLPAGENAME' ),
 	'img_thumbnail'             => array( '1', 'skeusennik', 'thumbnail', 'thumb' ),

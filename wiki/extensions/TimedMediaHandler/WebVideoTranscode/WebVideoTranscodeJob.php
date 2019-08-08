@@ -382,10 +382,8 @@ class WebVideoTranscodeJob extends Job {
 		$this->output( "Running cmd: \n\n" .$cmd . "\n" );
 
 		// Right before we output remove the old file
-		wfProfileIn( 'ffmpeg_encode' );
 		$retval = 0;
 		$shellOutput = $this->runShellExec( $cmd, $retval );
-		wfProfileOut( 'ffmpeg_encode' );
 
 		if( $retval != 0 ){
 			return $cmd .
@@ -411,11 +409,11 @@ class WebVideoTranscodeJob extends Job {
 			// Add the two vpre types:
 			switch( $options['preset'] ){
 				case 'ipod320':
-					$cmd .= " -profile:v baseline -preset slow -coder 0 -bf 0 -flags2 -wpred-dct8x8 -level 13 -maxrate 768k -bufsize 3M";
+					$cmd .= " -profile:v baseline -preset slow -coder 0 -bf 0 -weightb 1 -level 13 -maxrate 768k -bufsize 3M";
 				break;
 				case '720p':
 				case 'ipod640':
-					$cmd .= " -profile:v baseline -preset slow -coder 0 -bf 0 -refs 1 -flags2 -wpred-dct8x8 -level 30 -maxrate 10M -bufsize 10M";
+					$cmd .= " -profile:v baseline -preset slow -coder 0 -bf 0 -refs 1 -weightb 1 -level 31 -maxrate 10M -bufsize 10M";
 				break;
 				default:
 					// in the default case just pass along the preset to ffmpeg
@@ -603,7 +601,6 @@ class WebVideoTranscodeJob extends Job {
 
 		if( isset( $options['audioCodec'] ) ){
 			$encoders = array(
-				'aac'		=> 'libvo_aacenc',
 				'vorbis'	=> 'libvorbis',
 				'opus'		=> 'libopus',
 				'mp3'		=> 'libmp3lame',
@@ -614,6 +611,10 @@ class WebVideoTranscodeJob extends Job {
 				$codec = $options['audioCodec'];
 			}
 			$cmd.= " -acodec " . wfEscapeShellArg( $codec );
+			if ( $codec === 'aac' ) {
+				// the aac encoder is currently "experimental" in libav 9? :P
+				$cmd .= ' -strict experimental';
+			}
 		} else {
 			// if no audio codec set use vorbis :
 			$cmd.= " -acodec libvorbis ";
@@ -668,10 +669,8 @@ class WebVideoTranscodeJob extends Job {
 
 		$this->output( "Running cmd: \n\n" .$cmd . "\n" );
 
-		wfProfileIn( 'ffmpeg2theora_encode' );
 		$retval = 0;
 		$shellOutput = $this->runShellExec( $cmd, $retval );
-		wfProfileOut( 'ffmpeg2theora_encode' );
 
 		// ffmpeg2theora returns 0 status on some errors, so also check for file
 		if( $retval != 0 || !is_file( $outputFile ) || filesize( $outputFile ) === 0 ){
@@ -691,11 +690,15 @@ class WebVideoTranscodeJob extends Job {
 	 * @param $retval String, refrence variable to return the exit code
 	 * @return string
 	 */
-	public function runShellExec( $cmd, &$retval){
+	public function runShellExec( $cmd, &$retval ){
 		global $wgTranscodeBackgroundTimeLimit,
 			$wgTranscodeBackgroundMemoryLimit,
 			$wgTranscodeBackgroundSizeLimit,
 			$wgEnableNiceBackgroundTranscodeJobs;
+
+		// For profiling
+		$caller = wfGetCaller();
+
 		// Check if background tasks are enabled
 		if( $wgEnableNiceBackgroundTranscodeJobs === false ){
 			// Directly execute the shell command:
@@ -704,7 +707,8 @@ class WebVideoTranscodeJob extends Job {
 				"memory" => $wgTranscodeBackgroundMemoryLimit,
 				"time" => $wgTranscodeBackgroundTimeLimit
 			);
-			return wfShellExec( $cmd . ' 2>&1', $retval , array(), $limits );
+			return wfShellExec( $cmd . ' 2>&1', $retval , array(), $limits,
+				array( 'profileMethod' => $caller ) );
 		}
 
 		$encodingLog = $this->getTargetEncodePath() . '.stdout.log';
@@ -728,7 +732,7 @@ class WebVideoTranscodeJob extends Job {
 			return $errorMsg;
 		} elseif ( $pid == 0) {
 			// we are the child
-			$this->runChildCmd( $cmd, $retval, $encodingLog, $retvalLog);
+			$this->runChildCmd( $cmd, $retval, $encodingLog, $retvalLog, $caller );
 			// dont remove any temp files in the child process, this is done
 			// once the parent is finished
 			$this->targetEncodeFile->preserve();
@@ -748,8 +752,9 @@ class WebVideoTranscodeJob extends Job {
 	 * @param $retval
 	 * @param $encodingLog
 	 * @param $retvalLog
+	 * @param string $caller The calling method
 	 */
-	public function runChildCmd( $cmd, &$retval, $encodingLog, $retvalLog ){
+	public function runChildCmd( $cmd, &$retval, $encodingLog, $retvalLog, $caller ){
 		global $wgTranscodeBackgroundTimeLimit,
 			$wgTranscodeBackgroundMemoryLimit,
 			$wgTranscodeBackgroundSizeLimit;
@@ -770,7 +775,8 @@ class WebVideoTranscodeJob extends Job {
 			"memory" => $wgTranscodeBackgroundMemoryLimit,
 			"time" => $wgTranscodeBackgroundTimeLimit
 		);
-		$status = wfShellExec( $cmd . ' 2>&1', $retval , array(), $limits );
+		$status = wfShellExec( $cmd . ' 2>&1', $retval , array(), $limits,
+			array( 'profileMethod' => $caller ) );
 
 		// Output the status:
 		wfSuppressWarnings();

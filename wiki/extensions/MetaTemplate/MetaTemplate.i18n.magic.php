@@ -23,5 +23,8 @@ $magicWords['en'] = array(
 	MAG_METATEMPLATE_SPLITARGS => array( 0, 'splitargs' ),
 	MAG_METATEMPLATE_EXPLODEARGS => array( 0, 'explodeargs' ),
 	MAG_METATEMPLATE_PICKFROM => array( 0, 'pickfrom' ),
-	MAG_METATEMPLATE_IFEXISTX => array( 0, 'ifexistx' )
+	MAG_METATEMPLATE_IFEXISTX => array( 0, 'ifexistx' ),
+	MAG_METATEMPLATE_ARG => array( 0, 'arg' ),
+	MAG_METATEMPLATE_SKIN => array( 0, 'skin' ),
+	MAG_METATEMPLATE_RAND => array( 0, 'rand' ),
 );

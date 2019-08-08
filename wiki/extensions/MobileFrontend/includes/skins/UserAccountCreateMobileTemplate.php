@@ -1,21 +1,28 @@
 <?php
 /**
+ * UserAccountCreateMobileTemplate.php
+ */
+
+/**
  * Provides a custom account creation form for mobile devices
  */
 class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
+	/** @var array $actionMessages Message keys for page actions */
 	protected $actionMessages = array(
 		'watch' => 'mobile-frontend-watchlist-signup-action',
 		'edit' => 'mobile-frontend-edit-signup-action',
 		'signup-edit' => 'mobile-frontend-edit-signup-action',
 		'' => 'mobile-frontend-generic-signup-action',
 	);
+	/** @var array $actionMessages Message keys for site links */
 	protected $pageMessages = array(
 		'Uploads' => 'mobile-frontend-donate-image-signup-action',
 		'Watchlist' => 'mobile-frontend-watchlist-signup-action',
 	);
 
 	/**
-	 * @TODO refactor this into parent template
+	 * Render Login/Create specific template
+	 * @todo refactor this into parent template
 	 */
 	public function execute() {
 		$action = $this->data['action'];
@@ -24,7 +31,14 @@ class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
 		$stickHTTPS = ( $this->doStickHTTPS() ) ? Html::input( 'wpStickHTTPS', 'true', 'hidden' ) : '';
 		$username = ( strlen( $this->data['name'] ) ) ? $this->data['name'] : null;
 		// handle captcha
-		$captcha = $this->handleCaptcha( $this->data['header'] );
+		$captchaHtml = '';
+		if ( isset( $this->data['header'] ) ) {
+			$captchaHtml .= $this->data['header'];
+		}
+		if ( isset( $this->data['extrafields'] ) ) {
+			$captchaHtml .= $this->data['extrafields'];
+		}
+		$captcha = $this->handleCaptcha( $captchaHtml );
 
 		$form =
 			Html::openElement( 'form',
@@ -69,7 +83,7 @@ class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
 				wfMessage( 'mobile-frontend-account-create-submit' )->text(),
 				'submit',
 				array( 'id' => 'wpCreateaccount',
-					'class' => 'mw-ui-button mw-ui-constructive',
+					'class' => MobileUI::buttonClass( 'constructive' ),
 					'tabindex' => '6'
 				)
 			) .
@@ -80,7 +94,7 @@ class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
 			Html::closeElement( 'form' );
 		echo Html::openElement( 'div', array( 'id' => 'mw-mf-accountcreate', 'class' => 'content' ) );
 		$this->renderGuiderMessage();
-		$this->renderMessageHtml();
+		$this->renderMessageHtml( true );
 		echo $form;
 		echo Html::closeElement( 'div' );
 	}
@@ -93,8 +107,8 @@ class UserAccountCreateMobileTemplate extends UserLoginAndCreateTemplate {
 	 * a display an input field for the user to enter captcha info, without
 	 * the additinal cruft.
 	 *
-	 * @TODO move this into ConfirmEdit extension when MW is context aware
-	 * @param string
+	 * @todo move this into ConfirmEdit extension when MW is context aware
+	 * @param string $header
 	 * @return string
 	 */
 	protected function handleCaptcha( $header ) {

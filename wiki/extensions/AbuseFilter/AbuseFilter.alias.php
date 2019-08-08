@@ -39,6 +39,12 @@ $specialPageAliases['as'] = array(
 	'AbuseFilter' => array( 'অপব্যৱহাৰৰ_চেকনী' ),
 );
 
+/** Avaric (авар) */
+$specialPageAliases['av'] = array(
+	'AbuseLog' => array( 'Ихтияразда_мугъ_чІван_бегьуоарел_пишаби_гьабиялъул_журнал' ),
+	'AbuseFilter' => array( 'Ихтияразда_мугъ_чІван_бегьуоарел_пишаби_гьабиял_рацІцІин' ),
+);
+
 /** Bashkir (башҡортса) */
 $specialPageAliases['ba'] = array(
 	'AbuseLog' => array( 'Насарға_ҡулланыуҙар_журналы' ),
@@ -49,6 +55,12 @@ $specialPageAliases['ba'] = array(
 $specialPageAliases['bg'] = array(
 	'AbuseLog' => array( 'Дневник_на_филтъра' ),
 	'AbuseFilter' => array( 'Филтър_срещу_злоупотреби' ),
+);
+
+/** Western Balochi (بلوچی رخشانی) */
+$specialPageAliases['bgn'] = array(
+	'AbuseLog' => array( 'خرابکاری_ئی_سیاهه' ),
+	'AbuseFilter' => array( 'خرابکاری_ئی_پیلتر' ),
 );
 
 /** Bhojpuri (भोजपुरी) */
@@ -100,8 +112,8 @@ $specialPageAliases['de'] = array(
 
 /** Zazaki (Zazaki) */
 $specialPageAliases['diq'] = array(
-	'AbuseLog' => array( 'DekewtışéNenga' ),
-	'AbuseFilter' => array( 'AvrécéNenga' ),
+	'AbuseLog' => array( 'QeydêKedweriye' ),
+	'AbuseFilter' => array( 'ParzûnêKedweriye' ),
 );
 
 /** Lower Sorbian (dolnoserbski) */
@@ -200,7 +212,7 @@ $specialPageAliases['hsb'] = array(
 	'AbuseFilter' => array( 'Filter_znjewužiwanjow' ),
 );
 
-/** 湘语 (湘语) */
+/** Xiang Chinese (湘语) */
 $specialPageAliases['hsn'] = array(
 	'AbuseLog' => array( '滥用日志' ),
 	'AbuseFilter' => array( '滥用过滤器' ),
@@ -278,6 +290,12 @@ $specialPageAliases['lb'] = array(
 	'AbuseFilter' => array( 'Mëssbrauchsfilter' ),
 );
 
+/** لوری (لوری) */
+$specialPageAliases['lrc'] = array(
+	'AbuseLog' => array( 'پهرستنومه_خراوکاری' ),
+	'AbuseFilter' => array( 'فیلتر_خراوکاری' ),
+);
+
 /** Lithuanian (lietuvių) */
 $specialPageAliases['lt'] = array(
 	'AbuseLog' => array( 'Piktnaudžiavimų_sąrašas' ),
@@ -312,6 +330,12 @@ $specialPageAliases['ml'] = array(
 $specialPageAliases['mr'] = array(
 	'AbuseLog' => array( 'संपादनगाळणी_नोंदी' ),
 	'AbuseFilter' => array( 'संपादन_गाळणी' ),
+);
+
+/** Malay (Bahasa Melayu) */
+$specialPageAliases['ms'] = array(
+	'AbuseLog' => array( 'Log_penyalahgunaan' ),
+	'AbuseFilter' => array( 'Penapis_penyalahgunaan' ),
 );
 
 /** Maltese (Malti) */
@@ -452,7 +476,7 @@ $specialPageAliases['ur'] = array(
 	'AbuseFilter' => array( 'مقطار_غلط_کاری' ),
 );
 
-/** vèneto (vèneto) */
+/** Venetian (vèneto) */
 $specialPageAliases['vec'] = array(
 	'AbuseLog' => array( 'RegistroAbusi' ),
 	'AbuseFilter' => array( 'FiltroAbusi' ),

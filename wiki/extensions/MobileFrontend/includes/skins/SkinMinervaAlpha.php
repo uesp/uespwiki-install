@@ -1,57 +1,63 @@
 <?php
+/**
+ * SkinMinervaAlpha.php
+ */
 
+/**
+ * Alpha-Implementation of stable class SkinMinervaBeta
+ */
 class SkinMinervaAlpha extends SkinMinervaBeta {
+	/** @var string Name of the template */
 	public $template = 'MinervaTemplateAlpha';
+	/** @var string Describes 'stability' of the skin - alpha, beta, stable */
 	protected $mode = 'alpha';
 
-	protected function getSearchPlaceHolderText() {
-		return wfMessage( 'mobile-frontend-placeholder-alpha' )->text();
-	}
-
+	/**
+	 * Returns the javascript modules to load.
+	 * @return array
+	 */
 	public function getDefaultModules() {
 		$modules = parent::getDefaultModules();
-		$modules['alpha'] = array( 'mobile.alpha' );
+		$modules['alpha'] = array( 'skins.minerva.alpha.scripts' );
+
+		if ( $this->getCategoryLinks( false ) ) {
+			$modules['categories'] = array( 'mobile.categories' );
+		}
 		return $modules;
 	}
 
-	protected function prepareQuickTemplate() {
-		$tpl = parent::prepareQuickTemplate();
-		$this->prepareTalkLabel( $tpl );
-		return $tpl;
+	/**
+	 * Returns an array of sitelinks to add into the main menu footer.
+	 * @return Array array of site links
+	 */
+	protected function getSiteLinks() {
+		$urls = parent::getSiteLinks();
+		$msg = $this->msg( 'mobile-frontend-fontchanger-link' );
+		// Don't add elements, where the message does not exist
+		if ( !$msg->isDisabled() ) {
+			$urls[] = array(
+				'href' => '#',
+				'text'=> $msg->text(),
+				// hide the link, fontchanger works only with JS enabled (hidden will be removed with JS)
+				'class' => 'fontchanger link hidden'
+			);
+		}
+
+		return $urls;
 	}
 
-	protected function prepareTalkLabel( BaseTemplate $tpl ) {
-		$title = $this->getTitle();
-		$isSpecialPage = $title->isSpecialPage();
+	/**
+	 * Get various skin specific configuration.
+	 * @return array
+	 */
+	public function getSkinConfigVariables() {
+		$config = $this->getMFConfig();
 
-		// talk page link for logged in alpha users
-		if ( !$isSpecialPage && !$title->isTalkPage() ) {
-			$talkTitle = $title->getTalkPage();
-			if ( $talkTitle->getArticleID() ) {
-				$dbr = wfGetDB( DB_SLAVE );
-				$numTopics = $dbr->selectField( 'page_props', 'pp_value',
-					array(
-						'pp_page' => $talkTitle->getArticleID(),
-						'pp_propname' => 'page_top_level_section_count'
-					),
-					__METHOD__
-				);
-			} else {
-				$numTopics = 0;
-			}
-			if ( $numTopics ) {
-				$talkLabel = $this->getLanguage()->formatNum( $numTopics );
-				$class = 'count';
-			} else {
-				$talkLabel = wfMessage( 'mobile-frontend-talk-overlay-header' );
-				$class = '';
-			}
-			$menu = $tpl->data['page_actions'];
-			if ( isset( $menu['talk'] ) ) {
-				$menu['talk']['text'] = $talkLabel;
-				$menu['talk']['class'] = $class;
-			}
-			$tpl->set( 'page_actions', $menu );
-		}
+		$vars = parent::getSkinConfigVariables();
+		$vars['wgWikiBasePropertyConfig'] = $config->get( 'WikiBasePropertyConfig' );
+		$vars['wgMFInfoboxConfig'] = $config->get( 'MFInfoboxConfig' );
+		$vars['wgMFShowRedLinks'] = true;
+
+		return $vars;
 	}
 }

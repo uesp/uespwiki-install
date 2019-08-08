@@ -1,10 +1,12 @@
-( function( M, $ ) {
-	var user;
+( function ( M, $ ) {
+	var user,
+		browser = M.require( 'browser' );
 
 	/**
+	 * Utility library for looking up details on the current user
 	 * @class user
 	 * @singleton
-	*/
+	 */
 	user = {
 		/* @see mediaWiki.user */
 		tokens: mw.user.tokens,
@@ -17,7 +19,7 @@
 		 * @method
 		 * @returns {Number} the edit count of the current user on the current wiki.
 		 */
-		getEditCount: function() {
+		getEditCount: function () {
 			return mw.config.get( 'wgUserEditCount' );
 		},
 		/**
@@ -26,9 +28,40 @@
 		 * The information this returns is identical to the content of the config variable.
 		 * To avoid an unnecessary ajax request on every page view simply use config variable.
 		 */
-		getGroups: function() {
+		getGroups: function () {
 			return $.Deferred().resolve( mw.config.get( 'wgUserGroups' ) );
+		},
+		/**
+		* Retrieve and, if not present, generate a random session ID
+		* (32 alphanumeric characters).
+		* FIXME: use settings module
+		*
+		* @method
+		* @return {String}
+		*/
+		getSessionId: function () {
+			var sessionId;
+			if ( !browser.supportsLocalStorage() ) {
+				return '';
+			}
+			sessionId = localStorage.getItem( 'sessionId' );
+
+			if ( !sessionId ) {
+				sessionId = mw.user.generateRandomSessionId();
+				localStorage.setItem( 'sessionId', sessionId );
+			}
+			return sessionId;
+		},
+
+		/**
+		* User Bucketing for A/B testing
+		* (we want this to be the same everywhere)
+		* @return {Boolean}
+		*/
+		inUserBucketA: function () {
+			return mw.config.get( 'wgUserId' ) % 2 === 0;
 		}
+
 	};
 	M.define( 'user', user );
 

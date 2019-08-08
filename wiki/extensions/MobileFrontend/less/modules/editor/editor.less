@@ -1,18 +1,40 @@
 @import "minerva.variables";
 @import "minerva.mixins";
 
+// no fallback mixin for those SVGs (VE doesn't work on browsers without SVG
+// support anyway)
+// FIXME: Remove when mw-ui-icon in stable
+.icon.icon-edit-source {
+	.background-image( 'images/editSourceNormal.svg' );
+}
+
+// FIXME: Remove when mw-ui-icon in stable
+.icon.icon-edit-ve {
+	.background-image( 'images/editVeNormal.svg' );
+}
 
 .editor-overlay {
 	.preview {
 		display: none;
 	}
 
+	.wikitext-editor {
+		padding: 10px @contentMargin;
+	}
+
+	.summary-request {
+		font-size: 1.4em;
+		font-weight: bold;
+		margin: .5em 0;
+		color: @grayMediumDark;
+	}
+
 	.buttonBar {
 		.message {
 			margin: 0 0 .7em;
 			padding: 0 0 .3em;
-			border-bottom: 1px solid #ccc;
-			color: #707070;
+			border-bottom: 1px solid @colorGray12;
+			color: @infoColor;
 
 			p {
 				display: inline-block;
@@ -23,89 +45,17 @@
 	}
 
 	.overlay-header {
-		.switcher-container {
-			padding: 0;
-			// Have to set an explicit width since we're using display:table-cell
-			width: 5em;
-			vertical-align: middle;
-			border-right: 1px solid @grayLight;
-			position: relative;
+		.oo-ui-toolbar-bar {
+			border-bottom: none;
 		}
-
-		.icon.editor-switcher {
-			padding: 0;
-			.background-image-svg-quick( 'images/edit-visual-normal' );
-			background-size: 40px auto;
-			width: 5em;
-
-			&.selected {
-				.background-image-svg-quick( 'images/edit-visual-select' );
-			}
+		.oo-ui-icon-editor-switcher {
+			.background-image( 'images/editToggle.svg' );
 		}
-
-		.icon.editor-switcher:focus {
-			outline: none;
+		.oo-ui-icon-edit-source {
+			.background-image( 'images/editSourceNormal.svg' );
 		}
-
-		.switcher-drop-down {
-			display: none;
-			position: absolute;
-			top: @headerHeight;
-			// FIXME: Negative margin is needed in Chrome and Safari to match our negative
-			// margins on the buttons, but this breaks the layout in Firefox and IE :(
-			// Spent a very long time trying to find a CSS solution that worked in all
-			// four browsers, but no luck.
-			margin-top: -@headerMargin;
-			// We have to use margin-left instead of left due to a rendering bug in
-			// Firefox. Firefox sets the wrong horizontal positioning frame for
-			// children of elements with position:relative and display:table-cell.
-			margin-left: -1px;
-			border: 1px solid @grayLight;
-			white-space: nowrap;
-
-			> .mw-ui-button {
-				display: inline-block;
-				border: none;
-				border-right: 1px solid @grayLight;
-				border-radius: 0;
-				line-height: 2em;
-				padding: 0.5em 1.4em 0.5em 1em;
-
-				.icon {
-					background-repeat: no-repeat;
-					background-position: left center;
-					background-size: 30px 30px;
-					display: inline-block;
-					margin-right: 10px;
-					width: 30px;
-					height: 30px;
-					vertical-align: middle;
-				}
-
-				&.visual-editor {
-					.icon {
-						.background-image-svg-quick( 'images/edit-visual-normal' );
-
-						&.selected {
-							.background-image-svg-quick( 'images/edit-visual-toggle' );
-						}
-					}
-				}
-
-				&.source-editor {
-					.icon {
-						.background-image-svg-quick( 'images/edit-source-normal' );
-
-						&.selected {
-							.background-image-svg-quick( 'images/edit-visual-toggle' );
-						}
-					}
-				}
-			}
-
-			> div:last-child {
-				border-right: none;
-			}
+		.oo-ui-icon-edit-ve {
+			.background-image( 'images/editVeNormal.svg' );
 		}
 	}
 }
@@ -119,7 +69,7 @@
 
 // FIXME: high line-height (1.5) causes weird behavior in textareas on
 // Android 2.x, remove this if we don't want to support editor there
-.android2 .editor-overlay textarea {
+.android2.editor-overlay textarea {
 	line-height: 1.2;
 }
 

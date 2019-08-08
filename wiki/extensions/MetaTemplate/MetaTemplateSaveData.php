@@ -224,7 +224,9 @@ class MetaTemplateSaveData {
 				// They can't be expanded on #load because context has been lost
 				// And leave it end users to figure out whether dropping some of the content is causing any problems
 				// In some cases, may be perfectly OK to drop it (e.g., cleanspace tags that only contain data initalization)
-				$value = preg_replace("/\x7fUNIQ.*?QINU\x7f/", '', $value);
+				// RH70 2019-03-24: Regex was no longer working - replaced with built-in parser function.
+				// $value = preg_replace("/\x7fUNIQ.*?QINU\x7f/", '', $value);
+				$value = $this->_parser->killMarkers( $value );
 
 				if (array_key_exists('parsed', $vdata))
 					$parsed = $vdata['parsed'];

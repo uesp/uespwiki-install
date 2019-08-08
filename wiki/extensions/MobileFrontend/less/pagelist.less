@@ -35,6 +35,10 @@
 		a {
 			color: inherit;
 		}
+
+		strong {
+			text-decoration: underline;
+		}
 	}
 }
 
@@ -46,10 +50,21 @@
 	color: @grayMedium;
 }
 
-.listThumb {
-	&.needsPhoto {
+.list-thumb {
+	background-repeat: no-repeat;
+	background-position: center center;
+
+	&.list-thumb-none {
 		background-color: @grayLightest;
 		.background-image-svg-quick('images/noimage');
+	}
+
+	&.list-thumb-x {
+		.background-size( 100%, auto );
+	}
+
+	&.list-thumb-y {
+		.background-size( auto, 100% );
 	}
 }
 
@@ -61,17 +76,20 @@
 // Markup:
 // <ul class="page-list thumbs">
 //  <li class="page-summary">
-//    <div class="listThumb"></div>
+//    <div class="list-thumb"></div>
 //    <div class="title"><h3>San Francisco</h3></div>
 //  </li>
 //  <li  class="page-summary">
-//    <div class="listThumb needsPhoto icon-max-x"></div>
+//    <div class="list-thumb list-thumb-none list-thumb-x"></div>
 //    <div class="title"><h3>New York</h3></div>
 //  </li>
 // </ul>
 //
 // Styleguide 5.2.
-.page-list {
+// FIXME: This should be one generic class name only
+.page-list,
+.topic-title-list,
+.site-link-list {
 	// needed for rotated watchstars to avoid horizontal scrollbar
 	overflow: hidden;
 
@@ -122,7 +140,7 @@
 	}
 
 	// FIXME: rename to something more general, e.g. .side
-	.listThumb {
+	.list-thumb {
 		position: absolute;
 		width: @thumbWidth;
 		height: 100%;
@@ -130,7 +148,7 @@
 		left: 0;
 	}
 
-	&.side-list .listThumb {
+	&.side-list .list-thumb {
 		padding: @itemPaddingV @contentMargin;
 		color: @grayDark;
 
@@ -166,5 +184,14 @@
 	.info {
 		font-size: .7em;
 		text-transform: uppercase;
+	}
+}
+
+// FIXME: combine with a similar pattern in modules/NotificationsOverlay.less
+@media all and (min-width: @wgMFDeviceWidthTablet) {
+	// FIXME: this should be one generic class name
+	.topic-title-list,
+	.site-link-list {
+		padding: @itemPaddingV @contentPaddingTablet;
 	}
 }

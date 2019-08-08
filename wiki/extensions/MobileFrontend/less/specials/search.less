@@ -1,16 +1,17 @@
 @import "minerva.variables";
 @import "minerva.mixins";
 
-
-.mobile .searchresults {
+.mw-mobile-mode .searchresults {
 	ul.mw-search-results {
+		list-style: none;
+
 		.mw-search-result-heading {
 			font-weight: bold;
 		}
 		.mw-search-result-data {
 			font-size: 0.7em;
 			font-style: italic;
-			color: #535353;
+			color: @colorGray5;
 			margin-left: 12px;
 		}
 
@@ -23,7 +24,8 @@
 }
 
 .mw-search-createlink,
+.mw-search-profile-tabs,
 // FIXME: Revisit when search input is not in a table
-#search {
+.client-js #search {
 	display: none;
 }

@@ -24,8 +24,7 @@ use \ApiBase;
  */
 class ConfigDump extends ApiBase {
 	public function execute() {
-		global $wgCirrusSearchEnableConfigDumpApi,
-			$wgCirrusSearchConfigDumpWhiteList;
+		global $wgCirrusSearchConfigDumpWhiteList;
 
 		$prefix = 'wgCirrusSearch';
 		foreach ( $GLOBALS as $key => $value ) {
@@ -45,10 +44,9 @@ class ConfigDump extends ApiBase {
 		return array();
 	}
 
-	public function getParamDescription() {
-		return array();
-	}
-
+	/**
+	 * @deprecated since MediaWiki core 1.25
+	 */
 	public function getDescription() {
 		return 'Dump of CirrusSearch configuration.';
 	}

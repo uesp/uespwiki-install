@@ -13,7 +13,6 @@ $rtl = true;
 $namespaceNames = array(
 	NS_MEDIA            => 'ܡܝܕܝܐ',
 	NS_SPECIAL          => 'ܕܝܠܢܝܐ',
-	NS_MAIN             => '',
 	NS_TALK             => 'ܡܡܠܠܐ',
 	NS_USER             => 'ܡܦܠܚܢܐ',
 	NS_USER_TALK        => 'ܡܡܠܠܐ_ܕܡܦܠܚܢܐ',
@@ -71,7 +70,7 @@ $specialPageAliases = array(
 	'Newimages'                 => array( 'ܠܦܦ̈ܐ_ܚܕ̈ܬܐ', 'ܨܘܪ̈ܬܐ_ܚܕ̈ܬܬܐ' ),
 	'Newpages'                  => array( 'ܦܐܬܬ̈ܐ_ܚܕ̈ܬܬܐ' ),
 	'PermanentLink'             => array( 'ܐܣܘܪܐ_ܦܝܘܫܐ' ),
-	'Popularpages'              => array( 'ܦܐܬܬ̈ܐ_ܡܫܡܗ̈ܐ' ),
+
 	'Preferences'               => array( 'ܨܒܝܢܝܘ̈ܬܐ' ),
 	'Protectedpages'            => array( 'ܦܐܬܬ̈ܐ_ܢܛܝܪ̈ܬܐ' ),
 	'Protectedtitles'           => array( 'ܟܘܢܝ̈ܐ_ܢܛܝܪ̈ܐ' ),

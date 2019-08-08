@@ -1,207 +1,155 @@
 <?php
+/**
+ * SkinMinervaBeta.php
+ */
 
+/**
+ * Beta-Implementation of stable class SkinMinerva
+ */
 class SkinMinervaBeta extends SkinMinerva {
+	/** @var string $template Name of this template */
 	public $template = 'MinervaTemplateBeta';
+	/** @var string $mode Describes 'stability' of the skin - alpha, beta, stable */
 	protected $mode = 'beta';
 
-	/**
-	 * Initializes output page and sets up skin-specific parameters
-	 * @param $out OutputPage object to initialize
-	 */
-	public function initPage( OutputPage $out ) {
-		parent::initPage( $out );
-		// Enable search header in beta
-		if ( $this->getTitle()->isSpecialPage() ) {
-			$out->setProperty( 'disableSearchAndFooter', false );
+	/** @inheritdoc **/
+	protected function getHeaderHtml() {
+		$html = parent::getHeaderHtml();
+		$vars = $this->getSkinConfigVariables();
+		$description = $vars['wgMFDescription'];
+		if ( $description && !$this->getTitle()->isSpecialPage() ) {
+			$html .= Html::element( 'div',
+				array(
+					'class' => 'tagline',
+				), $description );
 		}
+		return $html;
 	}
 
+	public function getSkinConfigVariables() {
+		$vars = parent::getSkinConfigVariables();
+		$vars['wgMFDescription'] = $this->getOutput()->getProperty( 'wgMFDescription' );
+
+		return $vars;
+	}
+
+	/**
+	 * initialize various variables and generate the template
+	 * @param OutputPage $out optional parameter: The OutputPage Obj.
+	 */
 	public function outputPage( OutputPage $out = null ) {
-		wfProfileIn( __METHOD__ );
 		if ( !$out ) {
 			$out = $this->getOutput();
 		}
 		# Replace page content before DOMParse to make sure images are scrubbed
 		# and Zero transformations are applied.
 		$this->handleNewPages( $out );
-		$this->prepareResponsiveStyles();
 		parent::outputPage( $out );
 	}
 
 	/**
-	 * Prepares head items that add conditionally loaded responsive styles.
-	 * FIXME: Review this approach thoroughly before pushing to stable.
-	 * Loosely based on:
-	 *   http://christianheilmann.com/2012/12/19/conditional-loading-of-resources-with-mediaqueries/
+	 * Returns true, if the page can have a talk page.
+	 * @return boolean
 	 */
-	protected function prepareResponsiveStyles() {
-		global $wgMFDeviceWidthTablet;
-
-		$url = ResourceLoader::makeLoaderURL(
-			array( 'tablet.styles' ),
-			$this->getLanguage()->getCode(),
-			$this->getSkinName(),
-			null,
-			null,
-			ResourceLoader::inDebugMode(),
-			'styles'
-		);
-		$attrs = array(
-			'data-href' => $url,
-			'data-media' => '(min-width: ' . $wgMFDeviceWidthTablet .'px)'
-		);
-		$out = $this->getOutput();
-		$out->addHeadItem( 'responsiveStyles', Html::element( 'style', $attrs ) );
-		$out->addHeadItem( 'responsiveScript', Html::inlineScript(
-			"jQuery.matchMedia();"
-		) );
-	}
-
-	protected function getSearchPlaceHolderText() {
-		return wfMessage( 'mobile-frontend-placeholder-beta' )->text();
-	}
-
-	protected function getSkinStyles() {
+	protected function isTalkAllowed() {
 		$title = $this->getTitle();
-
-		$styles = parent::getSkinStyles();
-		$styles[] = 'mobile.styles.beta';
-		if ( $title->isMainPage() ) {
-			$styles[] = 'mobile.styles.mainpage';
-		}
-		if ( $title->isSpecialPage() ) {
-			$styles['special'] = 'skins.minerva.special.styles';
-		}
-
-		$key = array_search( 'skins.minerva.buttons.styles', $styles );
-		unset( $styles[$key] );
-		$styles[] = 'mediawiki.ui.button';
-
-		return $styles;
+		return $this->isAllowedPageAction( 'talk' ) &&
+			!$title->isTalkPage() &&
+			$title->canTalk();
 	}
 
-	protected function prepareQuickTemplate() {
-		$tpl = parent::prepareQuickTemplate();
-		// Move last modified link to top as long as it is not the main page
-		$tpl->set( '_lastModifiedAbove', !$this->getTitle()->isMainPage() );
-		return $tpl;
+	/**
+	 * Returns true, if the talk page of this page is wikitext-based.
+	 * @return boolean
+	 */
+	protected function isWikiTextTalkPage() {
+		return $this->getTitle()->getTalkPage()->getContentModel() === CONTENT_MODEL_WIKITEXT;
 	}
 
-	protected function getHistoryLink( Title $title ) {
-		$link = parent::getHistoryLink( $title );
-		if ( !$title->isMainPage() ) {
-			$link['class'] = 'top-bar truncated-text';
+	/**
+	 * Returns an array of modules related to the current context of the page.
+	 * @return array
+	 */
+	public function getContextSpecificModules() {
+		$modules = parent::getContextSpecificModules();
+		$title = $this->getTitle();
+		if (
+			( $this->isTalkAllowed() || $title->isTalkPage() ) &&
+			$this->isWikiTextTalkPage()
+		) {
+			$modules[] = 'mobile.talk';
 		}
-		$link['href'] = SpecialPage::getTitleFor( 'History', $title )->getLocalURL();
-		return $link;
-	}
 
-	public function getSkinConfigVariables() {
-		$vars = parent::getSkinConfigVariables();
-		// Kill this when we fix the functionality in PageApi.js
-		$user = $this->getUser();
-		if ( $user->isLoggedIn() ) {
-			$vars['wgMFUserGender'] = $this->getUser()->getOption( 'gender' );
-		} else {
-			$vars['wgMFUserGender'] = 'unknown';
-		}
-		return $vars;
-	}
-
-	public function getDefaultModules() {
-		$modules = parent::getDefaultModules();
-		$modules['mobile'][] = 'mobile.head.beta';
-		$modules['talk'] = array( 'mobile.talk' );
-		$modules['beta'] = array( 'mobile.beta' );
-		$modules['beta'][] = 'mobile.geonotahack';
-		$modules['toggling'] = array( 'mobile.toggling.beta' );
-		// turn off stable only modules
-		$modules['stableonly'] = array();
-		wfRunHooks( 'SkinMinervaDefaultModules', array( $this, &$modules ) );
 		return $modules;
 	}
 
 	/**
-	 * Creates a login or logout button
-	 * @return Array: Representation of button with text and href keys
-	*/
-	protected function getLogInOutLink() {
-		$loginLogoutLink = parent::getLoginOutLink();
-		$user = $this->getUser();
-		if ( $user->isLoggedIn() ) {
-			$loginLogoutLink['class'] = 'icon-secondary icon-secondary-logout';
-			$name = $user->getName();
-			$loginLogoutLink = array(
-				'links' => array(
-					array(
-						'text' => $name,
-						'href' => SpecialPage::getTitleFor( 'UserProfile', $name )->getLocalUrl(),
-						'class' => 'icon-profile truncated-text',
-					),
-					$loginLogoutLink
+	 * Returns the javascript modules to load.
+	 * @return array
+	 */
+	public function getDefaultModules() {
+		$modules = parent::getDefaultModules();
+		$modules['beta'] = array( 'skins.minerva.beta.scripts' );
+		Hooks::run( 'SkinMinervaDefaultModules', array( $this, &$modules ) );
+
+		// Disable CentralNotice modules in beta
+		if ( array_key_exists( 'centralnotice', $modules ) ) {
+			unset( $modules['centralnotice'] );
+		}
+
+		return $modules;
+	}
+
+	/**
+	 * Returns an array of links for page secondary actions
+	 * @param BaseTemplate $tpl
+	 * @return Array
+	 */
+	protected function getSecondaryActions( BaseTemplate $tpl ) {
+		$buttons = parent::getSecondaryActions( $tpl );
+
+		$title = $this->getTitle();
+		$namespaces = $tpl->data['content_navigation']['namespaces'];
+		if ( $this->isTalkAllowed() ) {
+			// FIXME [core]: This seems unnecessary..
+			$subjectId = $title->getNamespaceKey( '' );
+			$talkId = $subjectId === 'main' ? 'talk' : "{$subjectId}_talk";
+			$talkButton = isset( $namespaces[$talkId] ) && !$title->isTalkPage() ?
+				$namespaces[$talkId]['text'] : '';
+
+			$talkTitle = $title->getTalkPage();
+			$buttons['talk'] = array(
+				'attributes' => array(
+					'href' => $talkTitle->getLinkURL(),
+					'class' =>  MobileUI::iconClass( 'talk', 'before', 'talk icon-32px' ),
+					'data-title' => $talkTitle->getFullText(),
 				),
+				'label' => $talkButton,
 			);
-			$loginLogoutLink['class'] = 'icon-user';
-		} else {
-			$loginLogoutLink['class'] = 'icon-anon';
 		}
-		return $loginLogoutLink;
+
+		return $buttons;
 	}
 
-	protected function prepareBanners( BaseTemplate $tpl ) {
-		global $wgMFKeepGoing;
+	/**
+	 * Get the needed styles for this skin
+	 * @return array
+	 */
+	protected function getSkinStyles() {
+		$styles = parent::getSkinStyles();
+		$styles[] = 'mediawiki.ui.icon';
+		$styles[] = 'skins.minerva.icons.styles';
+		$styles[] = 'skins.minerva.icons.images';
+		$styles[] = 'skins.minerva.beta.styles';
+		$styles[] = 'skins.minerva.beta.images';
 
-		wfProfileIn( __METHOD__ );
-		parent::prepareBanners( $tpl );
-		$user = $this->getUser();
-		$msg = $this->msg( 'mobilefrontend-keepgoing-wikify-category' )->inContentLanguage();
-		if ( $wgMFKeepGoing && $this->getTitle()->isMainPage()
-			&& $user->isLoggedIn()
-			&& $user->getEditCount() > 1
-			&& !$msg->isDisabled()
-		) {
-			$category = Title::newFromText( $msg->text(), NS_CATEGORY );
-			if ( !$category ) {
-				wfProfileOut( __METHOD__ );
-				return;
-			}
-			// Weird stuff like Category:Wikipedia:Foo
-			if ( !$category->inNamespace( NS_CATEGORY ) ) {
-				$category = Title::makeTitleSafe( NS_CATEGORY, $category->getText() );
-			}
-			$rc = new SpecialRandomInCategory();
-			$rc->setCategory( $category );
-			$title = $rc->getRandomTitle();
-			if ( !$title ) {
-				wfProfileOut( __METHOD__ );
-				return;
-			}
-			$page = new MobilePage( $title );
-			$thumb = $page->getSmallThumbnailHtml( true );
-			$html = Html::openElement(
-					'ul',
-					array( 'class' => 'page-list page-banner' . ( $thumb ? ' thumbs' : '' ) )
-				) .
-				Html::openElement( 'li', array( 'class' => 'title' ) ) .
-				$thumb .
-				Html::element( 'h2', array(), $title->getPrefixedText() ) .
-				Html::element( 'p', array( 'class' => 'content component' ),
-					$this->msg( 'mobile-frontend-mainpage-cta-prompt' )->text() ) .
-				Html::openElement( 'p', array( 'class' => 'content component' ) ) .
-				Html::element( 'a', array(
-					'class' => 'mw-ui-button mw-ui-progressive button',
-					'href' => $title->getLocalUrl(
-						array( 'campaign' => 'mobile-mainpage-keepgoing-links'  )
-					),
-				), $this->msg( 'mobile-frontend-mainpage-cta-button' )->text() ) .
-				Html::closeElement( 'p' ) .
-				Html::closeElement( 'li' ) .
-				Html::closeElement( 'ul' );
-			$tpl->set( 'internalBanner', $html );
-		}
-		wfProfileOut( __METHOD__ );
+		return $styles;
 	}
 
+	/**
+	 * Handles new pages to show error message and print message, that page does not exist.
+	 * @param OutputPage $out
+	 */
 	protected function handleNewPages( OutputPage $out ) {
 		# Show error message
 		$title = $this->getTitle();
@@ -219,6 +167,10 @@ class SkinMinervaBeta extends SkinMinerva {
 		}
 	}
 
+	/**
+	 * Prepare warnings for mobile devices
+	 * @param BaseTemplate $tpl
+	 */
 	protected function prepareWarnings( BaseTemplate $tpl ) {
 		parent::prepareWarnings( $tpl );
 		$out = $this->getOutput();
@@ -233,12 +185,5 @@ class SkinMinervaBeta extends SkinMinerva {
 				$subtitle .
 				Html::closeElement( 'div' ) );
 		}
-	}
-
-	protected function prepareHeaderAndFooter( BaseTemplate $tpl ) {
-		parent::prepareHeaderAndFooter( $tpl );
-		$preBodyText = Html::rawElement( 'h1', array( 'id' => 'section_0' ),
-			$this->getOutput()->getPageTitle() );
-		$tpl->set( 'prebodytext', $preBodyText );
 	}
 }

@@ -17,6 +17,7 @@ class Editcount extends IncludableSpecialPage {
 		global $wgContLang;
 
 		$target = isset( $par ) ? $par : $this->getRequest()->getText( 'username' );
+
 		list( $username, $namespace ) = $this->extractParamaters( $target );
 
 		$user = User::newFromName( $username );

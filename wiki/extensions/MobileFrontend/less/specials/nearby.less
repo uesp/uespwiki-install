@@ -1,15 +1,10 @@
 @import "minerva.variables";
 @import "minerva.mixins";
 
-
-.mw-mf-overlay .message {
-	font-size: 1.2em;
-	text-align: center;
-	padding: 8px;
-	border-bottom: solid 1px @headerBorderBottom;
-}
-
 .page-list {
+	// Give page-list a top border since page doesn't have a content-header
+	border-top: 1px solid @grayLightest;
+
 	li {
 		.proximity {
 			font-size: .8em;
@@ -18,9 +13,8 @@
 	}
 }
 
-// FIXME: has to specify tag to have precendence over button styling. Would be nice to be just .refresh
-a.refresh {
-	background: transparent url(images/refresh.png) no-repeat 50% 50%;
+.icon-refresh {
+	.background-image('images/refresh.png');
 }
 
 .client-js {
@@ -28,11 +22,4 @@ a.refresh {
 	.noscript {
 		display: none;
 	}
-}
-
-.mw-mf-overlay .content .listThumb {
-	width: 100px;
-	height: 100px;
-	float: left;
-	margin-right: 20px;
 }

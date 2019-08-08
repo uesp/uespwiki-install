@@ -53,7 +53,7 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 		$fields['abusefilter-history-select-user'] = Xml::input( 'user', 45, $user );
 
 		$filterForm = Xml::buildForm( $fields, 'abusefilter-history-select-submit' );
-		$filterForm .= "\n" . Html::hidden( 'title', $this->getTitle( "history/$filter" ) );
+		$filterForm .= "\n" . Html::hidden( 'title', $this->getTitle( "history/$filter" )->getPrefixedDBkey() );
 		$filterForm = Xml::tags( 'form',
 			array(
 				'action' => $this->getTitle( "history/$filter" )->getLocalURL(),
@@ -122,7 +122,8 @@ class AbuseFilterHistoryPager extends TablePager {
 
 		switch( $name ) {
 			case 'afh_filter':
-				$formatted = $lang->formatNum ( $row->afh_filter );
+				$formatted = Linker::link(
+					SpecialPage::getTitleFor( 'AbuseFilter', intval( $row->afh_filter ) ), $lang->formatNum ( $row->afh_filter ) );
 				break;
 			case 'afh_timestamp':
 				$title = SpecialPage::getTitleFor( 'AbuseFilter',

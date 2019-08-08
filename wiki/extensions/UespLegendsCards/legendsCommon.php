@@ -171,6 +171,15 @@ function CreateLegendsPopupImage($cardName, $imageBaseName, $outputPath = null, 
 	}
 	
 	$image = imagecreatefrompng($imageFilename);
+	
+	$srcWidth = imagesx($image);
+    $srcHeight = imagesy($image);
+    $srcRatio = $srcWidth / $srcHeight;
+	
+	$calcWidth = intval($srcRatio * $height);
+	$width = $calcWidth;
+	print("\t\tUsing resize of $width x $height ($srcWidth x $srcHeight, $srcRatio)\n");
+	
 	$resizeImage = imagecreatetruecolor($width, $height);
 	
 	if ($image == null || $resizeImage == null)

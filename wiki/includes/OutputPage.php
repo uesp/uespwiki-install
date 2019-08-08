@@ -122,6 +122,9 @@ class OutputPage extends ContextSource {
 	/** @var array */
 	protected $mCategories = array();
 
+	/** @var array */
+	protected $mIndicators = array();
+
 	/** @var array Array of Interwiki Prefixed (non DB key) Titles (e.g. 'fr:Test page') */
 	private $mLanguageLinks = array();
 
@@ -193,12 +196,6 @@ class OutputPage extends ContextSource {
 
 	// Parser related.
 
-	/**
-	 * @var int
-	 * @todo Unused?
-	 */
-	private $mContainsOldMagic = 0;
-
 	/** @var int */
 	protected $mContainsNewMagic = 0;
 
@@ -242,12 +239,13 @@ class OutputPage extends ContextSource {
 
 	/** @var int Cache stuff. Looks like mEnableClientCache */
 	protected $mSquidMaxage = 0;
-	/** @var int Upper limit on mSquidMaxage */
+	/** @var int Upper limit on mCdnMaxage */
 	protected $mCdnMaxageLimit = INF;
 
 	/**
-	 * @var bool
-	 * @todo Document
+	 * @var bool Controls if anti-clickjacking / frame-breaking headers will
+	 * be sent. This should be done for pages where edit actions are possible.
+	 * Setters: $this->preventClickjacking() and $this->allowClickjacking().
 	 */
 	protected $mPreventClickjacking = true;
 
@@ -785,7 +783,7 @@ class OutputPage extends ContextSource {
 			// bug 44570: the core page itself may not change, but resources might
 			$modifiedTimes['sepoch'] = wfTimestamp( TS_MW, time() - $config->get( 'SquidMaxage' ) );
 		}
-		wfRunHooks( 'OutputPageCheckLastModified', array( &$modifiedTimes ) );
+		Hooks::run( 'OutputPageCheckLastModified', array( &$modifiedTimes ) );
 
 		$maxModified = max( $modifiedTimes );
 		$this->mLastModified = wfTimestamp( TS_RFC2822, $maxModified );
@@ -1032,17 +1030,29 @@ class OutputPage extends ContextSource {
 	}
 
 	/**
+	 * Build message object for a subtitle containing a backlink to a page
+	 *
+	 * @param Title $title Title to link to
+	 * @param array $query Array of additional parameters to include in the link
+	 * @return Message
+	 * @since 1.25
+	 */
+	public static function buildBacklinkSubtitle( Title $title, $query = array() ) {
+		if ( $title->isRedirect() ) {
+			$query['redirect'] = 'no';
+		}
+		return wfMessage( 'backlinksubtitle' )
+			->rawParams( Linker::link( $title, null, array(), $query ) );
+	}
+
+	/**
 	 * Add a subtitle containing a backlink to a page
 	 *
 	 * @param Title $title Title to link to
 	 * @param array $query Array of additional parameters to include in the link
 	 */
 	public function addBacklinkSubtitle( Title $title, $query = array() ) {
-		if ( $title->isRedirect() ) {
-			$query['redirect'] = 'no';
-		}
-		$this->addSubtitle( $this->msg( 'backlinksubtitle' )
-			->rawParams( Linker::link( $title, null, array(), $query ) ) );
+		$this->addSubtitle( self::buildBacklinkSubtitle( $title, $query ) );
 	}
 
 	/**
@@ -1062,7 +1072,7 @@ class OutputPage extends ContextSource {
 	}
 
 	/**
-	 * Set the page as printable, i.e. it'll be displayed with with all
+	 * Set the page as printable, i.e. it'll be displayed with all
 	 * print styles included
 	 */
 	public function setPrintable() {
@@ -1312,7 +1322,7 @@ class OutputPage extends ContextSource {
 		}
 
 		# Add the remaining categories to the skin
-		if ( wfRunHooks(
+		if ( Hooks::run(
 			'OutputPageMakeCategoryLinks',
 			array( &$this, $categories, &$this->mCategoryLinks ) )
 		) {
@@ -1362,6 +1372,65 @@ class OutputPage extends ContextSource {
 	 */
 	public function getCategories() {
 		return $this->mCategories;
+	}
+
+	/**
+	 * Add an array of indicators, with their identifiers as array
+	 * keys and HTML contents as values.
+	 *
+	 * In case of duplicate keys, existing values are overwritten.
+	 *
+	 * @param array $indicators
+	 * @since 1.25
+	 */
+	public function setIndicators( array $indicators ) {
+		$this->mIndicators = $indicators + $this->mIndicators;
+		// Keep ordered by key
+		ksort( $this->mIndicators );
+	}
+
+	/**
+	 * Get the indicators associated with this page.
+	 *
+	 * The array will be internally ordered by item keys.
+	 *
+	 * @return array Keys: identifiers, values: HTML contents
+	 * @since 1.25
+	 */
+	public function getIndicators() {
+		return $this->mIndicators;
+	}
+
+	/**
+	 * Adds help link with an icon via page indicators.
+	 * Link target can be overridden by a local message containing a wikilink:
+	 * the message key is: lowercase action or special page name + '-helppage'.
+	 * @param string $to Target MediaWiki.org page title or encoded URL.
+	 * @param bool $overrideBaseUrl Whether $url is a full URL, to avoid MW.o.
+	 * @since 1.25
+	 */
+	public function addHelpLink( $to, $overrideBaseUrl = false ) {
+		$this->addModuleStyles( 'mediawiki.helplink' );
+		$text = $this->msg( 'helppage-top-gethelp' )->escaped();
+
+		if ( $overrideBaseUrl ) {
+			$helpUrl = $to;
+		} else {
+			$toUrlencoded = wfUrlencode( str_replace( ' ', '_', $to ) );
+			$helpUrl = "//www.mediawiki.org/wiki/Special:MyLanguage/$toUrlencoded";
+		}
+
+		$link = Html::rawElement(
+			'a',
+			array(
+				'href' => $helpUrl,
+				'target' => '_blank',
+				'class' => 'mw-helplink',
+			),
+			$text
+		);
+
+		$this->setIndicators( array( 'mw-helplink' => $link ) );
 	}
 
 	/**
@@ -1587,6 +1656,7 @@ class OutputPage extends ContextSource {
 	 * @param string $text
 	 * @param bool $linestart Is this the start of a line?
 	 * @param bool $interface Is this text in the user interface language?
+	 * @throws MWException
 	 */
 	public function addWikiText( $text, $linestart = true, $interface = true ) {
 		$title = $this->getTitle(); // Work around E_STRICT
@@ -1644,8 +1714,6 @@ class OutputPage extends ContextSource {
 	) {
 		global $wgParser;
 
-		wfProfileIn( __METHOD__ );
-
 		$popts = $this->parserOptions();
 		$oldTidy = $popts->setTidy( $tidy );
 		$popts->setInterfaceMessage( (bool)$interface );
@@ -1659,7 +1727,6 @@ class OutputPage extends ContextSource {
 
 		$this->addParserOutput( $parserOutput );
 
-		wfProfileOut( __METHOD__ );
 	}
 
 	/**
@@ -1683,6 +1750,7 @@ class OutputPage extends ContextSource {
 	public function addParserOutputMetadata( $parserOutput ) {
 		$this->mLanguageLinks += $parserOutput->getLanguageLinks();
 		$this->addCategoryLinks( $parserOutput->getCategories() );
+		$this->setIndicators( $parserOutput->getIndicators() );
 		$this->mNewSectionLink = $parserOutput->getNewSection();
 		$this->mHideNewSectionLink = $parserOutput->getHideNewSection();
 
@@ -1725,8 +1793,8 @@ class OutputPage extends ContextSource {
 		// Link flags are ignored for now, but may in the future be
 		// used to mark individual language links.
 		$linkFlags = array();
-		wfRunHooks( 'LanguageLinks', array( $this->getTitle(), &$this->mLanguageLinks, &$linkFlags ) );
-		wfRunHooks( 'OutputPageParserOutput', array( &$this, $parserOutput ) );
+		Hooks::run( 'LanguageLinks', array( $this->getTitle(), &$this->mLanguageLinks, &$linkFlags ) );
+		Hooks::run( 'OutputPageParserOutput', array( &$this, $parserOutput ) );
 	}
 
 	/**
@@ -1755,7 +1823,7 @@ class OutputPage extends ContextSource {
 	 */
 	public function addParserOutputText( $parserOutput ) {
 		$text = $parserOutput->getText();
-		wfRunHooks( 'OutputPageBeforeHTML', array( &$this, &$text ) );
+		Hooks::run( 'OutputPageBeforeHTML', array( &$this, &$text ) );
 		$this->addHTML( $text );
 	}
 
@@ -1890,7 +1958,7 @@ class OutputPage extends ContextSource {
 				),
 				$config->get( 'CacheVaryCookies' )
 			);
-			wfRunHooks( 'GetCacheVaryCookies', array( $this, &$cookies ) );
+			Hooks::run( 'GetCacheVaryCookies', array( $this, &$cookies ) );
 		}
 		return $cookies;
 	}
@@ -1946,6 +2014,11 @@ class OutputPage extends ContextSource {
 	 * @return string
 	 */
 	public function getVaryHeader() {
+		// If we vary on cookies, let's make sure it's always included here too.
+		if ( $this->getCacheVaryCookies() ) {
+			$this->addVaryHeader( 'Cookie' );
+		}
+
 		return 'Vary: ' . join( ', ', array_keys( $this->mVaryHeader ) );
 	}
 
@@ -2088,7 +2161,7 @@ class OutputPage extends ContextSource {
 		if ( $this->mEnableClientCache ) {
 			if (
 				$config->get( 'UseSquid' ) && session_id() == '' && !$this->isPrintable() &&
-				$this->mSquidMaxage != 0 /* && !$this->haveCacheVaryCookies() */
+				$this->mSquidMaxage != 0 && !$this->haveCacheVaryCookies()
 			) {
 				if ( $config->get( 'UseESI' ) ) {
 					# We'll purge the proxy cache explicitly, but require end user agents
@@ -2137,13 +2210,9 @@ class OutputPage extends ContextSource {
 	 * the object, let's actually output it:
 	 */
 	public function output() {
-		global $wgLanguageCode;
-
 		if ( $this->mDoNothing ) {
 			return;
 		}
-
-		wfProfileIn( __METHOD__ );
 
 		$response = $this->getRequest()->response();
 		$config = $this->getConfig();
@@ -2155,7 +2224,7 @@ class OutputPage extends ContextSource {
 			$redirect = $this->mRedirect;
 			$code = $this->mRedirectCode;
 
-			if ( wfRunHooks( "BeforePageRedirect", array( $this, &$redirect, &$code ) ) ) {
+			if ( Hooks::run( "BeforePageRedirect", array( $this, &$redirect, &$code ) ) ) {
 				if ( $code == '301' || $code == '303' ) {
 					if ( !$config->get( 'DebugRedirects' ) ) {
 						$message = HttpStatus::getMessage( $code );
@@ -2179,7 +2248,6 @@ class OutputPage extends ContextSource {
 				}
 			}
 
-			wfProfileOut( __METHOD__ );
 			return;
 		} elseif ( $this->mStatusCode ) {
 			$message = HttpStatus::getMessage( $this->mStatusCode );
@@ -2192,7 +2260,7 @@ class OutputPage extends ContextSource {
 		ob_start();
 
 		$response->header( 'Content-type: ' . $config->get( 'MimeType' ) . '; charset=UTF-8' );
-		$response->header( 'Content-language: ' . $wgLanguageCode );
+		$response->header( 'Content-language: ' . $config->get( 'LanguageCode' ) );
 
 		// Avoid Internet Explorer "compatibility view" in IE 8-10, so that
 		// jQuery etc. can work correctly.
@@ -2232,21 +2300,18 @@ class OutputPage extends ContextSource {
 
 			// Hook that allows last minute changes to the output page, e.g.
 			// adding of CSS or Javascript by extensions.
-			wfRunHooks( 'BeforePageDisplay', array( &$this, &$sk ) );
+			Hooks::run( 'BeforePageDisplay', array( &$this, &$sk ) );
 
-			wfProfileIn( 'Output-skin' );
 			$sk->outputPage();
-			wfProfileOut( 'Output-skin' );
 		}
 
 		// This hook allows last minute changes to final overall output by modifying output buffer
-		wfRunHooks( 'AfterFinalPageOutput', array( $this ) );
+		Hooks::run( 'AfterFinalPageOutput', array( $this ) );
 
 		$this->sendCacheControl();
 
 		ob_end_flush();
 
-		wfProfileOut( __METHOD__ );
 	}
 
 	/**
@@ -2466,90 +2531,32 @@ class OutputPage extends ContextSource {
 	}
 
 	/**
-	 * Display a page stating that the Wiki is in read-only mode,
-	 * and optionally show the source of the page that the user
-	 * was trying to edit.  Should only be called (for this
-	 * purpose) after wfReadOnly() has returned true.
+	 * Display a page stating that the Wiki is in read-only mode.
+	 * Should only be called after wfReadOnly() has returned true.
 	 *
-	 * For historical reasons, this function is _also_ used to
-	 * show the error message when a user tries to edit a page
-	 * they are not allowed to edit.  (Unless it's because they're
-	 * blocked, then we show blockedPage() instead.)  In this
-	 * case, the second parameter should be set to true and a list
-	 * of reasons supplied as the third parameter.
+	 * Historically, this function was used to show the source of the page that the user
+	 * was trying to edit and _also_ permissions error messages. The relevant code was
+	 * moved into EditPage in 1.19 (r102024 / d83c2a431c2a) and removed here in 1.25.
 	 *
-	 * @todo Needs to be split into multiple functions.
-	 *
-	 * @param string $source Source code to show (or null).
-	 * @param bool $protected Is this a permissions error?
-	 * @param array $reasons List of reasons for this error, as returned by
-	 *   Title::getUserPermissionsErrors().
-	 * @param string $action Action that was denied or null if unknown
+	 * @deprecated since 1.25; throw the exception directly
 	 * @throws ReadOnlyError
 	 */
-	public function readOnlyPage( $source = null, $protected = false,
-		array $reasons = array(), $action = null
-	) {
-		$this->setRobotPolicy( 'noindex,nofollow' );
-		$this->setArticleRelated( false );
-
-		// If no reason is given, just supply a default "I can't let you do
-		// that, Dave" message.  Should only occur if called by legacy code.
-		if ( $protected && empty( $reasons ) ) {
-			$reasons[] = array( 'badaccess-group0' );
+	public function readOnlyPage() {
+		if ( func_num_args() > 0 ) {
+			throw new MWException( __METHOD__ . ' no longer accepts arguments since 1.25.' );
 		}
 
-		if ( !empty( $reasons ) ) {
-			// Permissions error
-			if ( $source ) {
-				$this->setPageTitle( $this->msg( 'viewsource-title', $this->getTitle()->getPrefixedText() ) );
-				$this->addBacklinkSubtitle( $this->getTitle() );
-			} else {
-				$this->setPageTitle( $this->msg( 'badaccess' ) );
-			}
-			$this->addWikiText( $this->formatPermissionsErrorMessage( $reasons, $action ) );
-		} else {
-			// Wiki is read only
-			throw new ReadOnlyError;
-		}
-
-		// Show source, if supplied
-		if ( is_string( $source ) ) {
-			$this->addWikiMsg( 'viewsourcetext' );
-
-			$pageLang = $this->getTitle()->getPageLanguage();
-			$params = array(
-				'id' => 'wpTextbox1',
-				'name' => 'wpTextbox1',
-				'cols' => $this->getUser()->getOption( 'cols' ),
-				'rows' => $this->getUser()->getOption( 'rows' ),
-				'readonly' => 'readonly',
-				'lang' => $pageLang->getHtmlCode(),
-				'dir' => $pageLang->getDir(),
-			);
-			$this->addHTML( Html::element( 'textarea', $params, $source ) );
-
-			// Show templates used by this article
-			$templates = Linker::formatTemplates( $this->getTitle()->getTemplateLinksFrom() );
-			$this->addHTML( "<div class='templatesUsed'>
-$templates
-</div>
-" );
-		}
-
-		# If the title doesn't exist, it's fairly pointless to print a return
-		# link to it.  After all, you just tried editing it and couldn't, so
-		# what's there to do there?
-		if ( $this->getTitle()->exists() ) {
-			$this->returnToMain( null, $this->getTitle() );
-		}
+		throw new ReadOnlyError;
 	}
 
 	/**
 	 * Turn off regular page output and return an error response
 	 * for when rate limiting has triggered.
+	 *
+	 * @deprecated since 1.25; throw the exception directly
 	 */
 	public function rateLimited() {
+		wfDeprecated( __METHOD__, '1.25' );
 		throw new ThrottledError;
 	}
 
@@ -2725,7 +2732,7 @@ $templates
 
 		// Allow skins and extensions to add body attributes they need
 		$sk->addToBodyAttributes( $this, $bodyAttrs );
-		wfRunHooks( 'OutputPageBodyAttributes', array( $this, $sk, &$bodyAttrs ) );
+		Hooks::run( 'OutputPageBodyAttributes', array( $this, $sk, &$bodyAttrs ) );
 
 		$ret .= Html::openElement( 'body', $bodyAttrs ) . "\n";
 
@@ -2836,7 +2843,6 @@ $templates
 				);
 				$context = new ResourceLoaderContext( $resourceLoader, new FauxRequest( $query ) );
 
-
 				// Extract modules that know they're empty and see if we have one or more
 				// raw modules
 				$isRaw = false;
@@ -2917,11 +2923,11 @@ $templates
 						);
 					} else {
 						$link = Html::linkedScript( $url );
-						if ( $context->getOnly() === 'scripts' && !$context->getRaw() && !$isRaw ) {
-							// Wrap only=script requests in a conditional as browsers not supported
-							// by the startup module would unconditionally execute this module.
-							// Otherwise users will get "ReferenceError: mw is undefined" or
-							// "jQuery is undefined" from e.g. a "site" module.
+						if ( !$context->getRaw() && !$isRaw ) {
+							// Wrap only=script / only=combined requests in a conditional as
+							// browsers not supported by the startup module would unconditionally
+							// execute this module. Otherwise users will get "ReferenceError: mw is
+							// undefined" or "jQuery is undefined" from e.g. a "site" module.
 							$link = Html::inlineScript(
 								ResourceLoader::makeLoaderConditionalScript(
 									Xml::encodeJsCall( 'document.write', array( $link ) )
@@ -3120,7 +3126,7 @@ $templates
 		// This also enforces $.isReady to be true at </body> which fixes the
 		// mw.loader bug in Firefox with using document.write between </body>
 		// and the DOMContentReady event (bug 47457).
-		$html = Html::inlineScript( 'window.jQuery && jQuery.ready();' );
+		$html = Html::inlineScript( 'if(window.jQuery)jQuery.ready();' );
 
 		if ( !$this->getConfig()->get( 'ResourceLoaderExperimentalAsyncLoading' ) ) {
 			$html .= $this->getScriptsForBottomQueue( false );
@@ -3235,6 +3241,7 @@ $templates
 			'wgMonthNames' => $lang->getMonthNamesArray(),
 			'wgMonthNamesShort' => $lang->getMonthAbbreviationsArray(),
 			'wgRelevantPageName' => $relevantTitle->getPrefixedDBkey(),
+			'wgRelevantArticleId' => $relevantTitle->getArticleId(),
 		);
 
 		if ( $user->isLoggedIn() ) {
@@ -3275,7 +3282,7 @@ $templates
 		// Use the 'ResourceLoaderGetConfigVars' hook if the variable is not
 		// page-dependant but site-wide (without state).
 		// Alternatively, you may want to use OutputPage->addJsConfigVars() instead.
-		wfRunHooks( 'MakeGlobalVariablesScript', array( &$vars, $this ) );
+		Hooks::run( 'MakeGlobalVariablesScript', array( &$vars, $this ) );
 
 		// Merge in variables from addJsConfigVars last
 		return array_merge( $vars, $this->getJsConfigVars() );
@@ -3324,6 +3331,13 @@ $templates
 			'name' => 'generator',
 			'content' => "MediaWiki $wgVersion",
 		) );
+
+		if ( $config->get( 'ReferrerPolicy' ) !== false ) {
+			$tags['meta-referrer'] = Html::element( 'meta', array(
+				'name' => 'referrer',
+				'content' => $config->get( 'ReferrerPolicy' )
+			) );
+		}
 
 		$p = "{$this->mIndexPolicy},{$this->mFollowPolicy}";
 		if ( $p !== 'index,follow' ) {
@@ -3627,7 +3641,9 @@ $templates
 		$moduleStyles[] = 'user.groups';
 
 		// Per-user custom styles
-		if ( $this->getConfig()->get( 'AllowUserCss' ) && $this->getTitle()->isCssSubpage() && $this->userCanPreview() ) {
+		if ( $this->getConfig()->get( 'AllowUserCss' ) && $this->getTitle()->isCssSubpage()
+			&& $this->userCanPreview()
+		) {
 			// We're on a preview of a CSS subpage
 			// Exclude this page from the user module in case it's in there (bug 26283)
 			$link = $this->makeResourceLoaderLink( 'user', ResourceLoaderModule::TYPE_STYLES, false,
@@ -3825,12 +3841,13 @@ $templates
 	 * This function takes a number of message/argument specifications, wraps them in
 	 * some overall structure, and then parses the result and adds it to the output.
 	 *
-	 * In the $wrap, $1 is replaced with the first message, $2 with the second, and so
-	 * on. The subsequent arguments may either be strings, in which case they are the
-	 * message names, or arrays, in which case the first element is the message name,
-	 * and subsequent elements are the parameters to that message.
+	 * In the $wrap, $1 is replaced with the first message, $2 with the second,
+	 * and so on. The subsequent arguments may be either
+	 * 1) strings, in which case they are message names, or
+	 * 2) arrays, in which case, within each array, the first element is the message
+	 *    name, and subsequent elements are the parameters to that message.
 	 *
-	 * Don't use this for messages that are not in users interface language.
+	 * Don't use this for messages that are not in the user's interface language.
 	 *
 	 * For example:
 	 *
@@ -3841,7 +3858,7 @@ $templates
 	 *    $wgOut->addWikiText( "<div class='error'>\n"
 	 *        . wfMessage( 'some-error' )->plain() . "\n</div>" );
 	 *
-	 * The newline after opening div is needed in some wikitext. See bug 19226.
+	 * The newline after the opening div is needed in some wikitext. See bug 19226.
 	 *
 	 * @param string $wrap
 	 */
@@ -3915,5 +3932,17 @@ $templates
 	 */
 	public function sectionEditLinksEnabled() {
 		return $this->mEnableSectionEditLinks;
+	}
+
+	/**
+	 * Add ResourceLoader module styles for OOUI and set up the PHP implementation of it for use with
+	 * MediaWiki and this OutputPage instance.
+	 *
+	 * @since 1.25
+	 */
+	public function enableOOUI() {
+		OOUI\Theme::setSingleton( new OOUI\MediaWikiTheme() );
+		OOUI\Element::setDefaultDir( $this->getLanguage()->getDir() );
+		$this->addModuleStyles( 'oojs-ui.styles' );
 	}
 }

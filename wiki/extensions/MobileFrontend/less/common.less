@@ -31,10 +31,11 @@
 	bottom: 0;
 }
 
-#content_wrapper {
-	.error {
-		color: #C85353;
-		background: #FAE1E1 !important;
+// FIXME: Make default or delete based on outcome of T86366
+.alpha {
+	.view-border-box *,
+	.view-border-box {
+		.box-sizing(border-box);
 	}
 }
 
@@ -48,9 +49,9 @@
 }
 
 .inputs-box {
-	padding: 1px;
 	border: solid 1px @colorGray12;
 	border-radius: 5px;
+	overflow: hidden;
 	background: #fff;
 	margin: 0 0 .8em;
 	text-align: center;
@@ -78,13 +79,6 @@ textarea {
 	resize: none;
 }
 
-input:not([type=submit]), textarea {
-	background: #fff;
-	border: 1px solid @colorGray12;
-	border-radius: 3px;
-	padding: 5px;
-}
-
 // For old style forms
 // Special:MovePage?target=San%20Francisco
 // Special:Import
@@ -101,40 +95,17 @@ input:not([type=submit]), textarea {
 	min-width: 80%;
 }
 
-a {
-	text-decoration: none;
-	color: @linkColor;
-}
-
-a:visited {
-	color: #5a3696;
-}
-
-a:active {
-	color: #faa700;
-}
-
-a:hover {
-	text-decoration: underline;
-}
-
-a.new,
-a.new:visited,
-a.new:hover {
-	color: @redBase;
-}
-
-fieldset {
-	border: 1px solid @grayLight;
-	margin: 1em 0 1em 0;
-	padding: 0 1em 1em;
-	line-height: 1.5em;
-	display: block;
-}
-
 // Make sure last modified link has correct font size (it is outside of the content div)
-.top-bar {
+// FIXME: remove .top-bar once cache clears, .last-modified-bar replaces it
+.top-bar,
+.last-modified-bar {
 	font-size: .9em;
+}
+.alpha,
+.beta {
+	.last-modified-bar {
+		margin-top: 1.5em;
+	}
 }
 
 // FIXME: Remove this rule when cache is clear
@@ -160,7 +131,7 @@ fieldset {
 }
 
 .no-position-fixed {
-	#notifications {
+	.drawer {
 		bottom: 0;
 	}
 

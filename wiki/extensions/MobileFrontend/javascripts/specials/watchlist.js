@@ -1,35 +1,48 @@
-( function( M, $ ) {
-	var star = M.require( 'watchstar' ),
-		schema = M.require( 'loggingSchemas/MobileWebClickTracking' ),
-		pageName = mw.config.get( 'wgCanonicalSpecialPageName' ) === 'Watchlist' ? 'watchlist' : 'diff',
-		subPageName = M.query.watchlistview || 'a-z';
+( function ( M, $ ) {
+	var watchlist,
+		WatchList = M.require( 'modules/watchlist/WatchList' ),
+		SchemaMobileWebClickTracking = M.require( 'loggingSchemas/SchemaMobileWebClickTracking' ),
+		wlSchema = new SchemaMobileWebClickTracking( {}, 'MobileWebWatchlistClickTracking' ),
+		canonicalName = mw.config.get( 'wgCanonicalSpecialPageName' ),
+		pageName = canonicalName === 'EditWatchlist' || canonicalName === 'Watchlist' ? 'watchlist' : 'diff',
+		subPageName = mw.util.getParamValue( 'watchlistview' ) || 'a-z';
 
+	/**
+	 * Initialises JavaScript on Special:Watchlist
+	 * @method
+	 * @ignore
+	 */
 	function init() {
 		var $watchlist = $( 'ul.page-list' ),
 			actionNamePrefix = pageName + '-' + subPageName + '-';
 
 		// FIXME: find more elegant way to not show watchlist stars on recent changes
 		if ( $( '.mw-mf-watchlist-selector' ).length === 0 ) {
-			star.initWatchListIconList( $watchlist, true );
-			$watchlist.find( 'a.title' ).on( 'mousedown', function() {
-				// name funnel for watchlists to catch subsequent uploads
-				$.cookie( 'mwUploadsFunnel', 'watchlist', { expires: new Date( new Date().getTime() + 60000 ) } );
+			watchlist = new WatchList( {
+				el: $watchlist,
+				enhance: true
+			} );
+			watchlist.on( 'unwatch', function () {
+				wlSchema.log( {
+					name: actionNamePrefix + 'unwatch'
+				} );
+			} );
+			watchlist.on( 'watch', function () {
+				wlSchema.log( {
+					name: actionNamePrefix + 'watch'
+				} );
 			} );
 		}
+		// not needed now we have JS view which has infinite scrolling
+		$( '.more' ).remove();
 
 		// Register EventLogging events
-		schema.hijackLink( '.button-bar a', actionNamePrefix + 'switch' );
-		schema.hijackLink( '.mw-mf-watchlist-selector a', actionNamePrefix + 'filter' );
-		schema.hijackLink( '.page-list .title', actionNamePrefix + 'view' );
-		schema.hijackLink( '.more', actionNamePrefix + 'more' );
-
-		M.on( 'watched', function( isWatched ) {
-			var action = isWatched ? 'unwatch' : 'watch';
-			schema.log( actionNamePrefix + action );
-		} );
+		wlSchema.hijackLink( '.button-bar a', actionNamePrefix + 'switch' );
+		wlSchema.hijackLink( '.mw-mf-watchlist-selector a', actionNamePrefix + 'filter' );
+		wlSchema.hijackLink( '.page-list .title', actionNamePrefix + 'view' );
 	}
 
-	$( function() {
+	$( function () {
 		init();
 	} );
 

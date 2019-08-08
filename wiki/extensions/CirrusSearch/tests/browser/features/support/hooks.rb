@@ -2,9 +2,8 @@
 
 World(CirrusSearchApiHelper)
 
-
 main = false
-Before("@setup_main, @filters, @prefix, @bad_syntax, @wildcard, @exact_quotes") do
+Before("@setup_main, @filters, @prefix, @bad_syntax, @wildcard, @exact_quotes, @phrase_prefix") do
   unless main
     steps %(
       Given a page named Template:Template Test exists with contents pickles [[Category:TemplateTagged]]
@@ -15,6 +14,7 @@ Before("@setup_main, @filters, @prefix, @bad_syntax, @wildcard, @exact_quotes") 
       And a page named Two Words exists with contents ffnonesenseword catapult {{Template_Test}} anotherword [[Category:TwoWords]] [[Category:Categorywith Twowords]] [[Category:Categorywith " Quote]]
       And a page named AlphaBeta exists with contents [[Category:Alpha]] [[Category:Beta]]
       And a page named IHaveATwoWordCategory exists with contents [[Category:CategoryWith ASpace]]
+      And a page named Functional programming exists
       And a page named वाङ्मय exists
       And a page named वाङ्‍मय exists
       And a page named वाङ‍्मय exists
@@ -64,6 +64,7 @@ Before("@prefix") do
   unless prefix
     steps %(
       Given a page named L'Oréal exists
+      And a page named Jean-Yves Le Drian exists
         )
     prefix = true
   end
@@ -384,6 +385,10 @@ Before("@redirect") do
       And a page named Search Engine Optimization Redirecttest exists
       And a page named Redirecttest Yay exists
       And a page named User_talk:Search Engine Optimization Redirecttest exists
+      And a page named PrefixRedirectRanking 1 exists
+      And a page named LinksToPrefixRedirectRanking 1 exists with contents [[PrefixRedirectRanking 1]]
+      And a page named TargetOfPrefixRedirectRanking 2 exists
+      And a page named PrefixRedirectRanking 2 exists with contents #REDIRECT [[TargetOfPrefixRedirectRanking 2]]
         )
   end
   redirect = true
@@ -526,6 +531,7 @@ Before("@regex") do
       And a page named RegexEscapedBackslash exists with contents a\\b
       And a page named RegexEscapedDot exists with contents a.b
       And a page named RegexSpaces exists with contents a b c
+      And a page named RegexComplexResult exists with contents aaabacccccccccccccccdcccccccccccccccccccccccccccccdcccc
         )
   end
   regex = true

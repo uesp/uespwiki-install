@@ -102,9 +102,9 @@
 	"abusefilter-list-options-deleted-only": "Nëmme geläscht Filtere weisen",
 	"abusefilter-list-options-deleted-hide": "Geläscht Filtere verstoppen",
 	"abusefilter-list-options-deleted-show": "Geläscht Filteren matabezéien",
-	"abusefilter-list-options-scope": "Filtere weise vum:",
-	"abusefilter-list-options-scope-local": "Lokal Wiki",
-	"abusefilter-list-options-scope-global": "Global Regelen",
+	"abusefilter-list-options-scope": "Filtere weisen:",
+	"abusefilter-list-options-scope-local": "Nëmme lokal Regelen",
+	"abusefilter-list-options-scope-global": "Nëmme global Regelen",
 	"abusefilter-list-options-disabled": "Ausgeschalte Filteren",
 	"abusefilter-list-options-hidedisabled": "Ausgeschalte Filtere verstoppen",
 	"abusefilter-list-options-submit": "Aktualiséieren",
@@ -266,6 +266,7 @@
 	"abusefilter-edit-builder-vars-old-html": "Wikitext vun der aler Säit, an HTML-Format",
 	"abusefilter-edit-builder-vars-minor-edit": "Ob d'Ännerung als kleng markéiert gëtt oder net",
 	"abusefilter-edit-builder-vars-file-sha1": "SHA1-Hash vum Inhalt vum Fichier",
+	"abusefilter-edit-builder-vars-file-size": "Gréisst vum Fichier a Bytes",
 	"abusefilter-filter-log": "Rezent Ännerunge vu Filteren",
 	"abusefilter-history": "Historique vun den Ännerunge vum Mëssbrauchsfilter #$1",
 	"abusefilter-history-foruser": "Ännerunge vum $1",
@@ -372,5 +373,8 @@
 	"abusefilter-import-intro": "Dir kënnt dësen Interface benotze fir Filtere vun anere Wikien z'importéieren.\nKlickt op der originaler Wiki op \"{{int:abusefilter-edit-export}}\"  ënner \"{{int:abusefilter-edit-tools}}\" op dem Interface vun den Ännerungen.\nKopéiert vun der Textkëscht déi opgeet an dës Textkëscht a klickt op \"{{int:abusefilter-import-submit}}\",",
 	"abusefilter-import-submit": "Donnéeën importéieren",
 	"abusefilter-group-default": "Standard",
-	"abusefilter-http-error": "Et ass en HTTP-Feeler geschitt: $1."
+	"abusefilter-http-error": "Et ass en HTTP-Feeler geschitt: $1.",
+	"apihelp-abusefilterchecksyntax-description": "Syntax vun engem Mëssbrauchsfilter nokucken.",
+	"apihelp-query+abusefilters-description": "Detailer vum Mëssbrauchsfilter weisen",
+	"apihelp-query+abusefilters-example-2": "E puer Detailer iwwer Filtere weisen"
 }

@@ -1,128 +1,118 @@
 @import "minerva.variables";
 @import "minerva.mixins";
 
-// These are set as !important since they have to override styles set in VisualEditor
-// FIXME: Remove protected node once VE is correctly identifying which nodes are
-// supported in mobile.
-.ve-ce-alienNode-phantom,
-.ve-ce-protectedNode-phantom {
-	box-shadow: none !important;
-	opacity: 0.5 !important;
-	background-color: white !important;
-}
-
-.content {
-	// VisualEditor doesn't have section_heading class, so we need to apply
+.editor-overlay-ve .content {
+	// VisualEditor doesn't have collapsible-heading class, so we need to apply
 	// heading styles to the header tags directly.
 	h1, h2 {
 		margin-bottom: .5em;
 		border-bottom: solid 1px @sectionBorderColor;
+		overflow: hidden;
 	}
 
+	// Styling for images (as output by Parsiod)
+	// These styles are mostly derived from content.parsoid.less, which the Minerva skin
+	// opts out of (since the styles are largely Vectorish).
+	// FIXME: Once Parser and Parsoid output are synchronized, we'll want to move these
+	// from here into the regular Minerva content styles.
 	figure[typeof*='mw:Image'] {
-		&.mw-halign-left {
-			margin-right: 1.4em;
-		}
-
-		&.mw-halign-right {
-			margin-left: 1.4em;
-		}
-
-		.ve-ce-mwBlockImageNode-thumbimage {
-			border: none;
-		}
-	}
-
-	figure[typeof='mw:Image/Thumb'],
-	figure[typeof='mw:Image/Frame'] {
-		margin: 0.6em 0;
 		max-width: 100%;
 		background-color: transparent;
 		border: none;
 		padding: 0;
 		font-size: inherit;
+		// Defaults to right alignment when not explicitly set. Should be flippable.
+		margin: .6em 0 .6em 1.4em;
+
+		&.mw-halign-left {
+			/* @noflip */
+			margin: .6em 1.4em .6em 0;
+			/* @noflip */
+			clear: left;
+			/* @noflip */
+			float: left;
+		}
+
+		&.mw-halign-right {
+			/* @noflip */
+			margin: .6em 0 .6em 1.4em;
+			/* @noflip */
+			clear: right;
+			/* @noflip */
+			float: right;
+		}
+
+		&.mw-halign-center {
+			margin: .6em auto .6em auto;
+			clear: none;
+			float: none;
+		}
+
+		img {
+			border: none;
+		}
+
+		figcaption {
+			font-size: .8em;
+			line-height: 1.5;
+			padding: 0;
+			color: @grayMedium;
+		}
 	}
 }
 
 .editor-overlay-ve {
+	.pre-content {
+		color: @grayMediumDark;
+	}
+
+	#section_0 {
+		color: @grayMedium;
+		padding-top: 0;
+	}
+
+	// prevent disappearing after scrolling when -webkit-overflow-scrolling: touch
+	// is used (http://stackoverflow.com/a/10170170)
+	.overlay-content * {
+		-webkit-transform: translate3d(0,0,0);
+	}
+
 	// Toolbar
+	@baseIconSize: 24px;
+	@targetIconSize: 32px;
 	.overlay-header-container {
-		.overlay-header > .toolbar {
-			padding: 0;
-
-			// FIXME: Remove most of these resets once oo-ui supports skinning
-			// and no longer loads Vector-like styles by default in MediaWiki.
+		.toolbar {
+			border-left: 1px solid @grayLight;
+			// Expand the toolbar as wide as possible to limit the size of the
+			// overlay-action. (Both are displayed as table-cells.)
+			width: 100%;
+			.oo-ui-toolbar {
+				// Everything is measured in ems so the easiest way to scale
+				// is to change the base font size.
+				font-size: unit( @targetIconSize / @baseIconSize, em );
+				.oo-ui-iconElement-icon {
+					/* We should be able to use 'contain' here, but some OOUI icon containers are oversized (T85139) */
+					.background-size( @targetIconSize, @targetIconSize );
+				}
+			}
+			.oo-ui-tool-title,
+			.oo-ui-popupToolGroup-header {
+				// Undo font size increase for labels
+				font-size: unit( 0.9 / ( @targetIconSize / @baseIconSize ), em );
+			}
 			.oo-ui-toolbar-bar {
-				background-color: transparent;
-				background-image: none;
-				border-bottom: none;
-				padding: 0;
-
-				.oo-ui-toolGroup {
-					margin: 0;
-					border: none;
-				}
-
-				.oo-ui-toolbar-shadow {
-					display: none;
-				}
+				// Overlay toolbar has its own borders
+				border: 0;
 			}
-		}
-
-		.oo-ui-tool {
-			height: @headerHeight;
-			display: block;
-			float: left;
-			text-indent: -999px;
-			width: 24px;
-			padding: 0 12px;
-			position: relative;
-			// FIXME: Remove this reset once oo-ui supports skinning
-			border: none;
-			// FIXME: Remove this reset once oo-ui supports skinning
-			border-radius: 0;
-			margin: -@headerMargin 0 0 1em;
-
-			&.oo-ui-tool-active {
-				background-color: #EDF4FF;
+			// Convert 0.3em margin to padding to make clickable area larger
+			.oo-ui-toolGroup {
+				margin: 0;
 			}
-
-			* {
-				position: absolute;
-				right: 0;
-				top: 0;
-				left: 0;
-				bottom: 0;
-				display: block;
+			.oo-ui-barToolGroup .oo-ui-tool-link {
+				padding: 0.25em + 0.3em;
+				// Remove once MF box-sizing is fixed
+				.box-sizing( content-box );
 			}
-		}
-
-		// We may want to move these to an oojs-ui theme at some point. The down-side is
-		// that we wouldn't be able to use the @headerHeight LESS variable.
-		.oo-ui-barToolGroup {
-			.oo-ui-tool-link {
-				height: 100%;
-				padding: 0;
-				.box-sizing( border-box );
-
-				.oo-ui-iconedElement-icon {
-					width: @headerTitleFontSize + @headerTitleMarginV * 2;
-					height: @headerTitleFontSize + @headerTitleMarginV * 2;
-					margin-top: @headerMargin;
-					.background-size( 32px, 32px );
-				}
-			}
-		}
-
-		// FIXME: Remove these resets once oo-ui supports skinning
-		.oo-ui-tool-active:not(.oo-ui-widget-disabled) {
-			box-shadow: none;
-			border: none;
-		}
-
-		// FIXME: Remove these resets once oo-ui supports skinning
-		.oo-ui-tool:hover:not(.oo-ui-widget-disabled) {
-			border: none;
 		}
 	}
 }

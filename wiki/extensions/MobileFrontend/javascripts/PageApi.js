@@ -1,12 +1,16 @@
-( function( M, $ ) {
-	var Api = M.require( 'api' ).Api, PageApi,
-		sectionTemplate = M.template.get( 'sectionHeading.hogan' );
+( function ( M, $ ) {
+	var PageApi,
+		Api = M.require( 'api' ).Api,
+		sectionTemplate = mw.template.get( 'mobile.startup', 'Section.hogan' );
 
 	/**
 	 * Add child to listOfSections if the level of child is the same as the last
 	 * child of listOfSections, otherwise add it to the children of the last
 	 * section of listOfSections. If listOfSections is empty, just add child to it.
-	 * @param {Array} listOfSections
+	 * @method
+	 * @private
+	 * @ignore
+	 * @param {Array} listOfSections - Array of section ids
 	 * @param {Object} child - Section to be added to listOfSections
 	 */
 	function assignToParent( listOfSections, child ) {
@@ -28,18 +32,23 @@
 
 	/**
 	 * Order sections hierarchically
-	 * @param {Array} sections
-	 * @returns {Array}
+	 * @method
+	 * @private
+	 * @ignore
+	 * @param {Array} sections Array of section objects created from response HTML
+	 * @returns {Array} Ordered array of sections
 	 */
 	function transformSections( sections ) {
 		var
-			collapseLevel = Math.min.apply( this, $.map( sections, function( s ) { return s.level; } ) ) + '',
+			collapseLevel = Math.min.apply( this, $.map( sections, function ( s ) {
+				return s.level;
+			} ) ).toString(),
 			lastSection,
 			result = [];
 
 		// if the first section level is not equal to collapseLevel, this first
 		// section will not have a parent and will be appended to the result.
-		$.each( sections, function( i, section ) {
+		$.each( sections, function ( i, section ) {
 			if ( section.line !== undefined ) {
 				section.line = section.line.replace( /<\/?a\b[^>]*>/g, '' );
 			}
@@ -74,11 +83,13 @@
 	}
 
 	/**
+	 * API for providing Page data
 	 * @class PageApi
 	 * @extends Api
 	 */
 	PageApi = Api.extend( {
-		initialize: function() {
+		/** @inheritdoc */
+		initialize: function () {
 			Api.prototype.initialize.apply( this, arguments );
 			this.cache = {};
 		},
@@ -87,14 +98,20 @@
 		 * Retrieve a page from the api
 		 *
 		 * @method
-		 * @param {string} title the title of the page to be retrieved
-		 * @param {string} endpoint an alternative api url to retreive the page from
-		 * @param {boolean} leadOnly When set only the lead section content is returned
+		 * @param {String} title the title of the page to be retrieved
+		 * @param {String} endpoint an alternative api url to retrieve the page from
+		 * @param {Boolean} leadOnly When set only the lead section content is returned
 		 * @return {jQuery.Deferred} with parameter page data that can be passed to a Page view
 		 */
-		getPage: function( title, endpoint, leadOnly ) {
-			var options = endpoint ? { url: endpoint, dataType: 'jsonp' } : {}, page, timestamp,
-				protection = { edit:[ '*' ] };
+		getPage: function ( title, endpoint, leadOnly ) {
+			var page, timestamp,
+				options = endpoint ? {
+					url: endpoint,
+					dataType: 'jsonp'
+				} : {},
+				protection = {
+					edit: [ '*' ]
+				};
 
 			if ( !this.cache[title] ) {
 				page = this.cache[title] = $.Deferred();
@@ -108,14 +125,18 @@
 					noimages: mw.config.get( 'wgImagesDisabled', false ) ? 1 : undefined,
 					sectionprop: 'level|line|anchor',
 					sections: leadOnly ? 0 : 'all'
-				}, options ).done( function( resp ) {
+				}, options ).done( function ( resp ) {
 					var sections, lastModified, resolveObj, mv;
 
 					if ( resp.error || !resp.mobileview.sections ) {
 						page.reject( resp );
 					// FIXME: [LQT] remove when liquid threads is dead (see Bug 51586)
 					} else if ( resp.mobileview.hasOwnProperty( 'liquidthreads' ) ) {
-						page.reject( { error: { code: 'lqt' } } );
+						page.reject( {
+							error: {
+								code: 'lqt'
+							}
+						} );
 					} else {
 						mv = resp.mobileview;
 						sections = transformSections( mv.sections );
@@ -139,7 +160,9 @@
 							lead: sections[0].text,
 							sections: sections.slice( 1 ),
 							isMainPage: mv.hasOwnProperty( 'mainpage' ) ? true : false,
-							historyUrl: mw.util.getUrl( title, { action: 'history' } ),
+							historyUrl: mw.util.getUrl( title, {
+								action: 'history'
+							} ),
 							lastModifiedTimestamp: timestamp,
 							languageCount: mv.languagecount,
 							hasVariants: mv.hasOwnProperty( 'hasvariants' ),
@@ -164,9 +187,9 @@
 		 * Invalidate the internal cache for a given page
 		 *
 		 * @method
-		 * @param {string} title the title of the page who's cache you want to invalidate
+		 * @param {String} title the title of the page who's cache you want to invalidate
 		 */
-		invalidatePage: function( title ) {
+		invalidatePage: function ( title ) {
 			delete this.cache[title];
 		},
 
@@ -174,10 +197,11 @@
 		 * Gets language list for a page; helper function for getPageLanguages()
 		 *
 		 * @method
+		 * @private
 		 * @param  {Object} data Data from API
 		 * @return {Array} List of language objects
 		 */
-		_getLanguagesFromApiResponse: function( data ) {
+		_getLanguagesFromApiResponse: function ( data ) {
 			// allAvailableLanguages is a mapping of all codes to language names
 			var pages, langlinks, allAvailableLanguages = {};
 			$.each( data.query.languages, function ( index, item ) {
@@ -185,7 +209,9 @@
 			} );
 
 			// FIXME: API returns an object when a list makes much more sense
-			pages = $.map( data.query.pages, function( v ) { return v; } );
+			pages = $.map( data.query.pages, function ( v ) {
+				return v;
+			} );
 			// FIXME: "|| []" wouldn't be needed if API was more consistent
 			langlinks = pages[0] ? pages[0].langlinks || [] : [];
 
@@ -201,11 +227,12 @@
 		 * Gets language variant list for a page; helper function for getPageLanguages()
 		 *
 		 * @method
-		 * @param  {string} title Name of the page to obtain variants for
+		 * @private
+		 * @param  {String} title Name of the page to obtain variants for
 		 * @param  {Object} data Data from API
-		 * @return {Array} List of language variant objects
+		 * @return {Array|Boolean} List of language variant objects or false if no variants exist
 		 */
-		_getLanguageVariantsFromApiResponse: function( title, data ) {
+		_getLanguageVariantsFromApiResponse: function ( title, data ) {
 			var generalData = data.query.general,
 				variantPath = generalData.variantarticlepath,
 				variants = [];
@@ -225,7 +252,9 @@
 						.replace( '$1', title )
 						.replace( '$2', item.code );
 				} else {
-					variant.url = mw.util.getUrl( title, { 'variant' : item.code } );
+					variant.url = mw.util.getUrl( title, {
+						variant: item.code
+					} );
 				}
 				variants.push( variant );
 			} );
@@ -237,11 +266,13 @@
 		 * Retrieve available languages for a given title
 		 *
 		 * @method
-		 * @param {string} title the title of the page languages should be retrieved for
-		 * @return {jQuery.Deferred} which is called with an object containing langlinks and variant links
+		 * @param {String} title the title of the page languages should be retrieved for
+		 * @return {jQuery.Deferred} which is called with an object containing langlinks
+		 * and variant links
 		 */
-		getPageLanguages: function( title ) {
-			var self = this, result = $.Deferred();
+		getPageLanguages: function ( title ) {
+			var self = this,
+				result = $.Deferred();
 
 			self.get( {
 					action: 'query',
@@ -251,7 +282,7 @@
 					llurl: true,
 					lllimit: 'max',
 					titles: title
-				} ).done( function( resp ) {
+				} ).done( function ( resp ) {
 					result.resolve( {
 						languages: self._getLanguagesFromApiResponse( resp ),
 						variants: self._getLanguageVariantsFromApiResponse( title, resp )
@@ -261,21 +292,39 @@
 			return result;
 		},
 
-		// FIXME: Where's a better place for these two functions to live?
-		_getAPIResponseFromHTML: function( $el ) {
+		/**
+		 * Extract sections from headings in $el
+		 * @method
+		 * @private
+		 * @param {jQuery.Object} $el object from which sections are extracted
+		 * @returns {Array} Array of section objects created from headings in $el
+		 * FIXME: Where's a better place for these two functions to live?
+		 */
+		_getAPIResponseFromHTML: function ( $el ) {
 			var $headings = $el.find( 'h1,h2,h3,h4,h5,h6' ),
 				sections = [];
 
-			$headings.each( function() {
+			$headings.each( function () {
 				var level = $( this )[0].tagName.substr( 1 ),
 					$span = $( this ).find( 'span' );
 
-				sections.push( { level: level, line: $span.html(), anchor: $span.attr( 'id' ) || '', text: '' } );
+				sections.push( {
+					level: level,
+					line: $span.html(),
+					anchor: $span.attr( 'id' ) || '',
+					text: ''
+				} );
 			} );
 			return sections;
 		},
 
-		getSectionsFromHTML: function( $el ) {
+		/**
+		 * Order sections hierarchically
+		 * @method
+		 * @param {jQuery.Object} $el object from which sections are extracted
+		 * @returns {Array} Ordered array of sections
+		 */
+		getSectionsFromHTML: function ( $el ) {
 			return transformSections( this._getAPIResponseFromHTML( $el ) );
 		}
 	} );

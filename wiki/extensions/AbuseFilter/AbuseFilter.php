@@ -21,6 +21,7 @@ $wgExtensionCredits['antispam'][] = array(
 	'author' => array( 'Andrew Garrett', 'River Tarnell', 'Victor Vasiliev', 'Marius Hoch' ),
 	'descriptionmsg' => 'abusefilter-desc',
 	'url' => 'https://www.mediawiki.org/wiki/Extension:AbuseFilter',
+	'license-name' => 'GPL-2.0+',
 );
 
 $dir = __DIR__;
@@ -32,24 +33,35 @@ $wgAutoloadClasses['AbuseFilter'] = "$dir/AbuseFilter.class.php";
 $wgAutoloadClasses['AbuseFilterParser'] = "$dir/AbuseFilter.parser.php";
 $wgAutoloadClasses['AbuseFilterHooks'] = "$dir/AbuseFilter.hooks.php";
 $wgAutoloadClasses['SpecialAbuseLog'] = "$dir/special/SpecialAbuseLog.php";
+$wgAutoloadClasses['AbuseLogPager'] = "$dir/special/SpecialAbuseLog.php";
 $wgAutoloadClasses['SpecialAbuseFilter'] = "$dir/special/SpecialAbuseFilter.php";
 $wgAutoloadClasses['AbuseLogHitFormatter'] = "$dir/AbuseLogHitFormatter.php";
 
 $wgAutoloadClasses['AbuseFilterViewList'] = "$dir/Views/AbuseFilterViewList.php";
+$wgAutoloadClasses['AbuseFilterPager'] = "$dir/Views/AbuseFilterViewList.php";
+$wgAutoloadClasses['GlobalAbuseFilterPager'] = "$dir/Views/AbuseFilterViewList.php";
 $wgAutoloadClasses['AbuseFilterView'] = "$dir/Views/AbuseFilterView.php";
 $wgAutoloadClasses['AbuseFilterViewEdit'] = "$dir/Views/AbuseFilterViewEdit.php";
 $wgAutoloadClasses['AbuseFilterViewTools'] = "$dir/Views/AbuseFilterViewTools.php";
 $wgAutoloadClasses['AbuseFilterViewHistory'] = "$dir/Views/AbuseFilterViewHistory.php";
+$wgAutoloadClasses['AbuseFilterHistoryPager'] = "$dir/Views/AbuseFilterViewHistory.php";
 $wgAutoloadClasses['AbuseFilterViewRevert'] = "$dir/Views/AbuseFilterViewRevert.php";
 $wgAutoloadClasses['AbuseFilterViewTestBatch'] = "$dir/Views/AbuseFilterViewTestBatch.php";
 $wgAutoloadClasses['AbuseFilterViewExamine'] = "$dir/Views/AbuseFilterViewExamine.php";
-$wgAutoloadClasses['AbuseFilterChangesList'] = "$dir/Views/AbuseFilterViewExamine.php";
+$wgAutoloadClasses['AbuseFilterExaminePager'] = "$dir/Views/AbuseFilterViewExamine.php";
+$wgAutoloadClasses['AbuseFilterChangesList'] = "$dir/Views/AbuseFilterView.php";
 $wgAutoloadClasses['AbuseFilterViewDiff'] = "$dir/Views/AbuseFilterViewDiff.php";
+$wgAutoloadClasses['TableDiffFormatterFullContext'] = "$dir/Views/AbuseFilterViewDiff.php";
 $wgAutoloadClasses['AbuseFilterViewImport'] = "$dir/Views/AbuseFilterViewImport.php";
 
 $wgAutoloadClasses['AbuseFilterVariableHolder'] = "$dir/AbuseFilterVariableHolder.php";
 $wgAutoloadClasses['AFComputedVariable'] = "$dir/AbuseFilterVariableHolder.php";
 $wgAutoloadClasses['AFPData'] = "$dir/AbuseFilter.parser.php";
+$wgAutoloadClasses['AFPException'] = "$dir/AbuseFilter.parser.php";
+$wgAutoloadClasses['AFPParserState'] = "$dir/AbuseFilter.parser.php";
+$wgAutoloadClasses['AFPRegexErrorHandler'] = "$dir/AbuseFilter.parser.php";
+$wgAutoloadClasses['AFPToken'] = "$dir/AbuseFilter.parser.php";
+$wgAutoloadClasses['AFPUserVisibleException'] = "$dir/AbuseFilter.parser.php";
 
 $wgSpecialPages['AbuseLog'] = 'SpecialAbuseLog';
 $wgSpecialPages['AbuseFilter'] = 'SpecialAbuseFilter';
@@ -78,11 +90,13 @@ if ( defined( 'MW_SUPPORTS_CONTENTHANDLER' ) ) {
 
 $wgHooks['GetAutoPromoteGroups'][] = 'AbuseFilterHooks::onGetAutoPromoteGroups';
 $wgHooks['AbortMove'][] = 'AbuseFilterHooks::onAbortMove';
+$wgHooks['MovePageCheckPermissions'][] = 'AbuseFilterHooks::onMovePageCheckPermissions';
 $wgHooks['AbortNewAccount'][] = 'AbuseFilterHooks::onAbortNewAccount';
 $wgHooks['AbortAutoAccount'][] = 'AbuseFilterHooks::onAbortAutoAccount';
 $wgHooks['ArticleDelete'][] = 'AbuseFilterHooks::onArticleDelete';
 $wgHooks['RecentChange_save'][] = 'AbuseFilterHooks::onRecentChangeSave';
 $wgHooks['ListDefinedTags'][] = 'AbuseFilterHooks::onListDefinedTags';
+$wgHooks['ChangeTagsListActive'][] = 'AbuseFilterHooks::onChangeTagsListActive';
 $wgHooks['LoadExtensionSchemaUpdates'][] = 'AbuseFilterHooks::onLoadExtensionSchemaUpdates';
 $wgHooks['ContributionsToolLinks'][] = 'AbuseFilterHooks::onContributionsToolLinks';
 $wgHooks['UploadVerifyFile'][] = 'AbuseFilterHooks::onUploadVerifyFile';
@@ -215,4 +229,6 @@ $wgAbuseFilterDefaultWarningMessage = array(
 	'default' => 'abusefilter-warning',
 );
 
+// Age used as cutoff when purging old IP log data.
+// Used by maintenance script purgeOldLogIPData.php
 $wgAbuseFilterLogIPMaxAge  = 3 * 30 * 24 * 3600; // 3 months

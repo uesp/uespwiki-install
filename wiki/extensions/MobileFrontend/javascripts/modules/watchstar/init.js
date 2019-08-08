@@ -1,30 +1,27 @@
-( function( M, $ ) {
+( function ( M, $ ) {
 
 	var Watchstar = M.require( 'modules/watchstar/Watchstar' ),
+		skin = M.require( 'skin' ),
 		user = M.require( 'user' );
 
 	/**
 	 * Toggle the watch status of a known page
 	 * @method
 	 * @param {Page} page
-	 * @param {boolean} isWatched (optional) if undefined this will result in an API hit
+	 * @ignore
 	 */
-	function init( page, isWatched ) {
+	function init( page ) {
 		var $container = $( '#ca-watch' );
-		new Watchstar( {
-			el: $container,
-			isWatched: isWatched,
-			page: page,
-			isAnon: user.isAnon()
-		} );
-	}
-	$( function() {
-		var isWatched = $( '#ca-watch' ).hasClass( 'watched' );
-		if ( !M.inNamespace( 'special' ) ) {
-			// FIXME: isWatched property should be part of the page object and returned by api mobileview
-			init( M.getCurrentPage(), isWatched );
-			M.on( 'page-loaded', init );
+		if ( !page.inNamespace( 'special' ) ) {
+			new Watchstar( {
+				el: $container,
+				isWatched: page.isWatched(),
+				page: page,
+				isAnon: user.isAnon()
+			} );
+			skin.emit( 'changed' );
 		}
-	} );
+	}
+	init( M.getCurrentPage() );
 
 }( mw.mobileFrontend, jQuery ) );

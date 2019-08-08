@@ -33,7 +33,6 @@ use \JobQueueGroup;
 $wgAutoloadClasses[ 'CirrusSearch\Jenkins\CleanSetup' ] = __DIR__ . '/cleanSetup.php';
 $wgAutoloadClasses[ 'CirrusSearch\Jenkins\NukeAllIndexes' ] = __DIR__ . '/nukeAllIndexes.php';
 $wgHooks[ 'LoadExtensionSchemaUpdates' ][] = 'CirrusSearch\Jenkins\Jenkins::installDatabaseUpdatePostActions';
-$wgHooks[ 'BeforeInitialize' ][] = 'CirrusSearch\Jenkins\Jenkins::recyclePruneAndUndelayJobs';
 $wgHooks[ 'PageContentLanguage' ][] = 'CirrusSearch\Jenkins\Jenkins::setLanguage';
 
 // Dependencies
@@ -49,8 +48,10 @@ require_once( "$IP/extensions/Cite/Cite.php" );
 $wgSearchType = 'CirrusSearch';
 $wgCirrusSearchUseExperimentalHighlighter = true;
 $wgCirrusSearchOptimizeIndexForExperimentalHighlighter = true;
-$wgCirrusSearchWikimediaExtraPlugin = array(
-	'regex' => array( 'build', 'use' ),
+$wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] = array( 'build', 'use' );
+$wgCirrusSearchWikimediaExtraPlugin[ 'safer' ] = array(
+	'phrase' => array(
+	)
 );
 
 $wgOggThumbLocation = '/usr/bin/oggThumb';
@@ -62,18 +63,19 @@ $wgUseInstantCommons = true;
 $wgEnableUploads = true;
 $wgJobTypeConf['default'] = array(
 	'class' => 'JobQueueRedis',
+	'daemonized'  => true,
 	'order' => 'fifo',
 	'redisServer' => 'localhost',
 	'checkDelay' => true,
 	'redisConfig' => array(
-		'password' => '',
+		'password' => null,
 	),
 );
 $wgJobQueueAggregator = array(
 	'class'       => 'JobQueueAggregatorRedis',
 	'redisServer' => 'localhost',
 	'redisConfig' => array(
-		'password' => '',
+		'password' => null,
 	),
 );
 $wgCiteEnablePopups = true;
@@ -85,6 +87,46 @@ $wgShowExceptionDetails = true;
 $wgCirrusSearchLanguageWeight[ 'user' ] = 10.0;
 $wgCirrusSearchLanguageWeight[ 'wiki' ] = 5.0;
 
+if ( class_exists( 'PoolCounter_Client' ) ) {
+	// If the pool counter is around set up prod like pool counter settings
+	$wgPoolCounterConf[ 'CirrusSearch-Search' ] = array(
+		'class' => 'PoolCounter_Client',
+		'timeout' => 15,
+		'workers' => 432,
+		'maxqueue' => 600,
+	);
+	// Super common and mostly fast
+	$wgPoolCounterConf[ 'CirrusSearch-Prefix' ] = array(
+		'class' => 'PoolCounter_Client',
+		'timeout' => 15,
+		'workers' => 432,
+		'maxqueue' => 600,
+	);
+	// Regex searches are much heavier then regular searches so we limit the
+	// concurrent number.
+	$wgPoolCounterConf[ 'CirrusSearch-Regex' ] = array(
+		'class' => 'PoolCounter_Client',
+		'timeout' => 60,
+		'workers' => 10,
+		'maxqueue' => 20,
+	);
+	// These should be very very fast and reasonably rare
+	$wgPoolCounterConf[ 'CirrusSearch-NamespaceLookup' ] = array(
+		'class' => 'PoolCounter_Client',
+		'timeout' => 5,
+		'workers' => 50,
+		'maxqueue' => 200,
+	);
+	// Can't be enabled until poolcounter gets Ie282b8486c7bad451fbc5fb9a8274c6e01a728a7.
+	// TODO enable this.
+	// $wgPoolCounterConf[ 'CirrusSearch-PerUser' ] = array(
+	// 	'class' => 'PoolCounter_Client',
+	// 	'timeout' => 0,
+	// 	'workers' => 1,
+	// 	'maxqueue' => 1,
+	// );
+}
+
 class Jenkins {
 	/**
 	 * Installs maintenance scripts that provide a clean Elasticsearch index for testing.
@@ -92,29 +134,9 @@ class Jenkins {
 	 * @return bool true so we let other extensions install more maintenance actions
 	 */
 	public static function installDatabaseUpdatePostActions( $updater ) {
-		$updater->addPostDatabaseUpdateMaintenance( 'CirrusSearch\Jenkins\NukeAllIndexes');
-		$updater->addPostDatabaseUpdateMaintenance( 'CirrusSearch\Jenkins\CleanSetup');
+		$updater->addPostDatabaseUpdateMaintenance( 'CirrusSearch\Jenkins\NukeAllIndexes' );
+		$updater->addPostDatabaseUpdateMaintenance( 'CirrusSearch\Jenkins\CleanSetup' );
 		return true;
-	}
-
-	public static function recyclePruneAndUndelayJobs( $special, $subpage ) {
-		$jobsToUndelay = array(
-			'cirrusSearchIncomingLinkCount',
-			'cirrusSearchLinksUpdateSecondary',
-			'cirrusSearchLinksUpdate',
-			'cirrusSearchLinksUpdatePrioritized'
-		);
-		foreach ( $jobsToUndelay as $type ) {
-			$jobQueue = JobQueueGroup::singleton()->get( $type );
-			if ( !$jobQueue ) {
-				continue;
-			}
-			$count = $jobQueue->recyclePruneAndUndelayJobs();
-			if ( !$count ) {
-				continue;
-			}
-			JobQueueAggregator::singleton()->notifyQueueNonEmpty( $jobQueue->getWiki(), $type );
-		}
 	}
 
 	/**

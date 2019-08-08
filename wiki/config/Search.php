@@ -5,7 +5,7 @@
 # It is included by LocalSettings.php.
 #
 
-require_once( "$IP/extensions/Elastica/Elastica.php");
+wfLoadExtension( "Elastica" );
 require_once( "$IP/extensions/CirrusSearch/CirrusSearch.php" );
 $wgDisableSearchUpdate = false;
 $wgCirrusSearchServers = array( $UESP_SERVER_SEARCH );

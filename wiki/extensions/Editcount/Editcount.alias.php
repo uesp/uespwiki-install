@@ -29,6 +29,16 @@ $specialPageAliases['as'] = array(
 	'Editcount' => array( 'সম্পাদনা_গণনা' ),
 );
 
+/** Avaric (авар) */
+$specialPageAliases['av'] = array(
+	'Editcount' => array( 'Счётчик_правок' ),
+);
+
+/** Western Balochi (بلوچی رخشانی) */
+$specialPageAliases['bgn'] = array(
+	'Editcount' => array( 'دستکاری_ئانی_اندازه_گ' ),
+);
+
 /** Banjar (Bahasa Banjar) */
 $specialPageAliases['bjn'] = array(
 	'Editcount' => array( 'Jumlah_babakan' ),
@@ -51,7 +61,7 @@ $specialPageAliases['de'] = array(
 
 /** Zazaki (Zazaki) */
 $specialPageAliases['diq'] = array(
-	'Editcount' => array( 'AmareyaVurnayışan' ),
+	'Editcount' => array( 'AmarêVurnayışan' ),
 );
 
 /** Lower Sorbian (dolnoserbski) */
@@ -199,7 +209,7 @@ $specialPageAliases['myv'] = array(
 	'Editcount' => array( 'ВитнеманьПетнеманьЦёт' ),
 );
 
-/** Nahuatl (Nāhuatl) */
+/** Nāhuatl (Nāhuatl) */
 $specialPageAliases['nah'] = array(
 	'Editcount' => array( 'TlapatlaliztliTlapōhualiztli', 'Ediciones' ),
 );
@@ -304,7 +314,12 @@ $specialPageAliases['uk'] = array(
 	'Editcount' => array( 'Лічильник_редагувань' ),
 );
 
-/** vèneto (vèneto) */
+/** Urdu (اردو) */
+$specialPageAliases['ur'] = array(
+	'Editcount' => array( 'شمار_ترامیم' ),
+);
+
+/** Venetian (vèneto) */
 $specialPageAliases['vec'] = array(
 	'Editcount' => array( 'ContaContributi' ),
 );

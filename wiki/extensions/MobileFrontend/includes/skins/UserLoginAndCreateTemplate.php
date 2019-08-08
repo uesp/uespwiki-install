@@ -1,4 +1,7 @@
 <?php
+/**
+ * UserLoginAndCreateTemplate.php
+ */
 
 /**
  * Template overloader for user login and account cration templates
@@ -8,12 +11,15 @@
  * special mobile-specific magic.
  */
 abstract class UserLoginAndCreateTemplate extends QuickTemplate {
+	/** @var array $actionMessagesHeaders Message keys for site links */
 	protected $pageMessageHeaders = array(
 		'Uploads' => 'mobile-frontend-donate-image-login',
 		'Watchlist' => 'mobile-frontend-watchlist-purpose',
 	);
+	/** @var array $actionMessages Message keys for site links */
 	protected $pageMessages = array();
 
+	/** @var array $actionMessagesHeaders Message keys for page actions */
 	protected $actionMessageHeaders = array(
 		'watch' => 'mobile-frontend-watchlist-purpose',
 		'edit' => 'mobile-frontend-edit-login',
@@ -21,6 +27,10 @@ abstract class UserLoginAndCreateTemplate extends QuickTemplate {
 		'' => 'mobile-frontend-generic-login',
 	);
 
+	/**
+	 * Message keys for page actions
+	 * @var array $actionMessages
+	 */
 	protected $actionMessages = array();
 
 	/**
@@ -29,19 +39,25 @@ abstract class UserLoginAndCreateTemplate extends QuickTemplate {
 	 * Does not call the parent's constructor to prevent overwriting
 	 * $this->data and $this->translatorobject since we're essentially
 	 * just hijacking the existing template and its data here.
-	 * @param QuickTemplate $template: The original template object to overwrite
+	 * @param QuickTemplate $template The original template object to overwrite
 	 */
 	public function __construct( $template ) {
 		$this->copyObjectProperties( $template );
 	}
 
-	protected function renderMessageHtml() {
+	/**
+	 * Render message box with system messages, e.g. errors or already logged-in notices
+	 *
+	 * @param bool $register Whether the user can register an account
+	 */
+	protected function renderMessageHtml( $register = false ) {
 		$msgBox = ''; // placeholder for displaying any login-related system messages (eg errors)
 
 		// Render logged-in notice (beta/alpha)
 		if ( $this->data['loggedin'] ) {
+			$msg = ( $register ) ? 'mobile-frontend-userlogin-loggedin-register' : 'userlogin-loggedin';
 			$msgBox .= Html::element( 'div', array( 'class' => 'alert warning' ),
-				wfMessage( 'userlogin-loggedin' )->params(
+				wfMessage( $msg )->params(
 					$this->data['loggedinuser'] )->parse() );
 		}
 
@@ -68,10 +84,10 @@ abstract class UserLoginAndCreateTemplate extends QuickTemplate {
 
 	/**
 	 * Copy public properties of one object to this one
-	 * @param object $obj: The object whose properties should be copied
+	 * @param QuickTemplate $tpl The object whose properties should be copied
 	 */
-	protected function copyObjectProperties( $obj ) {
-		foreach( get_object_vars( $obj ) as $prop => $value ) {
+	protected function copyObjectProperties( $tpl ) {
+		foreach ( get_object_vars( $tpl ) as $prop => $value ) {
 			$this->$prop = $value;
 		}
 	}
@@ -86,6 +102,7 @@ abstract class UserLoginAndCreateTemplate extends QuickTemplate {
 
 	/**
 	 * Prepare template data if an anon is attempting to log in after watching an article
+	 * @return string
 	 */
 	protected function getArticleTitleToWatch() {
 		$ret = '';
@@ -122,6 +139,11 @@ abstract class UserLoginAndCreateTemplate extends QuickTemplate {
 	 */
 	protected function getGuiderMessage() {
 		$req = $this->getRequestContext()->getRequest();
+		// omit UserLogin's own messages in this template to avoid duplicate messages - bug T73771, T86031
+		if ( $this->data['messagetype'] !== 'error' ) {
+			$this->data['message'] = '';
+		}
+
 		if ( $req->getVal( 'returnto' )
 			&& ( $title = Title::newFromText( $req->getVal( 'returnto' ) ) )
 		) {
@@ -173,6 +195,9 @@ abstract class UserLoginAndCreateTemplate extends QuickTemplate {
 		}
 	}
 
+	/**
+	 * Display Mobile Frontend specific logo over login form.
+	 */
 	protected function getLogoHtml() {
 		global $wgMobileFrontendLogo;
 

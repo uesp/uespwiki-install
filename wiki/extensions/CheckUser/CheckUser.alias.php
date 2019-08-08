@@ -33,6 +33,12 @@ $specialPageAliases['as'] = array(
 	'CheckUserLog' => array( 'সদস্যৰ_অভিলেখ_চাওক' ),
 );
 
+/** Avaric (авар) */
+$specialPageAliases['av'] = array(
+	'CheckUser' => array( 'Проверить_участника' ),
+	'CheckUserLog' => array( 'Журнал_проверок_участников' ),
+);
+
 /** Bashkir (башҡортса) */
 $specialPageAliases['ba'] = array(
 	'CheckUser' => array( 'CheckUser' ),
@@ -42,6 +48,12 @@ $specialPageAliases['ba'] = array(
 /** Bulgarian (български) */
 $specialPageAliases['bg'] = array(
 	'CheckUser' => array( 'Проверка_на_потребител' ),
+);
+
+/** Western Balochi (بلوچی رخشانی) */
+$specialPageAliases['bgn'] = array(
+	'CheckUser' => array( 'کارمرزوکی_تلاشی_کورتین' ),
+	'CheckUserLog' => array( 'کارمرزوکی_تلاشی_ئی_سیاهه' ),
 );
 
 /** Banjar (Bahasa Banjar) */
@@ -118,7 +130,8 @@ $specialPageAliases['fa'] = array(
 
 /** Finnish (suomi) */
 $specialPageAliases['fi'] = array(
-	'CheckUser' => array( 'Tarkista_käyttäjä' ),
+	'CheckUser' => array( 'Tarkasta_käyttäjä' ),
+	'CheckUserLog' => array( 'Osoitepaljastusloki' ),
 );
 
 /** French (français) */
@@ -169,7 +182,7 @@ $specialPageAliases['hsb'] = array(
 	'CheckUser' => array( 'Kontrolny_wužiwar' ),
 );
 
-/** 湘语 (湘语) */
+/** Xiang Chinese (湘语) */
 $specialPageAliases['hsn'] = array(
 	'CheckUser' => array( '检查用户' ),
 );
@@ -241,6 +254,18 @@ $specialPageAliases['lb'] = array(
 	'CheckUserLog' => array( 'Logbuch_vun_der_Benotzerkontroll' ),
 );
 
+/** لوری (لوری) */
+$specialPageAliases['lrc'] = array(
+	'CheckUser' => array( 'وارسی_کاریار' ),
+	'CheckUserLog' => array( 'پهرستنومه_وارسی_کاریار' ),
+);
+
+/** Malagasy (Malagasy) */
+$specialPageAliases['mg'] = array(
+	'CheckUser' => array( 'Mpanamarina_mpikambana', 'MpanamarinaMpikambana' ),
+	'CheckUserLog' => array( 'LaogimpanamarinaMpikambana' ),
+);
+
 /** Minangkabau (Baso Minangkabau) */
 $specialPageAliases['min'] = array(
 	'CheckUser' => array( 'ParesoPangguno' ),
@@ -267,6 +292,7 @@ $specialPageAliases['mr'] = array(
 /** Malay (Bahasa Melayu) */
 $specialPageAliases['ms'] = array(
 	'CheckUser' => array( 'Perisik' ),
+	'CheckUserLog' => array( 'Log_perisik' ),
 );
 
 /** Erzya (эрзянь) */
@@ -295,6 +321,12 @@ $specialPageAliases['nl'] = array(
 /** Occitan (occitan) */
 $specialPageAliases['oc'] = array(
 	'CheckUser' => array( 'Verificator_d’adreça', 'VerificatorAdreça', 'VerificatorAdreca' ),
+);
+
+/** Punjabi (ਪੰਜਾਬੀ) */
+$specialPageAliases['pa'] = array(
+	'CheckUser' => array( 'ਚੈੱਕ_ਵਰਤੋਂਕਾਰ' ),
+	'CheckUserLog' => array( 'ਚੈੱਕ_ਵਰਤੋਂਕਾਰ_ਚਿੱਠਾ' ),
 );
 
 /** Portuguese (português) */
@@ -386,7 +418,7 @@ $specialPageAliases['ur'] = array(
 	'CheckUserLog' => array( 'نوشتہ_صارف_پڑتال' ),
 );
 
-/** vèneto (vèneto) */
+/** Venetian (vèneto) */
 $specialPageAliases['vec'] = array(
 	'CheckUser' => array( 'ControlaUtente' ),
 );
@@ -402,6 +434,11 @@ $specialPageAliases['vi'] = array(
 	'CheckUserLog' => array( 'Nhật_trình_kiểm_tra_người_dùng' ),
 );
 
+/** Chinese (中文) */
+$specialPageAliases['zh'] = array(
+	'CheckUser' => array( '用户查核', '用戶查核', '使用者查核' ),
+);
+
 /** Simplified Chinese (中文（简体）‎) */
 $specialPageAliases['zh-hans'] = array(
 	'CheckUser' => array( '用户查核' ),
@@ -410,6 +447,12 @@ $specialPageAliases['zh-hans'] = array(
 
 /** Traditional Chinese (中文（繁體）‎) */
 $specialPageAliases['zh-hant'] = array(
+	'CheckUser' => array( '使用者查核' ),
+	'CheckUserLog' => array( '使用者查核日誌' ),
+);
+
+/** Chinese (Hong Kong) (中文（香港）‎) */
+$specialPageAliases['zh-hk'] = array(
 	'CheckUser' => array( '用戶查核' ),
 	'CheckUserLog' => array( '用戶查核日誌' ),
 );

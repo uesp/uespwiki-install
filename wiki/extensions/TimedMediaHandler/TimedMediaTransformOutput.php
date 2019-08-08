@@ -117,11 +117,11 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	/**
 	 * @param $options array
 	 * @return string
-	 * @throws MWException
+	 * @throws Exception
 	 */
 	function toHtml( $options = array() ) {
 		if ( count( func_get_args() ) == 2 ) {
-			throw new MWException( __METHOD__ .' called in the old style' );
+			throw new Exception( __METHOD__ .' called in the old style' );
 		}
 
 		$oldHeight = $this->height;
@@ -269,10 +269,16 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 			// both are too small. Go with the one closer to the target width
 			return ( $a['width'] < $b['width'] ) ? -1 : 1;
 		}
-		// Both are big enough, or both equally to small. Go with the one
+		// Both are big enough, or both equally too small. Go with the one
 		// that has a lower bit-rate (as it will be faster to download).
-		return ( $a['bandwidth'] < $b['bandwidth'] ) ? -1 : 1;
+		if ( isset( $a['bandwidth'] ) && isset( $b['bandwidth'] ) ) {
+			return ( $a['bandwidth'] < $b['bandwidth'] ) ? -1 : 1;
+		}
+
+		// We have no firm basis for a comparison, so consider them equal.
+		return 0;
 	}
+
 	/**
 	 * Call mediaWiki xml helper class to build media tag output from
 	 * supplied arrays
@@ -336,13 +342,13 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	/**
 	 * Get poster.
 	 * @param $width Integer width of poster. Should not equal $this->width.
-	 * @throws MWException If $width is same as $this->width.
+	 * @throws Exception If $width is same as $this->width.
 	 * @return String|bool url for poster or false
 	 */
 	function getPoster ( $width ) {
 		if ( intval( $width ) === intval( $this->width ) ) {
 			// Prevent potential loop
-			throw new MWException( "Asked for poster in current size. Potential loop." );
+			throw new Exception( "Asked for poster in current size. Potential loop." );
 		}
 		$params = array( "width" => intval( $width ) );
 		$mto = $this->file->transform( $params );
@@ -380,7 +386,7 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 
 		$mediaAttr = array(
 			'id' => self::PLAYER_ID_PREFIX . TimedMediaTransformOutput::$serial++,
-			'style' => "width:{$width};height:{$height}",
+			'style' => "width:{$width}",
 			// Get the correct size:
 			'poster' => $posterUrl,
 
@@ -391,6 +397,11 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 			// tell browser to not load the video before
 			'preload'=>'none',
 		);
+
+		if ( $this->isVideo ) {
+			$mediaAttr['style'] .= ";height:{$height}";
+		}
+
 		if( $autoPlay === true ){
 			$mediaAttr['autoplay'] = 'true';
 		}

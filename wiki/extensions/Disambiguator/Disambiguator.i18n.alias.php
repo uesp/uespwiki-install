@@ -27,6 +27,12 @@ $specialPageAliases['arz'] = array(
 	'DisambiguationPageLinks' => array( 'وصلات_صفحات_توضيح' ),
 );
 
+/** Western Balochi (بلوچی رخشانی) */
+$specialPageAliases['bgn'] = array(
+	'DisambiguationPages' => array( 'شکّ_دور_کنۆکین_وّرق_ئان' ),
+	'DisambiguationPageLinks' => array( 'شکّ_دور_کنۆکین_وُرق_ئانی_لینک' ),
+);
+
 /** Min Dong Chinese (Mìng-dĕ̤ng-ngṳ̄) */
 $specialPageAliases['cdo'] = array(
 	'DisambiguationPages' => array( '消除歧義頁面' ),
@@ -41,8 +47,8 @@ $specialPageAliases['de'] = array(
 
 /** Zazaki (Zazaki) */
 $specialPageAliases['diq'] = array(
-	'DisambiguationPages' => array( 'PerréManedébini' ),
-	'DisambiguationPageLinks' => array( 'GreyéPerréManedébini' ),
+	'DisambiguationPages' => array( 'PelêManeyêBini' ),
+	'DisambiguationPageLinks' => array( 'GıreyéPelanêManeyêBini' ),
 );
 
 /** Estonian (eesti) */
@@ -57,6 +63,11 @@ $specialPageAliases['fa'] = array(
 	'DisambiguationPageLinks' => array( 'پیوندهای_صفحات_ابهام‌زدایی' ),
 );
 
+/** Finnish (suomi) */
+$specialPageAliases['fi'] = array(
+	'DisambiguationPages' => array( 'Täsmennyssivut' ),
+);
+
 /** Galician (galego) */
 $specialPageAliases['gl'] = array(
 	'DisambiguationPages' => array( 'Páxinas_de_homónimos' ),
@@ -67,6 +78,12 @@ $specialPageAliases['gl'] = array(
 $specialPageAliases['he'] = array(
 	'DisambiguationPages' => array( 'דפי_פירושונים' ),
 	'DisambiguationPageLinks' => array( 'דפים_המקשרים_לדפי_פירושונים' ),
+);
+
+/** Croatian (hrvatski) */
+$specialPageAliases['hr'] = array(
+	'DisambiguationPages' => array( 'Razdvojbe' ),
+	'DisambiguationPageLinks' => array( 'Poveznice_na_razdvojbe' ),
 );
 
 /** Italian (italiano) */
@@ -146,7 +163,7 @@ $specialPageAliases['uk'] = array(
 	'DisambiguationPageLinks' => array( 'Посилання_на_сторінки_тлумачення_неоднозначності' ),
 );
 
-/** vèneto (vèneto) */
+/** Venetian (vèneto) */
 $specialPageAliases['vec'] = array(
 	'DisambiguationPages' => array( 'PagineDeDisambigua' ),
 	'DisambiguationPageLinks' => array( 'PagineChePontaAPagineDeDisambigua' ),

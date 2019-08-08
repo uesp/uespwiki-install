@@ -50,7 +50,6 @@ $fallback8bitEncoding = 'windows-1256';
 $namespaceNames = array(
 	NS_MEDIA            => 'تاسپا',
 	NS_SPECIAL          => 'ارنايى',
-	NS_MAIN             => '',
 	NS_TALK             => 'تالقىلاۋ',
 	NS_USER             => 'قاتىسۋشى',
 	NS_USER_TALK        => 'قاتىسۋشى_تالقىلاۋى',
@@ -349,7 +348,7 @@ $specialPageAliases = array(
 	'Mytalk'                    => array( 'تالقىلاۋىم' ),
 	'Newimages'                 => array( 'جاڭا_سۋرەتتەر' ),
 	'Newpages'                  => array( 'جاڭا_بەتتەر' ),
-	'Popularpages'              => array( 'ەڭ_كوپ_قارالعان_بەتتەر', 'ايگىلى_بەتتەر' ),
+
 	'Preferences'               => array( 'باپتالىمدار', 'باپتاۋ' ),
 	'Prefixindex'               => array( 'ٴباستاۋىش_ٴتىزىمى' ),
 	'Protectedpages'            => array( 'قورعالعان_بەتتەر' ),

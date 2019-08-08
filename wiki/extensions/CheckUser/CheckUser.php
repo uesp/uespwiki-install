@@ -21,7 +21,6 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 # Internationalisation files
 $dir = __DIR__ . '/';
 $wgMessagesDirs['CheckUser'] = __DIR__ . '/i18n';
-$wgExtensionMessagesFiles['CheckUser'] = $dir . 'CheckUser.i18n.php';
 $wgExtensionMessagesFiles['CheckUserAliases'] = $dir . 'CheckUser.alias.php';
 
 // Extension credits that will show up on Special:Version
@@ -29,9 +28,10 @@ $wgExtensionCredits['specialpage'][] = array(
 	'path' => __FILE__,
 	'author' => array( 'Tim Starling', 'Aaron Schulz' ),
 	'name' => 'CheckUser',
-	'version' => '2.3',
+	'version' => '2.4',
 	'url' => 'https://www.mediawiki.org/wiki/Extension:CheckUser',
 	'descriptionmsg' => 'checkuser-desc',
+	'license-name' => 'GPL-2.0+',
 );
 
 // New user rights
@@ -78,6 +78,7 @@ $wgHooks['EmailUser'][] = 'CheckUserHooks::updateCUEmailData';
 $wgHooks['User::mailPasswordInternal'][] = 'CheckUserHooks::updateCUPasswordResetData';
 $wgHooks['AuthPluginAutoCreate'][] = 'CheckUserHooks::onAuthPluginAutoCreate';
 $wgHooks['AddNewAccount'][] = 'CheckUserHooks::onAddNewAccount';
+$wgHooks['UserMergeAccountFields'][] = 'CheckUserHooks::onUserMergeAccountFields';
 
 # Occasional pruning of CU data
 $wgHooks['ArticleEditUpdatesDeleteFromRecentchanges'][] = 'CheckUserHooks::maybePruneIPData';
@@ -98,18 +99,16 @@ $wgResourceModules['ext.checkUser'] = array(
 
 // Set up the new special page
 $wgSpecialPages['CheckUser'] = 'CheckUser';
-$wgSpecialPageGroups['CheckUser'] = 'users';
 $wgSpecialPages['CheckUserLog'] = 'SpecialCheckUserLog';
-$wgSpecialPageGroups['CheckUserLog'] = 'changes';
 
-$wgAutoloadClasses['CheckUser'] = $dir . '/specials/SpecialCheckUser.php';
-$wgAutoloadClasses['CheckUserHooks'] = $dir . '/CheckUser.hooks.php';
-$wgAutoloadClasses['CheckUserLogPager'] = $dir . '/CheckUserLogPager.php';
-$wgAutoloadClasses['SpecialCheckUserLog'] = $dir . '/specials/SpecialCheckUserLog.php';
-$wgAutoloadClasses['CheckUserEncryptedData'] = $dir . '/CheckUserEncryptedData.php';
+$wgAutoloadClasses['CheckUser'] = $dir . 'specials/SpecialCheckUser.php';
+$wgAutoloadClasses['CheckUserHooks'] = $dir . 'CheckUser.hooks.php';
+$wgAutoloadClasses['CheckUserLogPager'] = $dir . 'CheckUserLogPager.php';
+$wgAutoloadClasses['SpecialCheckUserLog'] = $dir . 'specials/SpecialCheckUserLog.php';
+$wgAutoloadClasses['CheckUserEncryptedData'] = $dir . 'CheckUserEncryptedData.php';
 
 // API modules
-$wgAutoloadClasses['ApiQueryCheckUser'] = "$dir/api/ApiQueryCheckUser.php";
+$wgAutoloadClasses['ApiQueryCheckUser'] = $dir . 'api/ApiQueryCheckUser.php';
 $wgAPIListModules['checkuser'] = 'ApiQueryCheckUser';
-$wgAutoloadClasses['ApiQueryCheckUserLog'] = "$dir/api/ApiQueryCheckUserLog.php";
+$wgAutoloadClasses['ApiQueryCheckUserLog'] = $dir . 'api/ApiQueryCheckUserLog.php';
 $wgAPIListModules['checkuserlog'] = 'ApiQueryCheckUserLog';

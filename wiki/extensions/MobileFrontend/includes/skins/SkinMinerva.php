@@ -1,4 +1,7 @@
 <?php
+/**
+ * SkinMinerva.php
+ */
 
 /**
  * Minerva: Born from the godhead of Jupiter with weapons!
@@ -6,129 +9,169 @@
  * @ingroup Skins
  */
 class SkinMinerva extends SkinTemplate {
-	/**
-	 * Describes whether reader is on a mobile device
-	 * @var boolean $isMobileMode
-	 */
+	/** @var boolean $isMobileMode Describes whether reader is on a mobile device */
 	protected $isMobileMode = false;
+	/** @var string $skinname Name of this skin */
 	public $skinname = 'minerva';
+	/** @var string $template Name of this used template */
 	public $template = 'MinervaTemplate';
+	/** @var boolean $useHeadElement Specify whether show head elements */
 	public $useHeadElement = true;
-	/**
-	 * Describes 'stability' of the skin - alpha, beta, stable
-	 * @var string $mode
-	 */
+	/** @var string $mode Describes 'stability' of the skin - alpha, beta, stable */
 	protected $mode = 'stable';
+	/** @var MobileContext $mobileContext Safes an instance of MobileContext */
+	protected $mobileContext;
 
+	/**
+	 * Wrapper for MobileContext::getMFConfig()
+	 * @see MobileContext::getMFConfig()
+	 * @return Config
+	 */
+	public function getMFConfig() {
+		return $this->mobileContext->getMFConfig();
+	}
+
+	/**
+	 * initialize various variables and generate the template
+	 * @return QuickTemplate
+	 */
 	protected function prepareQuickTemplate() {
-		global $wgAppleTouchIcon, $wgMFNoindexPages;
-		wfProfileIn( __METHOD__ );
+		$appleTouchIcon = $this->getConfig()->get( 'AppleTouchIcon' );
+
 		$out = $this->getOutput();
 		// add head items
-		if ( $wgAppleTouchIcon !== false ) {
+		if ( $appleTouchIcon !== false ) {
 			$out->addHeadItem( 'touchicon',
-				Html::element( 'link', array( 'rel' => 'apple-touch-icon', 'href' => $wgAppleTouchIcon ) )
+				Html::element( 'link', array( 'rel' => 'apple-touch-icon', 'href' => $appleTouchIcon ) )
 			);
 		}
 		$out->addHeadItem( 'viewport',
 			Html::element(
 				'meta', array(
 					'name' => 'viewport',
-					'content' => 'initial-scale=1.0, user-scalable=yes, minimum-scale=0.25, maximum-scale=1.6',
+					'content' => 'initial-scale=1.0, user-scalable=yes, minimum-scale=0.25, ' .
+						'maximum-scale=5.0, width=device-width',
 				)
 			)
 		);
-		// hide chrome on bookmarked sites
-		$out->addHeadItem( 'apple-mobile-web-app-capable',
-			Html::element( 'meta', array( 'name' => 'apple-mobile-web-app-capable', 'content' => 'yes' ) )
-		);
-		$out->addHeadItem( 'apple-mobile-web-app-status-bar-style',
-			Html::element(
-				'meta', array(
-					'name' => 'apple-mobile-web-app-status-bar-style',
-					'content' => 'black',
-				)
-			)
-		);
-		$out->addHeadItem( 'loadingscript', Html::inlineScript(
-			"document.documentElement.className += ' page-loading';"
-		) );
-		if ( $wgMFNoindexPages ) {
-			$out->setRobotPolicy( 'noindex,nofollow' );
-		}
 
 		if ( $this->isMobileMode ) {
-			// @FIXME: This needs to occur before prepareQuickTemplate which wraps the body text in an
-			// element with id mw-content-text
-			// Otherwise we end up with an unnecessary div.
+			// Customize page content for mobile view, e.g. add togglable sections, filter
+			// out various elements.
+			// We do this before executing parent::prepareQuickTemplate() since the parent
+			// overwrites $out->mBodytext, adding an mw-content-text div which is
+			// redundant to our own content div. By defining the bodytext HTML before
+			// $out->mBodytext is overwritten, we avoid including the mw-content-text div.
+			// FIXME: Git rid of our content div and consolidate this line with the other
+			// isMobileMode lines below. This will bring us more in line with core DOM.
 			$html = ExtMobileFrontend::DOMParse( $out );
 		}
-		// Generate template after doing the above...
+
+		// Generate skin template
 		$tpl = parent::prepareQuickTemplate();
+
+		// Set whether or not the page content should be wrapped in div.content (for
+		// example, on a special page)
 		$tpl->set( 'unstyledContent', $out->getProperty( 'unstyledContent' ) );
 
+		$tpl->set( 'site_urls', $this->getSiteLinks() );
+		$tpl->set( 'personal_urls', $this->getPersonalTools() );
+		$tpl->set( 'discovery_urls', $this->getDiscoveryTools() );
+		$tpl->set( 'secondary_actions', $this->getSecondaryActions( $tpl ) );
+
+		// Construct various Minerva-specific interface elements
 		$this->preparePageContent( $tpl );
 		$this->prepareHeaderAndFooter( $tpl );
-		$this->prepareSearch( $tpl );
 		$this->prepareMenuButton( $tpl );
 		$this->prepareBanners( $tpl );
-		$this->prepareSiteLinks( $tpl );
 		$this->prepareWarnings( $tpl );
 		$this->preparePageActions( $tpl );
 		$this->prepareUserButton( $tpl );
-		$this->prepareDiscoveryTools( $tpl );
-		$this->preparePersonalTools( $tpl );
 		$this->prepareLanguages( $tpl );
-		// FIXME: Remove need for a page-loading class
-		$bottomScripts = Html::inlineScript(
-			"document.documentElement.className = " .
-				"document.documentElement.className.replace( 'page-loading', '' );"
-		);
-		$bottomScripts .= $this->bottomScripts();
-		$tpl->set( 'bottomscripts', $bottomScripts );
+
+		// Perform a few extra changes if we are in mobile mode
 		if ( $this->isMobileMode ) {
+			// Set our own bodytext that has been filtered by MobileFormatter
 			$tpl->set( 'bodytext', $html );
+			// Construct mobile-friendly footer
 			$this->prepareMobileFooterLinks( $tpl );
 		}
-		wfProfileOut( __METHOD__ );
+
 		return $tpl;
 	}
 
 	/**
 	 * Prepares the header and the content of a page
 	 * Stores in QuickTemplate prebodytext, postbodytext keys
-	 * @param QuickTemplate
+	 * @param QuickTemplate $tpl
 	 */
 	protected function preparePageContent( QuickTemplate $tpl ) {
 		$title = $this->getTitle();
 
 		// If it's a talk page, add a link to the main namespace page
 		if ( $title->isTalkPage() ) {
+			// if it's a talk page for which we have a special message, use it
+			switch ( $title->getNamespace() ) {
+				case 3: // User NS
+					$msg = 'mobile-frontend-talk-back-to-userpage';
+					break;
+				case 5: // Project NS
+					$msg = 'mobile-frontend-talk-back-to-projectpage';
+					break;
+				case 7: // File NS
+					$msg = 'mobile-frontend-talk-back-to-filepage';
+					break;
+				default: // generic (all other NS)
+					$msg = 'mobile-frontend-talk-back-to-page';
+			}
 			$tpl->set( 'subject-page', Linker::link(
 				$title->getSubjectPage(),
-				wfMessage( 'mobile-frontend-talk-back-to-page', $title->getText() ),
+				wfMessage( $msg, $title->getText() ),
 				array( 'class' => 'return-link' )
 			) );
 		}
 	}
 
 	/**
+	 * Returns true, if the pageaction is configured to be displayed.
+	 * @param string $action
+	 * @return boolean
+	 */
+	protected function isAllowedPageAction( $action ) {
+		if ( in_array( $action, $this->getMFConfig()->get( 'MFPageActions' ) ) ) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	/**
 	 * Overrides Skin::doEditSectionLink
+	 * @param Title $nt
+	 * @param string $section
+	 * @param string $tooltip
+	 * @param string $lang
+	 * @return string
 	 */
 	public function doEditSectionLink( Title $nt, $section, $tooltip = null, $lang = false ) {
-		$lang = wfGetLangObj( $lang );
-		$message = wfMessage( 'mobile-frontend-editor-edit' )->inLanguage( $lang )->text();
-		return Html::element( 'a', array(
-			'href' => '#editor/' . $section,
-			'data-section' => $section,
-			'class' => 'edit-page'
-		), $message );
+		if ( $this->isAllowedPageAction( 'edit' ) ) {
+			$lang = wfGetLangObj( $lang );
+			$message = wfMessage( 'mobile-frontend-editor-edit' )->inLanguage( $lang )->text();
+			return Html::element( 'a', array(
+				'href' => '#/editor/' . $section,
+				'title' => wfMessage( 'editsectionhint', $tooltip )->inLanguage( $lang )->text(),
+				'data-section' => $section,
+				// Note visibility of the edit section link button is controlled by .edit-page in ui.less so
+				// we default to enabled even though this may not be true.
+				'class' => MobileUI::iconClass( 'edit-enabled', 'element', 'edit-page icon-32px' ),
+			), $message );
+		}
 	}
 
 	/**
 	 * Takes a title and returns classes to apply to the body tag
-	 * @param $title Title
-	 * @return String
+	 * @param Title $title
+	 * @return string
 	 */
 	public function getPageClasses( $title ) {
 		$className = $this->getMode();
@@ -150,25 +193,25 @@ class SkinMinerva extends SkinTemplate {
 	}
 
 	/**
-	 * @return string: The current mode of the skin [stable|beta|alpha|app] that is running
+	 * Get the current mode of the skin [stable|beta|alpha|app] that is running
+	 * @return string
 	 */
 	protected function getMode() {
 		return $this->mode;
 	}
 
 	/**
-	 * @var MobileContext
-	 */
-	protected $mobileContext;
-
-	/**
-	 * FIXME: This helper function is only truly needed whilst SkinMobileApp does not support login
-	 * @return Boolean: Whether the current user is authenticated or not.
+	 * Check whether the current user is authenticated or not.
+	 * @todo This helper function is only truly needed whilst SkinMobileApp does not support login
+	 * @return bool
 	 */
 	protected function isAuthenticatedUser() {
 		return !$this->getUser()->isAnon();
 	}
 
+	/**
+	 * Initiate class
+	 */
 	public function __construct() {
 		$this->mobileContext = MobileContext::singleton();
 		$this->isMobileMode = $this->mobileContext->shouldDisplayMobileView();
@@ -176,58 +219,110 @@ class SkinMinerva extends SkinTemplate {
 
 	/**
 	 * Initializes output page and sets up skin-specific parameters
-	 * @param $out OutputPage object to initialize
+	 * @param OutputPage $out object to initialize
 	 */
 	public function initPage( OutputPage $out ) {
 		parent::initPage( $out );
-		// Enable search header in beta
-		if ( $this->getTitle()->isSpecialPage() ) {
-			$out->setProperty( 'disableSearchAndFooter', true );
-		}
 		$out->addJsConfigVars( $this->getSkinConfigVariables() );
 	}
 
 	/**
-	 * Prepares the user button.
-	 * @param $tpl BaseTemplate
+	 * Returns, if Extension:Echo should be used.
+	 * return boolean
 	 */
-	protected function prepareUserButton( BaseTemplate $tpl ) {
+	protected function useEcho() {
+		return class_exists( 'MWEchoNotifUser' );
+	}
+
+	/**
+	 * Creates element relating to secondary button
+	 * @param string $title Title attribute value of secondary button
+	 * @param string $url of secondary button
+	 * @param string $spanLabel text of span associated with secondary button.
+	 * @param string $spanClass the class of the secondary button
+	 * @return string html relating to button
+	 */
+	protected function createSecondaryButton( $title, $url, $spanLabel, $spanClass ) {
+		return Html::openElement( 'a', array(
+				'title' => $title,
+				'href' => $url,
+				'class' => MobileUI::iconClass( 'notifications', 'element',
+					'user-button main-header-button icon-32px' ),
+				'id' => 'secondary-button',
+			) ) .
+			Html::element(
+				'span',
+				array( 'class' => 'label' ),
+				$title
+			) .
+			Html::element(
+				'span',
+				array( 'class' => $spanClass ),
+				$spanLabel
+			) .
+			Html::closeElement( 'a' );
+	}
+
+	/**
+	 * Prepares the user button.
+	 * @param QuickTemplate $tpl
+	 */
+	protected function prepareUserButton( QuickTemplate $tpl ) {
 		// Set user button to empty string by default
 		$tpl->set( 'secondaryButton', '' );
+		$notificationsTitle = '';
+		$countLabel = '';
+		$isZero = true;
 
 		$user = $this->getUser();
+		$newtalks = $this->getNewtalks();
+		$currentTitle = $this->getTitle();
 		// If Echo is available, the user is logged in, and they are not already on the
 		// notifications archive, show the notifications icon in the header.
-		if ( class_exists( 'MWEchoNotifUser' ) && $user->isLoggedIn() ) {
-			$currentTitle = $this->getTitle();
+		if ( $this->useEcho() && $user->isLoggedIn() ) {
 			$notificationsTitle = SpecialPage::getTitleFor( 'Notifications' );
+			$notificationsMsg = wfMessage( 'mobile-frontend-user-button-tooltip' );
 			if ( $currentTitle->getPrefixedText() !== $notificationsTitle->getPrefixedText() ) {
-				// FIXME: cap higher counts
 				$count = MWEchoNotifUser::newFromUser( $user )->getNotificationCount();
-
-				$tpl->set( 'secondaryButton',
-					Html::openElement( 'a', array(
-						'title' => wfMessage( 'mobile-frontend-user-button-tooltip' ),
-						'href' => $notificationsTitle->getLocalURL(
-							array( 'returnto' => $currentTitle->getPrefixedText() ) ),
-						'class' => 'user-button',
-						'id'=> 'secondary-button',
-					) ) .
-					Html::element(
-						'span',
-						array( 'class' => $count ? '' : 'zero' ),
-						$this->getLanguage()->formatNum( $count ) ) .
-					Html::closeElement( 'a' )
-				);
+				$isZero = $count === 0;
+				$countLabel = EchoNotificationController::formatNotificationCount( $count );
 			}
+		} elseif ( !empty( $newtalks ) ) {
+			$notificationsTitle = SpecialPage::getTitleFor( 'Mytalk' );
+			$notificationsMsg = wfMessage( 'mobile-frontend-user-newmessages' )->text();
+		}
+
+		if ( $notificationsTitle ) {
+			$spanClass = $isZero ? 'zero notification-count' : 'notification-count';
+
+			$url = $notificationsTitle->getLocalURL(
+				array( 'returnto' => $currentTitle->getPrefixedText() ) );
+
+			$tpl->set( 'secondaryButton',
+				$this->createSecondaryButton( $notificationsMsg, $url, $countLabel, $spanClass )
+			);
 		}
 	}
 
 	/**
-	 * Prepares urls and links used by the page
-	 * @param QuickTemplate
+	 * Return a url to a resource or to a login screen that redirects to that resource.
+	 * @param Title $title
+	 * @param array $query representation of query string parameters
+	 * @return string url
 	 */
-	protected function preparePersonalTools( QuickTemplate $tpl ) {
+	protected function getPersonalUrl( Title $title, array $query = array() ) {
+		if ( $this->getUser()->isLoggedIn() ) {
+			return $title->getLocalUrl( $query );
+		} else {
+			return $this->getLoginUrl( array( 'returnto' => $title ) );
+		}
+	}
+
+	/**
+	 * Prepares and returns urls and links personal to the given user
+	 * @return array
+	 */
+	protected function getPersonalTools() {
 		$returnToTitle = $this->getTitle()->getPrefixedText();
 		$donateTitle = SpecialPage::getTitleFor( 'Uploads' );
 		$watchTitle = SpecialPage::getTitleFor( 'Watchlist' );
@@ -248,39 +343,60 @@ class SkinMinerva extends SkinTemplate {
 
 		$items = array(
 			'watchlist' => array(
-				'text' => wfMessage( 'mobile-frontend-main-menu-watchlist' )->escaped(),
-				'href' => $this->getUser()->isLoggedIn() ?
-					$watchTitle->getLocalUrl( $watchlistQuery ) :
-					$this->getLoginUrl( array( 'returnto' => $watchTitle ) ),
-				'class' => 'icon-watchlist',
+				'links' => array(
+					array(
+						'text' => wfMessage( 'mobile-frontend-main-menu-watchlist' )->escaped(),
+						'href' => $this->getPersonalUrl( $watchTitle, $watchlistQuery ),
+						'class' => MobileUI::iconClass( 'watchlist', 'before' ),
+						'data-event-name' => 'watchlist',
+					),
+				),
+				'class' => 'jsonly'
 			)
 		);
 		if ( $this->isMobileMode ) {
-			$items['uploads'] = array(
-				'text' => wfMessage( 'mobile-frontend-main-menu-upload' )->escaped(),
-				'href' => $this->getUser()->isLoggedIn() ? $donateTitle->getLocalUrl() :
-					$this->getLoginUrl( array( 'returnto' => $donateTitle ) ),
-				'class' => 'icon-uploads jsonly',
-			);
+			if ( $this->mobileContext->userCanUpload() ) {
+				$items['uploads'] = array(
+					'links' => array(
+						array(
+							'text' => wfMessage( 'mobile-frontend-main-menu-upload' )->escaped(),
+							'href' => $this->getPersonalUrl( $donateTitle ),
+							'class' => MobileUI::iconClass( 'uploads', 'before' ),
+							'data-event-name' => 'uploads',
+						),
+					),
+					'class' => 'jsonly',
+				);
+			}
 			$items['settings'] = array(
-				'text' => wfMessage( 'mobile-frontend-main-menu-settings' )->escaped(),
-				'href' => SpecialPage::getTitleFor( 'MobileOptions' )->
-					getLocalUrl( array( 'returnto' => $returnToTitle ) ),
-				'class' => 'icon-settings',
+				'links' => array(
+					array(
+						'text' => wfMessage( 'mobile-frontend-main-menu-settings' )->escaped(),
+						'href' => SpecialPage::getTitleFor( 'MobileOptions' )->
+							getLocalUrl( array( 'returnto' => $returnToTitle ) ),
+						'class' => MobileUI::iconClass( 'settings', 'before' ),
+						'data-event-name' => 'settings',
+					),
+				),
 			);
 		} else {
-			$prefUrl = SpecialPage::getTitleFor( 'Preferences' )->
-				getLocalUrl( array( 'returnto' => $returnToTitle ) );
 			$items['preferences'] = array(
-				'text' => wfMessage( 'preferences' )->escaped(),
-				'href' => $this->getUser()->isLoggedIn() ? $prefUrl :
-					$this->getLoginUrl( array( 'returnto' => $prefUrl ) ),
-				'class' => 'icon-settings',
+				'links' => array(
+					array(
+						'text' => wfMessage( 'preferences' )->escaped(),
+						'href' => $this->getPersonalUrl( SpecialPage::getTitleFor( 'Preferences' ) ),
+						'class' => MobileUI::iconClass( 'settings', 'before' ),
+						'data-event-name' => 'preferences',
+					),
+				),
 			);
 		}
 		$items['auth'] = $this->getLogInOutLink();
 
-		$tpl->set( 'personal_urls', $items );
+		// Allow other extensions to add or override tools
+		Hooks::run( 'MobilePersonalTools', array( &$items ) );
+
+		return $items;
 	}
 
 	/**
@@ -288,9 +404,8 @@ class SkinMinerva extends SkinTemplate {
 	 * other than languages
 	 * See bug 57094.
 	 *
-	 * FIXME: Remove when Special:Languages link goes stable
-	 *
-	 * @param QuickTemplate
+	 * @todo Remove when Special:Languages link goes stable
+	 * @param QuickTemplate $tpl
 	 */
 	protected function prepareLanguages( $tpl ) {
 		$lang = $this->getTitle()->getPageViewLanguage();
@@ -306,34 +421,58 @@ class SkinMinerva extends SkinTemplate {
 
 	/**
 	 * Prepares a list of links that have the purpose of discovery in the main navigation menu
-	 * @param QuickTemplate
+	 * @return array
 	 */
-	protected function prepareDiscoveryTools( QuickTemplate $tpl ) {
-		global $wgMFNearby;
+	protected function getDiscoveryTools() {
+		$config = $this->getMFConfig();
 
 		$items = array(
 			'home' => array(
-				'text' => wfMessage( 'mobile-frontend-home-button' )->escaped(),
-				'href' => Title::newMainPage()->getLocalUrl(),
-				'class' => 'icon-home',
+				'links' => array(
+					array(
+						'text' => wfMessage( 'mobile-frontend-home-button' )->escaped(),
+						'href' => Title::newMainPage()->getLocalUrl(),
+						'class' => MobileUI::iconClass( 'home', 'before' ),
+						'data-event-name' => 'home',
+					),
+				),
 			),
 			'random' => array(
-				'text' => wfMessage( 'mobile-frontend-random-button' )->escaped(),
-				'href' => SpecialPage::getTitleFor( 'Randompage' )->getLocalUrl(
-					array( 'campaign' => 'random' ) ),
-				'class' => 'icon-random',
-				'id' => 'randomButton',
+				'links' => array(
+					array(
+						'text' => wfMessage( 'mobile-frontend-random-button' )->escaped(),
+						'href' => SpecialPage::getTitleFor( 'Randompage',
+							MWNamespace::getCanonicalName( $config->get( 'MFContentNamespace' ) ) )->getLocalUrl() .
+								'#/random',
+						'class' => MobileUI::iconClass( 'random', 'before' ),
+						'id' => 'randomButton',
+						'data-event-name' => 'random',
+					),
+				),
 			),
 			'nearby' => array(
-				'text' => wfMessage( 'mobile-frontend-main-menu-nearby' )->escaped(),
-				'href' => SpecialPage::getTitleFor( 'Nearby' )->getLocalURL(),
-				'class' => 'icon-nearby jsonly',
+				'links' => array(
+					array(
+						'text' => wfMessage( 'mobile-frontend-main-menu-nearby' )->escaped(),
+						'href' => SpecialPage::getTitleFor( 'Nearby' )->getLocalURL(),
+						'class' => MobileUI::iconClass( 'nearby', 'before', 'nearby' ),
+						'data-event-name' => 'nearby',
+					),
+				),
+				'class' => 'jsonly',
 			),
 		);
-		if ( !$wgMFNearby ) {
+		if (
+			!$config->get( 'MFNearby' ) ||
+			( !$config->get( 'MFNearbyEndpoint' ) && !class_exists( 'GeoData' ) )
+		) {
 			unset( $items['nearby'] );
 		}
-		$tpl->set( 'discovery_urls', $items );
+
+		// Allow other extensions to add or override discovery tools
+		Hooks::run( 'MinervaDiscoveryTools', array( &$items ) );
+
+		return $items;
 	}
 
 	/**
@@ -345,11 +484,11 @@ class SkinMinerva extends SkinTemplate {
 	public function getLoginUrl( $query ) {
 		if ( $this->isMobileMode ) {
 			// FIXME: Does mobile really need special casing here?
-			global $wgSecureLogin;
+			$secureLogin = $this->getConfig()->get( 'SecureLogin' );
 
-			if ( WebRequest::detectProtocol() != 'https' && $wgSecureLogin ) {
+			if ( WebRequest::detectProtocol() != 'https' && $secureLogin ) {
 				$loginUrl = SpecialPage::getTitleFor( 'Userlogin' )->getFullURL( $query );
-				return $this->mobileContext->getMobileUrl( $loginUrl, $wgSecureLogin );
+				return $this->mobileContext->getMobileUrl( $loginUrl, $secureLogin );
 			}
 			return SpecialPage::getTitleFor( 'Userlogin' )->getLocalURL( $query );
 		} else {
@@ -359,11 +498,9 @@ class SkinMinerva extends SkinTemplate {
 
 	/**
 	 * Creates a login or logout button
-	 * @return Array: Representation of button with text and href keys
-	*/
+	 * @return array Representation of button with text and href keys
+	 */
 	protected function getLogInOutLink() {
-		global $wgSecureLogin;
-		wfProfileIn( __METHOD__ );
 		$query = array();
 		if ( !$this->getRequest()->wasPosted() ) {
 			$returntoquery = $this->getRequest()->getValues();
@@ -377,13 +514,32 @@ class SkinMinerva extends SkinTemplate {
 			$query[ 'returnto' ] = $title->getPrefixedText();
 		}
 
-		if ( $this->getUser()->isLoggedIn() ) {
+		$user = $this->getUser();
+		if ( $user->isLoggedIn() ) {
 			if ( !empty( $returntoquery ) ) {
 				$query[ 'returntoquery' ] = wfArrayToCgi( $returntoquery );
 			}
 			$url = SpecialPage::getTitleFor( 'Userlogout' )->getFullURL( $query );
-			$url = $this->mobileContext->getMobileUrl( $url, $wgSecureLogin );
-			$text = wfMessage( 'mobile-frontend-main-menu-logout' )->escaped();
+			$url = $this->mobileContext->getMobileUrl( $url, $this->getConfig()->get( 'SecureLogin' ) );
+			$username = $user->getName();
+
+			$loginLogoutLink = array(
+				'links' => array(
+					array(
+						'text' => $username,
+						'href' => SpecialPage::getTitleFor( 'UserProfile', $username )->getLocalUrl(),
+						'class' => MobileUI::iconClass( 'profile', 'before', 'truncated-text' ),
+						'data-event-name' => 'profile',
+					),
+					array(
+						'text' => wfMessage( 'mobile-frontend-main-menu-logout' )->escaped(),
+						'href' => $url,
+						'class' => MobileUI::iconClass(
+							'secondary-logout', 'element', 'icon-24px icon-secondary truncated-text' ),
+						'data-event-name' => 'logout',
+					),
+				),
+			);
 		} else {
 			// note returnto is not set for mobile (per product spec)
 			// note welcome=yes in returnto  allows us to detect accounts created from the left nav
@@ -392,14 +548,20 @@ class SkinMinerva extends SkinTemplate {
 			unset( $returntoquery['campaign'] );
 			$query[ 'returntoquery' ] = wfArrayToCgi( $returntoquery );
 			$url = $this->getLoginUrl( $query );
-			$text = wfMessage( 'mobile-frontend-main-menu-login' )->escaped();
+			$loginLogoutLink = array(
+				'links' => array(
+					array(
+						'text' => wfMessage( 'mobile-frontend-main-menu-login' )->escaped(),
+						'href' => $url,
+						'class' => MobileUI::iconClass( 'anonymous-white', 'before', 'icon-anon' ),
+						'data-event-name' => 'login',
+					),
+				),
+				'class' => 'jsonly'
+			);
 		}
-		wfProfileOut( __METHOD__ );
-		return array(
-			'text' => $text,
-			'href' => $url,
-			'class' => 'icon-loginout',
-		);
+
+		return $loginLogoutLink;
 	}
 
 	/**
@@ -407,6 +569,7 @@ class SkinMinerva extends SkinTemplate {
 	 * 2013, at 23:31'. This message is different for the main page since main page
 	 * content is typically transcuded rather than edited directly.
 	 * @param Title $title The Title object of the page being viewed
+	 * @return array
 	 */
 	protected function getHistoryLink( Title $title ) {
 		$user = $this->getUser();
@@ -416,9 +579,9 @@ class SkinMinerva extends SkinTemplate {
 		$timestamp = Revision::getTimestampFromId( $this->getTitle(), $revId );
 		// Main pages tend to include transclusions (see bug 51924)
 		if ( $isMainPage ) {
-			$lastModified = wfMessage( 'mobile-frontend-history' )->plain();
+			$lastModified = $this->msg( 'mobile-frontend-history' )->plain();
 		} else {
-			$lastModified = wfMessage(
+			$lastModified = $this->msg(
 				'mobile-frontend-last-modified-date',
 				$this->getLanguage()->userDate( $timestamp, $user ),
 				$this->getLanguage()->userTime( $timestamp, $user )
@@ -437,6 +600,7 @@ class SkinMinerva extends SkinTemplate {
 			$userId = $rev->getUser();
 			if ( $userId ) {
 				$revUser = User::newFromId( $userId );
+				$revUser->load( User::READ_NORMAL );
 				$link += array(
 					'data-user-name' => $revUser->getName(),
 					'data-user-gender' => $revUser->getOption( 'gender' ),
@@ -445,19 +609,29 @@ class SkinMinerva extends SkinTemplate {
 				$link['data-user-gender'] = 'unknown';
 			}
 		}
+		if ( !$title->isMainPage() ) {
+			$link['class'] = 'last-modified-bar truncated-text';
+		}
+		$link['href'] = SpecialPage::getTitleFor( 'History', $title )->getLocalURL();
 		return $link;
 	}
 
-	protected function getSearchPlaceHolderText() {
-		return wfMessage( 'mobile-frontend-placeholder' )->text();
+	/**
+	 * Returns the HTML representing the header.
+	 * @returns {String} html for header
+	 */
+	protected function getHeaderHtml() {
+		return Html::rawElement( 'h1', array( 'id' => 'section_0' ),
+			$this->getOutput()->getPageTitle() );
 	}
-
+	/**
+	 * Create and prepare header and footer content
+	 * @param BaseTemplate $tpl
+	 */
 	protected function prepareHeaderAndFooter( BaseTemplate $tpl ) {
 		$title = $this->getTitle();
 		$user = $this->getUser();
 		$out = $this->getOutput();
-		$disableSearchAndFooter = $out->getProperty( 'disableSearchAndFooter' );
-		$tpl->set( 'disableSearchAndFooter', $disableSearchAndFooter );
 		if ( $title->isMainPage() ) {
 			if ( $user->isLoggedIn() ) {
 				$pageTitle = wfMessage(
@@ -467,29 +641,14 @@ class SkinMinerva extends SkinTemplate {
 			}
 			$out->setPageTitle( $pageTitle );
 		}
-		$pageHeading = $out->getPageTitle();
 
-		if ( $title->isSpecialPage() ) {
-			if ( $disableSearchAndFooter ) {
-				$htmlHeader = $out->getProperty( 'mobile.htmlHeader' );
-				if ( !$htmlHeader ) {
-					$htmlHeader = Html::element( 'h1', array(), $pageHeading );
-				}
-				$tpl->set( 'specialPageHeader', $htmlHeader );
-			}
-		} else {
-			if ( $pageHeading ) {
-				$preBodyText = Html::rawElement( 'h1', array( 'id' => 'section_0' ), $pageHeading );
-			} else {
-				$preBodyText = '';
-			}
-			$tpl->set( 'prebodytext', $preBodyText );
-
+		if ( $this->canUseWikiPage() ) {
 			// If it's a page that exists, add last edited timestamp
 			if ( $this->getWikiPage()->exists() ) {
 				$tpl->set( 'historyLink', $this->getHistoryLink( $title ) );
 			}
 		}
+		$tpl->set( 'prebodytext', $this->getHeaderHtml() );
 
 		// set defaults
 		if ( !isset( $tpl->data['postbodytext'] ) ) {
@@ -511,37 +670,37 @@ class SkinMinerva extends SkinTemplate {
 		}
 	}
 
-	protected function prepareSearch( BaseTemplate $tpl ) {
-		$searchBox = array(
-			'id' => 'searchInput',
-			'class' => 'search',
-			'autocomplete' => 'off',
-			// The placeholder gets fed to HTML::element later which escapes all
-			// attribute values, so no need to escape the string here.
-			'placeholder' =>  $this->getSearchPlaceHolderText(),
-		);
-		$tpl->set( 'searchBox', $searchBox );
-	}
-
+	/**
+	 * Prepare the button opens the main side menu
+	 * @param BaseTemplate $tpl
+	 */
 	protected function prepareMenuButton( BaseTemplate $tpl ) {
 		// menu button
 		$url = SpecialPage::getTitleFor( 'MobileMenu' )->getLocalUrl();
 		$tpl->set( 'menuButton',
 			Html::element( 'a', array(
-			'title' => wfMessage( 'mobile-frontend-main-menu-button-tooltip' ),
-			'href' => $url,
-			'id'=> 'mw-mf-main-menu-button',
-			) )
+				'title' => $this->msg( 'mobile-frontend-main-menu-button-tooltip' ),
+				'href' => $url,
+				'class' => MobileUI::iconClass( 'mainmenu' ),
+				'id'=> 'mw-mf-main-menu-button',
+			), $this->msg( 'mobile-frontend-main-menu-button-tooltip' ) )
 		);
 	}
 
-	// Beware of HTML caching when using this function.
+	/**
+	 * Load internal banner content to show in pre content in template
+	 * Beware of HTML caching when using this function.
+	 * Content set as "internalbanner"
+	 * @param BaseTemplate $tpl
+	 */
 	protected function prepareBanners( BaseTemplate $tpl ) {
 		// Make sure Zero banner are always on top
 		$banners = array( '<div id="siteNotice"></div>' );
-		$siteNotice = $this->getSiteNotice();
-		if ( $siteNotice ) {
-			$banners[] = $siteNotice;
+		if ( $this->getMFConfig( 'MFEnableSiteNotice' ) ) {
+			$siteNotice = $this->getSiteNotice();
+			if ( $siteNotice ) {
+				$banners[] = $siteNotice;
+			}
 		}
 		$tpl->set( 'banners', $banners );
 		// These banners unlike 'banners' show inside the main content chrome underneath the
@@ -549,27 +708,42 @@ class SkinMinerva extends SkinTemplate {
 		$tpl->set( 'internalBanner', '' );
 	}
 
-	protected function prepareSiteLinks( BaseTemplate $tpl ) {
-		$aboutPageTitleText = $this->msg( 'aboutpage' )->inContentLanguage()->text();
-		$disclaimerPageTitleText = $this->msg( 'disclaimerpage' )->inContentLanguage()->text();
+	/**
+	 * Returns an array of sitelinks to add into the main menu footer.
+	 * @return Array array of site links
+	 */
+	protected function getSiteLinks() {
+		$siteLinks = array(
+			array(
+				'title' => 'aboutpage',
+				'msg' => 'aboutsite',
+			),
+			array(
+				'title' => 'disclaimerpage',
+				'msg' => 'disclaimers',
+			),
+		);
 		$urls = array();
-		$t = Title::newFromText( $aboutPageTitleText );
-		if ( $t ) {
-			$urls[] = array(
-				'href' => $t->getLocalUrl(),
-				'text'=> $this->msg( 'aboutsite' )->text(),
+		foreach ( $siteLinks as $param ) {
+			$title = Title::newFromText(
+				$this->msg( $param['title'] )->inContentLanguage()->text()
 			);
+			$msg = $this->msg( $param['msg'] );
+			if ( $title && !$msg->isDisabled() ) {
+				$urls[] = array(
+					'href' => $title->getLocalUrl(),
+					'text'=> $msg->text(),
+				);
+			}
 		}
-		$t = Title::newFromText( $disclaimerPageTitleText );
-		if ( $t ) {
-			$urls[] = array(
-				'href' => $t->getLocalUrl(),
-				'text'=> $this->msg( 'disclaimers' )->text(),
-			);
-		}
-		$tpl->set( 'site_urls', $urls );
+
+		return $urls;
 	}
 
+	/**
+	 * Prepare warnings for mobile output
+	 * @param BaseTemplate $tpl
+	 */
 	protected function prepareWarnings( BaseTemplate $tpl ) {
 		$out = $this->getOutput();
 		if ( $out->getRequest()->getText( 'oldid' ) ) {
@@ -581,160 +755,219 @@ class SkinMinerva extends SkinTemplate {
 		}
 	}
 
+	/**
+	 * Returns an array of links for page secondary actions
+	 * @param BaseTemplate $tpl
+	 */
+	protected function getSecondaryActions( BaseTemplate $tpl ) {
+		return array();
+	}
+
+	/**
+	 * Prepare configured and available page actions
+	 * @param BaseTemplate $tpl
+	 */
 	protected function preparePageActions( BaseTemplate $tpl ) {
 		$title = $this->getTitle();
 		// Reuse template data variable from SkinTemplate to construct page menu
 		$menu = array();
-		$namespaces = $tpl->data['content_navigation']['namespaces'];
 		$actions = $tpl->data['content_navigation']['actions'];
 
 		// empty placeholder for edit and photos which both require js
-		$menu['edit'] = array( 'id' => 'ca-edit', 'text' => '' );
-		$menu['photo'] = array( 'id' => 'ca-upload', 'text' => '' );
-
-		// FIXME [core]: This seems unnecessary..
-		$subjectId = $title->getNamespaceKey( '' );
-		$talkId = $subjectId === 'main' ? 'talk' : "{$subjectId}_talk";
-		if ( isset( $namespaces[$talkId] ) ) {
-			$menu['talk'] = $namespaces[$talkId];
+		if ( $this->isAllowedPageAction( 'edit' ) ) {
+			$menu['edit'] = array( 'id' => 'ca-edit', 'text' => '',
+				'itemtitle' => $this->msg( 'mobile-frontend-pageaction-edit-tooltip' ),
+				'class' => MobileUI::iconClass( 'edit', 'element', 'icon-32px hidden' ),
+			);
 		}
 
-		if ( isset( $menu['talk'] ) ) {
-			if ( isset( $tpl->data['_talkdata'] ) ) {
-				$menu['talk']['text'] = $tpl->data['_talkdata']['text'];
-				$menu['talk']['class'] = $tpl->data['_talkdata']['class'];
+		if (
+			$this->isAllowedPageAction( 'upload' )
+			&& !$title->isMainPage()
+			&& $this->mobileContext->userCanUpload()
+		) {
+			$menu['photo'] = array( 'id' => 'ca-upload', 'text' => '',
+				'itemtitle' => $this->msg( 'mobile-frontend-pageaction-upload-tooltip' ),
+				'class' => MobileUI::iconClass( 'addimage', 'element', 'icon-32px hidden' ),
+			);
+		}
+
+		if ( $this->isAllowedPageAction( 'watch' ) ) {
+			$watchTemplate = array(
+				'id' => 'ca-watch',
+				'class' => MobileUI::iconClass( 'watch', 'element',
+					'icon-32px watch-this-article hidden' ),
+			);
+			// standardise watch article into one menu item
+			if ( isset( $actions['watch'] ) ) {
+				$menu['watch'] = array_merge( $actions['watch'], $watchTemplate );
+			} elseif ( isset( $actions['unwatch'] ) ) {
+				$menu['watch'] = array_merge( $actions['unwatch'], $watchTemplate );
+				$menu['watch']['class'] .= ' watched';
+			} else {
+				// placeholder for not logged in
+				$menu['watch'] = $watchTemplate;
+				// FIXME: makeLink (used by makeListItem) when no text is present defaults to use the key
+				$menu['watch']['text'] = '';
+				$menu['watch']['href'] = $this->getLoginUrl( array( 'returnto' => $title ) );
 			}
-		}
-		// sanitize to avoid invalid HTML5 markup being produced
-		unset( $menu['talk']['primary'] );
-		unset( $menu['talk']['context'] );
-
-		$watchTemplate = array(
-			'id' => 'ca-watch',
-			'class' => 'watch-this-article',
-		);
-		// standardise watch article into one menu item
-		if ( isset( $actions['watch'] ) ) {
-			$menu['watch'] = array_merge( $actions['watch'], $watchTemplate );
-		} elseif ( isset( $actions['unwatch'] ) ) {
-			$menu['watch'] = array_merge( $actions['unwatch'], $watchTemplate );
-			$menu['watch']['class'] .= ' watched';
-		} else {
-			// placeholder for not logged in
-			$menu['watch'] = $watchTemplate;
-			// FIXME: makeLink (used by makeListItem) when no text is present defaults to use the key
-			$menu['watch']['text'] = '';
-			$menu['watch']['href'] = $this->getLoginUrl( array( 'returnto' => $title ) );
 		}
 
 		$tpl->set( 'page_actions', $menu );
 	}
 
-	private function getSkinConfigMobileVariables() {
-		$vars = array();
-		if ( $this->isMobileMode ) {
-			global $wgCookiePath;
-			$wgUseFormatCookie = array(
-				'name' => MobileContext::USEFORMAT_COOKIE_NAME,
-				'duration' => -1, // in days
-				'path' => $wgCookiePath,
-				'domain' => $this->getRequest()->getHeader( 'Host' ),
-			);
-			$vars['wgUseFormatCookie'] = $wgUseFormatCookie;
-		}
-		return $vars;
+	/**
+	 * Checks to see if the current page is (probably) editable.
+	 *
+	 * This is the same check that sets wgIsProbablyEditable later in the page output
+	 * process.
+	 *
+	 * @return boolean
+	 */
+	protected function isCurrentPageEditable() {
+		$title = $this->getTitle();
+		$user = $this->getUser();
+		return $title->quickUserCan( 'edit', $user )
+			&& ( $title->exists() || $title->quickUserCan( 'create', $user ) );
 	}
 
 	/**
 	 * Returns array of config variables that should be added only to this skin
 	 * for use in JavaScript.
-	 * @return Array
+	 * @return array
 	 */
 	public function getSkinConfigVariables() {
-		global $wgMFLeadPhotoUploadCssSelector, $wgMFEnableCssAnimations,
-			$wgMFUseCentralAuthToken,
-			$wgMFDeviceWidthTablet,
-			$wgMFAjaxUploadProgressSupport,
-			$wgMFAnonymousEditing,
-			$wgMFPhotoUploadEndpoint, $wgMFPhotoUploadAppendToDesc,
-			$wgMFCollapseSectionsByDefault;
-
 		$title = $this->getTitle();
 		$user = $this->getUser();
-		$userCanCreatePage = !$title->exists() && $title->quickUserCan( 'create', $user );
+		$config = $this->getMFConfig();
 
-		$vars = array_merge( array(
-			'wgMFUseCentralAuthToken' => $wgMFUseCentralAuthToken,
-			'wgMFAjaxUploadProgressSupport' => $wgMFAjaxUploadProgressSupport,
-			'wgMFAnonymousEditing' => $wgMFAnonymousEditing,
-			'wgMFPhotoUploadAppendToDesc' => $wgMFPhotoUploadAppendToDesc,
-			'wgMFLeadPhotoUploadCssSelector' => $wgMFLeadPhotoUploadCssSelector,
-			'wgMFEnableCssAnimations' => $wgMFEnableCssAnimations,
-			'wgMFPhotoUploadEndpoint' => $wgMFPhotoUploadEndpoint ? $wgMFPhotoUploadEndpoint : '',
+		$vars = array(
+			'wgMFEnableJSConsoleRecruitment' => $config->get( 'MFEnableJSConsoleRecruitment' ),
+			'wgMFWikiDataEndpoint' => $config->get( 'MFWikiDataEndpoint' ),
+			'wgMFUseCentralAuthToken' => $config->get( 'MFUseCentralAuthToken' ),
+			'wgMFPhotoUploadAppendToDesc' => $config->get( 'MFPhotoUploadAppendToDesc' ),
+			'wgMFLeadPhotoUploadCssSelector' => $config->get( 'MFLeadPhotoUploadCssSelector' ),
+			'wgMFPhotoUploadEndpoint' =>
+				$config->get( 'MFPhotoUploadEndpoint' ) ? $config->get( 'MFPhotoUploadEndpoint' ) : '',
 			'wgPreferredVariant' => $title->getPageLanguage()->getPreferredVariant(),
-			'wgIsPageEditable' => $title->quickUserCan( 'edit', $user ) || $userCanCreatePage,
-			'wgMFDeviceWidthTablet' => $wgMFDeviceWidthTablet,
+			'wgMFDeviceWidthTablet' => $config->get( 'MFDeviceWidthTablet' ),
 			'wgMFMode' => $this->getMode(),
-			'wgMFCollapseSectionsByDefault' => $wgMFCollapseSectionsByDefault,
-		), $this->getSkinConfigMobileVariables() );
+			'wgMFCollapseSectionsByDefault' => $config->get( 'MFCollapseSectionsByDefault' ),
+			'wgMFTocEnabled' => $this->getOutput()->getProperty( 'MinervaTOC' ),
+			'wgMFPageSections' => $this->isMobileMode
+		);
 
 		if ( $this->isAuthenticatedUser() ) {
-			$vars['wgWatchedPageCache'] = array(
-				$title->getPrefixedDBkey() => $user->isWatched( $title ),
-			);
-			$vars['wgMFIsLoggedInUserBlocked'] = $user->isBlocked();
+			$vars['wgMFIsLoggedInUserBlockedFromPage'] = $user->isBlockedFrom( $title, true );
+			$vars['wgMFExperiments'] = $config->get( 'MFExperiments' );
 		}
-		// mobile specific config variables
-		if ( $this->mobileContext->shouldDisplayMobileView() ) {
+
+		$vars['wgMFShowRedLinks'] = $user->isLoggedIn()
+			? $config->get( 'MFShowRedLinks' )
+			: $config->get( 'MFShowRedLinksAnon' );
+
+		// Get variables that are only needed in mobile mode
+		if ( $this->isMobileMode ) {
 			$vars['wgImagesDisabled'] = $this->mobileContext->imagesDisabled();
+			$vars['wgUserCanUpload'] = $this->mobileContext->userCanUpload();
 		}
+
 		return $vars;
 	}
 
+	/**
+	 * Returns an array of modules related to the current context of the page.
+	 * @return array
+	 */
+	public function getContextSpecificModules() {
+		$modules = array();
+		$user = $this->getUser();
+		$req = $this->getRequest();
+		$action = $req->getVal( 'article_action' );
+		$campaign = $req->getVal( 'campaign' );
+		$title = $this->getTitle();
+
+		if (
+			$this->isAllowedPageAction( 'upload' )
+			&& !$title->isMainPage()
+			&& $this->mobileContext->userCanUpload()
+		) {
+			$modules[] = 'mobile.leadPhotoUploader';
+		}
+
+		if ( $user->isLoggedIn() ) {
+			// enable the user module
+			$modules[] = 'mobile.usermodule';
+
+			if ( $this->useEcho() ) {
+				$modules[] = 'mobile.notifications';
+			}
+
+			if ( $this->isCurrentPageEditable() ) {
+				if ( $action === 'signup-edit' || $campaign === 'leftNavSignup' ) {
+					$modules[] = 'mobile.newusers';
+				}
+			}
+
+			$mfExperiments = $this->getMFConfig()->get( 'MFExperiments' );
+
+			if ( count( $mfExperiments ) > 0 ) {
+				$modules[] = 'mobile.experiments';
+			}
+		}
+
+		if ( $this->mobileContext->userCanUpload() ) {
+			$modules[] = 'mobile.upload.ui';
+		}
+		return $modules;
+	}
+
+	/**
+	 * Returns the javascript entry modules to load. Only modules that need to
+	 * be overriden or added conditionally should be placed here.
+	 * @return array
+	 */
 	public function getDefaultModules() {
 		$modules = parent::getDefaultModules();
 		// flush unnecessary modules
 		$modules['content'] = array();
 		$modules['legacy'] = array();
 
-		$modules['mobile'] = array(
-			'mobile.head',
-			'mobile.startup',
-			'mobile.site',
-			// FIXME: separate mobile.stable into more meaningful groupings
-			'mobile.stable',
-		);
+		// Add minerva specific modules
+		$modules['head'] = 'mobile.head';
+		// Define all the modules that should load on the mobile site and their dependencies.
+		// Do not add mobules here.
+		$modules['stable'] = 'skins.minerva.scripts';
 
-		$modules['notifications'] = array( 'mobile.notifications' );
+		// Doing this unconditionally, prevents the desktop watchstar from ever leaking into mobile view.
 		$modules['watch'] = array();
-		$modules['search'] = array( 'mobile.search' );
-		$modules['stableonly'] = array( 'mobile.lastEdited.stable' );
-		$modules['issues'] = array( 'mobile.issues' );
-		$modules['editor'] = array( 'mobile.editor' );
-		$modules['languages'] = array( 'mobile.languages' );
-		$modules['newusers'] = array( 'mobile.newusers' );
-
-		$title = $this->getTitle();
-
-		// specific to current context
-		if ( $title->inNamespace( NS_FILE ) ) {
-			$modules['file'] = array( 'mobile.file.scripts' );
+		if ( $this->isAllowedPageAction( 'watch' ) ) {
+			// Explicitly add the mobile watchstar code.
+			$modules['watch'] = array( 'mobile.watchstar.init' );
 		}
+
+		if ( $this->isAllowedPageAction( 'edit' ) ) {
+			$modules['editor'] = array( 'mobile.editor' );
+		}
+
+		$modules['context'] = $this->getContextSpecificModules();
 
 		if ( $this->isMobileMode ) {
 			$modules['toggling'] = array( 'mobile.toggling' );
 			$modules['eventlogging'] = array( 'mobile.loggingSchemas' );
 		}
+		$modules['site'] = 'mobile.site';
+
 		// FIXME: Upstream?
-		wfRunHooks( 'SkinMinervaDefaultModules', array( $this, &$modules ) );
+		Hooks::run( 'SkinMinervaDefaultModules', array( $this, &$modules ) );
 		return $modules;
 	}
 
 	/**
 	 * This will be called by OutputPage::headElement when it is creating the
 	 * "<body>" tag, - adds output property bodyClassName to the existing classes
-	 * @param $out OutputPage
-	 * @param $bodyAttrs Array
+	 * @param OutputPage $out
+	 * @param array $bodyAttrs
 	 */
 	public function addToBodyAttributes( $out, &$bodyAttrs ) {
 		// does nothing by default - used by Special:MobileMenu
@@ -742,34 +975,42 @@ class SkinMinerva extends SkinTemplate {
 		$bodyAttrs[ 'class' ] .= ' ' . $classes;
 	}
 
+	/**
+	 * Get the needed styles for this skin
+	 * @return array
+	 */
 	protected function getSkinStyles() {
-		return array(
+		$title = $this->getTitle();
+		$styles = array(
 			'skins.minerva.chrome.styles',
-			'skins.minerva.buttons.styles',
 			'skins.minerva.content.styles',
 			'skins.minerva.drawers.styles',
-			// FIXME: Rename to use skins.minerva prefix - don't break cache in process
-			'mobile.styles.page',
+			'skins.minerva.tablet.styles',
+			// FIXME: This module should be loaded by any special page that needs it, not here
 			'mobile.pagelist.styles',
 		);
+		if ( $title->isSpecialPage() ) {
+			$styles['special'] = 'skins.minerva.special.styles';
+		}
+		return $styles;
 	}
 
 	/**
 	 * Add skin-specific stylesheets
-	 * @param $out OutputPage
+	 * @param OutputPage $out
 	 */
 	public function setupSkinUserCss( OutputPage $out ) {
 		// Add common CSS ResourceLoader modules to the page output
-		// FIXME: Once we start using mediawiki.ui.button more widely on mobile, change
-		// this to just parent::setupSkinUserCss( $out ).
-		$out->addModuleStyles( array( 'mediawiki.legacy.shared', 'mediawiki.legacy.commonPrint' ) );
+		parent::setupSkinUserCss( $out );
 		// Add Minerva-specific ResourceLoader modules to the page output
 		$out->addModuleStyles( $this->getSkinStyles() );
 	}
 
+	/**
+	 * initialize various variables and generate the template
+	 * @param OutputPage $out optional parameter: The OutputPage Obj.
+	 */
 	public function outputPage( OutputPage $out = null ) {
-		wfProfileIn( __METHOD__ );
-
 		// This might seem weird but now the meaning of 'mobile' is morphing to mean 'minerva skin'
 		// FIXME: Explore disabling this via a user preference and see what explodes
 		// Important: This must run before outputPage which generates script and style tags
@@ -778,11 +1019,12 @@ class SkinMinerva extends SkinTemplate {
 		$out->setTarget( 'mobile' );
 		if ( $this->isMobileMode ) {
 			// FIXME: Merge these hooks?
-			wfRunHooks( 'EnableMobileModules', array( $out, $this->getMode() ) );
-			wfRunHooks( 'BeforePageDisplayMobile', array( &$out ) );
+			// EnableMobileModules is deprecated; Use ResourceLoader instead,
+			// see https://www.mediawiki.org/wiki/ResourceLoader#Mobile
+			Hooks::run( 'EnableMobileModules', array( $out, $this->getMode() ) );
+			Hooks::run( 'BeforePageDisplayMobile', array( &$out ) );
 		}
-		parent::outputPage( $out );
-		wfProfileOut( __METHOD__ );
+		parent::outputPage();
 	}
 
 	//
@@ -793,20 +1035,30 @@ class SkinMinerva extends SkinTemplate {
 
 	/**
 	 * Returns the site name for the footer, either as a text or <img> tag
+	 * @return string
 	 */
-	protected function getSitename() {
-		global $wgMFCustomLogos, $wgMFTrademarkSitename;
+	public static function getSitename() {
+		$config = MobileContext::singleton()->getMFConfig();
+		$customLogos = $config->get( 'MFCustomLogos' );
+		$trademarkSitename = $config->get( 'MFTrademarkSitename' );
 
-		$footerSitename = $this->msg( 'mobile-frontend-footer-sitename' )->text();
+		$footerSitename = wfMessage( 'mobile-frontend-footer-sitename' )->text();
 
-		if ( isset( $wgMFCustomLogos['copyright'] ) ) {
-			$suffix = $wgMFTrademarkSitename ? ' ®' : '';
-			$sitename = Html::element( 'img', array(
-				'src' => $wgMFCustomLogos['copyright'],
-				'alt' => $footerSitename . $suffix
-			) );
+		if ( isset( $customLogos['copyright'] ) ) {
+			$suffix = $trademarkSitename ? ' ®' : '';
+			$attributes =  array(
+				'src' => $customLogos['copyright'],
+				'alt' => $footerSitename . $suffix,
+			);
+			if ( isset( $customLogos['copyright-height'] ) ) {
+				$attributes['height'] = $customLogos['copyright-height'];
+			}
+			if ( isset( $customLogos['copyright-width'] ) ) {
+				$attributes['width'] = $customLogos['copyright-width'];
+			}
+			$sitename = Html::element( 'img', $attributes );
 		} else {
-			$suffix = $wgMFTrademarkSitename ? ' ™' : '';
+			$suffix = $trademarkSitename ? ' ™' : '';
 			$sitename = $footerSitename . $suffix;
 		}
 
@@ -820,32 +1072,37 @@ class SkinMinerva extends SkinTemplate {
 	protected function prepareMobileFooterLinks( $tpl ) {
 		$req = $this->getRequest();
 
-		$url = $this->mobileContext->getDesktopUrl( wfExpandUrl(
-			$req->appendQuery( 'mobileaction=toggle_view_desktop' )
-		) );
-		$url = htmlspecialchars( $url );
+		$url = $this->getOutput()->getProperty( 'desktopUrl' );
+		if ( $url ) {
+			$url = wfAppendQuery( $url, 'mobileaction=toggle_view_desktop' );
+		} else {
+			$url = $this->getTitle()->getLocalUrl(
+				$req->appendQueryValue( 'mobileaction', 'toggle_view_desktop', true )
+			);
+		}
+		$url = htmlspecialchars( $this->mobileContext->getDesktopUrl( wfExpandUrl( $url ) ) );
 
 		$desktop = wfMessage( 'mobile-frontend-view-desktop' )->escaped();
 		$mobile = wfMessage( 'mobile-frontend-view-mobile' )->escaped();
 
-		// &zwnj; is needed for correct ligatures in some scripts (e.g. Arabic)
 		$switcherHtml = <<<HTML
 <h2>{$this->getSitename()}</h2>
 <ul>
-	<li>{$mobile}&zwnj;</li><li><a id="mw-mf-display-toggle" href="{$url}">{$desktop}</a></li>
+	<li>{$mobile}</li><li><a id="mw-mf-display-toggle" href="{$url}">{$desktop}</a></li>
 </ul>
 HTML;
 
-		// Generate the licensing text displayed in the footer of each page
+		// Generate the licensing text displayed in the footer of each page.
+		// See Skin::getCopyright for desktop equivalent.
 		$link = self::getLicenseLink( 'footer' );
-		// The license message is displayed in the content language rather than the user
-		// language. See Skin::getCopyright.
 		if ( $link ) {
-			$licenseText = $this->msg( 'mobile-frontend-copyright' )->rawParams(
-				$link )->inContentLanguage()->text();
+			$licenseText = $this->msg( 'mobile-frontend-copyright' )->rawParams( $link )->text();
 		} else {
 			$licenseText = '';
 		}
+
+		// Enable extensions to add links to footer in Mobile view, too - bug 66350
+		Hooks::run( 'SkinMinervaOutputPageBeforeExec', array( &$this, &$tpl ) );
 
 		$tpl->set( 'mobile-switcher', $switcherHtml );
 		$tpl->set( 'mobile-license', $licenseText );
@@ -864,12 +1121,13 @@ HTML;
 	 * @return string
 	 */
 	public static function getLicenseLink( $context, $attribs = array() ) {
-		global $wgRightsPage, $wgRightsUrl, $wgRightsText;
+		$config = MobileContext::singleton()->getConfig();
+		$rightsPage = $config->get( 'RightsPage' );
+		$rightsUrl = $config->get( 'RightsUrl' );
+		$rightsText = $config->get( 'RightsText' );
 
 		// Construct the link to the licensing terms
-		if ( $wgRightsText ) {
-			// Switch to a local variable so we don't overwrite the global
-			$rightsText = $wgRightsText;
+		if ( $rightsText ) {
 			// Use shorter text for some common licensing strings. See Installer.i18n.php
 			// for the currently offered strings. Unfortunately, there is no good way to
 			// comprehensively support localized licensing strings since the license (as
@@ -887,11 +1145,11 @@ HTML;
 			if ( isset( $commonLicenses[$rightsText] ) ) {
 				$rightsText = $commonLicenses[$rightsText];
 			}
-			if ( $wgRightsPage ) {
-				$title = Title::newFromText( $wgRightsPage );
+			if ( $rightsPage ) {
+				$title = Title::newFromText( $rightsPage );
 				$link = Linker::linkKnown( $title, $rightsText, $attribs );
-			} elseif ( $wgRightsUrl ) {
-				$link = Linker::makeExternalLink( $wgRightsUrl, $rightsText, true, '', $attribs );
+			} elseif ( $rightsUrl ) {
+				$link = Linker::makeExternalLink( $rightsUrl, $rightsText, true, '', $attribs );
 			} else {
 				$link = $rightsText;
 			}
@@ -900,18 +1158,21 @@ HTML;
 		}
 
 		// Allow other extensions (for example, WikimediaMessages) to override
-		wfRunHooks( 'MobileLicenseLink', array( &$link, $context, $attribs ) );
+		Hooks::run( 'MobileLicenseLink', array( &$link, $context, $attribs ) );
 
 		return $link;
 	}
 
 	/**
 	 * Returns HTML of terms of use link or null if it shouldn't be displayed
+	 * Note: This is called by a hook in the WikimediaMessages extension.
+	 *
+	 * @param $urlMsgKey Key of i18n message containing terms of use URL (optional)
 	 *
 	 * @return null|string
 	 */
-	public function getTermsLink() {
-		$urlMsg = $this->msg( 'mobile-frontend-terms-url' )->inContentLanguage();
+	public function getTermsLink( $urlMsgKey = 'mobile-frontend-terms-url' ) {
+		$urlMsg = $this->msg( $urlMsgKey )->inContentLanguage();
 		if ( $urlMsg->isDisabled() ) {
 			return null;
 		}

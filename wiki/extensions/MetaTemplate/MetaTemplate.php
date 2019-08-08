@@ -61,6 +61,11 @@ define('MAG_METATEMPLATE_CATPAGETEMPLATE', 'catpagetemplate');
 define('MAG_METATEMPLATE_IFEXISTX', 'ifexistx');
 define('MAG_METATEMPLATE_EXPLODEARGS', 'explodeargs');
 
+	// Copied from DynamicFunctions
+define('MAG_METATEMPLATE_RAND', 'rand');
+define('MAG_METATEMPLATE_SKIN', 'skin');
+define('MAG_METATEMPLATE_ARG', 'arg');
+
 # Global variable that enables all save/load-related functions
 # This is reset to false later if mt_save_data and mt_save_set tables do not exist 
 $egMetaTemplateEnableSaveLoad = true;
@@ -79,12 +84,18 @@ if ( version_compare ( $wgVersion, '1.12.0', '>=' ) ) {
 	$wgAutoloadClasses['Preprocessor_Uesp'] = $dir . 'MetaTemplatePPFrame.php';
 }
 else
+{
 	$wgAutoloadClasses['MetaTemplateParserStack'] = $dir . 'MetaTemplateParserStack_v10.php';
+}
+
 $wgAutoloadClasses['MetaTemplateSaveData'] = $dir . 'MetaTemplateSaveData.php';
 $wgAutoloadClasses['MetaTemplateCategoryPage'] = $dir . 'MetaTemplateCategoryPage.php';
 $wgAutoloadClasses['MetaTemplateCategoryViewer'] = $dir . 'MetaTemplateCategoryPage.php';
+
 if (!isset($wgAutoloadClasses['CategoryTreeCategoryPage']))
+{
 	$wgAutoloadClasses['CategoryTreeCategoryPage'] = $dir . 'FakeCategoryTreeStubs.php';
+}
 
 # Intialization function where most of customization is done
 $wgHooks['ParserFirstCallInit'][] = 'efMetaTemplateInit';
@@ -128,9 +139,10 @@ $wgSpecialPageGroups[ 'MetaVarsOnPage' ] = 'wiki';
 function efMetaTemplateInit( Parser $parser ) {
 	global $wgVersion, $wgMessageCache, $wgSearchType, $wgRequest, $wgHooks;
 	global $egUespNamespace;
-	$dir = dirname(__FILE__) . '/';
-
 	global $egMetaTemplateEnableSaveLoad;
+	
+	$dir = dirname(__FILE__) . '/';
+	
 	if ($egMetaTemplateEnableSaveLoad) {
 		$db = wfGetDB(DB_SLAVE);
 		if (!$db->tableExists('mt_save_data') || !$db->tableExists('mt_save_set'))
@@ -162,14 +174,15 @@ function efMetaTemplateInit( Parser $parser ) {
 	else
 		$hookoption = 0;
 		
-	
 	$parser->setFunctionHook( MAG_METATEMPLATE_DEFINE, 'efMetaTemplateImplementDefine', $hookoption);
+	
 	// previews are only on Template pages when in preview mode; if not activated, call blank instead
 	// this one check is reliable here, because previews are never done by job queue
 	if ( $istemplate && $ispreview )
 		$parser->setFunctionHook( MAG_METATEMPLATE_PREVIEW, 'efMetaTemplateImplementPreview', $hookoption);
 	else
 		$parser->setFunctionHook( MAG_METATEMPLATE_PREVIEW, 'efMetaTemplateBlank');
+	
 	$parser->setFunctionHook( MAG_METATEMPLATE_UNSET, 'efMetaTemplateImplementUnset', $hookoption);
 	$parser->setFunctionHook( MAG_METATEMPLATE_INHERIT, 'efMetaTemplateImplementInherit', $hookoption);
 	$parser->setFunctionHook( MAG_METATEMPLATE_RETURN, 'efMetaTemplateImplementReturn', $hookoption);
@@ -198,13 +211,22 @@ function efMetaTemplateInit( Parser $parser ) {
 	$parser->setFunctionHook( MAG_METATEMPLATE_PICKFROM, 'efMetaTemplateImplementPickfrom' );
 	$parser->setFunctionHook( MAG_METATEMPLATE_TRIMLINKS, 'efMetaTemplateImplementTrimlinks');
 	
-	// Tag function hooks
+		// Tag function hooks
 	$parser->setHook( MAG_METATEMPLATE_DISPLAYCODE, 'efMetaTemplateDisplaycode' );
 	$parser->setHook( MAG_METATEMPLATE_CLEANSPACE, 'efMetaTemplateCleanspace' );
 	$parser->setHook( MAG_METATEMPLATE_CLEANTABLE, 'efMetaTemplateCleantable' );
+	
+		// Dynamic functions
+	$parser->setFunctionHook( MAG_METATEMPLATE_ARG, 'efMetaTemplateArg' );
+	$parser->setFunctionHook( MAG_METATEMPLATE_RAND, 'efMetaTemplateRand' );
+	$parser->setFunctionHook( MAG_METATEMPLATE_SKIN, 'efMetaTemplateSkin' );
+	
 	global $egMetaTemplateEnableCatPageTemplate;
+	
 	if ($egMetaTemplateEnableCatPageTemplate)
+	{
 		$parser->setHook( MAG_METATEMPLATE_CATPAGETEMPLATE, 'efMetaTemplateCatPageTemplate' );
+	}
 	
 	return true;
 }
@@ -229,3 +251,5 @@ function efMetaTemplateSchemaUpdates() {
 function efMetaTemplateCatPageTemplate( $input, $args, $parser, $frame=NULL ) {
 	return MetaTemplateCategoryViewer::catPageTemplate($input, $args, $parser, $frame);
 }
+
+

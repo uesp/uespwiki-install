@@ -5,11 +5,6 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 	exit( 1 );
 }
 
-if( !class_exists( 'MwEmbedResourceManager' ) ) {
-	echo "TimedMediaHandler requires the MwEmbedSupport extension.\n";
-	exit( 1 );
-}
-
 // Set up the timed media handler dir:
 $timedMediaDir = __DIR__;
 // Include WebVideoTranscode (prior to config so that its defined transcode keys can be used in configuration)
@@ -144,6 +139,9 @@ $wgEnabledTranscodeSet = array(
 
 	// A high quality WebM stream
 	WebVideoTranscode::ENC_WEBM_720P,
+
+	// A full-HD high quality WebM stream
+	WebVideoTranscode::ENC_WEBM_1080P,
 /*
 	// A least common denominator h.264 stream; first gen iPhone, iPods, early android etc.
 	WebVideoTranscode::ENC_H264_320P,
@@ -153,6 +151,9 @@ $wgEnabledTranscodeSet = array(
 
 	// An high quality HD stream; higher end phones, tablets, smart tvs
 	WebVideoTranscode::ENC_H264_720P,
+
+	// A full-HD high quality stream; higher end phones, tablets, smart tvs
+	WebVideoTranscode::ENC_H264_1080P,
 */
 );
 

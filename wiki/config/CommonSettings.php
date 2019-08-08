@@ -30,7 +30,7 @@ $wgUseImageMagick = true;
 $wgImageMagickTempDir = "/imagetmp";
 $wgImageMagickConvertCommand = '/usr/bin/convert';
 $wgAllowExternalImages = true;
-$wgUploadPath       = "//images.uesp.net/";
+$wgUploadPath       = "//images.uesp.net";
 $wgUploadDirectory  = "$IP/images";
 $wgUseInstantCommons = false;
 $wgSVGConverters['ImageMagick'] = '$path/convert -background "#ffffff00" -thumbnail $widthx$height\! $input PNG:$output';
@@ -44,7 +44,7 @@ $wgUseSharedUploads = false;
 if ($uespLanguageSuffix != "")
 {
 	$wgUseSharedUploads = true;
-	$wgSharedUploadPath = '//images.uesp.net/';
+	$wgSharedUploadPath = '//images.uesp.net';
 	$wgSharedUploadDirectory = '/home/uesp/www/w/images/';
 	$wgHashedSharedUploadDirectory = true;
 	$wgUploadNavigationUrl = "//www.uesp.net/wiki/Special:Upload";
@@ -115,7 +115,7 @@ $wgAllowSiteCSSOnRestrictedPages = true;
 
 # When you make changes to this configuration file, change this date if
 # required to make sure that cached pages are cleared.
-$wgCacheEpoch = '20150522151500';
+$wgCacheEpoch = '20190401032405';
 $wgInvalidateCacheOnLocalSettingsChange = false;
 
 $wgReadOnlyFile = "$wgUploadDirectory/UESP_LOCK_DB";
@@ -127,3 +127,8 @@ set_time_limit(60);
 
 $wgCookieSecure = false;
 $wgMaxImageArea = 6e7;
+
+if ($uespIsDev)
+{
+	$wgUploadPath = "//dev.uesp.net/w/images";
+}

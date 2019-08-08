@@ -18,6 +18,7 @@ $specialPageAliases['en'] = array(
 /** Arabic (العربية) */
 $specialPageAliases['ar'] = array(
 	'TimedMediaHandler' => array( 'معالج_الميديا_الزمنية' ),
+	'OrphanedTimedText' => array( 'نص_زمني_يتيم' ),
 );
 
 /** Egyptian Spoken Arabic (مصرى) */
@@ -44,6 +45,7 @@ $specialPageAliases['et'] = array(
 /** Hebrew (עברית) */
 $specialPageAliases['he'] = array(
 	'TimedMediaHandler' => array( 'מדיה_מתוזמנת' ),
+	'OrphanedTimedText' => array( 'טקסט_מתוזמן_יתום' ),
 );
 
 /** Korean (한국어) */

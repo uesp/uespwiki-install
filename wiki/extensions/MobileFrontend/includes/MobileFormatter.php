@@ -1,37 +1,47 @@
 <?php
+/**
+ * MobileFormatter.php
+ */
 
 /**
  * Converts HTML into a mobile-friendly version
  */
 class MobileFormatter extends HtmlFormatter {
-	/*
-		String prefixes to be applied at start and end of output from Parser
-	*/
+	/** @var string $pageTransformStart String prefixes to be
+		applied at start and end of output from Parser */
 	protected $pageTransformStart = '<div>';
+	/** @var string $pageTransformEnd String prefixes to be
+		applied at start and end of output from Parser */
 	protected $pageTransformEnd = '</div>';
-	/*
-		String prefixes to be applied before and after section content.
-	*/
+	/** @var string $headingTransformStart String prefixes to be
+		applied before and after section content. */
 	protected $headingTransformStart = '</div>';
+	/** @var string $headingTransformEnd String prefixes to be
+		applied before and after section content. */
 	protected $headingTransformEnd = '<div>';
 
 	/**
-	 * @var Title
+	 * Saves a Title Object
+	 * @var Title $title
 	 */
 	protected $title;
 
+	/**
+	 * Are sections expandable?
+	 * @var boolean $expandableSections
+	 */
 	protected $expandableSections = false;
+	/**
+	 * Whether actual page is the main page
+	 * @var boolean $mainPage
+	 */
 	protected $mainPage = false;
-	protected $backToTopLink = true;
-	protected $flattenRedLinks = true;
-
-	protected $headings = 0;
 
 	/**
 	 * Constructor
 	 *
-	 * @param string $html: Text to process
-	 * @param Title $title: Title to which $html belongs
+	 * @param string $html Text to process
+	 * @param Title $title Title to which $html belongs
 	 */
 	public function __construct( $html, $title ) {
 		parent::__construct( $html );
@@ -48,33 +58,28 @@ class MobileFormatter extends HtmlFormatter {
 	 * @return MobileFormatter
 	 */
 	public static function newFromContext( $context, $html ) {
-		wfProfileIn( __METHOD__ );
+		global $wgMFSpecialCaseMainPage;
 
 		$title = $context->getTitle();
-		$isMainPage = $title->isMainPage();
+		$isMainPage = $title->isMainPage() && $wgMFSpecialCaseMainPage;
 		$isFilePage = $title->inNamespace( NS_FILE );
 		$isSpecialPage = $title->isSpecialPage();
 
 		$html = self::wrapHTML( $html );
 		$formatter = new MobileFormatter( $html, $title );
 		$formatter->enableExpandableSections( !$isMainPage && !$isSpecialPage );
-		// Only show red links to logged in users in beta or alpha mode
-		$formatter->flattenRedLinks( !$context->isBetaGroupMember() || $context->getUser()->isAnon() );
 
-		if ( $context->isBetaGroupMember() ) {
-			$formatter->disableBackToTop();
-		}
 		$formatter->setIsMainPage( $isMainPage );
 		if ( $context->getContentTransformations() && !$isFilePage ) {
 			$formatter->setRemoveMedia( $context->imagesDisabled() );
 		}
 
-		wfProfileOut( __METHOD__ );
 		return $formatter;
 	}
 
 	/**
-	 * @todo: kill with fire when there will be minimum of pre-1.1 app users remaining
+	 * Set support of page for expandable sections to $flag (standard: true)
+	 * @todo kill with fire when there will be minimum of pre-1.1 app users remaining
 	 * @param bool $flag
 	 */
 	public function enableExpandableSections( $flag = true ) {
@@ -82,27 +87,17 @@ class MobileFormatter extends HtmlFormatter {
 	}
 
 	/**
-	 * @todo: kill with fire when dynamic sections in production
+	 * Change mainPage (is this the main page) to $value (standard: true)
+	 * @param boolean $value
 	 */
-	public function disableBackToTop() {
-		$this->backToTopLink = false;
-	}
-
 	public function setIsMainPage( $value = true ) {
 		$this->mainPage = $value;
 	}
 
 	/**
-	 * Sets whether red links should be flattened
-	 * @param bool $flag
-	 */
-	public function flattenRedLinks( $flag = true ) {
-		$this->flattenRedLinks = $flag;
-	}
-
-	/**
 	 * Removes content inappropriate for mobile devices
-	 * @param bool $removeDefaults: Whether default settings at $wgMFRemovableClasses should be used
+	 * @param bool $removeDefaults Whether default settings at $wgMFRemovableClasses should be used
+	 * @return array
 	 */
 	public function filterContent( $removeDefaults = true ) {
 		global $wgMFRemovableClasses;
@@ -115,12 +110,7 @@ class MobileFormatter extends HtmlFormatter {
 		if ( $this->removeMedia ) {
 			$this->doRemoveImages();
 		}
-		parent::filterContent();
-
-		// Handle red links
-		if ( $this->flattenRedLinks ) {
-			$this->doFlattenRedLinks();
-		}
+		return parent::filterContent();
 	}
 
 	/**
@@ -129,7 +119,7 @@ class MobileFormatter extends HtmlFormatter {
 	private function doRemoveImages() {
 		$doc = $this->getDoc();
 		$domElemsToReplace = array();
-		foreach( $doc->getElementsByTagName( 'img' ) as $element ) {
+		foreach ( $doc->getElementsByTagName( 'img' ) as $element ) {
 			$domElemsToReplace[] = $element;
 		}
 		/** @var $element DOMElement */
@@ -147,31 +137,6 @@ class MobileFormatter extends HtmlFormatter {
 	}
 
 	/**
-	 * Replaces red links with plain text
-	 */
-	private function doFlattenRedLinks() {
-		$doc = $this->getDoc();
-		$xpath = new DOMXpath( $doc );
-		$redLinks = $xpath->query( '//a[@class="new"]' );
-		/** @var $redLink DOMElement */
-		foreach ( $redLinks as $redLink ) {
-			// PHP Bug #36795 — Inappropriate "unterminated entity reference"
-			$spanNode = $doc->createElement( "span", str_replace( "&", "&amp;", $redLink->nodeValue ) );
-
-			if ( $redLink->hasAttributes() ) {
-				$attributes = $redLink->attributes;
-				foreach ( $attributes as $attribute ) {
-					if ( $attribute->name != 'href' ) {
-						$spanNode->setAttribute( $attribute->name, $attribute->value );
-					}
-				}
-			}
-
-			$redLink->parentNode->replaceChild( $spanNode, $redLink );
-		}
-	}
-
-	/**
 	 * Performs final transformations to mobile format and returns resulting HTML
 	 *
 	 * @param DOMElement|string|null $element ID of element to get HTML from or
@@ -179,18 +144,17 @@ class MobileFormatter extends HtmlFormatter {
 	 * @return string Processed HTML
 	 */
 	public function getText( $element = null ) {
-		wfProfileIn( __METHOD__ );
 		if ( $this->mainPage ) {
 			$element = $this->parseMainPage( $this->getDoc() );
 		}
 		$html = parent::getText( $element );
-		wfProfileOut( __METHOD__ );
+
 		return $html;
 	}
 
 	/**
 	 * Returns interface message text
-	 * @param string $key: Message key
+	 * @param string $key Message key
 	 * @return string Wiki text
 	 */
 	protected function msg( $key ) {
@@ -199,23 +163,26 @@ class MobileFormatter extends HtmlFormatter {
 
 	/**
 	 * Performs transformations specific to main page
-	 * @param DOMDocument $mainPage: Tree to process
+	 * @param DOMDocument $mainPage Tree to process
 	 * @return DOMElement|null
 	 */
 	protected function parseMainPage( DOMDocument $mainPage ) {
-		wfProfileIn( __METHOD__ );
-
 		$featuredArticle = $mainPage->getElementById( 'mp-tfa' );
 		$newsItems = $mainPage->getElementById( 'mp-itn' );
+		$centralAuthImages = $mainPage->getElementById( 'central-auth-images' );
 
+		// Collect all the Main Page DOM elements that have an id starting with 'mf-'
 		$xpath = new DOMXpath( $mainPage );
 		$elements = $xpath->query( '//*[starts-with(@id, "mf-")]' );
 
+		// These elements will be handled specially
 		$commonAttributes = array( 'mp-tfa', 'mp-itn' );
 
+		// Start building the new Main Page content in the $content var
 		$content = $mainPage->createElement( 'div' );
 		$content->setAttribute( 'id', 'mainpage' );
 
+		// If there is a featured article section, add it to the new Main Page content
 		if ( $featuredArticle ) {
 			$h2FeaturedArticle = $mainPage->createElement(
 				'h2',
@@ -225,21 +192,26 @@ class MobileFormatter extends HtmlFormatter {
 			$content->appendChild( $featuredArticle );
 		}
 
+		// If there is a news section, add it to the new Main Page content
 		if ( $newsItems ) {
 			$h2NewsItems = $mainPage->createElement( 'h2', $this->msg( 'mobile-frontend-news-items' ) );
 			$content->appendChild( $h2NewsItems );
 			$content->appendChild( $newsItems );
 		}
 
+		// Go through all the collected Main Page DOM elements and format them for mobile
 		/** @var $element DOMElement */
 		foreach ( $elements as $element ) {
 			if ( $element->hasAttribute( 'id' ) ) {
 				$id = $element->getAttribute( 'id' );
+				// Filter out elements processed specially
 				if ( !in_array( $id, $commonAttributes ) ) {
+					// Convert title attributes into h2 headers
 					$sectionTitle = $element->hasAttribute( 'title' ) ? $element->getAttribute( 'title' ) : '';
-					if( $sectionTitle !== '' ) {
+					if ( $sectionTitle !== '' ) {
 						$element->removeAttribute( 'title' );
-						$h2UnknownMobileSection = $mainPage->createElement( 'h2', $sectionTitle );
+						$h2UnknownMobileSection =
+							$mainPage->createElement( 'h2', htmlspecialchars( $sectionTitle ) );
 						$content->appendChild( $h2UnknownMobileSection );
 					}
 					$br = $mainPage->createElement( 'br' );
@@ -249,23 +221,52 @@ class MobileFormatter extends HtmlFormatter {
 				}
 			}
 		}
+
+		// If no mobile-appropriate content has been assembled at this point, return null.
+		// This will cause HtmlFormatter to fall back to using the entire page.
 		if ( $content->childNodes->length == 0 ) {
-			$content = null;
+			return null;
 		}
 
-		wfProfileOut( __METHOD__ );
+		// If there are CentralAuth 1x1 images, preserve them unmodified
+		if ( $centralAuthImages ) {
+			$content->appendChild( $centralAuthImages );
+		}
+
 		return $content;
 	}
 
 	/**
-	 * Makes sections expandable
+	 * Transforms heading for toggling and editing
+	 *
+	 * - Add css classes to all h-tags (h1-h6) _inside_ a section
+	 *   to enable editing of these sections. Doesn't add this class to the first
+	 *   heading ($tagName)
+	 * - Wraps section-content inside a div to enable toggling
 	 *
 	 * @param string $s
 	 * @param string $tagName
 	 * @return string
 	 */
 	protected function headingTransform( $s, $tagName = 'h2' ) {
-		wfProfileIn( __METHOD__ );
+		// add in-block class to all headings included in this section (except the first one)
+		// don't do this for the main page, it breaks things - Bug 190662
+		if ( !$this->mainPage ) {
+			$s = preg_replace_callback(
+				'/<(h[1-6])>/si',
+				function ( $match ) use ( $tagName ) {
+					$tag = $match[1];
+					$cssClass = '';
+					if ( $tag !== $tagName ) {
+						$cssClass = ' class="in-block"';
+					}
+					return '<' . $tag . $cssClass . '>';
+				},
+				$s
+			);
+		}
+
+		// Makes sections expandable
 		$tagRegEx = '<' . $tagName . '.*</' . $tagName . '>';
 		$s = $this->pageTransformStart .
 			preg_replace(
@@ -273,17 +274,39 @@ class MobileFormatter extends HtmlFormatter {
 				$s
 			) .
 			$this->pageTransformEnd;
-		wfProfileOut( __METHOD__ );
+
 		return $s;
 	}
 
+	/**
+	 * Finds the first heading in the page and uses that to determine top level sections.
+	 * When a page contains no headings returns h6.
+	 *
+	 * @param string $html
+	 * @return string the tag name for the top level headings
+	 */
+	protected function findTopHeading( $html ) {
+		$tags = array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
+		foreach ( $tags as $tag ) {
+			if ( strpos( $html, '<' . $tag ) !== false ) {
+				return $tag;
+			}
+		}
+		return 'h6';
+	}
+
+	/**
+	 * Call headingTransform if needed
+	 *
+	 * @param string $html
+	 * @return string
+	 */
 	protected function onHtmlReady( $html ) {
-		wfProfileIn( __METHOD__ );
 		if ( $this->expandableSections ) {
-			$tagName = strrpos( $html, '<h1' ) !== false ? 'h1' : 'h2';
+			$tagName = $this->findTopHeading( $html );
 			$html = $this->headingTransform( $html, $tagName );
 		}
-		wfProfileOut( __METHOD__ );
+
 		return $html;
 	}
 }

@@ -117,10 +117,16 @@ Then(/^(.+) is the second suggestion$/) do |title|
     on(SearchPage).second_result.should == title
   end
 end
-Then(/^(.+) is not in the suggestions$/) do |title|
+Then(/^(.+) is( not)? in the suggestions$/) do |title, should_not|
+  found = false
   on(SearchPage).all_results_elements.each do |result|
-    result.text.should_not == title
+    if should_not
+      result.text.should_not == title
+    else
+      found |= result.text == title
+    end
   end
+  found.should == true unless should_not
 end
 Then(/^I should be offered to search for (.+)$/) do |term|
   on(SearchPage).search_special.should == "containing...\n" + term
@@ -130,7 +136,7 @@ Then(/^there is a search result$/) do
 end
 Then(/^(.+) is( in)? the ((?:[^ ])+(?: or (?:[^ ])+)*) search result$/) do |title, in_ok, indexes|
   on(SearchResultsPage) do |page|
-    found = indexes.split(/ or /).any? { |index|
+    found = indexes.split(/ or /).any? do |index|
       begin
         check_search_result(
           page.send("#{index}_result_wrapper_element"),
@@ -141,7 +147,7 @@ Then(/^(.+) is( in)? the ((?:[^ ])+(?: or (?:[^ ])+)*) search result$/) do |titl
       rescue
         false
       end
-    }
+    end
     found.should == true
   end
 end

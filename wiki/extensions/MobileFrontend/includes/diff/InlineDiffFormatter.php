@@ -1,11 +1,20 @@
 <?php
+/**
+ * InlineDiffFormatter.php
+ */
 
+/**
+ * Extends standard Table-formatted DiffFormatter of core to enable Inline-Diff
+ * format of MF with only one column.
+ */
 class InlineDiffFormatter extends TableDiffFormatter {
 	/**
-	 * @param $xbeg
-	 * @param $xlen
-	 * @param $ybeg
-	 * @param $ylen
+	 * Get the header of diff block. Remember: Given line numbers will not be visible,
+	 * it's a one column diff style.
+	 * @param integer $xbeg line number of left side to compare with
+	 * @param integer $xlen Number of trailing lines after the changed line on left side
+	 * @param integer $ybeg right side line number to compare with
+	 * @param integer $ylen Number of trailing lines after the changed line on right side
 	 * @return string
 	 */
 	function blockHeader( $xbeg, $xlen, $ybeg, $ylen ) {
@@ -13,7 +22,9 @@ class InlineDiffFormatter extends TableDiffFormatter {
 	}
 
 	/**
-	 * @param $lines array
+	 * Get a div element with a complete new added line as content.
+	 * Complete line will be appear with green background.
+	 * @param array $lines With changed lines
 	 */
 	function added( $lines ) {
 		foreach ( $lines as $line ) {
@@ -24,7 +35,9 @@ class InlineDiffFormatter extends TableDiffFormatter {
 	}
 
 	/**
-	 * @param $lines
+	 * Get a div with a line which is deleted completly.
+	 * This line will be appear with complete red background.
+	 * @param array $lines With deleted lines
 	 */
 	function deleted( $lines ) {
 		foreach ( $lines as $line ) {
@@ -35,7 +48,10 @@ class InlineDiffFormatter extends TableDiffFormatter {
 	}
 
 	/**
-	 * @param $lines
+	 * Get a div with some changed content.
+	 * Line will appear with white and the changed context in
+	 * red (for deleted chars) and green (for added chars) background.
+	 * @param array $lines With edited lines
 	 */
 	function context( $lines ) {
 		foreach ( $lines as $line ) {
@@ -45,9 +61,11 @@ class InlineDiffFormatter extends TableDiffFormatter {
 	}
 
 	/**
-	 * @param $marker
-	 * @param $class
-	 * @param $line
+	 * Convert all spaces to a forced blank. If line is empty creates at least one
+	 * forced space.
+	 * @param string $marker Unused
+	 * @param string $class Unused
+	 * @param string $line Content of the line
 	 * @return string
 	 */
 	protected function wrapLine( $marker, $class, $line ) {
@@ -58,6 +76,7 @@ class InlineDiffFormatter extends TableDiffFormatter {
 	}
 
 	/**
+	 * Adds a forced blank to line, if the line is empty.
 	 * @param string $line
 	 *
 	 * @return string
@@ -71,12 +90,11 @@ class InlineDiffFormatter extends TableDiffFormatter {
 	}
 
 	/**
-	 * @param $orig
-	 * @param $closing
+	 * Get a div with changed content (not complete added or deleted line)
+	 * @param string[] $orig Old content to compare with
+	 * @param string[] $closing New content to compare with
 	 */
 	function changed( $orig, $closing ) {
-		wfProfileIn( __METHOD__ );
-
 		echo '<div class="mw-diff-inline-changed">';
 		$diff = new WordLevelDiff( $orig, $closing );
 		$edits = $this->inlineWordDiff( $diff );
@@ -85,11 +103,14 @@ class InlineDiffFormatter extends TableDiffFormatter {
 		echo implode( '', $edits );
 
 		echo "</div>\n";
-		wfProfileOut( __METHOD__ );
 	}
 
+	/**
+	 * Builds the string of deleted and added words from the given diff.
+	 * @param WordLevelDiff $diff
+	 * @return array Array of changed lines
+	 */
 	private function inlineWordDiff( $diff ) {
-		wfProfileIn( __METHOD__ );
 		$inline = new HWLDFWordAccumulator;
 		$inline->insClass = $inline->delClass = '';
 
@@ -106,7 +127,6 @@ class InlineDiffFormatter extends TableDiffFormatter {
 			}
 		}
 		$lines = $inline->getLines();
-		wfProfileOut( __METHOD__ );
 
 		return $lines;
 	}

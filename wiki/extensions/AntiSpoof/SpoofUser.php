@@ -135,15 +135,32 @@ class SpoofUser {
 	 * @param $oldName
 	 */
 	public function update( $oldName ) {
+		$that = $this;
+		$method = __METHOD__;
 		$dbw = $this->getDBMaster();
+		// Avoid user rename triggered deadlocks
+		$dbw->onTransactionPreCommitOrIdle(
+			function() use ( $dbw, $that, $method, $oldName ) {
+				if( $that->record() ) {
+					$dbw->delete(
+						'spoofuser',
+						array( 'su_name' => $oldName ),
+						$method
+					);
+				}
+			}
+		);
+	}
 
-		if( $this->record() ) {
-			$dbw->delete(
-				'spoofuser',
-				array( 'su_name' => $oldName ),
-				__METHOD__
-			);
-		}
+	/**
+	 * Remove a user from the spoofuser table
+	 */
+	public function remove() {
+		$this->getDBMaster()->delete(
+			'spoofuser',
+			array( 'su_name' => $this->mName ),
+			__METHOD__
+		);
 	}
 
 	/**

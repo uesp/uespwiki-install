@@ -116,7 +116,6 @@
 
 	.wikitext-editor {
 		min-height: 50%;
-		padding: 10px @contentMargin;
 		line-height: 1.5;
 		border: none;
 	}
@@ -135,17 +134,10 @@
 
 	.content {
 		// AbuseFilterOverlay
+		// FIXME: Don't hijack formatting of all cancel buttons just to center some
 		.cancel {
 			display: block;
 			margin: 1em auto;
-		}
-
-		// PagePreviewOverlay
-		.listThumb {
-			width: 100px;
-			height: 100px;
-			float: left;
-			margin-right: 20px;
 		}
 	}
 
@@ -157,6 +149,40 @@
 		padding: 20px @contentMargin;
 		line-height: inherit;
 	}
+
+	@buttonWidth: 40px;
+	.slider-button {
+		position: absolute;
+		top: @headerHeight;
+		width: @buttonWidth;
+		bottom: 0;
+		z-index: @z-indexOverlay;
+
+		&.prev {
+			left: 0;
+			// FIXME: Remove when mw-ui-icon in stable
+			.icon {
+				.background-image('../images/uploads/chevronLeft.png');
+				right: 0;
+			}
+		}
+
+		&.next {
+			right: 1em;
+			// FIXME: Remove when mw-ui-icon in stable
+			.icon {
+				.background-image('../images/uploads/chevronRight.png');
+				right: @buttonWidth - 32px;
+			}
+		}
+
+		// vertically align icon.
+		> * {
+			position: absolute;
+			top: 50%;
+			margin-top: -50%
+		}
+	}
 }
 
 .overlay-header {
@@ -164,7 +190,6 @@
 	width: 100%;
 	border-spacing: 0;
 	border-collapse: collapse;
-	white-space: nowrap;
 	border-bottom: 1px solid @grayLight;
 
 	.overlay-title {
@@ -179,10 +204,25 @@
 	}
 
 	.overlay-action {
+		a,
 		button {
-			width: auto !important;
+			display: table-cell;
+			vertical-align: middle;
+			width: auto;
 			padding: 0 1.2em;
 			font-weight: bold;
+			// do not wrap button text
+			white-space: nowrap;
+			// links doesn't need an underline
+			text-decoration: none;
+			border-radius: 0;
+			height: @headerHeight;
+			cursor: pointer;
+			position: relative;
+
+			&:before {
+				top: 0;
+			}
 
 			&[disabled] {
 				opacity: .5;
@@ -235,12 +275,12 @@
 		width: @headerHeight;
 	}
 
+	.overlay-action a,
 	button {
-		width: @headerHeight;
-		border-radius: 0;
 		min-height: @headerHeight;
-		display: block;
-		cursor: pointer;
+		&:focus {
+			outline: 0;
+		}
 	}
 }
 
@@ -266,7 +306,17 @@
 }
 
 .overlay-footer-container {
+	background-color: #FFF;
 	bottom: 0;
+
+	& a {
+		display: block;
+		// The 1em bottom whitespace is applied as padding since Chrome and Safari ignore
+		// it otherwise. The 10px padding corresponds with the icon margin.
+		padding: 1em 1em 1em 10px;
+		border-top: 1px solid @grayLight;
+		text-align: center;
+	}
 }
 
 // Bottom Overlays
@@ -303,7 +353,7 @@
 	}
 }
 
-.ios {
+.overlay-ios {
 	.overlay-header-container {
 		position: absolute !important;
 	}
@@ -319,7 +369,6 @@
 		-webkit-overflow-scrolling: touch;
 	}
 }
-
 
 @media all and (min-width: @wgMFDeviceWidthTablet) {
 	.overlay {

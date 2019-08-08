@@ -1,13 +1,15 @@
-( function( M ) {
+( function ( M ) {
 
-	var View = M.require( 'View' ), LeadPhoto;
+	var LeadPhoto,
+		View = M.require( 'View' );
 
+	/**
+	 * Class for showing lead photo
+	 * @class LeadPhoto
+	 * @extends View
+	 */
 	LeadPhoto = View.extend( {
-		template: M.template.get( 'uploads/LeadPhoto' ),
-
-		animate: function() {
-			this.$el.hide().slideDown();
-		}
+		template: mw.template.get( 'mobile.uploads', 'LeadPhoto.hogan' )
 	} );
 
 	M.define( 'modules/uploads/LeadPhoto', LeadPhoto );

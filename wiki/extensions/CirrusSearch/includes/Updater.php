@@ -4,9 +4,9 @@ namespace CirrusSearch;
 use CirrusSearch\BuildDocument\FileDataBuilder;
 use CirrusSearch\BuildDocument\PageDataBuilder;
 use CirrusSearch\BuildDocument\PageTextBuilder;
+use MediaWiki\Logger\LoggerFactory;
 use \MWTimestamp;
 use \ParserCache;
-use \ProfileSection;
 use \Sanitizer;
 use \Title;
 use \WikiPage;
@@ -110,8 +110,9 @@ class Updater extends ElasticsearchIntermediary {
 			}
 
 			$page = WikiPage::factory( $title );
+			$logger = LoggerFactory::getInstance( 'CirrusSearch' );
 			if ( !$page->exists() ) {
-				wfDebugLog( 'CirrusSearch', "Ignoring an update for a nonexistent page: $titleText" );
+				$logger->debug( "Ignoring an update for a nonexistent page: $titleText" );
 				return array( null, $redirects );
 			}
 			$content = $page->getContent();
@@ -130,7 +131,7 @@ class Updater extends ElasticsearchIntermediary {
 				$target = $content->getUltimateRedirectTarget();
 				if ( $target->equals( $page->getTitle() ) ) {
 					// This doesn't warn about redirect loops longer than one but we'll catch those anyway.
-					wfDebugLog( 'CirrusSearch', "Title redirecting to itself. Skip indexing" );
+					$logger->info( "Title redirecting to itself. Skip indexing" );
 					return array( null, $redirects );
 				}
 				$title = $target;
@@ -170,8 +171,6 @@ class Updater extends ElasticsearchIntermediary {
 	 * @return int Number of documents updated of -1 if there was an error
 	 */
 	public function updatePages( $pages, $shardTimeout, $clientSideTimeout, $flags ) {
-		$profiler = new ProfileSection( __METHOD__ );
-
 		// Don't update the same page twice. We shouldn't, but meh
 		$pageIds = array();
 		$pages = array_filter( $pages, function( $page ) use ( &$pageIds ) {
@@ -224,8 +223,6 @@ class Updater extends ElasticsearchIntermediary {
 	 * @return bool True if nothing happened or we successfully deleted, false on failure
 	 */
 	public function deletePages( $titles, $ids, $clientSideTimeout = null, $indexType = null ) {
-		$profiler = new ProfileSection( __METHOD__ );
-
 		Job\OtherIndex::queueIfRequired( $titles, false );
 
 		if ( $clientSideTimeout !== null ) {
@@ -249,8 +246,7 @@ class Updater extends ElasticsearchIntermediary {
 			return true;
 		}
 
-		$profiler = new ProfileSection( __METHOD__ );
-
+		$failedLog = LoggerFactory::getInstance( 'CirrusSearchChangeFailed' );
 		$exception = null;
 		try {
 			$pageType = Connection::getPageType( wfWikiId(), $indexType );
@@ -263,8 +259,14 @@ class Updater extends ElasticsearchIntermediary {
 			$bulk->addData( $data, 'update' );
 			$bulk->send();
 		} catch ( \Elastica\Exception\Bulk\ResponseException $e ) {
-			if ( !$this->bulkResponseExceptionIsJustDocumentMissing( $e,
-					"Updating a page that doesn't yet exist in Elasticsearch" ) ) {
+			$missing = $this->bulkResponseExceptionIsJustDocumentMissing( $e,
+				function( $id ) use ( $failedLog ) {
+					$failedLog->warning( "Updating a page that doesn't "
+						. " yet exist in Elasticsearch: $id"
+					);
+				}
+			);
+			if ( !$missing ) {
 				$exception = $e;
 			}
 		} catch ( \Elastica\Exception\ExceptionInterface $e ) {
@@ -278,16 +280,16 @@ class Updater extends ElasticsearchIntermediary {
 			$documentIds = array_map( function( $d ) {
 				return $d->getId();
 			}, $data );
-			wfDebugLog( 'CirrusSearchChangeFailed', 'Update for doc ids: ' .
-				implode( ',', $documentIds ) . '; error message was: ' . $exception->getMessage() );
+			$failedLog->warning(
+				'Update for doc ids: ' . implode( ',', $documentIds ) .
+				'; error message was: ' . $exception->getMessage()
+			);
 			return false;
 		}
 	}
 
 	private function buildDocumentsForPages( $pages, $flags ) {
 		global $wgCirrusSearchUpdateConflictRetryCount;
-
-		$profiler = new ProfileSection( __METHOD__ );
 
 		$indexOnSkip = $flags & self::INDEX_ON_SKIP;
 		$skipParse = $flags & self::SKIP_PARSE;
@@ -296,12 +298,10 @@ class Updater extends ElasticsearchIntermediary {
 
 		$documents = array();
 		foreach ( $pages as $page ) {
-			wfProfileIn( __METHOD__ . '-basic' );
 			$title = $page->getTitle();
 			if ( !$page->exists() ) {
 				wfLogWarning( 'Attempted to build a document for a page that doesn\'t exist.  This should be caught ' .
 					"earlier but wasn't.  Page: $title" );
-				wfProfileOut( __METHOD__ . '-basic' );
 				continue;	
 			}
 
@@ -321,11 +321,8 @@ class Updater extends ElasticsearchIntermediary {
 			// regular types or lists of objects and lists are overwritten.
 			$doc->setDocAsUpsert( $fullDocument || $indexOnSkip );
 			$doc->setRetryOnConflict( $wgCirrusSearchUpdateConflictRetryCount );
-			wfProfileOut( __METHOD__ . '-basic' );
 
 			if ( !$skipParse ) {
-				wfProfileIn( __METHOD__ . '-parse' );
-
 				// Get text to index, based on content and parser output
 				list( $content, $parserOutput ) = $this->getContentAndParserOutput( $page );
 
@@ -345,8 +342,6 @@ class Updater extends ElasticsearchIntermediary {
 
 				// Then let hooks have a go
 				wfRunHooks( 'CirrusSearchBuildDocumentParse', array( $doc, $title, $content, $parserOutput ) );
-
-				wfProfileOut( __METHOD__ . '-parse' );
 			}
 
 			if ( !$skipLinks ) {
@@ -480,9 +475,10 @@ GROOVY;
 	 * Check if $exception is a bulk response exception that just contains document is missing failures.
 	 *
 	 * @param \Elastica\Exception\Bulk\ResponseException $exception exception to check
-	 * @param string|null $log debug message to log if this happens or null to log nothing
+	 * @param callback|null $logCallback Callback in which to do some logging. Callback will be
+	 *  passed the id of the missing document
 	 */
-	protected function bulkResponseExceptionIsJustDocumentMissing( $exception, $log ) {
+	protected function bulkResponseExceptionIsJustDocumentMissing( $exception, $logCallback = null ) {
 		$justDocumentMissing = true;
 		foreach ( $exception->getResponseSet()->getBulkResponses() as $bulkResponse ) {
 			if ( $bulkResponse->hasError() ) {
@@ -490,9 +486,9 @@ GROOVY;
 					$justDocumentMissing = false;
 				} else {
 					// This is generally not an error but we should log it to see how many we get
-					if ( $log ) {
+					if ( $logCallback ) {
 						$id = $bulkResponse->getAction()->getData()->getId();
-						wfDebugLog( 'CirrusSearch', $log . ":  $id" );
+						call_user_func( $logCallback, $id );
 					}
 				}
 			}
@@ -508,8 +504,6 @@ GROOVY;
 	 * @return bool True if nothing happened or we deleted, false on failure
 	 */
 	private function sendDeletes( $ids, $indexType = null ) {
-		$profiler = new ProfileSection( __METHOD__ );
-
 		$idCount = count( $ids );
 		if ( $idCount !== 0 ) {
 			try {
@@ -526,8 +520,10 @@ GROOVY;
 				}
 			} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 				$this->failure( $e );
-				wfDebugLog( 'CirrusSearchChangeFailed', 'Delete for ids: ' .
-					implode( ',', $ids ) . '; error message was: ' . $e->getMessage() );
+				LoggerFactory::getInstance( 'CirrusSearchChangeFailed' )->warning(
+					'Delete for ids: ' . implode( ',', $ids ) .
+					'; error message was: ' . $e->getMessage()
+				);
 				return false;
 			}
 		}

@@ -60,8 +60,6 @@ class DisambiguatorHooks {
 	 * @return int[] The page ids corresponding to pages that are disambiguations
 	 */
 	private static function filterDisambiguationPageIds( array $pageIds ) {
-		wfProfileIn( __METHOD__ );
-
 		// Don't needlessly check non-existent and special pages
 		$pageIds = array_filter( $pageIds, function ( $id ) { return $id > 0; } );
 
@@ -80,7 +78,6 @@ class DisambiguatorHooks {
 			}
 		}
 
-		wfProfileOut( __METHOD__ );
 		return $output;
 	}
 
@@ -108,6 +105,10 @@ class DisambiguatorHooks {
 	 * @return bool
 	 */
 	public static function onSetupAfterCache() {
+		if ( ExtensionRegistry::getInstance()->isLoaded( 'Disambiguator' ) ) {
+			// Plugin already registered as an attribute
+			return true;
+		}
 		global $wgVisualEditorPluginModules;
 		if ( is_array( $wgVisualEditorPluginModules ) ) {
 			$wgVisualEditorPluginModules[] = 'ext.disambiguator.visualEditor';

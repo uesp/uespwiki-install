@@ -363,10 +363,17 @@ class AFComputedVariable {
 				// This should ONLY be used when sharing a parse operation with the edit.
 
 				/* @var WikiPage $article */
-				$article = $parameters['article'];
-				if ( $article !== null
-					&& ( !defined( 'MW_SUPPORTS_CONTENTHANDLER' )
-						|| $article->getContentModel() === CONTENT_MODEL_WIKITEXT )
+				if ( isset( $parameters['article'] ) ) {
+					$article = $parameters['article'];
+				} else {
+					$article = self::articleFromTitle(
+						$parameters['namespace'],
+						$parameters['title']
+					);
+				}
+				if (
+					!defined( 'MW_SUPPORTS_CONTENTHANDLER' ) ||
+					$article->getContentModel() === CONTENT_MODEL_WIKITEXT
 				) {
 					$textVar = $parameters['text-var'];
 
@@ -428,11 +435,18 @@ class AFComputedVariable {
 				break;
 			case 'parse-wikitext':
 				// Should ONLY be used when sharing a parse operation with the edit.
-				$article = $parameters['article'];
-
-				if ( $article !== null
-					&& ( !defined( 'MW_SUPPORTS_CONTENTHANDLER' )
-						|| $article->getContentModel() === CONTENT_MODEL_WIKITEXT ) ) {
+				if ( isset( $parameters['article'] ) ) {
+					$article = $parameters['article'];
+				} else {
+					$article = self::articleFromTitle(
+						$parameters['namespace'],
+						$parameters['title']
+					);
+				}
+				if (
+					!defined( 'MW_SUPPORTS_CONTENTHANDLER' ) ||
+					$article->getContentModel() === CONTENT_MODEL_WIKITEXT
+				) {
 					$textVar = $parameters['wikitext-var'];
 
 					// XXX: Use prepareContentForEdit. But we need a Content object for that.
@@ -488,14 +502,20 @@ class AFComputedVariable {
 				}
 
 				$dbr = wfGetDB( DB_SLAVE );
-				$res = $dbr->select( 'revision',
-					'DISTINCT rev_user_text',
+				$sqlTmp = $dbr->selectSQLText(
+					'revision',
+					array( 'rev_user_text', 'rev_timestamp' ),
 					array(
 						'rev_page' => $title->getArticleID(),
-						'rev_timestamp<' . $dbr->addQuotes( $dbr->timestamp( $cutOff ) )
+						'rev_timestamp < ' . $dbr->addQuotes( $dbr->timestamp( $cutOff ) )
 					),
 					__METHOD__,
-					array( 'ORDER BY' => 'rev_timestamp DESC', 'LIMIT' => 10 )
+					// Some pages have < 10 authors but many revisions (e.g. bot pages)
+					array( 'ORDER BY' => 'rev_timestamp DESC', 'LIMIT' => 100 )
+				);
+				$res = $dbr->query(
+					"SELECT rev_user_text FROM ($sqlTmp) AS tmp " .
+					"GROUP BY rev_user_text ORDER BY MAX(rev_timestamp) DESC LIMIT 10"
 				);
 
 				$users = array();
@@ -503,6 +523,17 @@ class AFComputedVariable {
 					$users[] = $row->rev_user_text;
 				}
 				$result = $users;
+				break;
+			case 'load-first-author':
+				$title = Title::makeTitle( $parameters['namespace'], $parameters['title'] );
+
+				$revision = $title->getFirstRevision();
+				if ( $revision ) {
+					$result = $revision->getUserText();
+				} else {
+					$result = '';
+				}
+
 				break;
 			case 'get-page-restrictions':
 				$action = $parameters['action'];

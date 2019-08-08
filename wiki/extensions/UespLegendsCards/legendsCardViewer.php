@@ -655,7 +655,7 @@ class CUespLegendsCardDataViewer
 		$output .= "<td>$rarity</td>";
 		$output .= "<td>$obtainable</td>";
 		$output .= "<td>$unique</td>";
-		$output .= "<td>$training</td>";
+		//$output .= "<td>$training</td>";
 		$output .= "<td>$uses</td>";
 		$output .= "<td>$text</td>";
 		$output .= "<td><nobr>$wikiLink</nobr><br/><nobr>$imageLink</nobr></td>";
@@ -958,8 +958,8 @@ class CUespLegendsCardDataViewer
 		$output .= "<tr><th>Rarity</th><td>$rarityList</td></tr>";
 		$output .= "<tr><th>Obtainable</th><td><input type='checkbox' name='obtainable' value='1' id='eslegCardInputObtainable' $obtainable></td></tr>";
 		$output .= "<tr><th>Unique</th><td><input type='checkbox' name='unique' value='1' id='eslegCardInputUnique' $unique></td></tr>";
-		$output .= "<tr><th>Training 1</th><td><input type='text' name='training1' value='$training1' id='eslegCardInputTraining1'> @ Level <input type='text' name='trainingLevel1' value='$trainingLevel1' id='eslegCardInputTrainingLevel1'></td></tr>";
-		$output .= "<tr><th>Training 2</th><td><input type='text' name='training2' value='$training2' id='eslegCardInputTraining2'> @ Level <input type='text' name='trainingLevel2' value='$trainingLevel2' id='eslegCardInputTrainingLevel2'></td></tr>";
+		//$output .= "<tr><th>Training 1</th><td><input type='text' name='training1' value='$training1' id='eslegCardInputTraining1'> @ Level <input type='text' name='trainingLevel1' value='$trainingLevel1' id='eslegCardInputTrainingLevel1'></td></tr>";
+		//$output .= "<tr><th>Training 2</th><td><input type='text' name='training2' value='$training2' id='eslegCardInputTraining2'> @ Level <input type='text' name='trainingLevel2' value='$trainingLevel2' id='eslegCardInputTrainingLevel2'></td></tr>";
 		$output .= "<tr><th>Uses</th><td><input type='text' value='$uses' name='uses' id='eslegCardInputUses' maxlength='100'></td></tr>";
 		$output .= "<tr><th>Text</th><td><textarea name='text' id='eslegCardInputText'>$text</textarea></td></tr>";
 		$output .= "<tr><th>Wiki Image</th><td><input type='text' value=\"$imageName\" name='image' id='eslegCardInputImage' maxlength='100'> </td></tr>";
@@ -1108,7 +1108,7 @@ class CUespLegendsCardDataViewer
 		$output .= "<tr><th>Rarity</th><td>$rarity</td></tr>";
 		$output .= "<tr><th>Obtainable</th><td>$obtainable</td></tr>";
 		$output .= "<tr><th>Unique</th><td>$unique</td></tr>";
-		$output .= "<tr><th>Training</th><td>$training</td></tr>";
+		//$output .= "<tr><th>Training</th><td>$training</td></tr>";
 		$output .= "<tr><th>Uses</th><td>$uses</td></tr>";
 		$output .= "<tr><th>Text</th><td>$text</td></tr>";
 		$output .= "<tr><th>Wiki Link</th><td>$wikiLink</td></tr>";
@@ -1151,7 +1151,7 @@ class CUespLegendsCardDataViewer
 		$output .= "<th>Rarity</th>";
 		$output .= "<th>Obtainable</th>";
 		$output .= "<th>Unique</th>";
-		$output .= "<th>Training</th>";
+		//$output .= "<th>Training</th>";
 		$output .= "<th>Uses</th>";
 		$output .= "<th>Description</th>";
 		$output .= "<th>Links</th>";

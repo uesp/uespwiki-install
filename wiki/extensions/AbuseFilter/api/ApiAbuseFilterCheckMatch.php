@@ -54,11 +54,17 @@ class ApiAbuseFilterCheckMatch extends ApiBase {
 			$this->dieUsage( 'The filter has invalid syntax', 'badsyntax' );
 		}
 
-		$result = AbuseFilter::checkConditions( $params['filter'], $vars );
+		$result = array(
+			'result' => AbuseFilter::checkConditions( $params['filter'], $vars ),
+		);
+		if ( defined( 'ApiResult::META_CONTENT' ) ) {
+			$result[ApiResult::META_BC_BOOLS][] = 'result';
+		}
+
 		$this->getResult()->addValue(
 			null,
 			$this->getModuleName(),
-			array( 'result' => $result )
+			$result
 		);
 	}
 
@@ -77,6 +83,9 @@ class ApiAbuseFilterCheckMatch extends ApiBase {
 		);
 	}
 
+	/**
+	 * @deprecated since MediaWiki core 1.25
+	 */
 	public function getParamDescription() {
 		return array(
 			'filter' => 'The full filter text to check for a match',
@@ -86,6 +95,9 @@ class ApiAbuseFilterCheckMatch extends ApiBase {
 		);
 	}
 
+	/**
+	 * @deprecated since MediaWiki core 1.25
+	 */
 	public function getDescription() {
 		return array(
 			'Check to see if an AbuseFilter matches a set of variables, edit'
@@ -100,7 +112,13 @@ class ApiAbuseFilterCheckMatch extends ApiBase {
 		);
 	}
 
-	public function getVersion() {
-		return __CLASS__ . ': $Id$';
+	/**
+	 * @see ApiBase::getExamplesMessages()
+	 */
+	protected function getExamplesMessages() {
+		return array(
+			'action=abusefiltercheckmatch&filter=!("autoconfirmed"%20in%20user_groups)&rcid=15'
+				=> 'apihelp-abusefiltercheckmatch-example-1',
+		);
 	}
 }

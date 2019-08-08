@@ -14,8 +14,8 @@ body {
 }
 
 #content_wrapper {
-	.top-bar {
-		background-color: @colorGray15;
+	.last-modified-bar {
+		background-color: @colorGray14;
 		padding: 5px @contentMargin;
 		display: block;
 		color: @colorGray6;
@@ -37,12 +37,6 @@ body {
 	}
 }
 
-// FIXME: Id's for styling are bad m'kay?
-#mw-mf-main-menu-button {
-	background-position: 50% 50%;
-	.background-image-svg( 'images/menu/hamburger.svg', 'images/menu/hamburger.png' );
-}
-
 .header {
 	display: table;
 	width: 100%;
@@ -57,26 +51,26 @@ body {
 	// Left and right menu links
 	> a,
 	// Search field
-	> form {
-		display: table-cell;
+	> form,
+	// Spinner
+	> div {
 		vertical-align: middle;
+		display: table-cell;
 	}
 
 	// Search
 	> form {
 		padding: .15em @headerTitlePaddingH 0;
 		width: auto;
+		vertical-align: middle;
 	}
 
-	// FIXME: Overrides rules in common.less for input area that are present in reset.less - should be unnecessary
-	.search {
-		border: none;
-		padding: 0;
+	> .header-title {
+		vertical-align: middle;
 	}
 
 	.fulltext-search {
-		margin: 0 .2em 0 .5em;
-		float: right;
+		margin: 0 3px 0 9px;
 	}
 }
 
@@ -91,14 +85,24 @@ body {
 	}
 }
 
+// Add border between notices and header
+.mw-dismissable-notice {
+	border-bottom: 1px solid @grayLight;
+}
+
 // Used for messages on login screen, page lists and uploads and when showing old revisions
+.warningbox,
+.alert.warning {
+	color: @colorWarningText;
+	background: @colorWarningBackground;
+}
+
 .alert {
 	padding: 1em @contentMargin;
 	margin: 0 0 1em;
 
-	&.warning {
-		color: #850;
-		background: #feb
+	&.successbox {
+		background: @colorSuccessBackground;
 	}
 
 	h2 {
@@ -106,14 +110,30 @@ body {
 		padding: 0;
 		margin: 0 0 .5em 0;
 	}
+
+	// used e.g. in EditorOverlay
+	a {
+		margin-bottom: 1em;
+	}
 }
 
 /* Search */
 
+.client-use-basic-search,
 .client-nojs {
-	.search-box input.search {
-		// FIXME: This should not be necessary
-		width: 75%;
+	.header {
+		.search,
+		.fulltext-search {
+			display: block;
+			float: left;
+		}
+
+		.search {
+			// Assume the smallest possible screen size.
+			// We want people to be able to search we don't care if it looks pretty.
+			width: 80px;
+			margin-right: 8px;
+		}
 	}
 }
 
@@ -136,14 +156,50 @@ input.search {
 }
 
 .content {
+	// Correct icon sizes of edit icon when using mw-ui-icon.
+	h1 {
+		// FIXME: Make less specific when mw-ui-icon default.
+		.mw-ui-icon.edit-page {
+			font-size: 1 / @fontSizeH1;
+		}
+	}
+
+	h2 {
+		.mw-ui-icon.edit-page {
+			font-size: 1 / @fontSizeH2;
+		}
+	}
+
+	h3 {
+		.mw-ui-icon.edit-page {
+			font-size: 1 / @fontSizeH3;
+		}
+	}
+
 	.edit-page {
 		display: none;
-		position: absolute;
-		background-position: 100% @headingMargin;
-		width: @sectionIconWidth + 5px;
 		top: 0;
 		bottom: 0;
 		right: 0;
+	}
+
+	// edit pencils for section headings (collapsible)
+	.collapsible-heading {
+		.edit-page {
+			position: absolute;
+		}
+	}
+
+	// show edit section pencils on section headings inside collapsible blocks
+	.in-block {
+		position: relative;
+
+		> .edit-page {
+			display: none;
+			// edit pencils for inline/sub-section headings - bug T90245
+			position: relative;
+			float: right;
+		}
 	}
 
 	.open-block {
@@ -166,6 +222,11 @@ input.search {
 	}
 }
 
+#page-secondary-actions {
+	a {
+		margin: 10px 2px 2px 0;
+	}
+}
 .truncated-text {
 	white-space: nowrap;
 	overflow: hidden;
@@ -190,56 +251,61 @@ input.search {
 .overlay,
 .header {
 
-	.user-button {
-		height: @headerHeight;
-		background-position: 50% 50%;
-	}
-
 	// need to specify id or else other rules are more important
 	// FIXME: simplify when .icon class from Overlay used instead
 	#secondary-button.user-button,
 	.user-button {
-		width: @headerHeight;
-		text-align: right;
 		// Make sure count is positioned correctly in relation to bell icon
 		position: relative;
-		.background-image-svg-quick( 'images/bell' );
-		// Fixes positioning in Firefox
-		display: inline-block;
-		float: right;
 
+		// can't use display:none class as icons must have a label to retain height
+		.label {
+			visibility: hidden;
+		}
+
+		// FIXME: Remove when cache is cleared.
+		&.icon {
+			width: @headerHeight;
+			text-align: right;
+			.background-image-svg-quick( 'images/bell' );
+			// Fixes positioning in Firefox
+			display: inline-block;
+			float: right;
+			// FIXME: This shouldn't be needed
+			height: @headerHeight;
+		}
 
 		&.loading span {
 			display: none;
 		}
+	}
+}
 
-		span {
-			text-indent: 0;
-			display: inline-block;
-			font-weight: bold;
-			color: #fff;
-			background: #c91f2c;
-			border-radius: 2px;
-			height: 1.2em;
-			line-height: 1.2em;
-			min-width: 1em;
-			margin: .6em .6em 0 0;
-			padding: 0 0.1em;
-			text-align: center;
+.notification-count {
+	text-indent: 0;
+	display: inline-block;
+	font-weight: bold;
+	color: #fff;
+	background: #c91f2c;
+	border-radius: 2px;
+	height: 1.2em;
+	line-height: 1.2em;
+	min-width: 1em;
+	margin: .6em .6em 0 0;
+	padding: 0 0.1em;
+	text-align: center;
 
-			&.zero {
-				display: none;
-			}
+	&.zero {
+		display: none;
+	}
 
-			// FIXME: There must be a better way of doing this
-			&.max {
-				right: .2em;
-				width: 2em;
-				height: 2em;
-				line-height: 2em;
-				font-size: 0.7em;
-			}
-		}
+	// FIXME: There must be a better way of doing this
+	&.max {
+		right: .2em;
+		width: 2em;
+		height: 2em;
+		line-height: 2em;
+		font-size: 0.7em;
 	}
 }
 
@@ -254,5 +320,60 @@ input.search {
 	// For talk and CTA drawer
 	.mw-ui-block {
 		width: auto;
+	}
+}
+
+// Move to a separate file if beta styling gets considerably large
+.beta {
+	// FIXME: Remove when mw-ui-icon is in beta
+	.mw-ui-button.icon-talk {
+		background-position: left 10px center;
+		padding-left: 50px;
+	}
+}
+
+// FIXME: identify why this is here.
+.alpha {
+	.notification-count {
+		position: absolute;
+		right: 0;
+		top: -.1em;
+	}
+
+	.spinner {
+		margin: auto;
+	}
+}
+
+.alpha {
+	.header {
+		background-color: #fff;
+		position: relative;
+
+		> .header-title {
+			// align the text in the middle regardless of whether the notification icon exists or not
+			bottom: 0;
+			left: @headerHeight;
+			position: absolute;
+			right: @headerHeight;
+			text-align: center;
+			top: 0;
+			a {
+				display: block;
+				line-height: @headerHeight;
+				text-decoration: none;
+			}
+		}
+	}
+}
+
+.alpha,
+.beta {
+	#page-secondary-actions {
+		&:before {
+			content: "";
+			display: block;
+			clear: both;
+		}
 	}
 }

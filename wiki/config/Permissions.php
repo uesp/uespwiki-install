@@ -6,8 +6,8 @@
 #
 
 # Rights to add or remove user groups
-$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller', 'esocartographer' );
-$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller', 'esocartographer' );
+$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller' );
+$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller' );
 
 # Removed group rights
 $wgGroupPermissions['*']['createpage'] = false;
@@ -46,10 +46,6 @@ $wgGroupPermissions['cartographer']['map'] = true;
 $wgGroupPermissions['cartographer']['mapedit'] = true;
 $wgGroupPermissions['cartographer']['esomapedit'] = true;
 
-$wgGroupPermissions['esocartographer']['map'] = true;
-$wgGroupPermissions['esocartographer']['mapedit'] = false;
-$wgGroupPermissions['esocartographer']['esomapedit'] = true;
-
 $wgGroupPermissions['confirmed']['autoconfirmed'] = true;
 
 $wgGroupPermissions['map']['map'] = true;
@@ -67,6 +63,8 @@ $wgGroupPermissions['sysop']['abusefilter-modify'] = true;
 $wgGroupPermissions['sysop']['abusefilter-modify-restricted'] = true;
 $wgGroupPermissions['sysop']['abusefilter-private'] = true;
 $wgGroupPermissions['sysop']['abusefilter-revert'] = true;
+$wgGroupPermissions['sysop']['checkuser'] = true;
+$wgGroupPermissions['sysop']['checkuser-log'] = true;
 $wgGroupPermissions['sysop']['deleterevision'] = true;
 $wgGroupPermissions['sysop']['patroller'] = true;
 $wgGroupPermissions['sysop']['renameuser'] = true;
@@ -97,6 +95,9 @@ $wgGroupPermissions['userpatroller']['tboverride'] = true;
 
 # Right to create an account via the API (completely disabled for all users)
 $wgAPIModules['createaccount'] = 'ApiDisabled';
+
+# Restrict viewing of renamed users to those with permission to rename
+$wgLogRestrictions['renameuser'] = 'renameuser';
 
 /* old code to prevent non-bots from accessing API edits
 $wgHooks['APIEditBeforeSave'][] = 'onAPIEditBeforeSave';

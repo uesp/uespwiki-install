@@ -142,7 +142,7 @@ class BitmapHandler extends TransformationalImageHandler {
 			$env['MAGICK_TMPDIR'] = $wgImageMagickTempDir;
 		}
 
-		$rotation = $this->getRotation( $image );
+		$rotation = isset( $params['disableRotation'] ) ? 0 : $this->getRotation( $image );
 		list( $width, $height ) = $this->extractPreRotationDimensions( $params, $rotation );
 
 		$cmd = call_user_func_array( 'wfEscapeShellArg', array_merge(
@@ -171,10 +171,8 @@ class BitmapHandler extends TransformationalImageHandler {
 			array( $this->escapeMagickOutput( $params['dstPath'] ) ) ) );
 
 		wfDebug( __METHOD__ . ": running ImageMagick: $cmd\n" );
-		wfProfileIn( 'convert' );
 		$retval = 0;
 		$err = wfShellExecWithStderr( $cmd, $retval, $env );
-		wfProfileOut( 'convert' );
 
 		if ( $retval !== 0 ) {
 			$this->logErrorForExternalProcess( $retval, $err, $cmd );
@@ -206,7 +204,7 @@ class BitmapHandler extends TransformationalImageHandler {
 					/ ( $params['srcWidth'] + $params['srcHeight'] )
 					< $wgSharpenReductionThreshold
 				) {
-					// Hack, since $wgSharpenParamater is written specifically for the command line convert
+					// Hack, since $wgSharpenParameter is written specifically for the command line convert
 					list( $radius, $sigma ) = explode( 'x', $wgSharpenParameter );
 					$im->sharpenImage( $radius, $sigma );
 				}
@@ -225,7 +223,7 @@ class BitmapHandler extends TransformationalImageHandler {
 				}
 			}
 
-			$rotation = $this->getRotation( $image );
+			$rotation = isset( $params['disableRotation'] ) ? 0 : $this->getRotation( $image );
 			list( $width, $height ) = $this->extractPreRotationDimensions( $params, $rotation );
 
 			$im->setImageBackgroundColor( new ImagickPixel( 'white' ) );
@@ -282,10 +280,8 @@ class BitmapHandler extends TransformationalImageHandler {
 		$cmd = str_replace( '%h', wfEscapeShellArg( $params['physicalHeight'] ),
 			str_replace( '%w', wfEscapeShellArg( $params['physicalWidth'] ), $cmd ) ); # Size
 		wfDebug( __METHOD__ . ": Running custom convert command $cmd\n" );
-		wfProfileIn( 'convert' );
 		$retval = 0;
 		$err = wfShellExecWithStderr( $cmd, $retval );
-		wfProfileOut( 'convert' );
 
 		if ( $retval !== 0 ) {
 			$this->logErrorForExternalProcess( $retval, $err, $cmd );
@@ -346,7 +342,7 @@ class BitmapHandler extends TransformationalImageHandler {
 
 		$src_image = call_user_func( $loader, $params['srcPath'] );
 
-		$rotation = function_exists( 'imagerotate' ) ? $this->getRotation( $image ) : 0;
+		$rotation = function_exists( 'imagerotate' ) && !isset( $params['disableRotation'] ) ? $this->getRotation( $image ) : 0;
 		list( $width, $height ) = $this->extractPreRotationDimensions( $params, $rotation );
 		$dst_image = imagecreatetruecolor( $width, $height );
 
@@ -459,10 +455,8 @@ class BitmapHandler extends TransformationalImageHandler {
 					" -rotate " . wfEscapeShellArg( "-$rotation" ) . " " .
 					wfEscapeShellArg( $this->escapeMagickOutput( $params['dstPath'] ) );
 				wfDebug( __METHOD__ . ": running ImageMagick: $cmd\n" );
-				wfProfileIn( 'convert' );
 				$retval = 0;
 				$err = wfShellExecWithStderr( $cmd, $retval );
-				wfProfileOut( 'convert' );
 				if ( $retval !== 0 ) {
 					$this->logErrorForExternalProcess( $retval, $err, $cmd );
 

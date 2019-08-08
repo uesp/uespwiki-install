@@ -266,6 +266,14 @@ $wgResourceModules['ext.UespCustomCode.app.scripts'] = array(
 	'targets' => array( 'mobile' ),
 );
 
+$wgResourceModules['ext.UespCustomCode.mobile.styles'] = array(
+	'position' => 'top',
+	'styles' => array( 'modules/uespMobile.css' ),
+	'localBasePath' => __DIR__,
+	'remoteBasePath' => "$wgScriptPath/extensions/UespCustomCode/",
+	'targets' => array( 'mobile' ),
+);
+
 /*
  * Initialization functions
  */
@@ -339,6 +347,8 @@ function efSiteCustomCode() {
 		if (MobileContext::singleton()->isMobileDevice()) $uespIsMobile = true;
 	}
 	
+	$wgOut->addModules( 'ext.UespCustomCode.mobile.styles' );
+	
 	if ($uespIsApp)
 	{
 		$wgOut->addModules( 'ext.UespCustomCode.app.scripts' );
@@ -387,8 +397,6 @@ function efSiteSpecialPageInit(&$aSpecialPages) {
 	$dir = dirname(__FILE__) . '/';
 // remove unnecessary pages
 	unset($aSpecialPages['Booksources']);
-	unset($aSpecialPages['Withoutinterwiki']);
-	unset($aSpecialPages['Mostinterwikis']);
 
 // Override pages with customized versions
 // Commmenting out individual lines will disable the customizations to that special page
