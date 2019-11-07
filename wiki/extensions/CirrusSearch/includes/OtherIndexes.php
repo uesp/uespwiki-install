@@ -38,7 +38,7 @@ class OtherIndexes extends Updater {
 	/**
 	 * Get the external index identifiers for title.
 	 * @param $title Title
-	 * @return array(string) of index identifiers.  empty means none.
+	 * @return string[] array of index identifiers.  empty means none.
 	 */
 	public static function getExternalIndexes( Title $title ) {
 		global $wgCirrusSearchExtraIndexes;
@@ -49,10 +49,10 @@ class OtherIndexes extends Updater {
 
 	/**
 	 * Get any extra indexes to query, if any, based on namespaces
-	 * @param array $namespaces An array of namespace ids
-	 * @return array of indexes
+	 * @param int[] $namespaces An array of namespace ids
+	 * @return string[] array of indexes
 	 */
-	public static function getExtraIndexesForNamespaces( $namespaces ) {
+	public static function getExtraIndexesForNamespaces( array $namespaces ) {
 		global $wgCirrusSearchExtraIndexes;
 		$extraIndexes = array();
 		if ( $wgCirrusSearchExtraIndexes ) {
@@ -65,62 +65,30 @@ class OtherIndexes extends Updater {
 		return $extraIndexes;
 	}
 
-		/**
-	 * Add the local wiki to the duplicate tracking list on the indexes of other wikis for $titles.
-	 * @param Array(Title) $titles titles for which to add to the tracking list
-	 */
-	public function addLocalSiteToOtherIndex( $titles ) {
-		// Script is in groovy and is run in a context with local_site set to this wiki's name
-		$script  = <<<GROOVY
-			if (!ctx._source.containsKey("local_sites_with_dupe")) {
-				ctx._source.local_sites_with_dupe = [local_site]
-			} else if (ctx._source.local_sites_with_dupe.contains(local_site)) {
-				ctx.op = "none"
-			} else {
-				ctx._source.local_sites_with_dupe += local_site
-			}
-GROOVY;
-		$this->updateOtherIndex( 'addLocalSite', $script, $titles );
-	}
-
-	/**
-	 * Remove the local wiki from the duplicate tracking list on the indexes of other wikis for $titles.
-	 * @param array(Title) $titles titles for which to remove the tracking field
-	 */
-	public function removeLocalSiteFromOtherIndex( $titles ) {
-		// Script is in groovy and is run in a context with local_site set to this wiki's name
-		$script  = <<<GROOVY
-			if (!ctx._source.containsKey("local_sites_with_dupe")) {
-				ctx.op = "none"
-			} else if (!ctx._source.local_sites_with_dupe.remove(local_site)) {
-				ctx.op = "none"
-			}
-GROOVY;
-		$this->updateOtherIndex( 'removeLocalSite', $script, $titles );
-	}
-
 	/**
 	 * Update the indexes for other wiki that also store information about $titles.
-	 * @param string $actionName name of the action to report in logging
-	 * @param string $scriptSource groovy source script for performing the update
-	 * @param array(Title) $titles titles in other indexes to update
-	 * @return bool false on failure, null otherwise
+	 * @param Title[] $titles array of titles in other indexes to update
 	 */
-	private function updateOtherIndex( $actionName, $scriptSource, $titles ) {
-		$client = Connection::getClient();
-		$bulk = new \Elastica\Bulk( $client );
-		$updatesInBulk = 0;
+	public function updateOtherIndex( $titles ) {
+		global $wgCirrusSearchWikimediaExtraPlugin;
+
+		if ( !isset( $wgCirrusSearchWikimediaExtraPlugin['super_detect_noop'] ) ) {
+			$this->logFailure( $titles, 'super_detect_noop plugin not enabled' );
+			return;
+		}
+
+
+		$updates = array();
 
 		// Build multisearch to find ids to update
-		$findIdsMultiSearch = new \Elastica\Multi\Search( Connection::getClient() );
+		$findIdsMultiSearch = new \Elastica\Multi\Search( $this->getConnection()->getClient() );
 		$findIdsClosures = array();
-		$localSite = $this->localSite;
 		foreach ( $titles as $title ) {
 			foreach ( OtherIndexes::getExternalIndexes( $title ) as $otherIndex ) {
 				if ( $otherIndex === null ) {
 					continue;
 				}
-				$type = Connection::getPageType( $otherIndex );
+				$type = $this->getConnection()->getPageType( $otherIndex );
 				$bool = new \Elastica\Filter\Bool();
 				// Note that we need to use the keyword indexing of title so the analyzer gets out of the way.
 				$bool->addMust( new \Elastica\Filter\Term( array( 'title.keyword' => $title->getText() ) ) );
@@ -131,13 +99,12 @@ GROOVY;
 				$query->setSize( 1 );
 				$findIdsMultiSearch->addSearch( $type->createSearch( $query ) );
 				$findIdsClosures[] = function( $id ) use
-						( $scriptSource, $bulk, $otherIndex, $localSite, &$updatesInBulk ) {
-					$script = new \Elastica\Script( $scriptSource, array( 'local_site' => $localSite ), 'groovy' );
-					$script->setId( $id );
-					$script->setParam( '_type', 'page' );
-					$script->setParam( '_index', $otherIndex );
-					$bulk->addScript( $script, 'update' );
-					$updatesInBulk += 1;
+						( $otherIndex, &$updates, $title ) {
+					$updates[$otherIndex][] = array(
+						'id' => $id,
+						'ns' => $title->getNamespace(),
+						'dbKey' => $title->getDBkey(),
+					);
 				};
 			}
 		}
@@ -147,8 +114,10 @@ GROOVY;
 			return;
 		}
 
-		// Look up the ids and run all closures to build the bulk update
-		$this->start( "searching for $findIdsClosuresCount ids in other indexes" );
+		// Look up the ids and run all closures to build the list of updates
+		$this->start( "searching for {numIds} ids in other indexes", array(
+			'numIds' => $findIdsClosuresCount,
+		) );
 		$findIdsMultiSearchResult = $findIdsMultiSearch->search();
 		try {
 			$this->success();
@@ -158,40 +127,39 @@ GROOVY;
 					continue;
 				}
 				$result = $results[ 0 ];
-				$findIdsClosures[ $i ]( $result->getId() );
+				call_user_func( $findIdsClosures[ $i ], $result->getId() );
 			}
 		} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 			$this->failure( $e );
 			return;
 		}
 
-		if ( $updatesInBulk === 0 ) {
-			// None of the titles are in the other index so do nothing.
+		if ( !$updates ) {
 			return;
 		}
 
-		// Execute the bulk update
-		$exception = null;
-		try {
-			$this->start( "updating $updatesInBulk documents in other indexes" );
-			$bulk->send();
-		} catch ( \Elastica\Exception\Bulk\ResponseException $e ) {
-			if ( $this->bulkResponseExceptionIsJustDocumentMissing( $e ) ) {
-				$exception = $e;
-			}
-		} catch ( \Elastica\Exception\ExceptionInterface $e ) {
-			$exception = $e;
+		// These are split into a job per index so one index
+		// being frozen doesn't block updates to other indexes
+		// in the same update.
+		foreach ( $updates as $indexName => $actions ) {
+			$job = new Job\ElasticaWrite( reset( $titles ), array(
+				'clientSideTimeout' => false,
+				'method' => 'sendOtherIndexUpdates',
+				'arguments' => array( $this->localSite, $indexName, $actions ),
+			) );
+			$job->setConnection( $this->getConnection() );
+			$job->run();
 		}
-		if ( $exception === null ) {
-			$this->success();
-		} else {
-			$this->failure( $e );
-			$articleIDs = array_map( function( $title ) {
-				return $title->getArticleID();
-			}, $titles );
-			LoggerFactory::getInstance( 'CirrusSearchChangeFailed' )->info(
-				"Other Index $actionName for article ids: " . implode( ',', $articleIDs ) );
-			return false;
+	}
+
+	private function logFailure( array $titles, $reason = '' ) {
+		$articleIDs = array_map( function( $title ) {
+			return $title->getArticleID();
+		}, $titles );
+		if ( $reason ) {
+			$reason = " ($reason)";
 		}
+		LoggerFactory::getInstance( 'CirrusSearchChangeFailed' )->info(
+			"Other Index$reason for article ids: " . implode( ',', $articleIDs ) );
 	}
 }

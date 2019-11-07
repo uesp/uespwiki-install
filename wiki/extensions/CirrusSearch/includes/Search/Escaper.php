@@ -21,10 +21,18 @@ namespace CirrusSearch\Search;
  * http://www.gnu.org/copyleft/gpl.html
  */
 class Escaper {
+
 	private $language;
 
-	public function __construct( $language ) {
+	/**
+	 * Allow leading wildcards?
+	 * @var bool
+	 */
+	private $allowLeadingWildcard;
+
+	public function __construct( $language, $allowLeadingWildcard = true ) {
 		$this->language = $language;
+		$this->allowLeadingWildcard = $allowLeadingWildcard;
 	}
 
 	public function escapeQuotes( $text ) {
@@ -76,6 +84,7 @@ class Escaper {
 	 * Make sure that all operators and lucene syntax is used correctly in the query string
 	 * and store if this is a fuzzy query.
 	 * If it isn't then the syntax escaped so it becomes part of the query text.
+	 * @param string $string
 	 * @return array(string, boolean) (fixedup query string, is this a fuzzy query?)
 	 */
 	public function fixupWholeQueryString( $string ) {
@@ -85,8 +94,12 @@ class Escaper {
 		$string = preg_replace_callback( '/(?<![\w"])~/u',
 			'CirrusSearch\Search\Escaper::escapeBadSyntax', $string );
 
-		// Remove ? and * that don't follow a term.  These are slow so we turned them off and escaping isn't working....
-		$string = preg_replace( '/(?<![\w])([?*])/u', '', $string );
+		// When allow leading wildcard is disabled elasticsearch will report an
+		// error if these are unescaped. Escape ? and * that don't follow a term.
+		if ( !$this->allowLeadingWildcard ) {
+			$string = preg_replace_callback( '/(?<![\w])([?*])/u',
+				'CirrusSearch\Search\Escaper::escapeBadSyntax', $string );
+		}
 
 		// Reduce token ranges to bare tokens without the < or >
 		$string = preg_replace( '/(?:<|>)+([^\s])/u', '$1', $string );
@@ -95,7 +108,7 @@ class Escaper {
 		$fuzzyQuery = false;
 		$string = preg_replace_callback( '/(?<leading>\w)~(?<trailing>\S*)/u',
 			function ( $matches ) use ( &$fuzzyQuery ) {
-				if ( preg_match( '/^(?:|0|(?:0?\.[0-9]+)|(?:1(?:\.0)?))$/', $matches[ 'trailing' ] ) ) {
+				if ( preg_match( '/^(?:|0|0?\.\d+|1(?:\.0)?)$/', $matches[ 'trailing' ] ) ) {
 					$fuzzyQuery = true;
 					return $matches[ 0 ];
 				} else {
@@ -106,7 +119,7 @@ class Escaper {
 
 		// Turn bad proximity searches into searches that contain a ~
 		$string = preg_replace_callback( '/"~(?<trailing>\S*)/u', function ( $matches ) {
-			if ( preg_match( '/[0-9]+/', $matches[ 'trailing' ] ) ) {
+			if ( preg_match( '/\d+/', $matches[ 'trailing' ] ) ) {
 				return $matches[ 0 ];
 			} else {
 				return '"\\~' . $matches[ 'trailing' ];
@@ -129,7 +142,7 @@ class Escaper {
 
 		// Lowercase AND and OR when not surrounded on both sides by a term.
 		// Lowercase NOT when it doesn't have a term after it.
-		$string = preg_replace_callback( '/^\s*(?:AND|OR)/u',
+		$string = preg_replace_callback( '/^|(AND|OR|NOT)\s*(?:AND|OR)/u',
 			'CirrusSearch\Search\Escaper::lowercaseMatched', $string );
 		$string = preg_replace_callback( '/(?:AND|OR|NOT)\s*$/u',
 			'CirrusSearch\Search\Escaper::lowercaseMatched', $string );
@@ -166,5 +179,12 @@ class Escaper {
 			$text = $text . '"';
 		}
 		return $text;
+	}
+
+	/**
+	 * Is leading wildcard allowed?
+	 */
+	public function getAllowLeadingWildcard() {
+		return $this->allowLeadingWildcard;
 	}
 }

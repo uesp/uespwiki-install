@@ -1,0 +1,37 @@
+.ve-ui-rowWidget {
+	clear: left;
+	float: left;
+	margin-bottom: -1px;
+	width: 100%;
+}
+
+.ve-ui-rowWidget-label {
+	display: block;
+	margin-right: 5%;
+	padding-top: 0.5em;
+	width: 35%;
+}
+
+.ve-ui-rowWidget > .ve-ui-rowWidget-label {
+	float: left;
+}
+
+.ve-ui-rowWidget > .ve-ui-rowWidget-cells {
+	float: left;
+	margin-right: -1px;
+}
+
+.ve-ui-rowWidget > .ve-ui-rowWidget-cells > .oo-ui-inputWidget {
+	float: left;
+	margin-right: -1px;
+	width: 8em;
+}
+
+.ve-ui-rowWidget > .ve-ui-rowWidget-delete-button > .oo-ui-buttonElement-button {
+	margin: 0;
+	padding-bottom: 2px;
+}
+
+.ve-ui-rowWidget.ve-ui-rowWidget-insertionRow {
+	background-color: red;
+}

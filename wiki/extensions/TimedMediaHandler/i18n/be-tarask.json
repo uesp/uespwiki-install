@@ -33,13 +33,13 @@
 	"timedmedia-update-status": "Абнавіць статус транскадаваньня",
 	"timedmedia-status": "Статус",
 	"timedmedia-status-unknown": "Статус невядомы",
-	"timedmedia-transcodeinfo": "Апісаньне вынікаў транскадаваньня",
+	"timedmedia-transcodeinfo": "Фармат",
 	"timedmedia-actions": "Дзеяньні",
-	"timedmedia-direct-link": "Спампаваць вытворны варыянт",
+	"timedmedia-direct-link": "Спампаваць",
 	"timedmedia-not-ready": "Не гатовы",
-	"timedmedia-completed-on": "Транскадаваньне завершанае $1",
-	"timedmedia-error-on": "Памылка ў час транскадаваньня а $1",
-	"timedmedia-started-transcode": "Транскадаваньне пачалося $1 таму. $2",
+	"timedmedia-completed-on": "Завершана $1",
+	"timedmedia-error-on": "Памылка ў $1",
+	"timedmedia-started-transcode": "Пачалося $1 таму. $2",
 	"timedmedia-percent-done": "Гатова каля $1%",
 	"timedmedia-in-job-queue": "Дададзена ў чаргу заданьняў $1 таму",
 	"timedmedia-unknown-target-size": "Выніковы памер невядомы, $1 закадавана",
@@ -65,5 +65,7 @@
 	"timedmedia-subtitle-language": "Субтытры ($2) на $1",
 	"timedmediahandler": "TimedMediaHandler",
 	"timedmedia-videos": "{{PLURAL:$1|$1}} відэа",
-	"timedmedia-file": "Файл"
+	"timedmedia-file": "Файл",
+	"right-transcode-reset": "скіданьне няўдалых або транскадаваных відэа, каб яны ізноў трапілі ў чаргу заданьняў",
+	"right-transcode-status": "прагляд [[Special:TimedMediaHandler|зьвестак пра актуальны стан перакадаваньня]]"
 }

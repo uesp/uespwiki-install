@@ -47,6 +47,9 @@ foreach ($pages as $pageId => &$page)
 	
 	if ($pageResult->num_rows <= 0)
 	{
+		if ($page['page_name'] == "CREATED CARDS") continue;
+		if ($page['page_name'] == "UNOBTAINABLE CARDS") continue;
+		
 		print("\t\tWarning: {$page['page_name']}($pageId) has no template set data!\n");
 		continue;
 	}
@@ -96,6 +99,9 @@ foreach ($pages as $pageIndex => &$page)
 	
 	if ($name === null) 
 	{
+		if ($name == "CREATED CARDS") continue;
+		if ($name == "UNOBTAINABLE CARDS") continue;
+		
 		print("\t\tWarning: {$page['page_name']}($pageId) has no name template variable!\n");
 		continue;
 	}

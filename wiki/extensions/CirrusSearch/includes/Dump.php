@@ -2,7 +2,8 @@
 
 namespace CirrusSearch;
 
-use \FormlessAction;
+use ConfigFactory;
+use FormlessAction;
 
 /**
  * action=cirrusDump handler.  Dumps contents of Elasticsearch indexes for the
@@ -31,7 +32,10 @@ class Dump extends FormlessAction {
 		$response = $this->getRequest()->response();
 		$response->header( 'Content-type: application/json; charset=UTF-8' );
 
-		$searcher = new Searcher( 0, 0, false, $this->getUser() );
+		$config = ConfigFactory::getDefaultInstance()->makeConfig( 'CirrusSearch' );
+		$conn = new Connection( $config );
+		$searcher = new Searcher( $conn, 0, 0, null, array(), $this->getUser() );
+
 		$id = $this->getTitle()->getArticleID();
 		$esSources = $searcher->get( array( $id ), true );
 		if ( !$esSources->isOk() ) {

@@ -3,6 +3,7 @@
 namespace CirrusSearch;
 
 use \MediaWikiTestCase;
+use \Elastica\Exception\InvalidException;
 
 /**
  * Test Util functions.
@@ -230,5 +231,46 @@ class UtilTest extends MediaWikiTestCase {
 				),
 			),
 		);
+	}
+
+	public function testBackoffDelay() {
+		for ( $i = 0; $i < 100; $i++ ) {
+			$this->assertLessThanOrEqual( 16, Util::backoffDelay( 1 ) );
+			$this->assertLessThanOrEqual( 256, Util::backoffDelay( 5 ) );
+		}
+	}
+
+	public function testWithRetry() {
+		$calls = 0;
+		$func = function() use ( &$calls ) {
+			$calls++;
+			if( $calls <= 5 ) {
+				throw new InvalidException();
+			}
+		};
+		$self = $this;
+		$errorCallbackCalls = 0;
+		Util::withRetry( 5, $func, function ($e, $errCount) use ( $self, &$errorCallbackCalls ) {
+			$errorCallbackCalls++;
+			$self->assertEquals( "Elastica\Exception\InvalidException", get_class( $e ) );
+		} );
+		$this->assertEquals( 6, $calls );
+		$this->assertEquals( 5, $errorCallbackCalls );
+	}
+
+	public function testChooseBestRedirect() {
+		$convert = function( $x ) {
+			$redirect = array();
+			foreach( $x as $t ) {
+				$redirect[] = array( 'title' => $t, 'namespace' => 0 );
+			}
+			return $redirect;
+		};
+		$input = $convert( array( 'Al. Einstein', 'Albert Einstein', 'A. Einstein', 'Einstein, Albert' ) );
+		$this->assertEquals( 'Al. Einstein', Util::chooseBestRedirect( 'a', $input ) );
+		$this->assertEquals( 'Al. Einstein', Util::chooseBestRedirect( 'al', $input ) );
+		$this->assertEquals( 'Albert Einstein', Util::chooseBestRedirect( 'albet', $input ) );
+		$this->assertEquals( 'Einstein, Albert', Util::chooseBestRedirect( 'Einstein', $input ) );
+		$this->assertEquals( 'Einstein, Albert', Util::chooseBestRedirect( 'Ens', $input ) );
 	}
 }

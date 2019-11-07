@@ -36,8 +36,20 @@ class MobileContextTest extends MediaWikiTestCase {
 	 * @return MobileContext
 	 */
 	private function makeContext( $url = '/', $cookies = array() ) {
+		$query = array();
+		if ( $url ) {
+			$params = wfParseUrl( wfExpandUrl( $url ) );
+			if ( isset( $params['query'] ) ) {
+				$query = wfCgiToArray( $params['query'] );
+			}
+		}
+
+		$request = new FauxRequest( $query );
+		$request->setRequestURL( $url );
+		$request->setCookies( $cookies, '' );
+
 		$context = new DerivativeContext( RequestContext::getMain() );
-		$context->setRequest( new MFFauxRequest( $url,  $cookies ) );
+		$context->setRequest( $request );
 		$context->setOutput( new OutputPage( $context ) );
 		$instance = unserialize( 'O:13:"MobileContext":0:{}' );
 		$instance->setContext( $context );
@@ -66,7 +78,8 @@ class MobileContextTest extends MediaWikiTestCase {
 	public function testGetMobileUrl() {
 		$this->setMwGlobals( array(
 			'wgMFMobileHeader' => 'X-WAP',
-			'wgMobileUrlTemplate' => '%h0.m.%h1.%h2'
+			'wgMobileUrlTemplate' => '%h0.m.%h1.%h2',
+			'wgServer' => '//en.wikipedia.org',
 		) );
 		$invokes = 0;
 		$context = $this->makeContext();
@@ -90,7 +103,12 @@ class MobileContextTest extends MediaWikiTestCase {
 			'//en.m.wikipedia.org/wiki/Article',
 			$context->getMobileUrl( '//en.wikipedia.org/wiki/Article' )
 		);
-		$this->assertEquals( 2, $invokes, 'Ensure that hook got the right context' );
+		// test local Urls - task T107505
+		$this->assertEquals(
+			'http://en.m.wikipedia.org/wiki/Article',
+			$context->getMobileUrl( '/wiki/Article' )
+		);
+		$this->assertEquals( 3, $invokes, 'Ensure that hook got the right context' );
 	}
 
 	public function testParseMobileUrlTemplate() {
@@ -139,6 +157,20 @@ class MobileContextTest extends MediaWikiTestCase {
 				'%h0.m.%h1.%h2',
 			),
 		);
+	}
+
+	/**
+	 * @covers MobileContext::usingMobileDomain
+	 */
+	public function testUsingMobileDomain() {
+		$this->setMwGlobals( array(
+			'wgMFMobileHeader' => 'X-WAP',
+			'wgMobileUrlTemplate' => '%h0.m.%h1.%h2',
+		) );
+		$context = $this->makeContext();
+		$this->assertFalse( $context->usingMobileDomain() );
+		$context->getRequest()->setHeader( 'X-WAP', '1' );
+		$this->assertTrue( $context->usingMobileDomain() );
 	}
 
 	/**
@@ -479,23 +511,20 @@ class MobileContextTest extends MediaWikiTestCase {
 	/**
 	 * @dataProvider optInProvider
 	 */
-	public function testOptIn( array $cookies, $isAlpha, $isBeta, $enabledInSettings ) {
+	public function testOptIn( array $cookies, $isBeta, $enabledInSettings ) {
 		$this->setMwGlobals( 'wgMFEnableBeta', $enabledInSettings );
 		$mobileContext = $this->makeContext( '/', $cookies );
-		$this->assertEquals( $isAlpha, $mobileContext->isAlphaGroupMember() );
 		$this->assertEquals( $isBeta, $mobileContext->isBetaGroupMember() );
 	}
 
 	public function optInProvider() {
 		return array(
-			array( array(), false, false, true ),
-			array( array( 'optin' => 'beta' ), false, true, true ),
-			array( array( 'optin' => 'alpha' ), true, true, true ),
-			array( array( 'optin' => 'foobar' ), false, false, true ),
-			array( array(), false, false, false ),
-			array( array( 'optin' => 'beta' ), false, false, false ),
-			array( array( 'optin' => 'alpha' ), false, false, false ),
-			array( array( 'optin' => 'foobar' ), false, false, false ),
+			array( array(), false, true ),
+			array( array( 'optin' => 'beta' ), true, true ),
+			array( array( 'optin' => 'foobar' ), false, true ),
+			array( array(), false, false ),
+			array( array( 'optin' => 'beta' ), false, false ),
+			array( array( 'optin' => 'foobar' ), false, false ),
 		);
 	}
 
@@ -581,39 +610,6 @@ class MobileContextTest extends MediaWikiTestCase {
 		$this->setMwGlobals( 'wgTitle', null );
 		SpecialPage::getTitleFor( 'Search' );
 		$this->assertTrue( true, 'In case of failure this test just crashes' );
-	}
-}
-
-class MFFauxRequest extends FauxRequest {
-	private $cookies, $url, $response;
-
-	public function __construct( $url, array $cookies = array() ) {
-		$this->url = $url;
-		$query = array();
-		if ( $url ) {
-			$params = wfParseUrl( wfExpandUrl( $url ) );
-			if ( isset( $params['query'] ) ) {
-				$query = wfCgiToArray( $params['query'] );
-			}
-		}
-		parent::__construct( $query );
-		$this->cookies = $cookies;
-		$this->response = new FauxResponse();
-	}
-
-	public function getCookie( $key, $prefix = null, $default = null ) {
-		return isset( $this->cookies[$key] ) ? $this->cookies[$key] : $default;
-	}
-
-	public function getRequestURL() {
-		return $this->url;
-	}
-
-	/**
-	 * @return FauxResponse
-	 */
-	public function response() {
-		return $this->response;
 	}
 }
 

@@ -1,7 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"Lloffiwr"
+			"Lloffiwr",
+			"Ham II",
+			"Xxglennxx"
 		]
 	},
 	"timedmedia-ogg-short-audio": "Ffeil sain Ogg $1, $2",
@@ -12,7 +14,7 @@
 	"timedmedia-ogg-long-error": "Ffeil Ogg annilys: $1",
 	"timedmedia-more": "Mwy…",
 	"timedmedia-dismiss": "Caeer",
-	"timedmedia-download": "Islwytho ffeil",
+	"timedmedia-download": "Lawrlwytho ffeil",
 	"timedmedia-play-media": "Chwarae'r ffeil gyfrwng",
 	"timedmedia-desc-link": "Ynglŷn â'r ffeil hon",
 	"timedmedia-status-header": "Statws trawsgodio",
@@ -31,6 +33,7 @@
 	"timedmedia-seconds": "{{PLURAL:$1|$1 eiliad}}",
 	"timedmedia-reset": "Ailosod y trawsgodio",
 	"timedmedia-mp4": "MP4",
+	"timedmedia-source-file": "ffynhonnell $1",
 	"timedmedia-source-file-desc": "Y ffeil $1 gwreiddiol, $2 × $3 ($4)",
 	"timedmedia-source-audio-file-desc": "Y ffeil $1 gwreiddiol ($2)",
 	"timedmedia-derivative-desc-160p.ogv": "Fideo Ogg (160P) o led band isel",

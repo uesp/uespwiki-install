@@ -8,13 +8,31 @@
  */
 
 class TimedMediaHandlerHooks {
+
+	// Register TimedMediaHandler namespace IDs
+	// These are configurable due to Commons history: T123823
+	// These need to be before registerhooks due to: T123695
+	public static function onSetupAfterCache() {
+		global $wgEnableLocalTimedText, $wgExtraNamespaces, $wgTimedTextNS;
+		if ( $wgEnableLocalTimedText ) {
+			define( "NS_TIMEDTEXT", $wgTimedTextNS );
+			define( "NS_TIMEDTEXT_TALK", $wgTimedTextNS +1 );
+
+			$wgExtraNamespaces[NS_TIMEDTEXT] = "TimedText";
+			$wgExtraNamespaces[NS_TIMEDTEXT_TALK] = "TimedText_talk";
+		} else {
+			$wgTimedTextNS = false;
+		}
+		return true;
+	}
+
 	// Register TimedMediaHandler Hooks
-	static function register(){
-		global $wgHooks, $wgJobClasses, $wgJobTypesExcludedFromDefaultQueue,
-		$wgMediaHandlers, $wgResourceModules, $wgExcludeFromThumbnailPurge, $wgExtraNamespaces,
-		$wgParserOutputHooks, $wgTimedTextNS, $wgFileExtensions, $wgTmhEnableMp4Uploads,
-		$wgExtensionAssetsPath, $wgMwEmbedModuleConfig, $timedMediaDir, $wgCortadoJarFile,
-		$wgEnableLocalTimedText, $wgTmhFileExtensions;
+	public static function register() {
+		global $wgHooks, $wgJobClasses, $wgJobTypesExcludedFromDefaultQueue, $wgMediaHandlers,
+		$wgResourceModules, $wgExcludeFromThumbnailPurge, $wgParserOutputHooks,
+		$wgFileExtensions, $wgTmhEnableMp4Uploads, $wgExtensionAssetsPath,
+		$wgMwEmbedModuleConfig, $timedMediaDir, $wgEnableLocalTimedText,
+		$wgTmhFileExtensions, $wgTmhTheoraTwoPassEncoding, $wgTmhWebPlayer;
 
 		// Remove mp4 if not enabled:
 		if( $wgTmhEnableMp4Uploads === false ){
@@ -36,9 +54,6 @@ class TimedMediaHandlerHooks {
 		// Set the default webPath for this embed player extension
 		$wgMwEmbedModuleConfig['EmbedPlayer.WebPath'] = $wgExtensionAssetsPath .
 			'/' . basename ( $timedMediaDir ) . '/MwEmbedModules/EmbedPlayer';
-
-		// Register java cortado path config:
-		$wgMwEmbedModuleConfig['wgCortadoJarFile'] = $wgCortadoJarFile;
 
 		// Setup media Handlers:
 		$wgMediaHandlers['application/ogg'] = 'OggHandlerTMH';
@@ -64,8 +79,11 @@ class TimedMediaHandlerHooks {
 		$wgResourceModules+= array(
 			'mw.PopUpMediaTransform' => $baseExtensionResource + array(
 				'scripts' => 'resources/mw.PopUpThumbVideo.js',
-				'styles' => 'resources/PopUpThumbVideo.css',
 				'dependencies' => array( 'mw.MwEmbedSupport', 'mediawiki.Title' ),
+			),
+			'mw.PopUpMediaTransform.styles' => $baseExtensionResource + array(
+				'position' => 'top',
+				'styles' => 'resources/PopUpThumbVideo.css',
 			),
 			'mw.TMHGalleryHook.js' => $baseExtensionResource + array(
 				'scripts' => 'resources/mw.TMHGalleryHook.js',
@@ -90,6 +108,9 @@ class TimedMediaHandlerHooks {
 					'timedmedia-reset-confirm'
 				)
 			),
+			'ext.tmh.TimedTextSelector' =>  $baseExtensionResource + array(
+				'scripts' => 'resources/ext.tmh.TimedTextSelector.js',
+			),
 			"mw.MediaWikiPlayerSupport" =>  $baseExtensionResource + array(
 				'scripts' => 'resources/mw.MediaWikiPlayerSupport.js',
 				'dependencies'=> 'mw.Api',
@@ -99,6 +120,25 @@ class TimedMediaHandlerHooks {
 				'loaderScripts' => 'resources/mw.MediaWikiPlayer.loader.js',
 			),
 		);
+
+		// Add OgvJs-related modules for Safari/IE/Edge Ogg playback
+		$wgResourceModules += array(
+			'ext.tmh.OgvJsSupport' => $baseExtensionResource + array(
+				'scripts' => array(
+					'MwEmbedModules/EmbedPlayer/binPlayers/ogv.js/ogv-support.js',
+					'resources/ext.tmh.OgvJsSupport.js',
+				),
+				'targets' => array( 'mobile', 'desktop' ),
+			),
+			'ext.tmh.OgvJs' => $baseExtensionResource + array(
+				'scripts' => array(
+					'MwEmbedModules/EmbedPlayer/binPlayers/ogv.js/ogv.js',
+				),
+				'dependencies' => 'ext.tmh.OgvJsSupport',
+				'targets' => array( 'mobile', 'desktop' ),
+			),
+		);
+
 		// Setup a hook for iframe embed handling:
 		$wgHooks['ArticleFromTitle'][] = 'TimedMediaIframeOutput::iframeHook';
 
@@ -139,17 +179,10 @@ class TimedMediaHandlerHooks {
 		 * Add support for the "TimedText" NameSpace
 		 */
 		if ( $wgEnableLocalTimedText ) {
-			define( "NS_TIMEDTEXT", $wgTimedTextNS );
-			define( "NS_TIMEDTEXT_TALK", $wgTimedTextNS +1 );
-
-			$wgExtraNamespaces[NS_TIMEDTEXT] = "TimedText";
-			$wgExtraNamespaces[NS_TIMEDTEXT_TALK] = "TimedText_talk";
-
 			// Check for timed text page:
 			$wgHooks[ 'ArticleFromTitle' ][] = 'TimedMediaHandlerHooks::checkForTimedTextPage';
 			$wgHooks[ 'ArticleContentOnDiff' ][] = 'TimedMediaHandlerHooks::checkForTimedTextDiff';
 		} else {
-			$wgTimedTextNS = false;
 			// overwrite TimedText.ShowInterface for video with mw-provider=local
 			$wgMwEmbedModuleConfig['TimedText.ShowInterface.local'] = 'off';
 		}
@@ -157,6 +190,7 @@ class TimedMediaHandlerHooks {
 		// Add transcode status to video asset pages:
 		$wgHooks[ 'ImagePageAfterImageLinks' ][] = 'TimedMediaHandlerHooks::checkForTranscodeStatus';
 		$wgHooks[ 'NewRevisionFromEditComplete' ][] = 'TimedMediaHandlerHooks::onNewRevisionFromEditComplete';
+		$wgHooks[ 'ArticlePurge' ][] = 'TimedMediaHandlerHooks::onArticlePurge';
 
 		$wgHooks['LoadExtensionSchemaUpdates'][] = 'TimedMediaHandlerHooks::checkSchemaUpdates';
 		$wgHooks['wgQueryPages'][] = 'TimedMediaHandlerHooks::onwgQueryPages';
@@ -272,16 +306,16 @@ class TimedMediaHandlerHooks {
 	}
 
 	/**
-	 * @param $image File
+	 * @param $image UploadBase
 	 * @return bool
 	 */
-	public static function checkUploadComplete( &$image ){
-		$title = $image->getTitle();
+	public static function checkUploadComplete( $upload ){
+		$file = $upload->getLocalFile();
 		// Check that the file is a transcodable asset:
-		if( self::isTranscodableTitle( $title ) ){
-			// Remove all the transcode files and db states for this asset ( will be re-added the first time the asset is displayed )
-			$file = wfFindFile( $title );
+		if( $file && self::isTranscodableFile( $file ) ){
+			// Remove all the transcode files and db states for this asset
 			WebVideoTranscode::removeTranscodes( $file );
+			WebVideoTranscode::startJobQueue( $file );
 		}
 		return true;
 	}
@@ -326,7 +360,7 @@ class TimedMediaHandlerHooks {
 	}
 
 	/*
-	 * If file gets reverted to a previous version, remove transcodes.
+	 * If file gets reverted to a previous version, reset transcodes.
 	 */
 	public static function onNewRevisionFromEditComplete( $article, Revision $rev, $baseID, User $user ) {
 		if ( $baseID !== false ) {
@@ -335,7 +369,23 @@ class TimedMediaHandlerHooks {
 				$file = wfFindFile( $article->getTitle() );
 				if( self::isTranscodableFile( $file ) ){
 					WebVideoTranscode::removeTranscodes( $file );
+					WebVideoTranscode::startJobQueue( $file );
 				}
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * When a user asks for a purge, perhaps through our handy "update transcode status"
+	 * link, make sure we've got the updated set of transcodes. This'll allow a user or
+	 * automated process to see their status and reset them.
+	 */
+	public static function onArticlePurge( $article ) {
+		if( $article->getTitle()->getNamespace() == NS_FILE ) {
+			$file = wfFindFile( $article->getTitle() );
+			if( self::isTranscodableFile( $file ) ){
+				WebVideoTranscode::cleanupTranscodes( $file );
 			}
 		}
 		return true;
@@ -405,7 +455,7 @@ class TimedMediaHandlerHooks {
 
 		if ( $addModules ) {
 			$out->addModuleScripts( 'mw.PopUpMediaTransform' );
-			$out->addModuleStyles( 'mw.PopUpMediaTransform' );
+			$out->addModuleStyles( 'mw.PopUpMediaTransform.styles' );
 		}
 
 		return true;

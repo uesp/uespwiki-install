@@ -80,7 +80,6 @@ require_once( "$IP/extensions/UespMap/UespMap.php" );
 require_once( "$IP/extensions/UsersEditCount/UsersEditCount.php" );
 require_once( "$IP/extensions/WikiTextLoggedInOut/WikiTextLoggedInOut.php" );
 wfLoadSkin( "UespMonoBook" );
-// require_once( "$IP/skins/UespMonoBook/UespMonoBook.php" );
 wfLoadSkin( "UespVector" );
 require_once( "$IP/extensions/EsoCharData/EsoCharData.php" );
 
@@ -99,6 +98,8 @@ $wgEnableGraphParserTag = true;
 
 require_once( "$IP/extensions/RecentPopularPages/RecentPopularPages.php");
 
+require_once( "$IP/extensions/Tabs/Tabs.php" );
+
 # wfLoadExtension( 'DisableAccount' );
 # $wgGroupPermissions['bureaucrat']['disableaccount'] = true;
 # $wgGroupPermissions['sysop']['disableaccount'] = true;
@@ -112,3 +113,5 @@ require_once( "$IP/extensions/RecentPopularPages/RecentPopularPages.php");
 # wfLoadExtension( "Nuke" );
 # wfLoadExtension( "SyntaxHighlight_GeSHi" );
 # wfLoadExtension( "WikiEditor" );
+
+wfLoadExtension( "PageSpeedLog" );

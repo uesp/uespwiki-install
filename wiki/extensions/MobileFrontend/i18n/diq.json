@@ -37,7 +37,7 @@
 	"mobile-frontend-editor-edit": "Bıvurne",
 	"mobile-frontend-editor-editing-page": "<strong>Sero gureyayış</strong><span>$1</span>",
 	"mobile-frontend-editor-keep-editing": "Vurnayışi bışevekne",
-	"mobile-frontend-editor-previewing-page": "<strong>Asayışê veri</strong><span> $1</span>",
+	"mobile-frontend-editor-previewing-page": "<span><strong>Asayışê veri</strong> $1</span>",
 	"mobile-frontend-editor-save": "Qeyd ke",
 	"mobile-frontend-editor-source-editor": "Vıraştoğê çımey",
 	"mobile-frontend-editor-tutorial-cancel": "Nê, sıpas",
@@ -50,6 +50,7 @@
 	"mobile-frontend-first-upload-wizard-new-page-3-ok": "E",
 	"mobile-frontend-footer-contact": "İrtıbat",
 	"mobile-frontend-footer-sitename": "{{SITENAME}}",
+	"mobile-frontend-generic-login": "{{SITENAME}} terefê merdumanê zey şıma ra aferniyeno.",
 	"mobile-frontend-generic-login-action": "İştıraqi rê cı kewe.",
 	"mobile-frontend-history-404-title": "Na per çıniya",
 	"mobile-frontend-home-button": "Keye",
@@ -145,7 +146,7 @@
 	"mobile-frontend-user-button-tooltip": "Beyanatanê mı bımocne (bımusne)",
 	"mobile-frontend-username": "Nameyê karberi:",
 	"mobile-frontend-username-placeholder": "Nameyê karberi",
-	"mobile-frontend-view": "Mobil asayış",
+	"mobile-frontend-view": "Asayışo mobil",
 	"mobile-frontend-view-desktop": "Serê xonça",
 	"mobile-frontend-view-mobile": "Mobil",
 	"mobile-frontend-view-source": "Çımey bıvêne",
@@ -166,5 +167,6 @@
 	"mobile-frontend-watchlist-view": "Lista serykerdışê xo bıvêne",
 	"nearby": "Pelê ke nêzdiyê şıma de",
 	"tag-mobile_edit": "Mobil vırnayış",
-	"tag-mobile_edit-description": "Pela cêbi (mobile) ra vırnao"
+	"tag-mobile_edit-description": "Pela cêbi (mobile) ra vırnao",
+	"tag-mobile_web_edit": "Vurnayışê torra seyare"
 }

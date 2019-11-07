@@ -5,11 +5,13 @@
 			"Derslek"
 		]
 	},
+	"timedmedia-no-player-js": "Кызганычка каршы сезнең браузерда JavaScript сүндерелгән, яисә кирәкле уйнаткыч юк.<br />\nСез <a href=\"$1\">роликны</a> йөкли яисә аны браузерда уйнатыр өчен<a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">уйнаткыч кушымта</a> йөкли аласыз.",
 	"timedmedia-more": "Тулырак...",
 	"timedmedia-dismiss": "Ябу",
 	"timedmedia-download": "Файлны алу",
 	"timedmedia-desc-link": "Файл турында мәгълүмат",
 	"timedmedia-oggThumb-version": "OggHandler $1 юрамасыннан да югарырак oggThumb тәэминатын сорый.",
 	"timedmedia-oggThumb-failed": "oggThumb нигезендә миниатюраны ясап булмады.",
-	"timedmedia-source-file": "$1-нче чыганак"
+	"timedmedia-source-file": "$1-нче чыганак",
+	"timedmedia-source-audio-file-desc": "Оригиналь $1-файл ($2)"
 }

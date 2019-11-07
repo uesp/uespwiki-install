@@ -74,14 +74,16 @@ class CacheWarmersValidator extends Validator {
 	private function buildWarmer( $search ) {
 		// This has a couple of compromises:
 		$searcher = new Searcher(
+			$this->maint->getConnection(),
 			0, 50,
 			// 0 offset 50 limit is the default for searching so we try it too.
-			false,
-			// false for namespaces will stop us from eagerly caching the namespace
+			null,
+			array(),
+			// array() for namespaces will stop us from eagerly caching the namespace
 			// filters. That is probably OK because most searches don't use one.
 			// It'd be overeager.
 			null
-		// Null user because we won't be logging anything about the user.
+			// Null user because we won't be logging anything about the user.
 		);
 		$searcher->setReturnQuery( true );
 		$searcher->setResultsType( new FullTextResultsType( FullTextResultsType::HIGHLIGHT_ALL ) );

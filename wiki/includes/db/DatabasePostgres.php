@@ -217,7 +217,7 @@ class PostgresTransactionState {
  * @since 1.19
  */
 class SavepointPostgres {
-	/** @var DatabaseBase Establish a savepoint within a transaction */
+	/** @var DatabasePostgres Establish a savepoint within a transaction */
 	protected $dbw;
 	protected $id;
 	protected $didbegin;
@@ -486,6 +486,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( function_exists( 'mb_convert_encoding' ) ) {
 			$sql = mb_convert_encoding( $sql, 'UTF-8' );
 		}
+		while ( $res = pg_get_result( $this->mConn ) ) {
+			pg_free_result( $res );
+		}
 		$this->mTransactionState->check();
 		if ( pg_send_query( $this->mConn, $sql ) === false ) {
 			throw new DBUnexpectedError( $this, "Unable to post new query to PostgreSQL\n" );
@@ -551,9 +554,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( $res instanceof ResultWrapper ) {
 			$res = $res->result;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$ok = pg_free_result( $res );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( !$ok ) {
 			throw new DBUnexpectedError( $this, "Unable to free Postgres result\n" );
 		}
@@ -568,9 +571,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( $res instanceof ResultWrapper ) {
 			$res = $res->result;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$row = pg_fetch_object( $res );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		# @todo FIXME: HACK HACK HACK HACK debug
 
 		# @todo hashar: not sure if the following test really trigger if the object
@@ -589,9 +592,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( $res instanceof ResultWrapper ) {
 			$res = $res->result;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$row = pg_fetch_array( $res );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( pg_last_error( $this->mConn ) ) {
 			throw new DBUnexpectedError(
 				$this,
@@ -606,9 +609,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( $res instanceof ResultWrapper ) {
 			$res = $res->result;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$n = pg_num_rows( $res );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( pg_last_error( $this->mConn ) ) {
 			throw new DBUnexpectedError(
 				$this,
@@ -1510,7 +1513,9 @@ SQL;
 		return pg_unescape_bytea( $b );
 	}
 
-	function strencode( $s ) { # Should not be called by us
+	function strencode( $s ) {
+		// Should not be called by us
+
 		return pg_escape_string( $this->mConn, $s );
 	}
 
@@ -1702,4 +1707,5 @@ SQL;
 	}
 } // end DatabasePostgres class
 
-class PostgresBlob extends Blob {}
+class PostgresBlob extends Blob {
+}

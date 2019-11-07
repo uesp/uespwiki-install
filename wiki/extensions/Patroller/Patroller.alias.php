@@ -1,9 +1,13 @@
 <?php
 /**
- * Aliases for special pages
+ * Patroller
+ * Patroller MediaWiki alises
  *
- * @file
- * @ingroup Extensions
+ * @author: Rob Church <robchur@gmail.com>, Kris Blair (Cblair91)
+ * @copyright: 2006-2008 Rob Church, 2015 Kris Blair
+ * @license: GNU General Public Licence 2.0
+ * @package: Patroller
+ * @link: https://mediawiki.org/wiki/Extension:Patroller
  */
 
 $specialPageAliases = array();

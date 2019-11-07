@@ -95,15 +95,25 @@ class SpecialMobileHistory extends MobileSpecialPageFeed {
 	public function executeWhenAvailable( $par = '' ) {
 		$out = $this->getOutput();
 		$out->setPageTitle( $this->msg( 'history' ) );
+		$out->addModuleStyles( array(
+			'mobile.pagelist.styles',
+			'mobile.pagesummary.styles',
+		) );
 		$this->offset = $this->getRequest()->getVal( 'offset', false );
 		if ( $par ) {
 			// enter article history view
 			$this->title = Title::newFromText( $par );
 			if ( $this->title && $this->title->exists() ) {
 				$this->addModules();
+				$this->getOutput()->addHtml(
+					Html::openElement( 'div', array( 'class' => 'history content-unstyled' ) )
+				);
 				$this->renderHeaderBar( $this->title );
 				$res = $this->doQuery();
 				$this->showHistory( $res );
+				$this->getOutput()->addHtml(
+					Html::closeElement( 'div' )
+				);
 				return;
 			}
 		}
@@ -241,8 +251,10 @@ class SpecialMobileHistory extends MobileSpecialPageFeed {
 				$out->addHtml( $this->getMoreButton( $rev1->getTimestamp() ) );
 			}
 		} else {
-			$out->addHtml( Html::element( 'div', array( 'class' => 'error alert' ),
-				$this->msg( 'mobile-frontend-history-no-results' ) ) );
+			// Edge case.
+			// I suspect this is here because revisions may exist but may have been hidden.
+			$out->addHtml(
+				MobileUI::warningBox( $this->msg( 'mobile-frontend-history-no-results' ) ) );
 		}
 	}
 

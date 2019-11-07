@@ -17,17 +17,17 @@
 							'height': 'auto',
 							'title': mw.html.escape( $videoContainer.find( 'video, audio' ).attr( 'data-mwtitle' ) ),
 							'content': $videoContainer,
-							'close': function () {
-								// On close pause the video ( so that playback does not continue )
-								var domEl = $( this ).find( 'video, audio' ).get( 0 );
-								if ( domEl && domEl.pause ) {
-									domEl.pause();
-								}
+							'close': function(){
+								// On close destroy the dialog rather than just hiding it,
+								// so it doesn't eat up resources or keep playing.
+								$( this ).remove();
 								return true;
+							},
+							'open': function() {
+								$( this ).find( 'video, audio' ).embedPlayer();
 							}
 						})
-						.css( 'overflow', 'hidden' )
-						.find( 'video, audio' ).embedPlayer();
+						.css( 'overflow', 'hidden' );
 					} );
 					// don't follow file link
 					return false;

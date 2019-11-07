@@ -30,65 +30,103 @@ if ( !defined( 'MEDIAWIKI' ) ) {
  * these with respect to caching.
 **/
 $wgMinervaStyleModules = array(
-	'skins.minerva.chrome.styles' => $wgMFResourceFileModuleBoilerplate + array(
+	'skins.minerva.base.reset' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'top',
 		'styles' => array(
-			'less/reset.less',
-			'less/ui.less',
-			'less/pageactions.less',
-			'less/footer.less',
-			'less/common.less',
-			'less/icons.less',
-			'less/mainpage.less',
+			'resources/skins.minerva.base.reset/reset.less',
 		),
 	),
+
+	'skins.minerva.base.styles' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'top',
+		'styles' => array(
+			'resources/skins.minerva.base.styles/ui.less',
+			'resources/skins.minerva.base.styles/pageactions.less',
+			'resources/skins.minerva.base.styles/footer.less',
+			'resources/skins.minerva.base.styles/common.less',
+			'resources/skins.minerva.base.styles/icons.less',
+		),
+	),
+
 	'skins.minerva.content.styles' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'top',
 		'styles' => array(
-			'less/content/main.less',
-			'less/content/thumbnails.less',
-			'less/content/images.less',
-			'less/content/galleries.less',
-			'less/content/headings.less',
-			'less/content/blockquotes.less',
-			'less/content/lists.less',
-			'less/content/links.less',
-			'less/content/text.less',
-			'less/content/tables.less',
-			'less/content/hacks.less',
-		),
-	),
-	'skins.minerva.drawers.styles' => $wgMFResourceFileModuleBoilerplate + array(
-		'styles' => array(
-			'less/drawer.less',
+			'resources/skins.minerva.content.styles/styles.less',
 		),
 	),
 	'mobile.pagelist.styles' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'top',
 		'styles' => array(
-			'less/pagelist.less',
+			'resources/mobile.pagelist.styles/pagelist.less',
+		),
+	),
+	'mobile.pagesummary.styles' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'top',
+		'styles' => array(
+			'resources/mobile.pagesummary.styles/pagesummary.less',
 		),
 	),
 	'skins.minerva.tablet.styles' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'top',
 		'styles' => array(
-			'less/tablet/common.less',
-			'less/tablet/hacks.less',
-		),
-	),
-	'skins.minerva.icons.styles' => $wgMFResourceFileModuleBoilerplate + array(
-		'styles' => array(
-			'less/iconsNew.less',
+			'resources/skins.minerva.tablet.styles/common.less',
+			'resources/skins.minerva.tablet.styles/hacks.less',
 		),
 	),
 	'skins.minerva.icons.images' => $wgMFResourceFileModuleBoilerplate + array(
 		'class' => 'ResourceLoaderImageModule',
 		'prefix' => 'mw-ui',
-		'selectorWithoutVariant' => '.mw-ui-icon-{name}:before',
-		// Not used yet, see FIXME below
-		'selectorWithVariant' => '.mw-ui-icon-{name}-{variant}:before',
+		'selector' => '.mw-ui-icon-{name}:before',
+		// Note: currently doesn't do anything due to T97410
+		'position' => 'bottom',
 		'images' => array(
-			// chrome
+			// IMPORTANT: Do not add anything here unless it's necessary to be loaded without
+			// JavaScript (e.g. menu chrome).
+			// CAUTION: Anything added here will greatly increase the first paint time until
+			// T97410 is resolved.
 			'notifications' => 'images/icons/bell.svg',
 			'mainmenu' => 'images/icons/hamburger.svg',
-			'search' => 'images/icons/magnifying-glass.svg',
+		)
+	),
 
+	'skins.minerva.icons.images.legacy' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'top',
+		'styles' => array(
+			'resources/skins.minerva.icons.images.legacy/icons.less',
+		),
+	),
+
+	'skins.minerva.icons.variants.js' => $wgMFResourceFileModuleBoilerplate + array(
+		'class' => 'ResourceLoaderImageModule',
+		'prefix' => 'mw-ui',
+		'selectorWithoutVariant' => '.mw-ui-icon-{name}:before',
+		'selectorWithVariant' => '.mw-ui-icon-{name}-{variant}:before',
+		'variants' => array(
+			'gray' => array(
+				'color' => '#BBB',
+				'global' => true,
+			),
+			'invert' => array(
+				'color' => '#FFFFFF',
+				'global' => true,
+			)
+		),
+		'position' => 'bottom',
+		'images' => array(
+			// overlay
+			'close' => 'images/icons/close.svg',
+		),
+	),
+
+	'skins.minerva.icons.images.js' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'skins.minerva.icons.variants.js',
+		),
+		'class' => 'ResourceLoaderImageModule',
+		'prefix' => 'mw-ui',
+		'selector' => '.mw-ui-icon-{name}:before',
+		'position' => 'bottom',
+		'images' => array(
 			// toggling
 			'arrow-down' => 'images/icons/arrow-down.svg',
 			'arrow-up' => 'images/icons/arrow-up.svg',
@@ -101,11 +139,6 @@ $wgMinervaStyleModules = array(
 			'edit-enabled' => 'images/icons/edit.svg',
 			'addimage' => 'images/icons/uploadLocked.svg',
 			'addimage-enabled' => 'images/icons/upload.svg',
-
-			// Editor
-			'edit-source' => 'images/icons/editSourceNormal.svg',
-			'edit-ve' => 'images/icons/editVeNormal.svg',
-			'edit-switch' => 'images/icons/editToggle.svg',
 
 			// TOC
 			'toc' => 'images/icons/contents-ltr.svg',
@@ -121,35 +154,61 @@ $wgMinervaStyleModules = array(
 
 			// cite
 			'citation' => 'images/icons/cite.svg',
+		),
+	),
 
-			// Drawers
-			'cancel-light' => 'images/icons/cancel-light.svg',
-		),
-	),
-	'skins.minerva.beta.styles' => $wgMFResourceFileModuleBoilerplate + array(
+	'skins.minerva.mainPage.beta.styles' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'top',
 		'styles' => array(
-			'less/pageactions.beta.less',
-			'less/footer.beta.less',
-			'less/content/main.beta.less',
+			'resources/skins.minerva.mainPage.beta.styles/common.less',
 		),
 	),
+
+	'skins.minerva.mainPage.styles' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'top',
+		'styles' => array(
+			'resources/skins.minerva.mainPage.styles/common.less',
+		),
+	),
+
 	'skins.minerva.beta.images' => $wgMFResourceFileModuleBoilerplate + array(
+		'position' => 'bottom',
 		'class' => 'ResourceLoaderImageModule',
-		'selector' => '.mw-ui-icon-{name}:before',
+		'selectorWithoutVariant' => '.mw-ui-icon-{name}:before',
+		'selectorWithVariant' => '.mw-ui-icon-{name}-{variant}:before',
+		'variants' => array(
+			'gray' => array(
+				'color' => '#555555',
+			),
+		),
 		'images' => array(
 			// page actions
 			'watch' => 'images/icons/beta/watch.svg',
 			'watched' => 'images/icons/beta/watched.svg',
 			'edit' => 'images/icons/beta/editLocked.svg',
 			'edit-enabled' => 'images/icons/beta/edit.svg',
+			// Special:MobileMenu-specific back icon
+			'back-mobilemenu' => 'images/icons/beta/back-ltr.svg',
+			'search' => array(
+				'file' => array(
+					'default' => 'images/icons/magnifying-glass.svg',
+				),
+				'variants' => array( 'gray', 'invert' ),
+			)
 		),
 	),
 );
 
+/*
+Any modules defined here should come without side effects.
+A module prefixed with 'mobile.' should be reusable in any context e.g.
+any skin. If you are writing an initialisation script please define it with
+the skin.minerva. prefix along with all the others below.
+*/
 $wgResourceModules = array_merge( $wgResourceModules, array(
 	'mobile.modules' => $wgMFResourceFileModuleBoilerplate + array(
 		'scripts' => array(
-			'javascripts/modules.js',
+			'resources/mobile.modules/modules.js',
 		),
 	),
 	'mobile.oo' => $wgMFResourceFileModuleBoilerplate + array(
@@ -158,8 +217,8 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'oojs',
 		),
 		'scripts' => array(
-			'javascripts/Class.js',
-			'javascripts/eventemitter.js',
+			'resources/mobile.oo/Class.js',
+			'resources/mobile.oo/eventemitter.js',
 		),
 	),
 	'mobile.view' => $wgMFResourceFileModuleBoilerplate + array(
@@ -167,7 +226,7 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.oo',
 		),
 		'scripts' => array(
-			'javascripts/View.js',
+			'resources/mobile.view/View.js',
 		),
 	),
 	'mobile.context' => $wgMFResourceFileModuleBoilerplate + array(
@@ -175,7 +234,7 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.modules',
 		),
 		'scripts' => array(
-			'javascripts/context.js',
+			'resources/mobile.context/context.js',
 		),
 	),
 	'mobile.browser' => $wgMFResourceFileModuleBoilerplate + array(
@@ -183,15 +242,39 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.view',
 		),
 		'scripts' => array(
-			'javascripts/browser.js',
+			'resources/mobile.browser/browser.js',
 		),
 	),
 	'mobile.mainMenu' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.view',
+			'mobile.browser',
+		),
+		'position' => 'bottom',
+		'styles' => array(
+			'resources/mobile.mainMenu/mainmenu.less',
+			'resources/mobile.mainMenu/icons.less',
+		),
+		'templates' => array(
+			'menu.hogan' => 'resources/mobile.mainMenu/menu.mustache',
 		),
 		'scripts' => array(
-			'javascripts/modules/mainMenu/MainMenu.js',
+			'resources/mobile.mainMenu/MainMenu.js',
+		),
+	),
+	'mobile.messageBox' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.view',
+		),
+		'position' => 'top',
+		'styles' => array(
+			'resources/mobile.messageBox/messageBox.less',
+		),
+		'templates' => array(
+			'MessageBox.hogan' => 'resources/mobile.messageBox/MessageBox.mustache',
+		),
+		'scripts' => array(
+			'resources/mobile.messageBox/MessageBox.js',
 		),
 	),
 	'mobile.modifiedBar' => $wgMFResourceFileModuleBoilerplate + array(
@@ -201,7 +284,7 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mediawiki.jqueryMsg',
 		),
 		'scripts' => array(
-			'javascripts/modules/lastEdited/time.js',
+			'resources/mobile.modifiedBar/time.js',
 		),
 		'messages' => array(
 			// lastEdited.js
@@ -217,7 +300,7 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 
 	'mobile.microAutoSize' => $wgMFResourceFileModuleBoilerplate + array(
 		'scripts' => array(
-			'javascripts/externals/micro.autosize.js',
+			'libs/micro.js/micro.autosize.js',
 		),
 	),
 
@@ -226,8 +309,24 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mediawiki.template',
 		),
 		'scripts' => array(
-			'javascripts/externals/hogan.js',
-			'javascripts/hogan.js',
+			'libs/hogan.js/hogan.js',
+			'resources/mediawiki.template.hogan/hogan.js',
+		),
+	),
+
+	'mobile.pagelist' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.view',
+			'mobile.browser',
+			'mobile.pagelist.styles',
+			'mobile.pagesummary.styles',
+		),
+		'scripts' => array(
+			'resources/mobile.pagelist/PageList.js',
+		),
+		'templates' => array(
+			'PageListItem.hogan' => 'resources/mobile.pagelist/PageListItem.hogan',
+			'PageList.hogan' => 'resources/mobile.pagelist/PageList.hogan',
 		),
 	),
 
@@ -241,36 +340,22 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 	'mobile.pagelist.scripts' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.watchstar',
-		),
-		'templates' => array(
-			'PageListItem.hogan' => 'templates/modules/PageListItem.hogan',
-			'PageList.hogan' => 'templates/modules/PageList.hogan',
+			'mobile.pagelist',
 		),
 		'scripts' => array(
-			'javascripts/modules/PageList.js',
+			'resources/mobile.pagelist.scripts/WatchstarPageList.js',
 		),
-		'messages' => array(
-			'mobile-frontend-watchlist-modified'
-		)
 	),
 
 	'mobile.watchlist' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.infiniteScroll',
 			'mobile.pagelist.scripts',
+			'mobile.modifiedBar',
 		),
 		'scripts' => array(
-			'javascripts/modules/watchlist/WatchListApi.js',
-			'javascripts/modules/watchlist/WatchList.js',
-		),
-		'messages' => array(
-			'mobile-frontend-watchlist-modified',
-			'minutes-ago',
-			'seconds-ago',
-			'hours-ago',
-			'mobile-frontend-months-ago',
-			'mobile-frontend-days-ago',
-			'mobile-frontend-years-ago',
+			'resources/mobile.watchlist/WatchListGateway.js',
+			'resources/mobile.watchlist/WatchList.js',
 		),
 	),
 
@@ -281,15 +366,14 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.toggling',
 		),
 		'scripts' => array(
-			'javascripts/modules/toc/TableOfContents.js',
-			'javascripts/modules/toc/init.js',
+			'resources/mobile.toc/TableOfContents.js',
 		),
 		'styles' => array(
-			'less/modules/toc/toc.less',
+			'resources/mobile.toc/toc.less',
 		),
 		'templates' => array(
-			'toc.hogan' => 'templates/modules/toc/toc.hogan',
-			'heading.hogan' => 'templates/modules/toc/tocHeading.hogan'
+			'toc.hogan' => 'resources/mobile.toc/toc.hogan',
+			'heading.hogan' => 'resources/mobile.toc/tocHeading.hogan'
 		),
 		'messages' => array(
 			'toc'
@@ -297,55 +381,73 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 	),
 
 	'mobile.ajax' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'skins.minerva.icons.images.legacy',
+		),
 		'styles' => array(
-			'less/spinner.less',
+			'resources/mobile.ajax/spinner.less',
 		),
 	),
 
 	'mobile.settings' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
-			'mobile.head',
 			'jquery.cookie',
+			// Allow use of define
+			'mobile.modules',
+			'mediawiki.storage',
 		),
 		'scripts' => array(
-			'javascripts/settings.js',
+			'resources/mobile.settings/settings.js',
 		),
 	),
 
 	// FIXME: Split this module into different features.
 	'mobile.startup' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
-			'mobile.head',
+			'mobile.context',
+			'mobile.browser',
+			'mobile.oo',
 			'mobile.user',
 			'mediawiki.api',
-			'mobile.redlinks',
+			'mobile.settings',
 			'jquery.throttle-debounce',
+			'skins.minerva.icons.images.legacy',
 		),
 		'templates' => array(
-			'icon.hogan' => 'templates/icon.hogan',
-			'Section.hogan' => 'templates/Section.hogan',
+			'anchor.hogan' => 'resources/mobile.startup/anchor.hogan',
+			'icon.hogan' => 'resources/mobile.startup/icon.hogan',
+			'Section.hogan' => 'resources/mobile.startup/Section.hogan',
+			'button.hogan' => 'resources/mobile.startup/button.hogan',
 		),
 		'messages' => array(
 			// icons.js
 			'mobile-frontend-loading-message',
 			'mobile-frontend-console-recruit',
+			// Skin.js
+			'mobile-frontend-editor-licensing',
+			'mobile-frontend-editor-licensing-with-terms',
+			'mobile-frontend-editor-terms-link',
+		),
+		'styles' => array(
+			'resources/mobile.startup/panel.less',
 		),
 		'scripts' => array(
-			'javascripts/Router.js',
-			'javascripts/OverlayManager.js',
+			'resources/mobile.startup/Router.js',
+			'resources/mobile.startup/OverlayManager.js',
 			// FIXME: Remove api code to mobile.ajax
-			'javascripts/api.js',
-			'javascripts/PageApi.js',
-			'javascripts/Icon.js',
-			'javascripts/icons.js',
-			'javascripts/Panel.js',
-			'javascripts/Section.js',
-			'javascripts/Thumbnail.js',
-			'javascripts/Page.js',
-			'javascripts/Skin.js',
-			'javascripts/Schema.js',
-			'javascripts/util.js',
-			'javascripts/application.js',
+			'resources/mobile.startup/api.js',
+			'resources/mobile.startup/PageApi.js',
+			'resources/mobile.startup/Anchor.js',
+			'resources/mobile.startup/Button.js',
+			'resources/mobile.startup/Icon.js',
+			'resources/mobile.startup/icons.js',
+			'resources/mobile.startup/Panel.js',
+			'resources/mobile.startup/Section.js',
+			'resources/mobile.startup/Thumbnail.js',
+			'resources/mobile.startup/Page.js',
+			'resources/mobile.startup/Skin.js',
+			'resources/mobile.startup/Schema.js',
+			'resources/mobile.startup/util.js',
 		),
 		'position' => 'bottom',
 	),
@@ -353,72 +455,41 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 	'mobile.foreignApi' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.startup',
+			'mediawiki.ForeignApi.core',
 		),
 		'scripts' => array(
-			'javascripts/modules/ForeignApi.js',
-		),
-	),
-
-	'mobile.redlinks' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.head',
-			'mediawiki.user',
-		),
-		'scripts' => array(
-			'javascripts/modules/redlinks/init.js',
+			'resources/mobile.foreignApi/JSONPForeignApi.js',
 		),
 	),
 
 	'mobile.user' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mediawiki.user',
+			'mediawiki.storage',
 			// Ensure M.define exists
-			'mobile.head',
+			'mobile.modules',
 		),
 		'scripts' => array(
-			'javascripts/user.js',
+			'resources/mobile.user/user.js',
 		),
 	),
 
-	'mobile.leadPhotoUploader' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.startup',
-			'mobile.user',
-			'mobile.upload.ui',
-		),
-		'scripts' => array(
-			'javascripts/modules/uploads/init.js',
-		),
-		// This is a logged in user feature only.
-		'group' => 'user',
-	),
-
+	// FIXME: Remove when cache clears (1.26wmf23)
 	'mobile.editor' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
-			'mobile.startup',
-			'mobile.drawers',
-			'mediawiki.ui.input',
-			'mobile.settings',
-			'mobile.toast',
-			// Let's ensure toggle styles have loaded before adding edit section links
-			'mobile.toggling',
-			// Route needs moduleLoader
-			'mobile.overlays',
+			'skins.minerva.editor',
 		),
-		'messages' => array(
-			// editor.js
-			'mobile-frontend-editor-disabled',
-			'mobile-frontend-editor-unavailable',
-			'mobile-frontend-editor-uploadenable',
-			'mobile-frontend-editor-blocked',
-			'mobile-frontend-editor-cta',
-			'mobile-frontend-editor-anon',
-			'mobile-frontend-editor-undo-unsupported',
-			// edit link
-			'mobile-frontend-editor-edit',
+	),
+	// FIXME: Remove when cache clears (1.26wmf23)
+	'mobile.browse' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'skins.minerva.browse',
 		),
-		'scripts' => array(
-			'javascripts/modules/editor/init.js',
+	),
+	// FIXME: Remove when cache clears (1.26wmf23)
+	'mobile.toggling' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'skins.minerva.toggling',
 		),
 	),
 
@@ -428,12 +499,12 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.startup',
 		),
 		'templates' => array(
-			'Overlay.hogan' => 'templates/modules/editor/AbuseFilterOverlay.hogan',
-			'Panel.hogan' => 'templates/modules/editor/AbuseFilterPanel.hogan',
+			'Overlay.hogan' => 'resources/mobile.abusefilter/AbuseFilterOverlay.hogan',
+			'Panel.hogan' => 'resources/mobile.abusefilter/AbuseFilterPanel.hogan',
 		),
 		'scripts' => array(
-			'javascripts/modules/editor/AbuseFilterOverlay.js',
-			'javascripts/modules/editor/AbuseFilterPanel.js',
+			'resources/mobile.abusefilter/AbuseFilterOverlay.js',
+			'resources/mobile.abusefilter/AbuseFilterPanel.js',
 		),
 		'messages' => array(
 			// AbuseFilterOverlay
@@ -452,40 +523,40 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.abusefilter',
 		),
 		'scripts' => array(
-			'javascripts/modules/editor/EditorApi.js',
+			'resources/mobile.editor.api/EditorApi.js',
 		),
 	),
 
 	'mobile.editor.common' => $wgMFResourceParsedMessageModuleBoilerplate + array(
 		'dependencies' => array(
-			'mobile.loggingSchemas',
 			'oojs-ui',
 			'mobile.overlays',
 			'mobile.editor.api',
 			'mobile.settings',
 			'mobile.drawers',
+			'mobile.toast',
+			'mobile.messageBox',
+			'mediawiki.confirmCloseWindow',
 		),
 		'scripts' => array(
-			'javascripts/modules/editor/EditorOverlayBase.js',
+			'resources/mobile.editor.common/EditorOverlayBase.js',
 		),
 		'styles' => array(
-			'less/modules/editor/editor.less',
+			'resources/mobile.editor.common/editor.less',
 		),
 		'templates' => array(
-			'editHeader.hogan' => 'templates/modules/editor/editHeader.hogan',
-			'previewHeader.hogan' => 'templates/modules/editor/previewHeader.hogan',
-			'saveHeader.hogan' => 'templates/modules/editor/saveHeader.hogan',
-			'EditorOverlayBase.hogan' => 'templates/modules/editor/EditorOverlayBase.hogan',
-			'EditorOverlayAnonWarning.hogan' => 'templates/modules/editor/EditorOverlayAnonWarning.hogan',
+			'editHeader.hogan' => 'resources/mobile.editor.common/editHeader.hogan',
+			'previewHeader.hogan' => 'resources/mobile.editor.common/previewHeader.hogan',
+			'saveHeader.hogan' => 'resources/mobile.editor.common/saveHeader.hogan',
+			'EditorOverlayBase.hogan' => 'resources/mobile.editor.common/EditorOverlayBase.hogan',
+			'EditorOverlayAnonWarning.hogan' =>
+				'resources/mobile.editor.common/EditorOverlayAnonWarning.hogan',
 		),
 		'messages' => array(
 			// modules/editor/EditorOverlay.js
 			'mobile-frontend-editor-continue',
 			'mobile-frontend-editor-cancel',
 			'mobile-frontend-editor-keep-editing',
-			'mobile-frontend-editor-licensing',
-			'mobile-frontend-editor-licensing-with-terms',
-			'mobile-frontend-editor-terms-link',
 			'mobile-frontend-editor-placeholder',
 			'mobile-frontend-editor-placeholder-new-page',
 			'mobile-frontend-editor-summary',
@@ -507,9 +578,8 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile-frontend-editor-editing-page',
 			'mobile-frontend-editor-previewing-page',
 			'mobile-frontend-editor-switch-confirm',
-			'mobile-frontend-editor-visual-editor',
-			'mobile-frontend-editor-source-editor',
 			'mobile-frontend-editor-switch-editor',
+			'mobile-frontend-editor-switch-visual-editor',
 			'mobile-frontend-editor-anonwarning',
 		),
 	),
@@ -518,109 +588,70 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 		'dependencies' => array(
 			'mobile.editor.common',
 			'mobile.microAutoSize',
+			'oojs-ui.styles.icons-editing-core',
 		),
 		'scripts' => array(
-			'javascripts/modules/editor/EditorOverlay.js',
+			'resources/mobile.editor.overlay/EditorOverlay.js',
 		),
 		'templates' => array(
-			'content.hogan' => 'templates/modules/editor/content.hogan',
+			'content.hogan' => 'resources/mobile.editor.overlay/content.hogan',
 		),
 		'messages' => array(
+			'mobile-frontend-editor-blocked-info',
 			'mobile-frontend-editor-viewing-source-page',
 		),
 	),
 
-	'mobile.uploads' => $wgMFResourceParsedMessageModuleBoilerplate + array(
+	'mobile.editor.overlay.withtoolbar' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
-			'mobile.startup',
-			'mobile.editor.api',
-			'mobile.contentOverlays',
-			'mobile.foreignApi',
-			'mobile.microAutoSize',
+			'mobile.editor.overlay',
 			'mobile.loggingSchemas',
+			'oojs-ui.styles.icons-editing-styling',
+			'jquery.textSelection',
+			'mobile.editor.overlay.withtoolbar.images',
 		),
 		'scripts' => array(
-			'javascripts/modules/uploads/PhotoApi.js',
-			'javascripts/modules/uploads/LeadPhoto.js',
-			'javascripts/modules/uploads/UploadTutorial.js',
-			'javascripts/modules/uploads/PhotoUploadProgress.js',
-			'javascripts/modules/uploads/PhotoUploadOverlay.js',
-			'javascripts/externals/exif-js/binaryajax.js',
-			'javascripts/externals/exif-js/exif.js',
+			'resources/mobile.editor.overlay.withtoolbar/AddReferenceOverlay.js',
+			'resources/mobile.editor.overlay.withtoolbar/EditorOverlayWithToolbar.js',
 		),
 		'styles' => array(
-			'less/modules/uploads/UploadTutorial.less',
-			'less/modules/uploads/PhotoUploadOverlay.less',
-			'less/modules/uploads/PhotoUploadProgress.less',
+			'resources/mobile.editor.overlay.withtoolbar/EditorOverlayWithToolbar.less'
 		),
 		'templates' => array(
-			'LeadPhoto.hogan' => 'templates/modules/uploads/LeadPhoto.hogan',
-			'UploadTutorial.hogan' => 'templates/modules/uploads/UploadTutorial.hogan',
-			'PhotoUploadOverlay.hogan' => 'templates/modules/uploads/PhotoUploadOverlay.hogan',
-			'PhotoUploadProgress.hogan' => 'templates/modules/uploads/PhotoUploadProgress.hogan',
+			'editorFooter.hogan' => 'resources/mobile.editor.overlay.withtoolbar/editorFooter.hogan',
+			'contentAddReference.hogan' =>
+				'resources/mobile.editor.overlay.withtoolbar/contentAddReference.hogan',
 		),
 		'messages' => array(
-			'mobile-frontend-photo-upload-success-article',
-			'mobile-frontend-photo-upload-error',
-
-			// PhotoApi.js
-			'mobile-frontend-photo-article-edit-comment',
-			'mobile-frontend-photo-article-donate-comment',
-			'mobile-frontend-photo-upload-error-filename',
-			'mobile-frontend-photo-upload-comment',
-
-			// UploadTutorial.js
-			'mobile-frontend-first-upload-wizard-new-page-1-header',
-			'mobile-frontend-first-upload-wizard-new-page-1',
-			'mobile-frontend-first-upload-wizard-new-page-2-header',
-			'mobile-frontend-first-upload-wizard-new-page-2',
-			'mobile-frontend-first-upload-wizard-new-page-3-header',
-			'mobile-frontend-first-upload-wizard-new-page-3',
-			'mobile-frontend-first-upload-wizard-new-page-3-ok',
-
-			// PhotoUploadOverlay.js
-			'mobile-frontend-image-heading-describe' => array( 'parse' ),
-			'mobile-frontend-photo-ownership',
-			'mobile-frontend-photo-ownership-help',
-			'mobile-frontend-photo-caption-placeholder',
-			'mobile-frontend-photo-submit',
-			'mobile-frontend-photo-upload-error-file-type',
-			'mobile-frontend-photo-licensing',
-			'mobile-frontend-photo-licensing-with-terms',
-			'mobile-frontend-photo-upload-copyvio',
-
-			// PhotoUploadProgress.js
-			'mobile-frontend-image-uploading' => array( 'parse' ),
-			'mobile-frontend-image-cancel-confirm' => array( 'parse' ),
+			'mobile-frontend-editor-bold',
+			'mobile-frontend-editor-italic',
+			'mobile-frontend-editor-reference',
+			'mobile-frontend-editor-insert-reference',
+			'mobile-frontend-editor-reference-placeholder',
+			'mobile-frontend-editor-italic-text',
+			'mobile-frontend-editor-bold-text',
+			'mobile-frontend-editor-add-reference',
 		),
 	),
 
-	'mobile.talk' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.beta',
-		),
-		'styles' => array(
-			'less/modules/talk.less',
-		),
-		'scripts' => array(
-			'javascripts/modules/talk/talk.js',
-		),
-		'messages' => array(
-			// for talk.js
-			'mobile-frontend-talk-overlay-header',
-			'mobile-frontend-talk-add-overlay-submit',
-		),
-		'group' => 'other'
-	),
-
-	'mobile.preferredLanguages' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.startup',
-			'mobile.settings',
-		),
-		'scripts' => array(
-			'javascripts/modules/preferredLanguages/init.js',
-		),
+	'mobile.editor.overlay.withtoolbar.images' => $wgMFResourceFileModuleBoilerplate + array(
+		'class' => 'ResourceLoaderImageModule',
+		'prefix' => 'oo-ui-icon',
+		'selector' => '.oo-ui-icon-{name}',
+		'position' => 'bottom',
+		'images' => array(
+			'reference' => array(
+				'file' => array(
+					/**
+					 * Reference-icons taken from VisualEditor team:
+					 * https://github.com/wikimedia/mediawiki-extensions-VisualEditor/blob/
+					 * 3e2f7f07285cf361adf8563667ff602ca938a859/modules/ve-mw/ui/styles/ve.ui.Icons.css
+					 */
+					'rtl' => 'images/icons/reference-rtl.svg',
+					'ltr' => 'images/icons/reference-ltr.svg',
+				),
+			),
+		)
 	),
 
 	'mobile.search' => $wgMFResourceParsedMessageModuleBoilerplate + array(
@@ -628,18 +659,16 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.pagelist.scripts',
 			'mobile.overlays',
 			'mobile.loggingSchemas',
-			'mediawiki.Title',
 		),
 		'styles' => array(
-			'less/modules/search/SearchOverlay.less',
+			'resources/mobile.search/SearchOverlay.less',
 		),
 		'scripts' => array(
-			'javascripts/modules/search/SearchApi.js',
-			'javascripts/modules/search/SearchOverlay.js',
-			'javascripts/modules/search/init.js',
+			'resources/mobile.search/SearchOverlay.js',
+			'resources/mobile.search/MobileWebSearchLogger.js',
 		),
 		'templates' => array(
-			'SearchOverlay.hogan' => 'templates/modules/search/SearchOverlay.hogan',
+			'SearchOverlay.hogan' => 'resources/mobile.search/SearchOverlay.hogan',
 		),
 		'messages' => array(
 			// for search.js
@@ -647,28 +676,59 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile-frontend-search-content',
 			'mobile-frontend-search-no-results',
 			'mobile-frontend-search-content-no-results' => array( 'parse' ),
+			'mobile-frontend-search-feedback-prompt',
+			'mobile-frontend-search-feedback-link-text',
+			'mobile-frontend-placeholder',
+			'mobile-frontend-placeholder-beta',
+		),
+	),
+
+	'mobile.search.api' => $wgMFResourceParsedMessageModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.startup',
+			'mediawiki.Title',
+		),
+		'scripts' => array(
+			'resources/mobile.search.api/SearchApi.js',
+		),
+	),
+
+	'mobile.search.beta' => $wgMFResourceParsedMessageModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.search',
+		),
+		'styles' => array(
+			'resources/mobile.search.beta/SearchOverlay.less',
+		),
+	),
+
+	'mobile.search.beta.api' => $wgMFResourceParsedMessageModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.search.api',
+		),
+		'scripts' => array(
+			'resources/mobile.search.beta.api/SearchApi.js',
 		),
 	),
 
 	'mobile.talk.overlays' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
-			'mobile.talk',
 			'mediawiki.ui.anchor',
+			'mobile.editor.common',
 		),
 		'scripts' => array(
-			'javascripts/modules/talk/TalkSectionOverlay.js',
-			'javascripts/modules/talk/TalkSectionAddOverlay.js',
-			'javascripts/modules/talk/TalkOverlay.js',
+			'resources/mobile.talk.overlays/TalkSectionOverlay.js',
+			'resources/mobile.talk.overlays/TalkSectionAddOverlay.js',
+			'resources/mobile.talk.overlays/TalkOverlay.js',
 		),
 		'templates' => array(
 			// talk.js
-			'content.hogan' => 'templates/modules/talk/talk.hogan',
+			'content.hogan' => 'resources/mobile.talk.overlays/content.hogan',
 			'SectionAddOverlay/contentHeader.hogan' =>
-				'templates/modules/talk/talkSectionAddContentHeader.hogan',
-			'SectionAddOverlay/saveHeader.hogan' => 'templates/modules/editor/saveHeader.hogan',
-			'SectionAddOverlay.hogan' => 'templates/modules/talk/talkSectionAdd.hogan',
-			'Section/header.hogan' => 'templates/modules/talk/talkSectionHeader.hogan',
-			'Section/content.hogan' => 'templates/modules/talk/talkSection.hogan',
+				'resources/mobile.talk.overlays/talkSectionAddContentHeader.hogan',
+			'SectionAddOverlay.hogan' => 'resources/mobile.talk.overlays/talkSectionAdd.hogan',
+			'Section/header.hogan' => 'resources/mobile.talk.overlays/talkSectionHeader.hogan',
+			'Section/content.hogan' => 'resources/mobile.talk.overlays/talkSection.hogan',
 		),
 		'messages' => array(
 			'mobile-frontend-talk-overlay-header',
@@ -692,11 +752,8 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			// @todo FIXME: Gets loaded twice if editor and talk both loaded.
 			'mobile-frontend-editor-cancel',
 			'mobile-frontend-editor-cancel-confirm',
-			'mobile-frontend-editor-licensing',
-			'mobile-frontend-editor-licensing-with-terms',
 			'mobile-frontend-editor-error',
 			'mobile-frontend-editor-error-conflict',
-			'mobile-frontend-editor-terms-link',
 		),
 	),
 
@@ -705,16 +762,17 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.overlays',
 			// for Api.js
 			'mobile.startup',
+			'mobile.swipe.images',
 		),
 		'styles' => array(
-			'less/modules/mediaViewer.less',
+			'resources/mobile.mediaViewer/mediaViewer.less',
 		),
 		'scripts' => array(
-			'javascripts/modules/mediaViewer/ImageApi.js',
-			'javascripts/modules/mediaViewer/ImageOverlay.js',
+			'resources/mobile.mediaViewer/ImageGateway.js',
+			'resources/mobile.mediaViewer/ImageOverlay.js',
 		),
 		'templates' => array(
-			'Overlay.hogan' => 'templates/modules/mediaViewer/ImageOverlay.hogan',
+			'Overlay.hogan' => 'resources/mobile.mediaViewer/ImageOverlay.hogan',
 		),
 		'messages' => array(
 			// mediaViewer.js
@@ -728,41 +786,65 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.mediaViewer',
 			'mobile.swipe',
 		),
-		'templates' => array(
-			'Overlay.hogan' => 'templates/modules/mediaViewer/ImageOverlayNew.hogan',
-		),
 		'scripts' => array(
-			'javascripts/modules/mediaViewer/ImageOverlayNew.js',
+			'resources/mobile.mediaViewer.beta/ImageOverlayBeta.js',
 		),
 	),
 
-	'mobile.categories' => $wgMFResourceFileModuleBoilerplate + array(
+	/** provides next and previous images, e.g. for a swipe left and right module */
+	'mobile.swipe.images' => $wgMFResourceFileModuleBoilerplate + array(
+		'class' => 'ResourceLoaderImageModule',
+		'selectorWithVariant' => '.mw-ui-icon-{name}-{variant}:before',
+		'selectorWithoutVariant' => '.mw-ui-icon-{name}:before',
+		'prefix' => 'mw-ui',
+		'variants' => array(
+			'invert' => array(
+				'color' => '#FFFFFF',
+				'global' => true,
+			)
+		),
+		'images' => array(
+			'previous' => array(
+				'file' => array(
+					'ltr' => 'images/icons/move-rtl.svg',
+					'rtl' => 'images/icons/move-ltr.svg',
+				),
+			),
+			'next' => array(
+				'file' => array(
+					'ltr' => 'images/icons/move-ltr.svg',
+					'rtl' => 'images/icons/move-rtl.svg',
+				),
+			),
+		),
+	),
+
+	'mobile.categories.overlays' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mediawiki.Title',
 			'mobile.overlays',
 			'mobile.loggingSchemas',
 			'mobile.toast',
+			'mobile.search.api',
 			'mobile.search',
 			// needed for saveHeader.hogan
 			'mobile.editor.common',
 			'oojs-ui',
 		),
 		'scripts' => array(
-			'javascripts/modules/categories/CategoryApi.js',
-			'javascripts/modules/categories/CategoryLookupInputWidget.js',
-			'javascripts/modules/categories/CategoryOverlay.js',
-			'javascripts/modules/categories/CategoryAddOverlay.js',
-			'javascripts/modules/categories/init.js',
+			'resources/mobile.categories.overlays/CategoryApi.js',
+			'resources/mobile.categories.overlays/CategoryLookupInputWidget.js',
+			'resources/mobile.categories.overlays/CategoryOverlay.js',
+			'resources/mobile.categories.overlays/CategoryAddOverlay.js',
 		),
 		'styles' => array(
-			'less/modules/categories/categories.less',
+			'resources/mobile.categories.overlays/categories.less',
 		),
 		'templates' => array(
-			'CategoryOverlay.hogan' => 'templates/modules/categories/CategoryOverlay.hogan',
-			'CategoryAddOverlay.hogan' => 'templates/modules/categories/CategoryAddOverlay.hogan',
+			'CategoryOverlay.hogan' => 'resources/mobile.categories.overlays/CategoryOverlay.hogan',
+			'CategoryAddOverlay.hogan' => 'resources/mobile.categories.overlays/CategoryAddOverlay.hogan',
 			'CategoryAddOverlayHeader.hogan' =>
-				'templates/modules/categories/CategoryAddOverlayHeader.hogan',
-			'CategoryButton.hogan' => 'templates/modules/categories/CategoryButton.hogan',
+				'resources/mobile.categories.overlays/CategoryAddOverlayHeader.hogan',
 		),
 		'messages' => array(
 			'mobile-frontend-categories-heading',
@@ -783,12 +865,14 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 	'mobile.overlays' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.startup',
+			'skins.minerva.icons.variants.js',
 			'mobile.ajax',
 		),
 		'scripts' => array(
-			'javascripts/Overlay.js',
-			'javascripts/LoadingOverlay.js',
-			'javascripts/moduleLoader.js',
+			'resources/mobile.overlays/Overlay.js',
+			'resources/mobile.overlays/ContentOverlay.js',
+			'resources/mobile.overlays/LoadingOverlay.js',
+			'resources/mobile.overlays/moduleLoader.js',
 		),
 		'messages' => array(
 			'mobile-frontend-editor-save',
@@ -796,13 +880,12 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile-frontend-overlay-continue',
 		),
 		'templates' => array(
-			'header.hogan' => 'templates/OverlayHeader.hogan',
-			'Overlay.hogan' => 'templates/Overlay.hogan',
-			'LoadingOverlay.hogan' => 'templates/LoadingOverlay.hogan',
-			'OverlayFooterLink.hogan' => 'templates/OverlayFooterLink.hogan',
+			'header.hogan' => 'resources/mobile.overlays/OverlayHeader.hogan',
+			'Overlay.hogan' => 'resources/mobile.overlays/Overlay.hogan',
+			'LoadingOverlay.hogan' => 'resources/mobile.overlays/LoadingOverlay.hogan',
 		),
 		'styles' => array(
-			'less/Overlay.less',
+			'resources/mobile.overlays/Overlay.less',
 		)
 	),
 
@@ -811,11 +894,14 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.startup',
 		),
 		'templates' => array(
-			'Cta.hogan' => 'templates/ctaDrawer.hogan',
+			'Cta.hogan' => 'resources/mobile.drawers/CtaDrawer.hogan',
+		),
+		'styles' => array(
+			'resources/mobile.drawers/drawer.less',
 		),
 		'scripts' => array(
-			'javascripts/Drawer.js',
-			'javascripts/CtaDrawer.js',
+			'resources/mobile.drawers/Drawer.js',
+			'resources/mobile.drawers/CtaDrawer.js',
 		),
 		'messages' => array(
 			// CtaDrawer.js
@@ -829,69 +915,10 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.drawers',
 		),
 		'scripts' => array(
-			'javascripts/toast.js',
+			'resources/mobile.toast/toast.js',
 		),
 		'styles' => array(
-			'less/toast.less',
-		),
-	),
-
-	'mobile.upload.ui' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.startup',
-			'mobile.ajax',
-			'mobile.overlays',
-		),
-		'templates' => array(
-			// FIXME: This should not be a hogan template. Use a txt template.
-			'template.hogan' => 'templates/modules/uploads/commons-upload.hogan',
-			// PhotoUploaderButton.js
-			'LeadButton.hogan' => 'templates/modules/uploads/LeadPhotoUploaderButton.hogan',
-			// @todo FIXME: this should be in special.uploads (need to split
-			// code in PhotoUploaderButton.js into separate files too)
-			'Button.hogan' => 'templates/modules/uploads/PhotoUploaderButton.hogan',
-		),
-		'scripts' => array(
-			'javascripts/modules/uploads/ProgressBar.js',
-			'javascripts/modules/uploads/PhotoUploaderButton.js',
-			'javascripts/modules/uploads/LeadPhotoUploaderButton.js',
-			// FIXME: this seems to be uploads only, code should be moved to uploads folder.
-			'javascripts/modules/routes.js',
-		),
-		'messages' => array(
-			// LeadPhotoUploaderButton.js
-			'mobile-frontend-photo-upload',
-		),
-	),
-
-	// This module remembers that desktop site is your preference for viewing on a mobile phone
-	'mobile.redirect' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.startup',
-			'mobile.toast',
-			'mobile.settings',
-		),
-		'scripts' => array(
-			'javascripts/modules/mf-stop-mobile-redirect.js',
-		),
-		'messages' => array(
-			// mf-stop-mobile-redirect.js
-			'mobile-frontend-cookies-required',
-		),
-	),
-
-	'mobile.references.beta' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.references',
-		),
-		'messages' => array(
-			'mobile-frontend-references-citation',
-		),
-		'templates' => array(
-			'DrawerBeta.hogan' => 'templates/modules/references/ReferencesDrawerBeta.hogan',
-		),
-		'scripts' => array(
-			'javascripts/modules/references/ReferencesDrawerBeta.js',
+			'resources/mobile.toast/toast.less',
 		),
 	),
 
@@ -900,28 +927,32 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.drawers',
 			'mobile.loggingSchemas',
 		),
+		'messages' => array(
+			'mobile-frontend-references-citation',
+		),
 		'styles' => array(
-			'less/modules/references.less',
+			'resources/mobile.references/references.less',
 		),
 		'templates' => array(
-			'Drawer.hogan' => 'templates/modules/references/ReferencesDrawer.hogan',
+			'Drawer.hogan' => 'resources/mobile.references/ReferencesDrawer.hogan',
 		),
 		'scripts' => array(
-			'javascripts/modules/references/ReferencesDrawer.js',
-			'javascripts/modules/references/init.js',
+			'resources/mobile.references/ReferencesDrawer.js',
+			'resources/mobile.references/references.js',
 		),
 	),
 
-	'mobile.toggling' => $wgMFResourceFileModuleBoilerplate + array(
+	'mobile.toggle' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
-			'mobile.startup',
 			'mobile.settings',
+			// uses util.js
+			'mobile.startup',
 		),
 		'styles' => array(
-			'less/modules/toggle.less',
+			'resources/mobile.toggle/toggle.less',
 		),
 		'scripts' => array(
-			'javascripts/modules/toggling/init.js',
+			'resources/mobile.toggle/toggle.js',
 		),
 	),
 
@@ -931,36 +962,17 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 		),
 		'messages' => array(
 			// PageActionOverlay.js
-			'cancel',
+			'mobile-frontend-pointer-dismiss',
 		),
 		'styles' => array(
-			'less/modules/tutorials.less',
+			'resources/mobile.contentOverlays/tutorials.less',
 		),
 		'scripts' => array(
-			'javascripts/modules/tutorials/ContentOverlay.js',
-			'javascripts/modules/tutorials/PageActionOverlay.js',
+			'resources/mobile.contentOverlays/PointerOverlay.js',
 		),
 		'templates' => array(
-			'PageActionOverlay.hogan' => 'templates/modules/tutorials/PageActionOverlay.hogan',
+			'PointerOverlay.hogan' => 'resources/mobile.contentOverlays/PointerOverlay.hogan',
 		),
-	),
-
-	'mobile.newusers' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.editor',
-			'mobile.contentOverlays',
-			'mobile.loggingSchemas',
-		),
-		'scripts' => array(
-			'javascripts/modules/tutorials/init.js',
-		),
-		'messages' => array(
-			// newbieEditor.js
-			'mobile-frontend-editor-tutorial-summary',
-			'mobile-frontend-editor-tutorial-confirm',
-			'mobile-frontend-editor-tutorial-cancel',
-		),
-		'group' => 'user',
 	),
 
 	'mobile.watchstar' => $wgMFResourceFileModuleBoilerplate + array(
@@ -969,13 +981,14 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.drawers',
 			'mobile.ajax',
 			'mobile.toast',
+			'mobile.loggingSchemas',
 		),
 		'scripts' => array(
-			'javascripts/modules/watchstar/WatchstarApi.js',
-			'javascripts/modules/watchstar/Watchstar.js',
+			'resources/mobile.watchstar/WatchstarApi.js',
+			'resources/mobile.watchstar/Watchstar.js',
 		),
 		'styles' => array(
-			'less/modules/watchstar.less',
+			'resources/mobile.watchstar/watchstar.less',
 		),
 		'messages' => array(
 			'watchthispage',
@@ -988,107 +1001,38 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 		),
 	),
 
-	'mobile.watchstar.init' => $wgMFResourceFileModuleBoilerplate + array(
+	// FIXME: Remove when cache clears. (1.26wmf23)
+	'mobile.watchstar.init' => array(
 		'dependencies' => array(
-			'mobile.watchstar',
-		),
-		'scripts' => array(
-			'javascripts/modules/watchstar/init.js',
-		),
-		'messages' => array(
-			'watchthispage',
-			'unwatchthispage',
-			// mf-watchstar.js
-			'mobile-frontend-watchlist-add',
-			'mobile-frontend-watchlist-removed',
-			'mobile-frontend-watchlist-cta',
-			'mobile-frontend-watchlist-please-wait',
+			'skins.minerva.watchstar',
 		),
 	),
 
+	// Note: Take care with loading this module as it will pull down OOJS UI in addition
+	// to our own code.
 	'mobile.buttonWithSpinner' => $wgMFResourceFileModuleBoilerplate + array(
-			'dependencies' => array(
-				'oojs-ui',
-			),
-			'scripts' => array(
-				'javascripts/ButtonWithSpinner.js',
-			),
-		),
-
-	'mobile.errorReport' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
-			'mobile.startup',
-			'mobile.overlays',
-			'mobile.buttonWithSpinner',
-		),
-		'scripts' => array(
-			'javascripts/modules/errorReport/init.js',
-		),
-		'messages' => array(
-			'mobile-frontend-errorreport-button-label',
-		),
-	),
-
-	'mobile.errorReport.overlay' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.overlays',
-			'mobile.toast',
-		),
-		'scripts' => array(
-			'javascripts/modules/errorReport/ErrorReportOverlay.js',
+			'oojs-ui',
 		),
 		'styles' => array(
-			'less/modules/errorReport/errorReportOverlay.less',
-		),
-		'messages' => array(
-			'mobile-frontend-editor-licensing',
-			'mobile-frontend-errorreport-error',
-			'mobile-frontend-errorreport-feedback',
-			'mobile-frontend-errorreport-heading',
-			'mobile-frontend-errorreport-instructions',
-			'mobile-frontend-errorreport-placeholder',
-			'mobile-frontend-errorreport-section-title',
-			'mobile-frontend-errorreport-submit',
-			'mobile-frontend-errorreport-summary',
-		),
-		'templates' => array(
-			'ErrorReportOverlay.hogan' => 'templates/modules/errorReport/ErrorReportOverlay.hogan',
-		),
-	),
-
-	'mobile.quickLookup' => $wgMFResourceParsedMessageModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.startup',
-			'mobile.drawers',
-			'mobile.toast',
-			'mobile.swipe',
+			'resources/mobile.buttonWithSpinner/buttonWithSpinner.less',
 		),
 		'scripts' => array(
-			'javascripts/modules/quickLookup/QuickLookupDrawer.js',
-			'javascripts/modules/quickLookup/init.js',
-		),
-		'templates' => array(
-			'Drawer.hogan' => 'templates/modules/quickLookup/Drawer.hogan',
-		),
-		'styles' => array(
-			'less/modules/quickLookup.less',
-		),
-		'messages' => array(
-			"mobile-frontend-quick-lookup-looking",
-			"mobile-frontend-quick-lookup-no-results",
-			"mobile-frontend-quick-lookup-not-internal",
+			'resources/mobile.buttonWithSpinner/ButtonWithSpinner.js',
 		),
 	),
 
 	'mobile.languages' => $wgMFResourceParsedMessageModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.overlays',
+			'mobile.settings',
+			'mobile.browser',
 		),
 		'scripts' => array(
-			'javascripts/modules/languages/LanguageOverlay.js',
+			'resources/mobile.languages/LanguageOverlay.js',
 		),
 		'templates' => array(
-			'LanguageOverlay.hogan' => 'templates/modules/languages/LanguageOverlay.hogan',
+			'LanguageOverlay.hogan' => 'resources/mobile.languages/LanguageOverlay.hogan',
 		),
 		'messages' => array(
 			'mobile-frontend-language-heading',
@@ -1103,14 +1047,14 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.overlays',
 		),
 		'templates' => array(
-			'OverlayContent.hogan' => 'templates/modules/issues/cleanup.hogan',
+			'OverlayContent.hogan' => 'resources/mobile.issues/cleanup.hogan',
 		),
 		'styles' => array(
-			'less/modules/issues.less',
+			'resources/mobile.issues/issues.less',
 		),
 		'scripts' => array(
-			'javascripts/modules/issues/CleanupOverlay.js',
-			'javascripts/modules/issues/init.js',
+			'resources/mobile.issues/CleanupOverlay.js',
+			'resources/mobile.issues/cleanuptemplates.js',
 		),
 		'messages' => array(
 			// issues.js
@@ -1132,9 +1076,10 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile.loggingSchemas',
 			'mobile.pagelist.scripts',
 			'mobile.foreignApi',
+			'mobile.messageBox',
 		),
 		'messages' => array(
-			// NearbyApi.js
+			// NearbyGateway.js
 			'mobile-frontend-nearby-distance',
 			'mobile-frontend-nearby-distance-meters',
 			// Nearby.js
@@ -1151,39 +1096,168 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'mobile-frontend-nearby-permission-guidance',
 		),
 		'scripts' => array(
-			'javascripts/modules/nearby/NearbyApi.js',
-			'javascripts/modules/nearby/Nearby.js',
+			'resources/mobile.nearby/NearbyGateway.js',
+			'resources/mobile.nearby/Nearby.js',
 		),
 		'templates' => array(
-			'Nearby.hogan' => 'templates/modules/nearby/nearby.hogan',
+			'Nearby.hogan' => 'resources/mobile.nearby/nearby.hogan',
 		),
 	),
 
-	'mobile.notifications' => $wgMFResourceFileModuleBoilerplate + array(
+	'mobile.gallery' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.toast',
+			'mobile.infiniteScroll',
+		),
+		'templates' => array(
+			'PhotoItem.hogan' => 'resources/mobile.gallery/PhotoItem.hogan',
+			'PhotoList.hogan' => 'resources/mobile.gallery/PhotoList.hogan',
+		),
+		'messages' => array(
+			'mobile-frontend-donate-image-nouploads',
+		),
+		'styles' => array(
+			'resources/mobile.gallery/gallery.less',
+		),
+		'scripts' => array(
+			'resources/mobile.gallery/PhotoListGateway.js',
+			'resources/mobile.gallery/PhotoItem.js',
+			'resources/mobile.gallery/PhotoList.js',
+		),
+	),
+
+	'mobile.commonsCategory' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.gallery',
+		),
+		'scripts' => array(
+			'resources/mobile.commonsCategory/CommonsCategoryOverlay.js',
+		),
+	),
+
+	'mobile.betaoptin' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.startup',
+			'mobile.context',
+			'jquery.cookie',
+		),
+		'messages' => array(
+			'mobile-frontend-panel-betaoptin-msg',
+			'mobile-frontend-panel-ok',
+			'mobile-frontend-panel-cancel',
+		),
+		'templates' => array(
+			'Panel.hogan' => 'resources/mobile.betaoptin/Panel.hogan',
+		),
+		'styles' => array(
+			'resources/mobile.betaoptin/panel.less',
+		),
+		'scripts' => array(
+			'resources/mobile.betaoptin/BetaOptinPanel.js',
+		),
+	),
+
+	'mobile.bannerImage' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mediawiki.Title',
+			'mobile.startup',
+			'mobile.ajax',
+		),
+		'scripts' => array(
+			'resources/mobile.bannerImage/Image.js',
+			'resources/mobile.bannerImage/MobileViewBannerImageRepository.js',
+			'resources/mobile.bannerImage/BannerImage.js',
+		),
+		'styles' => array(
+			'resources/mobile.bannerImage/bannerImage.less',
+		),
+		'position' => 'top',
+	),
+
+	'mobile.fontchanger' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.startup',
+			'mobile.settings',
+			'mobile.drawers',
+			'mobile.loggingSchemas',
+		),
+		'scripts' => array(
+			'resources/mobile.fontchanger/FontChanger.js',
+		),
+		'styles' => array(
+			'resources/mobile.fontchanger/FontChanger.less'
+		),
+		'templates' => array(
+			'FontChanger.hogan' => 'resources/mobile.fontchanger/FontChanger.hogan',
+		),
+		'messages' => array(
+			'mobile-frontend-fontchanger-desc',
+			'mobile-frontend-fontchanger-link',
+		),
+	),
+
+	'mobile.infiniteScroll' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.oo',
+		),
+		'scripts' => array(
+			'resources/mobile.infiniteScroll/InfiniteScroll.js',
+		),
+	),
+
+	'mobile.swipe' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.oo',
+		),
+		'scripts' => array(
+			'resources/mobile.swipe/Swipe.js',
+		),
+	),
+
+	// Custom ResourceLoaderModule classes
+	'mobile.site' => array(
+		'dependencies' => array( 'mobile.startup' ),
+		'class' => 'MobileSiteModule',
+	),
+	'mobile.usermodule.styles' => array(
+		'class' => 'MobileUserModule',
+		'position' => 'top',
+	),
+	'mobile.usermodule' => array(
+		'class' => 'MobileUserModule',
+		'position' => 'bottom',
+	),
+) );
+
+/**
+ * Extension:Echo related modules
+ */
+$wgMobileEchoModules = array(
+	'skins.minerva.notifications' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.overlays',
+			'skins.minerva.scripts',
 			'mediawiki.ui.anchor',
 			'mobile.loggingSchemas',
 		),
 		'scripts' => array(
-			'javascripts/modules/notifications/notifications.js',
+			'resources/skins.minerva.notifications/init.js',
 		),
-		'group' => 'user',
 	),
 
 	'mobile.notifications.overlay' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.overlays',
-			'ext.echo.base',
+			'ext.echo.logger',
 		),
 		'scripts' => array(
-			'javascripts/modules/notifications/NotificationsOverlay.js',
+			'resources/mobile.notifications.overlay/NotificationsOverlay.js',
 		),
 		'styles' => array(
-			'less/modules/NotificationsOverlay.less',
+			'resources/mobile.notifications.overlay/NotificationsOverlay.less',
 		),
 		'templates' => array(
-			'content.hogan' => 'templates/modules/notifications/NotificationsOverlayContent.hogan',
+			'content.hogan' => 'resources/mobile.notifications.overlay/NotificationsOverlayContent.hogan',
 		),
 		'messages' => array(
 			// defined in Echo
@@ -1193,213 +1267,27 @@ $wgResourceModules = array_merge( $wgResourceModules, array(
 			'echo-notification-count',
 		),
 	),
-
-	'mobile.gallery' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.toast',
-			'mobile.foreignApi',
-			'mobile.infiniteScroll',
-		),
-		'templates' => array(
-			'PhotoItem.hogan' => 'templates/modules/gallery/PhotoItem.hogan',
-			'PhotoList.hogan' => 'templates/modules/gallery/PhotoList.hogan',
-		),
-		'messages' => array(
-			'mobile-frontend-donate-image-nouploads',
-		),
-		'styles' => array(
-			'less/modules/gallery.less',
-		),
-		'scripts' => array(
-			'javascripts/modules/gallery/PhotoListApi.js',
-			'javascripts/modules/gallery/PhotoItem.js',
-			'javascripts/modules/gallery/PhotoList.js',
-		),
-	),
-
-	'mobile.commonsCategory' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.gallery',
-		),
-		'scripts' => array(
-			'javascripts/modules/commonsCategory/CommonsCategoryOverlay.js',
-		),
-	),
-
-	'mobile.wikidata.api' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.startup',
-			'mobile.foreignApi',
-		),
-		'scripts' => array(
-			'javascripts/modules/WikiDataApi.js'
-		),
-	),
-
-	'mobile.otherProjects' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.wikidata.api',
-			'mobile.overlays',
-		),
-		'messages' => array(
-			'mobile-frontend-other-projects-overlay-heading',
-			'mobile-frontend-other-project-label',
-		),
-		'scripts' => array(
-			'javascripts/modules/projects/OtherProjectsOverlay.js',
-		),
-		'templates' => array(
-			'content.hogan' => 'templates/modules/projects/content.hogan',
-		),
-	),
-
-	'mobile.hexmd5' => $wgMFResourceFileModuleBoilerplate + array(
-		'scripts' => array(
-			// FIXME: This library shouldn't be needed. Wikidata api
-			// should return these thumbnail urls for us.
-			'javascripts/externals/md5.js',
-		),
-		'position' => 'top',
-	),
-
-	'mobile.infobox' => $wgMFResourceParsedMessageModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.wikidata.api',
-			'mobile.ajax',
-			'mobile.hexmd5',
-			'mobile.overlays',
-			'oojs-ui',
-		),
-		'templates' => array(
-			'Infobox.hogan' => 'templates/modules/infobox/Infobox.hogan',
-			'EditorOverlayHeader.hogan' => 'templates/modules/infobox/EditorOverlayHeader.hogan',
-			'EditorOverlayContent.hogan' => 'templates/modules/infobox/EditorOverlayContent.hogan',
-		),
-		'messages' => array(
-			'mobile-frontend-wikidata-editor-description-label' => array( 'parse' ),
-			'mobile-frontend-time-precision-Gannum',
-			'mobile-frontend-time-precision-Mannum',
-			'mobile-frontend-time-precision-annum',
-			'mobile-frontend-time-precision-millennium',
-			'mobile-frontend-time-precision-century',
-			'mobile-frontend-time-precision-10annum',
-			'mobile-frontend-time-precision-0annum',
-			'mobile-frontend-time-precision-BCE-Gannum',
-			'mobile-frontend-time-precision-BCE-Mannum',
-			'mobile-frontend-time-precision-BCE-annum',
-			'mobile-frontend-time-precision-BCE-millennium',
-			'mobile-frontend-time-precision-BCE-century',
-			'mobile-frontend-time-precision-BCE-10annum',
-			'mobile-frontend-time-precision-BCE-0annum',
-			'january-date',
-			'february-date',
-			'march-date',
-			'april-date',
-			'may-date',
-			'june-date',
-			'july-date',
-			'august-date',
-			'september-date',
-			'october-date',
-			'november-date',
-			'december-date'
-		),
-		'scripts' => array(
-			'javascripts/modules/infobox/Infobox.js',
-			'javascripts/modules/infobox/WikiDataItemLookupInputWidget.js',
-			'javascripts/modules/infobox/InfoboxEditorOverlay.js',
-		),
-		'styles' => array(
-			'less/modules/infobox.less',
-		),
-		'position' => 'top',
-	),
-
-	'mobile.bannerImage' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.ajax',
-		),
-		'scripts' => array(
-			'javascripts/modules/bannerImage/Image.js',
-			'javascripts/modules/bannerImage/MobileViewBannerImageRepository.js',
-			'javascripts/modules/bannerImage/BannerImage.js',
-		),
-		'styles' => array(
-			'less/modules/bannerImage.less',
-		),
-		'position' => 'top',
-	),
-
-	// FIXME: disable font changer, until there is a better place - see task T95198
-	'mobile.fontchanger' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.startup',
-			'mobile.settings',
-			'mobile.drawers',
-			'mobile.loggingSchemas',
-		),
-		'scripts' => array(
-			'javascripts/modules/fontchanger/FontChanger.js',
-			'javascripts/modules/fontchanger/init.js',
-		),
-		'styles' => array(
-			'less/modules/fontchanger/FontChanger.less'
-		),
-		'templates' => array(
-			'FontChanger.hogan' => 'templates/modules/fontchanger/FontChanger.hogan',
-		),
-		'messages' => array(
-			'mobile-frontend-fontchanger-desc'
-		),
-		'position' => 'top',
-	),
-	'mobile.infiniteScroll' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.oo',
-		),
-		'scripts' => array(
-			'javascripts/InfiniteScroll.js',
-		),
-	),
-
-	'mobile.swipe' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.oo',
-		),
-		'scripts' => array(
-			'javascripts/Swipe.js',
-		),
-	),
-
-	// Custom ResourceLoaderModule classes
-	'mobile.site' => array(
-		'dependencies' => array( 'mobile.startup' ),
-		'class' => 'MobileSiteModule',
-	),
-	'mobile.usermodule' => array(
-		'dependencies' => array( 'mobile.startup' ),
-		'class' => 'MobileUserModule',
-	),
-) );
-
+);
 /**
  * Mobile VisualEditor related modules
  */
 $wgMobileVEModules = array(
 	'mobile.editor.ve' => $wgMFResourceBoilerplate + array(
 		'dependencies' => array(
-			'ext.visualEditor.mobileViewTarget',
+			'ext.visualEditor.mobileArticleTarget',
 			'mobile.editor.common',
 			'mobile.overlays',
 		),
 		'styles' => array(
-			'less/modules/editor/VisualEditorOverlay.less',
+			'resources/mobile.editor.ve/VisualEditorOverlay.less',
 		),
 		'scripts' => array(
-			'javascripts/modules/editor/VisualEditorOverlay.js',
+			'resources/mobile.editor.ve/ve.init.mw.MobileFrontendArticleTarget.js',
+			'resources/mobile.editor.ve/VisualEditorOverlay.js',
 		),
 		'templates' => array(
-			'contentVE.hogan' => 'templates/modules/editor/contentVE.hogan',
+			'contentVE.hogan' => 'resources/mobile.editor.ve/contentVE.hogan',
+			'toolbarVE.hogan' => 'resources/mobile.editor.ve/toolbarVE.hogan',
 		),
 		'messages' => array(
 			'mobile-frontend-page-edit-summary',
@@ -1407,21 +1295,6 @@ $wgMobileVEModules = array(
 		),
 		'targets' => array(
 			'mobile',
-		),
-	),
-);
-
-/**
- * Mobile CodeMirror related modules
- */
-$wgMobileCodeMirrorModules = array(
-	'mobile.editor.overlay.codemirror' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.editor.overlay',
-			'ext.CodeMirror.lib',
-		),
-		'scripts' => array(
-			'javascripts/modules/editor/EditorOverlayCodeMirror.js',
 		),
 	),
 );
@@ -1439,28 +1312,31 @@ $wgMobileCodeMirrorModules = array(
 $wgMobileSpecialPageModules = array(
 	'mobile.special.mobilemenu.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
 		'styles' => array(
-			'less/specials/mobilemenu.less',
+			'resources/mobile.special.mobilemenu.styles/mobilemenu.less',
 		),
 		'skinStyles' => array(
-			'vector' => 'less/desktop/special/mobilemenu.less',
-		)
+			'vector' => 'resources/mobile.special.mobilemenu.styles/mobilemenu.less',
+		),
+		'position' => 'top',
 	),
 	'mobile.special.mobileoptions.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
 		'styles' => array(
-			'less/specials/mobileoptions.less',
+			'resources/mobile.special.mobileoptions.styles/mobileoptions.less',
 		),
+		'position' => 'top',
 	),
 	'mobile.special.mobileoptions.scripts' => $wgMFMobileSpecialPageResourceBoilerplate + array(
 		'position' => 'top',
 		'dependencies' => array(
 			'mobile.startup',
 			'mobile.settings',
+			'mobile.fontchanger',
 		),
 		'scripts' => array(
-			'javascripts/specials/mobileoptions.js',
+			'resources/mobile.special.mobileoptions.scripts/mobileoptions.js',
 		),
 		'templates' => array(
-			'Checkbox.hogan' => 'templates/specials/checkbox.mustache',
+			'Checkbox.hogan' => 'resources/mobile.special.mobileoptions.scripts/checkbox.mustache',
 		),
 		'messages' => array(
 			'mobile-frontend-expand-sections-description',
@@ -1469,26 +1345,24 @@ $wgMobileSpecialPageModules = array(
 	),
 	'mobile.special.mobileeditor.scripts' => $wgMFMobileSpecialPageResourceBoilerplate + array(
 		'scripts' => array(
-				'javascripts/specials/redirectmobileeditor.js',
+				'resources/mobile.special.mobileeditor.scripts/redirectmobileeditor.js',
 		),
 	),
 
 	'mobile.special.nearby.styles' => $wgMFResourceFileModuleBoilerplate + array(
 		'styles' => array(
-			'less/specials/nearby.less',
+			'resources/mobile.special.nearby.styles/specialNearby.less',
 		),
 		'skinStyles' => array(
-			'vector' => 'less/desktop/special/nearby.less',
-			'monobook' => 'less/desktop/special/nearby.less',
+			'vector' => 'resources/mobile.special.nearby.styles/specialNearbyDesktop.less',
+			'monobook' => 'resources/mobile.special.nearby.styles/specialNearbyDesktop.less',
 		),
+		'position' => 'top',
 	),
 
 	'mobile.special.userlogin.scripts' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.head',
-		),
 		'scripts' => array(
-			'javascripts/specials/userlogin.js',
+			'resources/mobile.special.userlogin.scripts/userlogin.js',
 		),
 		'position' => 'top',
 	),
@@ -1501,40 +1375,24 @@ $wgMobileSpecialPageModules = array(
 			'mobile-frontend-nearby-refresh',
 		),
 		'scripts' => array(
-			'javascripts/specials/nearby.js',
+			'resources/mobile.special.nearby.scripts/nearby.js',
 		),
 		// stop flash of unstyled content when loading from cache
 		'position' => 'top',
 	),
 
-	'mobile.special.notifications.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
-		'styles' => array(
-			'less/specials/notifications.less',
-		),
+	// These are NOT empty see $wgResourceModuleSkinStyles.
+	'mobile.special.history.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
 		'position' => 'top',
 	),
-
-	'mobile.special.notifications.scripts' => $wgMFMobileSpecialPageResourceBoilerplate + array(
-		'dependencies' => array(
-			'mobile.startup',
-		),
-		'scripts' => array(
-			'javascripts/specials/notifications.js',
-		),
-		'messages' => array(
-			// defined in Echo
-			'echo-load-more-error',
-		),
+	'mobile.special.userprofile.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
+		'position' => 'top',
 	),
-
-	// These are NOT empty see $wgResourceModuleSkinStyles.
-	'mobile.special.history.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(),
-	'mobile.special.userprofile.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(),
 
 	'mobile.special.uploads.scripts' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.gallery',
-			'mobile.upload.ui',
+			'mobile.startup',
 		),
 		'messages' => array(
 			'mobile-frontend-photo-upload-generic',
@@ -1543,27 +1401,34 @@ $wgMobileSpecialPageModules = array(
 			'mobile-frontend-photo-upload-user-count',
 		),
 		'scripts' => array(
-			'javascripts/specials/uploads.js',
+			'resources/mobile.special.uploads.scripts/uploads.js',
 		),
 		'position' => 'top',
 	),
 
 	'mobile.special.uploads.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
 		'styles' => array(
-			'less/specials/uploads.less',
+			'resources/mobile.special.uploads.styles/uploads.less',
 		),
+		'skinStyles' => array(
+			'default' => 'resources/mobile.special.uploads.styles/default.less',
+		),
+		'position' => 'top',
 	),
 
 	'mobile.special.pagefeed.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
+		'position' => 'top',
 		'styles' => array(
-			'less/specials/pagefeed.less',
+			'resources/mobile.special.pagefeed.styles/pagefeed.less',
 		),
 	),
 
 	'mobile.special.mobilediff.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
 		'styles' => array(
-			'less/specials/mobilediff.less',
+			'resources/mobile.special.mobilediff.styles/icons.less',
+			'resources/mobile.special.mobilediff.styles/mobilediff.less',
 		),
+		'position' => 'top',
 	),
 
 	// Note that this module is declared as a dependency in the Thanks extension (for the
@@ -1573,7 +1438,23 @@ $wgMobileSpecialPageModules = array(
 			'mobile.loggingSchemas',
 		),
 		'scripts' => array(
-			'javascripts/specials/mobilediff.js',
+			'resources/mobile.special.mobilediff.scripts/mobilediff.js',
+		),
+	),
+
+	'mobile.special.browse.topicTag.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
+		'styles' => array(
+			'resources/mobile.browse/special/topicTag.less',
+		),
+		'position' => 'top',
+	),
+
+	'mobile.special.browse.topicTag.scripts' => $wgMFMobileSpecialPageResourceBoilerplate + array(
+		'dependencies' => array(
+			'mobile.loggingSchemas'
+		),
+		'scripts' => array(
+			'resources/mobile.browse/special/topicTag.js',
 		),
 	),
 );
@@ -1584,15 +1465,25 @@ $wgMobileSpecialPageModules = array(
 	*/
 $wgMinervaSpecialPageModules = array(
 	'skins.minerva.special.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
+		'position' => 'top',
 		'styles' => array(
-			'less/specials/common.less',
-			'less/specials/forms.less',
+			'resources/skins.minerva.special.styles/common.less',
+			'resources/skins.minerva.special.styles/forms.less',
 		),
 	),
 
+	// FIXME: Use skin Styles
 	'skins.minerva.special.search.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
+		'position' => 'top',
 		'styles' => array(
-			'less/specials/search.less',
+			'resources/skins.minerva.special.search.styles/search.less',
+		),
+	),
+
+	'skins.minerva.special.watchlist.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
+		'position' => 'top',
+		'styles' => array(
+			'resources/skins.minerva.special.watchlist.styles/specialWatchlist.less',
 		),
 	),
 
@@ -1603,13 +1494,14 @@ $wgMinervaSpecialPageModules = array(
 			'mobile.watchlist',
 		),
 		'scripts' => array(
-			'javascripts/specials/watchlist.js',
+			'resources/skins.minerva.special.watchlist.scripts/watchlist.js',
 		),
 	),
 
 	'skins.minerva.special.userlogin.styles' => $wgMFMobileSpecialPageResourceBoilerplate + array(
+		'position' => 'top',
 		'styles' => array(
-			'less/specials/userlogin.less',
+			'resources/skins.minerva.special.userlogin.styles/userlogin.less',
 		),
 	),
 );
@@ -1617,9 +1509,14 @@ $wgMinervaSpecialPageModules = array(
 // These modules are the gateways to all other modules and will ensure the other modules get loaded
 // on the page.
 $wgMinervaBootstrapModules = array(
-	// Important: This module is loaded on both mobile and desktop skin
-	// This JavaScript is loaded at the top of the page so be cautious what you put in it.
+	//FIXME: Remove when cache has cleared. Use skins.minerva.head instead (1.26wmf23)
 	'mobile.head' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'skins.minerva.scripts.top',
+		),
+	),
+
+	'skins.minerva.scripts.top' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'mobile.modifiedBar',
 			'mobile.mainMenu',
@@ -1633,8 +1530,7 @@ $wgMinervaBootstrapModules = array(
 			'mobile.context',
 		),
 		'scripts' => array(
-			'javascripts/modules/mainMenu/init.js',
-			'javascripts/modules/lastEdited/init.js',
+			'resources/skins.minerva.scripts.top/init.js',
 		),
 		'messages' => array(
 			// lastEdited.js
@@ -1652,76 +1548,196 @@ $wgMinervaBootstrapModules = array(
 	// By mode. This should only ever be loaded in Minerva skin.
 	'skins.minerva.scripts' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
+			'skins.minerva.scripts.top',
 			'mobile.startup',
+			'mobile.mainMenu',
 			'mobile.loggingSchemas',
-			// Feature modules that should be loaded in stable.
-			// These modules should only setup routes/events or
-			// load code under certain conditions.
+			'skins.minerva.icons.images.js',
 			'mobile.issues',
 			'mobile.search',
 			'mobile.references',
-			'mobile.redirect',
+			'mobile.betaoptin',
+			'mobile.toast',
+			'mobile.settings',
 		),
 		'scripts' => array(
-			'javascripts/modules/mediaViewer/init.js',
-			'javascripts/modules/languages/init.js',
+			// FIXME: Merge preInit and init files.
+			'resources/skins.minerva.scripts/preInit.js',
+			'resources/skins.minerva.scripts/init.js',
+			'resources/skins.minerva.scripts/initLogging.js',
+			'resources/skins.minerva.scripts/mobileRedirect.js',
+			'resources/skins.minerva.scripts/search.js',
+		),
+		'messages' => array(
+			// mf-stop-mobile-redirect.js
+			'mobile-frontend-cookies-required',
 		),
 	),
+
+	'skins.minerva.browse' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.loggingSchemas'
+		),
+		'scripts' => array(
+			'resources/mobile.browse/init.js',
+		),
+		'styles' => array(
+			'resources/mobile.browse/tags.less',
+		)
+	),
+
+	'skins.minerva.newusers' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.editor',
+			'mobile.contentOverlays',
+			'mobile.loggingSchemas',
+		),
+		'scripts' => array(
+			'resources/skins.minerva.newusers/init.js',
+		),
+		'messages' => array(
+			// newbieEditor.js
+			'mobile-frontend-editor-tutorial-summary',
+			'mobile-frontend-editor-tutorial-confirm',
+			'mobile-frontend-editor-tutorial-cancel',
+		),
+	),
+
+	'skins.minerva.editor' => $wgMFResourceParsedMessageModuleBoilerplate + array(
+		'dependencies' => array(
+			'skins.minerva.scripts',
+			'mobile.drawers',
+			'mediawiki.ui.input',
+			'mobile.settings',
+			'mobile.toast',
+			// Let's ensure toggle styles have loaded before adding edit section links
+			'skins.minerva.toggling',
+			// Route needs moduleLoader
+			'mobile.overlays',
+			'mediawiki.jqueryMsg',
+		),
+		'messages' => array(
+			// editor.js
+			'mobile-frontend-editor-disabled',
+			'mobile-frontend-editor-unavailable',
+			'mobile-frontend-editor-uploadenable',
+			'mobile-frontend-editor-blocked-info-loggedin' => array( 'parse' ),
+			'mobile-frontend-editor-cta',
+			'mobile-frontend-editor-anon',
+			'mobile-frontend-editor-undo-unsupported',
+			// edit link
+			'mobile-frontend-editor-edit',
+			'mobile-frontend-editor-redlink-create',
+			'mobile-frontend-editor-redlink-leave',
+			'mobile-frontend-editor-redlink-explain' => array( 'parse' ),
+		),
+		'scripts' => array(
+			'resources/skins.minerva.editor/init.js',
+		),
+	),
+
+	'skins.minerva.categories' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.overlays',
+			'mobile.loggingSchemas',
+		),
+		'scripts' => array(
+			'resources/skins.minerva.categories/init.js',
+		),
+	),
+
+	'skins.minerva.talk' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'skins.minerva.scripts',
+			'mobile.overlays',
+		),
+		'styles' => array(
+			'resources/skins.minerva.talk/talk.less',
+		),
+		'scripts' => array(
+			'resources/skins.minerva.talk/init.js',
+		),
+		'messages' => array(
+			'mobile-frontend-talk-overlay-header',
+			'mobile-frontend-talk-add-overlay-submit',
+			'mobile-frontend-editor-licensing',
+			'mobile-frontend-editor-licensing-with-terms',
+			// FIXME: Remove after cache is cleared (1.26wmf23)
+			'talk',
+		),
+	),
+
+	'skins.minerva.toggling' => $wgMFResourceParsedMessageModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.toggle',
+			'skins.minerva.scripts',
+		),
+		'scripts' => array(
+			'resources/skins.minerva.toggling/init.js',
+		),
+	),
+
+	'skins.minerva.watchstar' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'mobile.watchstar',
+			'skins.minerva.scripts',
+		),
+		'scripts' => array(
+			'resources/skins.minerva.watchstar/init.js',
+		),
+		'messages' => array(
+			'watchthispage',
+			'unwatchthispage',
+			// mf-watchstar.js
+			'mobile-frontend-watchlist-add',
+			'mobile-frontend-watchlist-removed',
+			'mobile-frontend-watchlist-cta',
+			'mobile-frontend-watchlist-please-wait',
+		),
+	),
+
 	// By mode. This should only ever be loaded in Minerva skin.
 	'skins.minerva.beta.scripts' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			'skins.minerva.scripts',
+			'mobile.settings',
 			// Feature modules that should be loaded in beta should be listed below here.
 			// These modules should only setup routes/events or
 			// load code under certain conditions.
-			'mobile.preferredLanguages',
-			'mobile.references.beta',
+			'mobile.search.beta',
+		),
+		'scripts' => array(
+			'resources/skins.minerva.beta.scripts/commonsCategory.js',
+			'resources/skins.minerva.beta.scripts/fontchanger.js',
+		),
+		'messages' => array(
+			'mobile-frontend-commons-category-view',
+		),
+	),
+	'skins.minerva.beta.banner.scripts' => $wgMFResourceFileModuleBoilerplate + array(
+		'dependencies' => array(
+			'skins.minerva.scripts',
 			'mobile.bannerImage',
 		),
 		'scripts' => array(
-			'javascripts/modules/bannerImage/init.js',
+			'resources/skins.minerva.beta.banner.scripts/bannerImage.js',
 		),
 	),
+
 	// By mode. This should only ever be loaded in Minerva skin.
-	'skins.minerva.alpha.scripts' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'skins.minerva.beta.scripts',
-			// Feature modules that should be loaded in alpha should be listed below here.
-			'mobile.infobox',
-			'mobile.errorReport',
-			'mobile.otherProjects',
-			'mobile.quickLookup',
-		),
-		'scripts' => array(
-			'javascripts/modules/commonsCategory/init.js',
-			'javascripts/modules/infobox/init.js',
-			'javascripts/modules/projects/init.js',
-		)
-	),
-	// FIXME: Alias. Remove when cache cleared.
-	'mobile.stable' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array( 'skins.minerva.scripts' ),
-	),
-	// FIXME: Alias.Remove when cache cleared.
-	'mobile.beta' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array( 'skins.minerva.beta.scripts' ),
-	),
-	// FIXME: Alias. Remove when cache cleared.
-	'mobile.alpha' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array( 'skins.minerva.alpha.scripts' ),
-	),
-	'tablet.scripts' => $wgMFResourceFileModuleBoilerplate + array(
+	'skins.minerva.tablet.scripts' => $wgMFResourceFileModuleBoilerplate + array(
 		'dependencies' => array(
 			// Feature modules that should be loaded on tablets should be listed below here.
 			'mobile.toc',
 		),
-	),
-	'mobile.experiments' => $wgMFResourceFileModuleBoilerplate + array(
-		'dependencies' => array(
-			'mobile.user',
-		),
 		'scripts' => array(
-			'javascripts/experiments.js',
+			'resources/skins.minerva.tablet.scripts/toc.js',
+		),
+	),
+	// Remove when cache clears
+	'tablet.scripts' => array(
+		'dependencies' => array(
+			'skins.minerva.tablet.scripts',
 		),
 	),
 );
@@ -1735,25 +1751,22 @@ $wgResourceModules = array_merge( $wgResourceModules,
 
 // Module customizations
 $wgResourceModuleSkinStyles['default'] = $wgMFResourceBoilerplate + array(
-	'mobile.special.uploads.styles' => array(
-		'less/specials/uploadsDefault.less',
-	),
 	'mobile.special.history.styles' => array(
-		'less/pagelist.less',
-		'less/specials/historyDefault.less',
+		'resources/mobile.special.history.styles/default.less',
 	),
 );
 
 $wgResourceModuleSkinStyles['minerva'] = $wgMFResourceBoilerplate + array(
+	'mediawiki.notification' => '',
+	'mediawiki.page.gallery.styles' => array(
+		'resources/skins.minerva.content.styles/galleries.less',
+	),
 	'mediawiki.sectionAnchor' => array(
-		'less/content/sectionAnchor.less',
+		'resources/skins.minerva.content.styles/sectionAnchor.less',
 	),
 	'mediawiki.skinning.content.parsoid' => array(),
 	'mobile.special.userprofile.styles' => array(
-		'less/specials/userprofile.less',
-	),
-	'mobile.special.uploads.styles' => array(
-		'less/modules/uploads/PhotoUploaderButton.less',
+		'resources/mobile.special.userprofile.styles/minerva.less',
 	),
 	'mobile.special.history.styles' => array(),
 );

@@ -63,6 +63,7 @@ function uespRenderEsoItemLink($input, array $args, Parser $parser, PPFrame $fra
 	$version = "";
 	$color = "";
 	$trait = "";
+	$attributes = "";
 	
 	foreach ($args as $name => $value)
 	{

@@ -120,7 +120,6 @@ class ExtraPackage
     }
 
     /**
-     * @param string $json
      * @return CompletePackage
      */
     protected function loadPackage($json)
@@ -351,14 +350,12 @@ class ExtraPackage
         $links = $this->package->{$getter}();
         if (!empty($links)) {
             $unwrapped = self::unwrapIfNeeded($root, $setter);
-            // @codeCoverageIgnoreStart
             if ($root !== $unwrapped) {
                 $this->logger->warning(
                     'This Composer version does not support ' .
                     "'{$type}' merging for aliased packages."
                 );
             }
-            // @codeCoverageIgnoreEnd
             $unwrapped->{$setter}(array_merge(
                 $root->{$getter}(),
                 $this->replaceSelfVersionDependencies($type, $links, $root)
@@ -440,24 +437,9 @@ class ExtraPackage
         $prettyVersion = $root->getPrettyVersion();
         $vp = new VersionParser();
 
-        $method = 'get' . ucfirst($linkType['method']);
-        $packages = $root->$method();
-
         return array_map(
-            function ($link) use ($linkType, $version, $prettyVersion, $vp, $packages) {
+            function ($link) use ($linkType, $version, $prettyVersion, $vp) {
                 if ('self.version' === $link->getPrettyConstraint()) {
-                    if (isset($packages[$link->getSource()])) {
-                        /** @var Link $package */
-                        $package = $packages[$link->getSource()];
-                        return new Link(
-                            $link->getSource(),
-                            $link->getTarget(),
-                            $vp->parseConstraints($package->getConstraint()->getPrettyString()),
-                            $linkType['description'],
-                            $package->getPrettyConstraint()
-                        );
-                    }
-
                     return new Link(
                         $link->getSource(),
                         $link->getTarget(),
@@ -493,14 +475,12 @@ class ExtraPackage
         RootPackageInterface $root,
         $method = 'setExtra'
     ) {
-        // @codeCoverageIgnoreStart
         if ($root instanceof RootAliasPackage &&
             !method_exists($root, $method)
         ) {
             // Unwrap and return the aliased RootPackage.
             $root = $root->getAliasOf();
         }
-        // @codeCoverageIgnoreEnd
         return $root;
     }
 }

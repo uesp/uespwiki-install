@@ -34,7 +34,7 @@ class SpecialMobileContributions extends SpecialMobileHistory {
 	protected function getHeaderBarLink( $title ) {
 		return Html::element( 'a',
 			array(
-				'class' => MobileUI::iconClass( 'user', 'before', 'mw-mf-user icon-16px' ),
+				'class' => MobileUI::iconClass( 'user', 'before', 'mw-mf-user' ),
 				'href' => SpecialPage::getTitleFor( 'UserProfile', $title->getText() )->getLocalUrl(),
 			),
 			$title->getText() );
@@ -53,6 +53,10 @@ class SpecialMobileContributions extends SpecialMobileHistory {
 				// set page title as on desktop site - bug 66656
 				$username = $this->user->getName();
 				$out = $this->getOutput();
+				$out->addModuleStyles( array(
+					'mobile.pagelist.styles',
+					'mobile.pagesummary.styles',
+				) );
 				$out->setHTMLTitle( $this->msg(
 					'pagetitle',
 					$this->msg( 'contributions-title', $username )->plain()
@@ -91,7 +95,7 @@ class SpecialMobileContributions extends SpecialMobileHistory {
 		$this->prevLengths = Revision::getParentLengths( wfGetDB( DB_SLAVE ), $prevRevs );
 		if ( $numRows > 0 ) {
 			$count = 0;
-			foreach (  $revs as $rev ) {
+			foreach ( $revs as $rev ) {
 				if ( $count++ < self::LIMIT ) {
 					$this->showContributionsRow( $rev );
 				}
@@ -103,8 +107,9 @@ class SpecialMobileContributions extends SpecialMobileHistory {
 				$out->addHtml( $this->getMoreButton( $rev->getTimestamp() ) );
 			}
 		} else {
-			$out->addHtml( Html::element( 'div', array( 'class' => 'error alert' ),
-				$this->msg( 'mobile-frontend-history-no-results' ) ) );
+			// For users who exist but have not made any edits
+			$out->addHtml(
+				MobileUI::warningBox( $this->msg( 'mobile-frontend-history-no-results' ) ) );
 		}
 	}
 

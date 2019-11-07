@@ -155,7 +155,7 @@ class ParserTest {
 
 	static function setUp() {
 		global $wgParser, $wgParserConf, $IP, $messageMemc, $wgMemc,
-			$wgUser, $wgLang, $wgOut, $wgRequest, $wgStyleDirectory, $wgEnableParserCache,
+			$wgUser, $wgLang, $wgOut, $wgRequest, $wgStyleDirectory,
 			$wgExtraNamespaces, $wgNamespaceAliases, $wgNamespaceProtection, $wgLocalFileRepo,
 			$wgExtraInterlanguageLinkPrefixes, $wgLocalInterwikis,
 			$parserMemc, $wgThumbnailScriptPath, $wgScriptPath,
@@ -211,7 +211,6 @@ class ParserTest {
 			$wgParserCacheType = CACHE_NONE;
 		}
 
-		$wgEnableParserCache = false;
 		DeferredUpdates::clearPendingUpdates();
 		$wgMemc = wfGetMainCache(); // checks $wgMainCacheType
 		$messageMemc = wfGetMessageCacheStorage();
@@ -883,16 +882,15 @@ class ParserTest {
 			'wgExperimentalHtmlIds' => false,
 			'wgExternalLinkTarget' => false,
 			'wgHtml5' => true,
-			'wgWellFormedXml' => true,
 			'wgAllowMicrodataAttributes' => true,
 			'wgAdaptiveMessageCache' => true,
 			'wgDisableLangConversion' => false,
 			'wgDisableTitleConversion' => false,
 			// Tidy options.
 			'wgUseTidy' => isset( $opts['tidy'] ),
-			'wgAlwaysUseTidy' => false,
+			'wgTidyConfig' => null,
 			'wgDebugTidy' => false,
-			'wgTidyConf' => $IP . '/includes/tidy.conf',
+			'wgTidyConf' => $IP . '/includes/tidy/tidy.conf',
 			'wgTidyOpts' => '',
 			'wgTidyInternal' => $this->tidySupport->isInternal(),
 		);
@@ -937,6 +935,7 @@ class ParserTest {
 		$wgHooks['ParserGetVariableValueTs'][] = 'ParserTest::getFakeTimestamp';
 
 		MagicWord::clearCache();
+		MWTidy::destroySingleton();
 
 		return $context;
 	}
@@ -1219,6 +1218,7 @@ class ParserTest {
 		FileBackendGroup::destroySingleton();
 		LockManagerGroup::destroySingletons();
 		LinkCache::singleton()->clear();
+		MWTidy::destroySingleton();
 
 		foreach ( $this->savedGlobals as $var => $val ) {
 			$GLOBALS[$var] = $val;

@@ -227,7 +227,7 @@ function uespRenderEsoSkillTooltip($input, array $args, Parser $parser, PPFrame 
 		$params .= "&skillname=$skillName";
 	}
 	
-	if (skillLine != "") 
+	if ($skillLine != "") 
 	{
 		$attributes .= "skillline='$skillLine' ";
 		$params .= "&skillline=$skillLine";

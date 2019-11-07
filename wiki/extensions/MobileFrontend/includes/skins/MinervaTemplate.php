@@ -7,12 +7,6 @@
  * Extended Template class of BaseTemplate for mobile devices
  */
 class MinervaTemplate extends BaseTemplate {
-	/** @var boolean Temporary variable that decides whether
-	 * history link should be rendered before the content. */
-	protected $renderHistoryLinkBeforeContent = true;
-	/** @var string $searchPlaceHolderMsg Message used as placeholder in search input */
-	protected $searchPlaceHolderMsg = 'mobile-frontend-placeholder';
-
 	/** @var boolean Specify whether the page is a special page */
 	protected $isSpecialPage;
 
@@ -23,11 +17,12 @@ class MinervaTemplate extends BaseTemplate {
 	protected $isMainPage;
 
 	/**
-	 * Renders the header content for the top chrome.
+	 * Gets the header content for the top chrome.
 	 * @param array $data Data used to build the page
+	 * @return string
 	 */
-	protected function makeChromeHeaderContent( $data ) {
-		echo $this->makeSearchForm( $data );
+	protected function getChromeHeaderContentHtml( $data ) {
+		return $this->getSearchForm( $data );
 	}
 
 	/**
@@ -36,7 +31,7 @@ class MinervaTemplate extends BaseTemplate {
 	 * @param array $data The data used to render the page
 	 * @return string
 	 */
-	protected function makeSearchForm( $data ) {
+	protected function getSearchForm( $data ) {
 		return Html::openElement( 'form',
 				array(
 					'action' => $data['wgScript'],
@@ -47,18 +42,10 @@ class MinervaTemplate extends BaseTemplate {
 			$this->makeSearchButton(
 				'fulltext',
 				array(
-					'class' => 'fulltext-search no-js-only icon icon-search',
+					'class' => MobileUI::buttonClass( 'progressive', 'fulltext-search no-js-only' ),
 				)
 			) .
 			Html::closeElement( 'form' );
-	}
-
-	/**
-	 * Get elements for personal toolbar
-	 * @return array
-	 */
-	public function getPersonalTools() {
-		return $this->data['personal_urls'];
 	}
 
 	/**
@@ -72,38 +59,6 @@ class MinervaTemplate extends BaseTemplate {
 		$this->isMainPage = $title->isMainPage();
 		Hooks::run( 'MinervaPreRender', array( $this ) );
 		$this->render( $this->data );
-	}
-
-	/**
-	 * Returns the available languages for this page
-	 * @return array
-	 */
-	public function getLanguageVariants() {
-		return $this->data['content_navigation']['variants'];
-	}
-
-	/**
-	 * Get the language links for this page
-	 * @return array
-	 */
-	public function getLanguages() {
-		return $this->data['language_urls'];
-	}
-
-	/**
-	 * Returns main sidebar menu elements
-	 * @return array
-	 */
-	public function getDiscoveryTools() {
-		return $this->data['discovery_urls'];
-	}
-
-	/**
-	 * Returns sidebar footer links
-	 * @return array
-	 */
-	public function getSiteLinks() {
-		return $this->data['site_urls'];
 	}
 
 	/**
@@ -133,8 +88,8 @@ class MinervaTemplate extends BaseTemplate {
 			'class' => 'search',
 			'autocomplete' => 'off',
 			// The placeholder gets fed to HTML::element later which escapes all
-			// attribute values, so no need to escape the string here.
-			'placeholder' =>  wfMessage( $this->searchPlaceHolderMsg )->text(),
+			// attribute values, so need to escape the string here.
+			'placeholder' => '',
 		);
 		return $searchBox;
 	}
@@ -183,35 +138,26 @@ class MinervaTemplate extends BaseTemplate {
 	}
 
 	/**
-	 * Outputs the 'Last edited' message, e.g. 'Last edited on...'
+	 * Returns the 'Last edited' message, e.g. 'Last edited on...'
 	 * @param array $data Data used to build the page
+	 * @return string
 	 */
-	protected function renderHistoryLink( $data ) {
-		if ( isset( $data['historyLink'] ) ) {
+	protected function getHistoryLinkHtml( $data ) {
+		$action = Action::getActionName( RequestContext::getMain() );
+		if ( isset( $data['historyLink'] ) && $action === 'view' ) {
 			$historyLink = $data['historyLink'];
-			$historyLabel = $historyLink['text'];
-			unset( $historyLink['text'] );
-			echo Html::element( 'a', $historyLink, $historyLabel );
-		}
-	}
-
-	/**
-	 * Renders history link at top of page if it isn't the main page
-	 * @param array $data Data used to build the page
-	 */
-	protected function renderHistoryLinkTop( $data ) {
-		if ( !$this->isMainPage ) {
-			$this->renderHistoryLink( $data );
-		}
-	}
-
-	/**
-	 * Renders history link at bottom of page if it is the main page
-	 * @param array $data Data used to build the page
-	 */
-	protected function renderHistoryLinkBottom( $data ) {
-		if ( $this->isMainPage ) {
-			$this->renderHistoryLink( $data );
+			$args = array(
+				'isMainPage' => $this->getSkin()->getTitle()->isMainPage(),
+				'link' => $historyLink['href'],
+				'text' => $historyLink['text'],
+				'username' => $historyLink['data-user-name'],
+				'userGender' => $historyLink['data-user-gender'],
+				'timestamp' => $historyLink['data-timestamp']
+			);
+			$templateParser = new TemplateParser( __DIR__ );
+			return $templateParser->processTemplate( 'history', $args );
+		} else {
+			return '';
 		}
 	}
 
@@ -220,9 +166,11 @@ class MinervaTemplate extends BaseTemplate {
 	 */
 	protected function getSecondaryActions() {
 		$result = $this->data['secondary_actions'];
+		$hasLanguages = $this->data['content_navigation']['variants'] ||
+			$this->data['language_urls'];
 
 		// If languages are available, add a languages link
-		if ( $this->getLanguages() || $this->getLanguageVariants() ) {
+		if ( $hasLanguages ) {
 			$languageUrl = SpecialPage::getTitleFor(
 				'MobileLanguages',
 				$this->getSkin()->getTitle()
@@ -241,11 +189,15 @@ class MinervaTemplate extends BaseTemplate {
 	}
 
 	/**
-	 * Render secondary page actions like language selector
+	 * Get HTML representing secondary page actions like language selector
+	 * @return string
 	 */
-	protected function renderSecondaryActions() {
+	protected function getSecondaryActionsHtml() {
 		$baseClass = MobileUI::buttonClass( '', 'button' );
-		echo Html::openElement( 'div', array( 'id' => 'page-secondary-actions' ) );
+		$html = Html::openElement( 'div', array(
+			'class' => 'post-content',
+			'id' => 'page-secondary-actions'
+		) );
 
 		foreach ( $this->getSecondaryActions() as $el ) {
 			if ( isset( $el['attributes']['class'] ) ) {
@@ -253,10 +205,10 @@ class MinervaTemplate extends BaseTemplate {
 			} else {
 				$el['attributes']['class'] = $baseClass;
 			}
-			echo Html::element( 'a', $el['attributes'], $el['label'] );
+			$html .= Html::element( 'a', $el['attributes'], $el['label'] );
 		}
 
-		echo Html::closeElement( 'div' );
+		return $html . Html::closeElement( 'div' );
 	}
 
 	/**
@@ -265,20 +217,18 @@ class MinervaTemplate extends BaseTemplate {
 	 */
 	protected function renderContent( $data ) {
 		if ( !$data[ 'unstyledContent' ] ) {
+			// Add a mw-content-ltr/rtl class to be able to style based on text direction
+			$langClass = 'mw-content-' . $data['pageDir'];
 			echo Html::openElement( 'div', array(
-				'id' => 'content',
-				'class' => 'content',
+				'id' => 'bodyContent',
+				'class' => 'content ' . $langClass,
 				'lang' => $data['pageLang'],
 				'dir' => $data['pageDir'],
 			) );
-			?>
-			<?php
-				echo $data[ 'bodytext' ];
-				if ( isset( $data['subject-page'] ) ) {
-					echo $data['subject-page'];
-				}
-				$this->renderSecondaryActions();
-				$this->renderHistoryLinkBottom( $data );
+			echo $data[ 'bodytext' ];
+			if ( isset( $data['subject-page'] ) ) {
+				echo $data['subject-page'];
+			}
 			?>
 			</div>
 			<?php
@@ -293,25 +243,41 @@ class MinervaTemplate extends BaseTemplate {
 	 */
 	protected function renderPreContent( $data ) {
 		$internalBanner = $data[ 'internalBanner' ];
-		$isSpecialPage = $this->isSpecialPage;
-		$preBodyText = isset( $data['prebodytext'] ) ? $data['prebodytext'] : '';
+		$preBodyText = isset( $data['prebodyhtml'] ) ? $data['prebodyhtml'] : '';
+		$headingHtml = isset( $data['headinghtml'] ) ? $data['headinghtml'] : '';
 
-		if ( $internalBanner || $preBodyText ) {
+		if ( $internalBanner || $preBodyText || isset( $data['page_actions'] ) ) {
+			echo $preBodyText;
 		?>
-		<div class="pre-content">
+		<div class="pre-content heading-holder">
 			<?php
-				echo $preBodyText;
+				if ( !$this->isSpecialPage ){
+					$this->renderPageActions( $data );
+				}
+				echo $headingHtml;
+				echo $this->html( 'subtitle' );
 				// FIXME: Temporary solution until we have design
 				if ( isset( $data['_old_revision_warning'] ) ) {
 					echo $data['_old_revision_warning'];
-				} elseif ( !$isSpecialPage ){
-					$this->renderPageActions( $data );
 				}
+
 				echo $internalBanner;
-				?>
+			?>
 		</div>
 		<?php
 		}
+	}
+
+	/**
+	 * Gets HTML that needs to come after the main content and before the secondary actions.
+	 *
+	 * @param array $data The data used to build the page
+	 * @return string
+	 */
+	protected function getPostContentHtml( $data ) {
+		return $this->renderBrowseTags( $data ) .
+			$this->getSecondaryActionsHtml() .
+			$this->getHistoryLinkHtml( $data );
 	}
 
 	/**
@@ -319,83 +285,45 @@ class MinervaTemplate extends BaseTemplate {
 	 * @param array $data Data used to build the page
 	 */
 	protected function renderContentWrapper( $data ) {
-		if ( $this->renderHistoryLinkBeforeContent ) {
-			$this->renderHistoryLinkTop( $data );
-		?>
-			<script>
-				if ( window.mw && mw.mobileFrontend ) { mw.mobileFrontend.emit( 'history-link-loaded' ); }
-			</script>
-		<?php
+		// Construct an inline script which emits header-loaded
+		$headerLoaded = "mw.loader.using( 'mobile.head', function () {";
+		$headerLoaded .= "mw.mobileFrontend.emit( 'header-loaded' );";
+		$headerLoaded .= "} );";
+		echo ResourceLoader::makeInlineScript( $headerLoaded );
+
+		$this->renderPreContent( $data );
+		$this->renderContent( $data );
+		echo $this->getPostContentHtml( $data );
+	}
+
+	/**
+	 * Gets the main menu only on Special:MobileMenu.
+	 * On other pages the menu is rendered via JS.
+	 * @param array [$data] Data used to build the page
+	 * @return string
+	 */
+	protected function getMainMenuHtml( $data ) {
+		if ( $this->isSpecialMobileMenuPage ) {
+			$templateParser = new TemplateParser(
+				__DIR__ . '/../../resources/mobile.mainMenu/' );
+
+			return $templateParser->processTemplate( 'menu', $data['menu_data'] );
+		} else {
+			return '';
 		}
-		?>
-		<script>
-			if ( window.mw && mw.mobileFrontend ) { mw.mobileFrontend.emit( 'header-loaded' ); }
-		</script>
-		<?php
-			$this->renderPreContent( $data );
-			$this->renderContent( $data );
-			if ( !$this->renderHistoryLinkBeforeContent ) {
-				$this->renderHistoryLinkTop( $data );
-		?>
-				<script>
-					if ( window.mw && mw.mobileFrontend ) { mw.mobileFrontend.emit( 'history-link-loaded' ); }
-				</script>
-		<?php
-			}
 	}
 
 	/**
-	 * Renders the main menu.
-	 *
-	 * @param array $data Data used to build the page
-	 */
-	protected function renderMainMenu( $data ) {
-		?>
-		<nav id="mw-mf-page-left" class="navigation-drawer">
-		<?php
-		$this->renderMainMenuItems();
-		?>
-		</nav>
-		<?php
-	}
-
-	/**
-	 * Renders the contents of the main menu.
-	 */
-	protected function renderMainMenuItems() {
-		?>
-		<ul>
-			<?php
-				foreach ( $this->getDiscoveryTools() as $key => $val ) {
-					echo $this->makeListItem( $key, $val );
-				}
-			?>
-			</ul>
-			<ul>
-			<?php
-				foreach ( $this->getPersonalTools() as $key => $val ){
-					echo $this->makeListItem( $key, $val );
-				}
-			?>
-			</ul>
-			<ul class="hlist">
-			<?php
-				foreach ( $this->getSiteLinks() as $key => $val ) {
-					echo $this->makeListItem( $key, $val );
-				}
-			?>
-			</ul>
-		<?php
-	}
-
-	/**
-	 * Render Header elements
+	 * Get HTML for header elements
 	 * @param array $data Data used to build the header
+	 * @return string
 	 */
-	protected function renderHeader( $data ) {
-		$this->html( 'menuButton' );
-		$this->makeChromeHeaderContent( $data );
-		echo $data['secondaryButton'];
+	protected function getHeaderHtml( $data ) {
+		// Note these should be wrapped in divs
+		// see https://phabricator.wikimedia.org/T98498 for details
+		return '<div>' . $data['menuButton'] . '</div>'
+			. $this->getChromeHeaderContentHtml( $data )
+			. '<div>' . $data['secondaryButton'] . '</div>';
 	}
 
 	/**
@@ -404,24 +332,27 @@ class MinervaTemplate extends BaseTemplate {
 	 * @todo replace with template engines
 	 */
 	protected function render( $data ) {
+		$templateParser = new TemplateParser( __DIR__ );
 
 		// begin rendering
 		echo $data[ 'headelement' ];
 		?>
 		<div id="mw-mf-viewport">
-			<?php $this->renderMainMenu( $data ); ?>
+			<nav id="mw-mf-page-left" class="navigation-drawer view-border-box">
+				<?php echo $this->getMainMenuHtml( $data ); ?>
+			</nav>
 			<div id="mw-mf-page-center">
+				<div class="banner-container">
 				<?php
-					foreach ( $this->data['banners'] as $banner ){
-						echo $banner;
-					}
+					echo $templateParser->processTemplate( 'banners', $data );
 				?>
+				</div>
 				<div class="header">
 					<?php
-						$this->renderHeader( $data );
+						echo $this->getHeaderHtml( $data );
 					?>
 				</div>
-				<div id="content_wrapper">
+				<div id="content">
 				<?php
 					$this->renderContentWrapper( $data );
 				?>
@@ -431,12 +362,42 @@ class MinervaTemplate extends BaseTemplate {
 				?>
 			</div>
 		</div>
-		<?php
-			echo $data['reporttime'];
-			echo $data['bottomscripts'];
-		?>
+		<?php $this->printTrail(); ?>
 		</body>
 		</html>
 		<?php
+	}
+
+	/**
+	 * Renders the tags assigned to the page as part of the Browse experiment.
+	 *
+	 * @param array $data The data used to build the page
+	 * @return string The HTML representing the tags section
+	 */
+	protected function renderBrowseTags( $data ) {
+		if ( !isset( $data['browse_tags'] ) || !$data['browse_tags'] ) {
+			return '';
+		}
+
+		$browseTags = $this->getSkin()->getMFConfig()->get( 'MFBrowseTags' );
+		$baseLink = SpecialPage::getTitleFor( 'TopicTag' )->getLinkURL();
+
+		// TODO: Create tag entity and view.
+		$tags = array_map( function ( $rawTag ) use ( $browseTags, $baseLink ) {
+			return array(
+				'msg' => $rawTag,
+				// replace spaces with underscores in the tag name
+				'link' => $baseLink . '/' . str_replace( ' ', '_', $rawTag )
+			);
+
+		}, $data['browse_tags'] );
+
+		// FIXME: This should be in MinervaTemplate#getTemplateParser.
+		$templateParser = new TemplateParser( __DIR__ . '/../../resources' );
+
+		return $templateParser->processTemplate( 'mobile.browse/tags', array(
+			'headerMsg' => wfMessage( 'mobile-frontend-browse-tags-header' )->text(),
+			'tags' => $tags,
+		) );
 	}
 }

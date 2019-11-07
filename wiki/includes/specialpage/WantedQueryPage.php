@@ -127,4 +127,14 @@ abstract class WantedQueryPage extends QueryPage {
 		$label = $this->msg( 'nlinks' )->numParams( $result->value )->escaped();
 		return Linker::link( $wlh, $label );
 	}
+
+	/**
+	 * Order by title for pages with the same number of links to them
+	 *
+	 * @return array
+	 * @since 1.29 - RM: Imported with minor modifications (remove DESC) to fix sorting bug, fully compatible with current MW code.
+	 */
+	function getOrderFields() {
+		return [ 'value', 'namespace', 'title' ];
+	}
 }

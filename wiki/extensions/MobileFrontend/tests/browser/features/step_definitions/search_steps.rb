@@ -15,8 +15,16 @@ When(/^I click the search button$/) do
   on(ArticlePage).search_button_element.when_present.click
 end
 
+When(/^I see the search in pages button$/) do
+  expect(on(ArticlePage).search_within_pages_element.when_visible).to be_visible
+end
+
 When(/^I click the search in pages button$/) do
   on(ArticlePage).search_within_pages_element.when_present.click
+end
+
+When(/^I click a search watch star$/) do
+  on(ArticlePage).search_watchstars_element.when_present.click
 end
 
 When(/^I press the enter key$/) do
@@ -47,7 +55,7 @@ Then(/^I should not see the search overlay$/) do
 end
 
 Then(/^I should see a list of search results$/) do
-  expect(on(SearchPage).list_of_results_element.when_present).to be_visible
+  expect(on(SearchPage).list_of_results_element.when_present(10)).to be_visible
 end
 
 Then(/^I should see the search button$/) do
@@ -60,4 +68,12 @@ end
 
 Then(/^search results should contain "(.+)"$/) do |text|
   expect(on(ArticlePage).search_result_element.when_present.text).to eq text
+end
+
+Then(/^I should not see '#\/search' in URL$/) do
+  expect(on(ArticlePage).current_url.end_with? '#/search').to be false
+end
+
+Then(/^I should see a toast$/) do
+  expect(on(ArticlePage).toast_element.when_present).to be_visible
 end

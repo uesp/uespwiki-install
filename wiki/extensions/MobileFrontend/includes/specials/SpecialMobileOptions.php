@@ -78,7 +78,6 @@ class SpecialMobileOptions extends MobileSpecialPage {
 		}
 
 		$betaEnabled = $context->isBetaGroupMember();
-		$alphaEnabled = $context->isAlphaGroupMember();
 
 		$imagesChecked = $context->imagesDisabled() ? '' : 'checked'; // images are off when disabled
 		$imagesBeta = $betaEnabled ? 'checked' : '';
@@ -94,10 +93,6 @@ class SpecialMobileOptions extends MobileSpecialPage {
 		);
 		$token = $user->isLoggedIn() ? Html::hidden( 'token', $user->getEditToken() ) : '';
 		$returnto = Html::hidden( 'returnto', $this->returnToTitle->getFullText() );
-
-		$alphaEnableMsg = $this->msg( 'mobile-frontend-settings-alpha' )->parse();
-		$alphaChecked = $alphaEnabled ? 'checked' : '';
-		$alphaDescriptionMsg = $this->msg( 'mobile-frontend-settings-alpha-description' )->text();
 
 		// array to save the data of options, which should be displayed here
 		$options = array();
@@ -120,23 +115,10 @@ class SpecialMobileOptions extends MobileSpecialPage {
 				'name' => 'enableBeta',
 				'id' => 'enable-beta-toggle',
 			);
-			// alpha settings
-			if ( $betaEnabled ) {
-				if ( $alphaEnabled ) {
-					$options['beta']['value'] = '1';
-					$options['beta']['type'] = 'hidden';
-				}
-				$options['alpha'] = array(
-					'checked' => $alphaChecked,
-					'label' => $alphaEnableMsg,
-					'description' => $alphaDescriptionMsg,
-					'name' => 'enableAlpha',
-					'id' => 'enable-alpha-toggle'
-				);
-			}
 		}
 
-		$templateParser = new TemplateParser( __DIR__ . '/../../templates/specials' );
+		$templateParser = new TemplateParser(
+			__DIR__ . '/../../resources/mobile.special.mobileoptions.scripts' );
 		// @codingStandardsIgnoreStart Long line
 		foreach( $options as $key => $data ) {
 			if ( isset( $data['type'] ) && $data['type'] === 'hidden' ) {
@@ -224,16 +206,15 @@ HTML;
 			'action' => 'success',
 			'images' => "nochange",
 			'beta' => "nochange",
-			'alpha' => "nochange",
 		);
 		$context = MobileContext::singleton();
 		$request = $this->getRequest();
 		$user = $this->getUser();
 
 		if ( $user->isLoggedIn() && !$user->matchEditToken( $request->getVal( 'token' ) ) ) {
+			$errorText = __METHOD__ . '(): token mismatch';
 			wfIncrStats( 'mobile.options.errors' );
-			wfDebugLog( 'mobile', __METHOD__ . "(): token mismatch, expected {$user->getEditToken()}, "
-				. "got {$request->getVal( 'token' )}" );
+			wfDebugLog( 'mobile', $errorText );
 			$this->getOutput()->addHTML( '<div class="error">'
 				. $this->msg( "mobile-frontend-save-error" )->parse()
 				. '</div>'
@@ -245,18 +226,9 @@ HTML;
 			return;
 		}
 		wfIncrStats( 'mobile.options.saves' );
-		if ( $request->getBool( 'enableAlpha' ) ) {
-			$group = 'alpha';
-			// This request is to turn on alpha
-			if ( !$context->isAlphaGroupMember() ) {
-				$schemaData['alpha'] = "on";
-			}
-		} elseif ( $request->getBool( 'enableBeta' ) ) {
+		if ( $request->getBool( 'enableBeta' ) ) {
 			$group = 'beta';
-			if ( $context->isAlphaGroupMember() ) {
-				// This request was to turn off alpha
-				$schemaData['alpha'] = "off";
-			} elseif ( !$context->isBetaGroupMember() ) {
+			if ( !$context->isBetaGroupMember() ) {
 				// The request was to turn on beta
 				$schemaData['beta'] = "on";
 			}

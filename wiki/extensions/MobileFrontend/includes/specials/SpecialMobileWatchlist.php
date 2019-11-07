@@ -54,7 +54,7 @@ class SpecialMobileWatchlist extends MobileSpecialPageFeed {
 	 */
 	function executeWhenAvailable( $par ) {
 		// Anons don't get a watchlist
-		$this->requireLogin( 'watchlistanontext' );
+		$this->requireLogin( 'mobile-frontend-watchlist-purpose' );
 
 		$ctx = MobileContext::singleton();
 		$this->usePageImages = !$ctx->imagesDisabled() && defined( 'PAGE_IMAGES_INSTALLED' );
@@ -62,6 +62,12 @@ class SpecialMobileWatchlist extends MobileSpecialPageFeed {
 		$user = $this->getUser();
 		$output = $this->getOutput();
 		$output->addModules( 'skins.minerva.special.watchlist.scripts' );
+		// FIXME: Loads twice with JS enabled (T87871)
+		$output->addModuleStyles( array(
+			'skins.minerva.special.watchlist.styles',
+			'mobile.pagelist.styles',
+			'mobile.pagesummary.styles',
+		) );
 		$req = $this->getRequest();
 		$this->view = $req->getVal( 'watchlistview', 'a-z' );
 		$this->filter = $req->getVal( 'filter', 'all' );
@@ -72,11 +78,16 @@ class SpecialMobileWatchlist extends MobileSpecialPageFeed {
 		// This needs to be done before calling getWatchlistHeader
 		$this->updateStickyTabs();
 		if ( $this->optionsChanged ) {
-			$user->saveSettings();
+			DeferredUpdates::addCallableUpdate( function() use ( $user ) {
+				$user->saveSettings();
+			} );
 		}
 
 		if ( $this->view === 'feed' ) {
 			$output->addHtml( $this->getWatchlistHeader( $user ) );
+			$output->addHtml(
+				Html::openElement( 'div', array( 'class' => 'content-unstyled' ) )
+			);
 			$this->showRecentChangesHeader();
 			$res = $this->doFeedQuery();
 
@@ -85,6 +96,9 @@ class SpecialMobileWatchlist extends MobileSpecialPageFeed {
 			} else {
 				$this->showEmptyList( true );
 			}
+			$output->addHtml(
+				Html::closeElement( 'div' )
+			);
 		} else {
 			$output->redirect( SpecialPage::getTitleFor( 'EditWatchlist' )->getLocalURL() );
 		}
@@ -233,7 +247,7 @@ class SpecialMobileWatchlist extends MobileSpecialPageFeed {
 		$options = array( 'ORDER BY' => 'rc_timestamp DESC' );
 		$options['LIMIT'] = self::LIMIT;
 
-		$rollbacker = $user->isAllowed('rollback');
+		$rollbacker = $user->isAllowed( 'rollback' );
 		if ( $rollbacker ) {
 			$tables[] = 'page';
 			$join_conds['page'] = array( 'LEFT JOIN', 'rc_cur_id=page_id' );

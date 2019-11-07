@@ -3,6 +3,7 @@
 namespace CirrusSearch\Maintenance;
 
 use \CirrusSearch\Searcher;
+use \Hooks;
 use \Language;
 
 /**
@@ -64,7 +65,7 @@ class AnalysisConfigBuilder {
 	 */
 	public function buildConfig() {
 		$config = $this->customize( $this->defaults() );
-		wfRunHooks( 'CirrusSearchAnalysisConfig', array( &$config ) );
+		Hooks::run( 'CirrusSearchAnalysisConfig', array( &$config ) );
 		return $config;
 	}
 
@@ -397,6 +398,13 @@ STEMMER_RULES
 	}
 
 	/**
+	 * @return boolean true if the icu analyzer is available.
+	 */
+	public function isIcuAvailable() {
+		return $this->icu;
+	}
+
+	/**
 	 * Languages for which elasticsearch provides a built in analyzer.  All
 	 * other languages default to the default analyzer which isn't too good.  Note
 	 * that this array is sorted alphabetically by value and sourced from
@@ -451,4 +459,8 @@ STEMMER_RULES
 		'elasticsearch-analysis-hebrew' => array( 'he' => 'hebrew' ),
 		// TODO Hebrew requires some special query handling....
 	);
+
+	public function getLanguage() {
+		return $this->language;
+	}
 }

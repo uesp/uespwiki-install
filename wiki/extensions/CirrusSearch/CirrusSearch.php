@@ -21,10 +21,13 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
+require_once __DIR__ . "/profiles/SuggestProfiles.php";
+require_once __DIR__ . "/profiles/PhraseSuggesterProfiles.php";
+
 $wgExtensionCredits['other'][] = array(
 	'path'           => __FILE__,
 	'name'           => 'CirrusSearch',
-	'author'         => array( 'Nik Everett', 'Chad Horohoe' ),
+	'author'         => array( 'Nik Everett', 'Chad Horohoe', 'Erik Bernhardson' ),
 	'descriptionmsg' => 'cirrussearch-desc',
 	'url'            => 'https://www.mediawiki.org/wiki/Extension:CirrusSearch',
 	'version'        => '0.2',
@@ -44,7 +47,7 @@ $wgCirrusSearchServers = array( 'localhost' );
 $wgCirrusSearchConnectionAttempts = 1;
 
 // Number of shards for each index
-$wgCirrusSearchShardCount = array( 'content' => 4, 'general' => 4 );
+$wgCirrusSearchShardCount = array( 'content' => 4, 'general' => 4, 'titlesuggest' => 4 );
 
 // Number of replicas Elasticsearch can expand or contract to. This allows for
 // easy development and deployment to a single node (0 replicas) to scale up to
@@ -104,6 +107,15 @@ $wgCirrusSearchWikimediaExtraPlugin = array();
 // 		'max_terms_in_all_queries' => 128,
 // 	)
 // );
+// This turns on noop-detection for updates and is compatible with
+// wikimedia-extra versions 1.3.1, 1.4.2, and 1.5.0:
+// $wgCirrusSearchWikimediaExtraPlugin[ 'super_detect_noop' ] = true;
+// This turns on field_value_factors for rankings and is compatible with
+// wikimedia-extra versions 1.3.1, 1.4.2, and 1.5.0:
+// $wgCirrusSearchWikimediaExtraPlugin[ 'field_value_factor_with_default' ] = true;
+// This allows forking on reindexing and is compatible with wikimedia-extra
+// versions 1.3.1, 1.4.2, and 1.5.0
+// $wgCirrusSearchWikimediaExtraPlugin[ 'id_hash_mod_filter' ] = true;
 
 // Should CirrusSearch try to support regular expressions with insource:?
 // These can be really expensive, but mostly ok, especially if you have the
@@ -114,6 +126,16 @@ $wgCirrusSearchEnableRegex = true;
 // regexes use the memory that they need to compile in Elasticsearch.  The
 // default allows reasonably complex regexes and doesn't use _too_ much memory.
 $wgCirrusSearchRegexMaxDeterminizedStates = 20000;
+
+// Maximum complexity of wildcard queries. Raising this value will allow
+// more wildcards in search terms. 500 will allow about 20 wildcards.
+// Setting a high value here can cause the cluster to consume a lot of memory
+// when compiling complex wildcards queries.
+// This setting requires elasticsearch 1.4+. Comment to disable.
+// With elasticsearch 1.4+ if this setting is disabled the default value is
+// 10000.
+// With elasticsearch 1.3 this setting must be disabled.
+// $wgCirrusSearchQueryStringMaxDeterminizedStates = 500;
 
 // By default, Cirrus will organize pages into one of two indexes (general or
 // content) based on whether a page is in a content namespace. This should
@@ -217,13 +239,38 @@ $wgCirrusSearchFunctionRescoreWindowSize = 8192;
 // http://www.elasticsearch.org/blog/understanding-query-then-fetch-vs-dfs-query-then-fetch/
 $wgCirrusSearchMoreAccurateScoringMode = true;
 
+// NOTE: This settings is deprecated: update or create your own PhraseSuggester profile.
 // Maximum number of terms that we ask phrase suggest to correct.
 // See max_errors on http://www.elasticsearch.org/guide/reference/api/search/suggest/
-$wgCirrusSearchPhraseSuggestMaxErrors = 2;
+// $wgCirrusSearchPhraseSuggestMaxErrors = 2;
 
+// NOTE: This settings is deprecated: update or create your own PhraseSuggester profile.
 // Confidence level required to suggest new phrases.
 // See confidence on http://www.elasticsearch.org/guide/reference/api/search/suggest/
-$wgCirrusSearchPhraseSuggestConfidence = 2.0;
+// $wgCirrusSearchPhraseSuggestConfidence = 2.0;
+
+// Set the hard limit for $wgCirrusSearchPhraseSuggestMaxErrors. This prevents customizing
+// this setting in a way that could hurt the system performances.
+$wgCirrusSearchPhraseSuggestMaxErrorsHardLimit = 2;
+
+// Set the hard limit for $wgCirrusSearchPhraseMaxTermFreq. This prevents customizing
+// this setting in a way that could hurt the system performances.
+$wgCirrusSearchPhraseSugggestMaxTermFreqHardLimit = 0.6;
+
+// List of allowed values for the suggest mode
+$wgCirrusSearchPhraseSuggestAllowedMode = array( 'missing', 'popular', 'always' );
+
+// List of allowed smoothing models
+$wgCirrusSearchPhraseSuggestAllowedSmoothingModel = array( 'stupid_backoff', 'laplace', 'linear' );
+
+// Set the hard limit for $wgCirrusSearchPhraseSuggestPrefixLength. This prevents customizing
+// this setting in a way that could hurt the system performances.
+// (This is the minimal value)
+$wgCirrusSearchPhraseSuggestPrefixLengthHardLimit = 2;
+
+// Set the Phrase suggester settings using the default profile.
+// see profiles/PhraseSuggesterProfiles.php
+$wgCirrusSearchPhraseSuggestSettings = $wgCirrusSearchPhraseSuggestProfiles['default'];
 
 // Look for suggestions in the article text?  Changing this from false to true will
 // break search until you perform an in place index rebuild.  Changing it from true
@@ -231,6 +278,11 @@ $wgCirrusSearchPhraseSuggestConfidence = 2.0;
 // done an index rebuild since then.  If you perform an in place index rebuild after
 // changing this to false then you'll see some space savings.
 $wgCirrusSearchPhraseSuggestUseText = false;
+
+// Allow leading wildcard queries.
+// Searching for terms that have a leading ? or * can be very slow. Turn this off to
+// disable it.  Terms with leading wildcards will have the wildcard escaped.
+$wgCirrusSearchAllowLeadingWildcard = true;
 
 // Maximum number of redirects per target page to index.
 $wgCirrusSearchIndexedRedirects = 1024;
@@ -342,14 +394,69 @@ $wgCirrusSearchPreferRecentUnspecifiedDecayPortion = .6;
 $wgCirrusSearchPreferRecentDefaultHalfLife = 160;
 
 // Configuration parameters passed to more_like_this queries.
+// Note: these values can be configured at runtime by editing the System
+// message cirrussearch-morelikethis-settings
 $wgCirrusSearchMoreLikeThisConfig = array(
-	'min_doc_freq' => 2,              // Minimum number of documents (per shard) that need a term for it to be considered
+	// Minimum number of documents (per shard) that need a term for it to be considered
+	'min_doc_freq' => 2,
+
+	// Maximum number of documents (per shard) that have a term for it to be considered
+	// Setting a sufficient high value can be usefull to exclude stop words but it depends on the wiki size.
+	'max_doc_freq' => null,
+
+	// This is the max number it will collect from input data to build the query
+	// This value cannot exceed $wgCirrusSearchMoreLikeThisMaxQueryTermsLimit .
 	'max_query_terms' => 25,
+
+	// Minimum TF (number of times the term appears in the input text) for a term to be considered
+	// for small fields (title) tf is usually 1 so setting it to 2 will exclude all terms.
+	// for large fields (text) this value can help to exclude words that are not related to the subject.
 	'min_term_freq' => 2,
-	'percent_terms_to_match' => 0.3,
+
+	// Minimum length for a word to be considered
+	// small words tend to be stop words.
 	'min_word_len' => 0,
+
+	// Maximum length for a word to be considered
+	// Very long "words" tend to be uncommon, excluding them can help recall but it
+	// is highly dependent on the language.
 	'max_word_len' => 0,
+
+	// Percent of terms to match
+	// High value will increase precision but can prevent small docs to match against large ones
+	'percent_terms_to_match' => 0.3,
+
+	// replaces percent_terms_to_match but only supported by elasticsearch 1.5+
+	// @todo: when ES-1.6 is the minimal requirement we have to move to this new parameter
+	// 'minimum_should_match' => '30%',
 );
+
+
+// Hard limit to the max_query_terms parameter of more like this queries.
+// This prevent running too large queries.
+$wgCirrusSearchMoreLikeThisMaxQueryTermsLimit = 100;
+
+// Set the default field used by the More Like This algorithm
+$wgCirrusSearchMoreLikeThisFields = array( 'text' );
+
+// List of fields allowed for the more like this queries.
+$wgCirrusSearchMoreLikeThisAllowedFields = array(
+	'title',
+	'text',
+	'auxiliary_text',
+	'opening_text',
+	'headings',
+	'all'
+);
+
+// When set to false cirrus will use the text content to build the query
+// and search on the field listed in $wgCirrusSearchMoreLikeThisFields
+// Set to true if you want to use field data as input text to build the initial
+// query.
+// Note that if the all field is used then this setting will be forced to true.
+// This is because the all field is not part of the _source and its content cannot
+// be retreived by elasticsearch.
+$wgCirrusSearchMoreLikeThisUseFields = false;
 
 // Show the notification about this wiki using CirrusSearch on the search page.
 $wgCirrusSearchShowNowUsing = false;
@@ -361,15 +468,6 @@ $wgCirrusSearchInterwikiSources = array();
 
 // How long to cache interwiki search results for (in seconds)
 $wgCirrusSearchInterwikiCacheTime = 7200;
-
-// Configuration for backups, array format is as follows:
-//  array(
-//    'my_backups' => array( 'type' => 'fs', 'location' => '/bar/baz/' )
-//  )
-//
-// See the Elasticsearch configuration for more settings you can give, note
-// that type and location are required.
-$wgCirrusSearchBackup = array();
 
 // The seconds Elasticsearch will wait to batch index changes before making
 // them available for search.  Lower values make search more real time but put
@@ -507,6 +605,20 @@ $wgCirrusSearchConfigDumpWhiteList = array(
 // just leave this as it is.
 $wgCirrusSearchPoolCounterKey = '_elasticsearch';
 
+/**
+ * Allow failures of the per-user Pool Counter to continue through. This
+ * still runs the error callbacks to trigger logging of failures, but does
+ * not prevent the search from running. Used to tune the per-user pool counter
+ * settings before enabling it fully and blocking queries.
+ */
+$wgCirrusSearchBypassPerUserFailure = false;
+
+/**
+ * List of CIDR a.b.c.d/n ranges for which the per-user pool counter is
+ * always active, regardless of wgCirrusSearchBypassPerUserFailure setting.
+ */
+$wgCirrusSearchForcePerUserPoolCounter = array();
+
 // Merge configuration for the indices.  See
 // http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/index-modules-merge.html
 // for the meanings.
@@ -528,6 +640,94 @@ $wgCirrusSearchMergeSettings = array(
 	),
 );
 
+/**
+ * Whether search events should be logged in the client side.
+ */
+$wgCirrusSearchEnableSearchLogging = false;
+
+/**
+ * Whether elasticsearch queries should be logged on the server side.
+ */
+$wgCirrusSearchLogElasticRequests = true;
+
+/**
+ * When truthy and this value is passed as the cirrusLogElasticRequests query
+ * variable $wgCirrusSearchLogElasticRequests will be set to false for that
+ * request.
+ */
+$wgCirrusSearchLogElasticRequestsSecret = false;
+
+// The maximum number of incategory:a|b|c items to OR together.
+$wgCirrusSearchMaxIncategoryOptions = 100;
+
+/**
+ * The URL of a "Give us your feedback" link to append to search results or
+ * something falsy if you don't want to show the link.
+ */
+$wgCirrusSearchFeedbackLink = false;
+
+/**
+ * The maximum amount of time jobs delayed due to frozen indexes can remain
+ * in the job queue.
+ */
+$wgCirrusSearchDropDelayedJobsAfter = 60 * 60 * 24 * 2; // 2 days
+
+/**
+ * The initial exponent used when backing off ElasticaWrite jobs. On the first
+ * failure the backoff will be either 2^exp or 2^(exp+1). This exponent will
+ * be increased to a maximum of exp+4 on repeated failures to run the job.
+ */
+$wgCirrusSearchWriteBackoffExponent = 6;
+
+/**
+ * Configuration of individual a/b tests being run. See CirrusSearch\UserTesting
+ * for more information.
+ */
+$wgCirrusSearchUserTesting = array();
+
+/**
+ * Profile for search as you type suggestion (completion suggestion)
+ * (see profiles/SuggestProfiles.php for more details.)
+ *
+ * NOTE: This is an experimental API
+ */
+$wgCirrusSearchCompletionSettings = $wgCirrusSearchCompletionProfiles['default'];
+
+/**
+ * Profile for geo context search as you type suggestion (completion suggestion)
+ * (see profiles/SuggestProfiles.php for more details.)
+ *
+ * NOTE: This is an experimental API
+ */
+$wgCirrusSearchCompletionGeoContextSettings = $wgCirrusSearchCompletionGeoContextProfiles['default'];
+
+/**
+ * Enable alternative language search.
+ */
+$wgCirrusSearchEnableAltLanguage = false;
+/**
+ * Map of alternative languages and wikis, for search re-try.
+ * No defaults since we don't know how people call their other language wikis.
+ * Example:
+ * $wgCirrusSearchLanguageToWikiMap = array(
+ *  'ro' => 'ro',
+ *  'de' => 'de',
+ *  'ru' => 'ru',
+ * );
+ * The key is the language name, the value is interwiki link.
+ * You will also need to set:
+ * $wgCirrusSearchWikiToNameMap['ru'] = 'ruwiki';
+ * to link interwiki to the wiki DB name.
+ */
+$wgCirrusSearchLanguageToWikiMap = array();
+
+/**
+ * Map of interwiki link -> wiki name
+ * e.g. $wgCirrusSearchWikiToNameMap['ru'] = 'ruwiki';
+ * FIXME: we really should already have this information, also we're possibly
+ * duplicating $wgCirrusSearchInterwikiSources. This needs to be fixed.
+ */
+$wgCirrusSearchWikiToNameMap = array();
 
 $includes = __DIR__ . "/includes/";
 $apiDir = $includes . 'Api/';
@@ -541,72 +741,7 @@ $search = $includes . 'Search/';
 /**
  * Classes
  */
-$wgAutoloadClasses['CirrusSearch'] = $includes . 'CirrusSearch.php';
-$wgAutoloadClasses['CirrusSearch\Api\ConfigDump'] = $apiDir . 'ConfigDump.php';
-$wgAutoloadClasses['CirrusSearch\Api\MappingDump'] = $apiDir . 'MappingDump.php';
-$wgAutoloadClasses['CirrusSearch\Api\SettingsDump'] = $apiDir . 'SettingsDump.php';
-$wgAutoloadClasses['CirrusSearch\BuildDocument\Builder'] = $buildDocument . 'Builder.php';
-$wgAutoloadClasses['CirrusSearch\BuildDocument\FileDataBuilder'] = $buildDocument . 'FileDataBuilder.php';
-$wgAutoloadClasses['CirrusSearch\BuildDocument\PageDataBuilder'] = $buildDocument . 'PageDataBuilder.php';
-$wgAutoloadClasses['CirrusSearch\BuildDocument\PageTextBuilder'] = $buildDocument . 'PageTextBuilder.php';
-$wgAutoloadClasses['CirrusSearch\BuildDocument\ParseBuilder'] = $buildDocument . 'Builder.php';
-$wgAutoloadClasses['CirrusSearch\BuildDocument\RedirectsAndIncomingLinks'] = $buildDocument . 'RedirectsAndIncomingLinks.php';
-$wgAutoloadClasses['CirrusSearch\Connection'] = $includes . 'Connection.php';
-$wgAutoloadClasses['CirrusSearch\Dump'] = $includes . 'Dump.php';
-$wgAutoloadClasses['CirrusSearch\ElasticsearchIntermediary'] = $includes . 'ElasticsearchIntermediary.php';
-$wgAutoloadClasses['CirrusSearch\Extra\Filter\SourceRegex'] = $extraFilterDir . 'SourceRegex.php';
-$wgAutoloadClasses['CirrusSearch\ForceSearchIndex'] = __DIR__ . '/maintenance/forceSearchIndex.php';
-$wgAutoloadClasses['CirrusSearch\Hooks'] = $includes . 'Hooks.php';
-$wgAutoloadClasses['CirrusSearch\InterwikiSearcher'] = $includes . 'InterwikiSearcher.php';
-$wgAutoloadClasses['CirrusSearch\Job\Job'] = $jobsDir . 'Job.php';
-$wgAutoloadClasses['CirrusSearch\Job\DeletePages'] = $jobsDir . 'DeletePages.php';
-$wgAutoloadClasses['CirrusSearch\Job\IncomingLinkCount'] = $jobsDir . 'IncomingLinkCount.php';
-$wgAutoloadClasses['CirrusSearch\Job\LinksUpdate'] = $jobsDir . 'LinksUpdate.php';
-$wgAutoloadClasses['CirrusSearch\Job\MassIndex'] = $jobsDir . 'MassIndex.php';
-$wgAutoloadClasses['CirrusSearch\Job\OtherIndex'] = $jobsDir . 'OtherIndex.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\AnalysisConfigBuilder'] = $maintenanceDir . 'AnalysisConfigBuilder.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\ChunkBuilder'] = $maintenanceDir . 'ChunkBuilder.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\ConfigUtils'] = $maintenanceDir . 'ConfigUtils.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\IndexNamespaces'] = __DIR__ . '/maintenance/indexNamespaces.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Maintenance'] = $maintenanceDir . 'Maintenance.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\MappingConfigBuilder'] = $maintenanceDir . 'MappingConfigBuilder.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Reindexer'] = $maintenanceDir . 'Reindexer.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\ReindexForkController'] = $maintenanceDir . 'ReindexForkController.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\Validator'] = $maintenanceDir . '/Validators/Validator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\CacheWarmersValidator'] = $maintenanceDir . '/Validators/CacheWarmersValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\ShardAllocationValidator'] = $maintenanceDir . '/Validators/ShardAllocationValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\MaxShardsPerNodeValidator'] = $maintenanceDir . '/Validators/MaxShardsPerNodeValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\NumberOfShardsValidator'] = $maintenanceDir . '/Validators/NumberOfShardsValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\ReplicaRangeValidator'] = $maintenanceDir . '/Validators/ReplicaRangeValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\AnalyzersValidator'] = $maintenanceDir . '/Validators/AnalyzersValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\MappingValidator'] = $maintenanceDir . '/Validators/MappingValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\IndexAliasValidator'] = $maintenanceDir . '/Validators/IndexAliasValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\IndexAllAliasValidator'] = $maintenanceDir . '/Validators/IndexAllAliasValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\SpecificAliasValidator'] = $maintenanceDir . '/Validators/SpecificAliasValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\Validators\IndexValidator'] = $maintenanceDir . '/Validators/IndexValidator.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\UpdateVersionIndex'] = __DIR__ . '/maintenance/updateVersionIndex.php';
-$wgAutoloadClasses['CirrusSearch\Maintenance\UpdateSearchIndexConfig'] = __DIR__ . '/maintenance/updateSearchIndexConfig.php';
-$wgAutoloadClasses['CirrusSearch\NearMatchPicker'] = $includes . 'NearMatchPicker.php';
-$wgAutoloadClasses['CirrusSearch\OtherIndexes'] = $includes . 'OtherIndexes.php';
-$wgAutoloadClasses['CirrusSearch\Sanity\Checker'] = $sanity . 'Checker.php';
-$wgAutoloadClasses['CirrusSearch\Sanity\NoopRemediator'] = $sanity . 'Remediator.php';
-$wgAutoloadClasses['CirrusSearch\Sanity\PrintingRemediator'] = $sanity . 'Remediator.php';
-$wgAutoloadClasses['CirrusSearch\Sanity\QueueingRemediator'] = $sanity . 'QueueingRemediator.php';
-$wgAutoloadClasses['CirrusSearch\Sanity\Remediator'] = $sanity . 'Remediator.php';
-$wgAutoloadClasses['CirrusSearch\Search\Escaper'] = $search . 'Escaper.php';
-$wgAutoloadClasses['CirrusSearch\Search\FancyTitleResultsType'] = $search . 'ResultsType.php';
-$wgAutoloadClasses['CirrusSearch\Search\Filters'] = $search . 'Filters.php';
-$wgAutoloadClasses['CirrusSearch\Search\FullTextResultsType'] = $search . 'ResultsType.php';
-$wgAutoloadClasses['CirrusSearch\Search\IdResultsType'] = $search . 'ResultsType.php';
-$wgAutoloadClasses['CirrusSearch\Search\InterwikiResultsType'] = $search . 'ResultsType.php';
-$wgAutoloadClasses['CirrusSearch\Search\Result'] = $search . 'Result.php';
-$wgAutoloadClasses['CirrusSearch\Search\ResultSet'] = $search . 'ResultSet.php';
-$wgAutoloadClasses['CirrusSearch\Search\ResultsType'] = $search . 'ResultsType.php';
-$wgAutoloadClasses['CirrusSearch\Search\TitleResultsType'] = $search . 'ResultsType.php';
-$wgAutoloadClasses['CirrusSearch\Searcher'] = $includes . 'Searcher.php';
-$wgAutoloadClasses['CirrusSearch\Updater'] = $includes . 'Updater.php';
-$wgAutoloadClasses['CirrusSearch\Util'] = $includes . 'Util.php';
-$wgAutoloadClasses['CirrusSearch\Version'] = $includes . 'Version.php';
+require_once __DIR__ . '/autoload.php';
 
 /**
  * Hooks
@@ -619,9 +754,14 @@ $wgHooks[ 'ArticleDelete' ][] = 'CirrusSearch\Hooks::onArticleDelete';
 $wgHooks[ 'ArticleDeleteComplete' ][] = 'CirrusSearch\Hooks::onArticleDeleteComplete';
 $wgHooks[ 'ArticleRevisionVisibilitySet' ][] = 'CirrusSearch\Hooks::onRevisionDelete';
 $wgHooks[ 'BeforeInitialize' ][] = 'CirrusSearch\Hooks::onBeforeInitialize';
+$wgHooks[ 'BeforePageDisplay' ][] = 'CirrusSearch\Hooks::onBeforePageDisplay';
+$wgHooks[ 'EventLoggingRegisterSchemas' ][] = 'CirrusSearch\Hooks::onEventLoggingRegisterSchemas';
 $wgHooks[ 'LinksUpdateComplete' ][] = 'CirrusSearch\Hooks::onLinksUpdateCompleted';
+$wgHooks[ 'ResourceLoaderGetConfigVars' ][] = 'CirrusSearch\Hooks::onResourceLoaderGetConfigVars';
+$wgHooks[ 'ResourceLoaderRegisterModules' ][] = 'CirrusSearch\Hooks::onResourceLoaderRegisterModules';
 $wgHooks[ 'SoftwareInfo' ][] = 'CirrusSearch\Hooks::onSoftwareInfo';
 $wgHooks[ 'SpecialSearchResultsPrepend' ][] = 'CirrusSearch\Hooks::onSpecialSearchResultsPrepend';
+$wgHooks[ 'SpecialSearchResultsAppend' ][] = 'CirrusSearch\Hooks::onSpecialSearchResultsAppend';
 $wgHooks[ 'TitleMove' ][] = 'CirrusSearch\Hooks::onTitleMove';
 $wgHooks[ 'TitleMoveComplete' ][] = 'CirrusSearch\Hooks::onTitleMoveComplete';
 $wgHooks[ 'UnitTestsList' ][] = 'CirrusSearch\Hooks::onUnitTestsList';
@@ -640,6 +780,7 @@ $wgJobClasses[ 'cirrusSearchLinksUpdate' ] = 'CirrusSearch\Job\LinksUpdate';
 $wgJobClasses[ 'cirrusSearchLinksUpdatePrioritized' ] = 'CirrusSearch\Job\LinksUpdate';
 $wgJobClasses[ 'cirrusSearchMassIndex' ] = 'CirrusSearch\Job\MassIndex';
 $wgJobClasses[ 'cirrusSearchOtherIndex' ] = 'CirrusSearch\Job\OtherIndex';
+$wgJobClasses[ 'cirrusSearchElasticaWrite' ] = 'CirrusSearch\Job\ElasticaWrite';
 
 /**
  * Actions
@@ -652,6 +793,12 @@ $wgActions[ 'cirrusdump' ] = 'CirrusSearch\Dump';
 $wgAPIModules['cirrus-config-dump'] = 'CirrusSearch\Api\ConfigDump';
 $wgAPIModules['cirrus-mapping-dump'] = 'CirrusSearch\Api\MappingDump';
 $wgAPIModules['cirrus-settings-dump'] = 'CirrusSearch\Api\SettingsDump';
+$wgAPIModules['cirrus-suggest'] = 'CirrusSearch\Api\Suggest';
+
+/**
+ * Configs
+ */
+$wgConfigRegistry['CirrusSearch'] = 'CirrusSearch\SearchConfig::newFromGlobals';
 
 /**
  * Jenkins configuration required to get all the browser tests passing cleanly.

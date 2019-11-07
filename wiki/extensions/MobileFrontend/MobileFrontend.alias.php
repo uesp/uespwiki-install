@@ -19,6 +19,7 @@ $specialPageAliases['en'] = array(
 	'MobileMenu' => array( 'MobileMenu' ),
 	'MobileLanguages' => array( 'MobileLanguages' ),
 	'Nearby' => array( 'Nearby' ),
+	'TopicTag' => array( 'TopicTag' ),
 	'UserProfile' => array( 'UserProfile' ),
 );
 
@@ -39,10 +40,11 @@ $specialPageAliases['ar'] = array(
 	'MobileMenu' => array( 'قائمة_المحمول' ),
 	'MobileLanguages' => array( 'لغات_المحمول' ),
 	'Nearby' => array( 'قريب' ),
+	'TopicTag' => array( 'وسم_الموضوع' ),
 	'UserProfile' => array( 'ملف_المستخدم' ),
 );
 
-/** Egyptian Spoken Arabic (مصرى) */
+/** Egyptian Arabic (مصرى) */
 $specialPageAliases['arz'] = array(
 	'History' => array( 'تاريخ' ),
 	'MobileOptions' => array( 'خيارات_الموبايل' ),
@@ -74,6 +76,19 @@ $specialPageAliases['az'] = array(
 	'History' => array( 'Tarixçə' ),
 	'MobileMenu' => array( 'MobilMenyu' ),
 	'MobileLanguages' => array( 'MobilDillər' ),
+);
+
+/** Western Balochi (بلوچی رخشانی) */
+$specialPageAliases['bgn'] = array(
+	'History' => array( 'تاریخچه_گ' ),
+	'MobileOptions' => array( 'موبایل_ئی_تنزیمان' ),
+	'Uploads' => array( 'بُرز_بوته_ئینان' ),
+	'MobileDiff' => array( 'موبایل_ئی_پرک' ),
+	'MobileEditor' => array( 'موبایل_ئی_دستکار' ),
+	'MobileMenu' => array( 'موبایل_ئی_مینو' ),
+	'MobileLanguages' => array( 'موبایل_ئی_زبانان' ),
+	'Nearby' => array( 'بئ_نزینکی_ئا' ),
+	'UserProfile' => array( 'کار_مرزوکی_دروست_بوتین_نامه' ),
 );
 
 /** Catalan (català) */
@@ -180,7 +195,12 @@ $specialPageAliases['he'] = array(
 
 /** Hindi (हिन्दी) */
 $specialPageAliases['hi'] = array(
+	'History' => array( 'इतिहास' ),
 	'MobileOptions' => array( 'मोबाइल_विकल्प' ),
+	'MobileEditor' => array( 'मोबाइल_सम्पादक' ),
+	'MobileLanguages' => array( 'मोबाइल_भाषा' ),
+	'Nearby' => array( 'आस-पास' ),
+	'UserProfile' => array( 'सदस्य_प्रोफाइल' ),
 );
 
 /** Upper Sorbian (hornjoserbsce) */
@@ -222,6 +242,12 @@ $specialPageAliases['ja'] = array(
 	'UserProfile' => array( '利用者プロフィール' ),
 );
 
+/** Georgian (ქართული) */
+$specialPageAliases['ka'] = array(
+	'History' => array( 'ისტორია' ),
+	'Uploads' => array( 'ატვირთვები' ),
+);
+
 /** Korean (한국어) */
 $specialPageAliases['ko'] = array(
 	'History' => array( '역사' ),
@@ -248,17 +274,17 @@ $specialPageAliases['lb'] = array(
 	'UserProfile' => array( 'Benotzerprofil' ),
 );
 
-/** لوری (لوری) */
+/** Northern Luri (لۊری شومالی) */
 $specialPageAliases['lrc'] = array(
-	'History' => array( 'ویرگار' ),
-	'MobileOptions' => array( 'خصوصیات_موبایلی' ),
-	'Uploads' => array( 'سوارکردیا' ),
-	'MobileDiff' => array( 'فرخ_موبایلی' ),
-	'MobileEditor' => array( 'ویرایشتکار_موبایلی' ),
-	'MobileMenu' => array( 'منو_موبایلی' ),
-	'MobileLanguages' => array( 'زونا_موبایل' ),
-	'Nearby' => array( 'نزیک_وه' ),
-	'UserProfile' => array( 'جانیاگه_کاریار' ),
+	'History' => array( 'ڤیرگار' ),
+	'MobileOptions' => array( 'خوصوٙصیات_موبایلی' ),
+	'Uploads' => array( 'سوڤارکئردیا' ),
+	'MobileDiff' => array( 'فأرخ_موبایلی' ),
+	'MobileEditor' => array( 'ڤیرایئشتکار_موبایلی' ),
+	'MobileMenu' => array( 'نومیار_موبایلی' ),
+	'MobileLanguages' => array( 'زوٙنا_موبایل' ),
+	'Nearby' => array( 'نئزیک_ڤئ' ),
+	'UserProfile' => array( 'جانیاگە_کاریار' ),
 );
 
 /** Literary Chinese (文言) */

@@ -397,6 +397,8 @@ function efSiteSpecialPageInit(&$aSpecialPages) {
 	$dir = dirname(__FILE__) . '/';
 // remove unnecessary pages
 	unset($aSpecialPages['Booksources']);
+	unset($aSpecialPages['Withoutinterwiki']);
+	unset($aSpecialPages['Mostinterwikis']);
 
 // Override pages with customized versions
 // Commmenting out individual lines will disable the customizations to that special page

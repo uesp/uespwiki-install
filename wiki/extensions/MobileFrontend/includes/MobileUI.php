@@ -19,16 +19,9 @@ class MobileUI {
 	 * @return string class name for use with HTML element
 	 */
 	public static function iconClass( $iconName, $iconType = 'element', $additionalClassNames = '' ) {
-		$ctx = MobileContext::singleton();
-		if ( $ctx->isBetaGroupMember() ) {
-			$base = 'mw-ui-icon';
-			$modifiers = 'mw-ui-icon-' . $iconType;
-			$modifiers .= ' mw-ui-icon-' . $iconName;
-		} else {
-			$base = 'icon';
-			$modifiers = $iconType === 'before' ? 'icon-text' : '';
-			$modifiers .= ' icon-' . $iconName;
-		}
+		$base = 'mw-ui-icon';
+		$modifiers = 'mw-ui-icon-' . $iconType;
+		$modifiers .= ' mw-ui-icon-' . $iconName;
 		return $base . ' ' . $modifiers . ' ' . $additionalClassNames;
 	}
 
@@ -65,5 +58,59 @@ class MobileUI {
 	 */
 	public static function anchorClass( $modifier = '', $additionalClassNames = '' ) {
 		return self::semanticClass( 'mw-ui-anchor', $modifier, $additionalClassNames );
+	}
+
+	/**
+	 * Return a message box.
+	 * @param string $html of contents of box
+	 * @param string $className corresponding to box
+	 * @return string of html representing a box.
+	 */
+	public static function messageBox( $html, $className ) {
+		$templateParser = new TemplateParser( __DIR__ . '/../resources/mobile.messageBox/' );
+
+		return $templateParser->processTemplate( 'MessageBox', array(
+			'className' => $className,
+			'msg' => $html
+		) );
+	}
+
+	/**
+	 * Return a warning box.
+	 * @param string $html of contents of box
+	 * @return string of html representing a warning box.
+	 */
+	public static function warningBox( $html ) {
+		return self::messageBox( $html, 'warningbox' );
+	}
+
+	/**
+	 * Return an error box.
+	 * @param string $html of contents of error box
+	 * @return string of html representing an error box.
+	 */
+	public static function errorBox( $html ) {
+		return self::messageBox( $html, 'errorbox' );
+	}
+
+	/**
+	 * Return a success box.
+	 * @param string $html of contents of box
+	 * @return string of html representing a success box.
+	 */
+	public static function successBox( $html ) {
+		return self::messageBox( $html, 'successbox' );
+	}
+
+	/**
+	 * Mark some html as being content
+	 * @param string $html
+	 * @param string $className additional class names
+	 * @return string of html
+	 */
+	public static function contentElement( $html, $className = '' ) {
+		$className .= ' content ';
+		return Html::openElement( 'div', array( 'class' => $className ) ) . $html .
+			Html::closeElement( 'div' );
 	}
 }

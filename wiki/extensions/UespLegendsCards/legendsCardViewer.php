@@ -22,7 +22,11 @@ class CUespLegendsCardDataViewer
 	
 	static $LEGENDS_SUBTYPES = array(
 			"Argonian",
-			"Ash Creature", 
+			"Animated Item",
+			"Ash Creature",
+			"Atronach",
+			"Automaton",
+			"Ayleid",
 			"Beast", 
 			"Breton", 
 			"Centaur", 
@@ -33,13 +37,16 @@ class CUespLegendsCardDataViewer
 			"Dragon", 
 			"Dreugh", 
 			"Dwemer", 
+			"Egg",
+			"Elytra",
 			"Fabricant", 
 			"Factotum", 
 			"Falmer", 
 			"Fish", 
 			"Gargoyle", 
 			"Giant", 
-			"Goblin", 
+			"Goblin",
+			"Grummite",
 			"Harpy", 
 			"High Elf",
 			"Imp", 
@@ -59,6 +66,7 @@ class CUespLegendsCardDataViewer
 			"Ogre", 
 			"Orc", 
 			"Pastry", 
+			"Portal",
 			"Reachman", 
 			"Redguard", 
 			"Reptile",
@@ -66,7 +74,8 @@ class CUespLegendsCardDataViewer
 			"Skeleton", 
 			"Spider", 
 			"Spirit", 
-			"Spriggan", 
+			"Spriggan",
+			"Trap",
 			"Troll", 
 			"Undead", 
 			"Vampire", 
@@ -97,10 +106,13 @@ class CUespLegendsCardDataViewer
 	static $LEGENDS_SETS = null;
 	
 	static $LEGENDS_CLASSES = array(
+			"Aldmeri Dominion",
 			"Archer",
 			"Assassin",
 			"Battlemage",
 			"Crusader",
+			"Daggerfall Covenant",
+			"Ebonheart Pact",
 			"House Dagoth",
 			"House Hlaalu",
 			"House Redoran",
@@ -110,6 +122,8 @@ class CUespLegendsCardDataViewer
 			"Scout",
 			"Sorcerer",
 			"Spellsword",
+			"The Empire of Cyrodiil",
+			"The Guildsword",
 			"Tribunal Temple",
 			"Warrior",			
 	);
@@ -319,7 +333,7 @@ class CUespLegendsCardDataViewer
 		{
 			$selected = "";
 			if ($currentValue == $item) $selected = "selected";
-			$output .= "<option value='$item' $selected>$item";
+			$output .= "<option value=\"$item\" $selected>$item";
 		}
 		
 		$output .= "</select>";
@@ -537,6 +551,12 @@ class CUespLegendsCardDataViewer
 	}
 	
 	
+	public function EscapeAttribute($html)
+	{
+		return htmlspecialchars($html, ENT_QUOTES, 'UTF-8');	
+	}
+	
+	
 	public function GetBreadcrumbTrail()
 	{
 		$output = "<div class='eslegBreadcrumb'>";
@@ -743,7 +763,7 @@ class CUespLegendsCardDataViewer
 			$output .= "<tr><td>$safeName</td><td>$safeSuffix</td><td>";
 			$output .= "<form method='post' action='/wiki/Special:LegendsCardData'>";
 			$output .= "<input type='hidden' value='1' name='editdisamb'>";
-			$output .= "<input type='hidden' value='$safeName' name='deletedisamb'>";
+			$output .= "<input type='hidden' value=\"$safeName\" name='deletedisamb'>";
 			$output .= "<input type='submit' value='Delete'>";
 			$output .= "</form>";
 			$output .= "</td></tr>";
@@ -833,7 +853,7 @@ class CUespLegendsCardDataViewer
 			$output .= "<tr><td>$safeSet</td><td>";
 			$output .= "<form method='post' action='/wiki/Special:LegendsCardData'>";
 			$output .= "<input type='hidden' value='1' name='editsets'>";
-			$output .= "<input type='hidden' value='$safeSet' name='deleteset'>";
+			$output .= "<input type='hidden' value=\"$safeSet\" name='deleteset'>";
 			$output .= "<input type='submit' value='Delete'>";
 			$output .= "</form>";
 			$output .= "</td></tr>";
@@ -986,7 +1006,7 @@ class CUespLegendsCardDataViewer
 		
 		$output .= "<form method='post' action='/wiki/Special:LegendsCardData'>";
 		$output .= "<input type='hidden' value='1' name='save'>";
-		$output .= "<input type='hidden' value='$name' name='rename'>";
+		$output .= "<input type='hidden' value=\"$name\" name='rename'>";
 		
 		$output .= "<table class='eslegCardDetailsTable'>";
 		$output .= "<tr><th>Current Name</th><td>$name</td></tr>";
@@ -1001,22 +1021,23 @@ class CUespLegendsCardDataViewer
 	
 	public function GetCardDeleteOutput()
 	{
-		$safeName = $this->Escape($this->inputDeleteCard);
+		$safeName = $this->EscapeAttribute($this->inputDeleteCard);
 		$card = $this->singleCardData;
-		
+				
 		if (!$this->CanEditCard()) return "You do not have permission to edit card data!";
 		if ($this->singleCardData == null) return "No card matching '$safeName' found!";
-				
-		$name = $this->Escape($card['name']);
+		
+		$name = $this->EscapeAttribute($card['name']);
+		$safeAttr = urlencode($card['name']);
 		
 		$output = "";
 		$output .= "<form method='post' action='/wiki/Special:LegendsCardData'>";
 		$output .= "<input type='hidden' value='1' name='save'>";
-		$output .= "<input type='hidden' value='$name' name='delete'>";
+		$output .= "<input type='hidden' value=\"$name\" name='delete'>";
 		
-		$output .= "<br/>This will permanently delete the '<em>$safeName</em>' card!<br/>Are you sure you wish to proceed?<p/>";
+		$output .= "<br/>This will permanently delete the '<em>$name</em>' card!<br/>Are you sure you wish to proceed?<p/>";
 		$output .= "<input type='submit' value='Yes, Delete It!' class='eslegCardDeleteButton'> &nbsp; ";
-		$output .= "<button type='cancel'  onclick=\"window.location='/wiki/Special:LegendsCardData?card=$safeName';return false;\">No, Cancel!</button> ";
+		$output .= "<button type='cancel' test='1' onclick=\"window.location='/wiki/Special:LegendsCardData?card=$safeAttr';return false;\">No, Cancel!</button> ";
 		$output .= "</form>";
 	
 		return $output;
@@ -1298,7 +1319,7 @@ class CUespLegendsCardDataViewer
 			$selected = "";
 			if ($value == $currentValue) $selected = "selected";
 			
-			$output .= "<option value='$value' $selected>$value</option>";
+			$output .= "<option value=\"$value\" $selected>$value</option>";
 		}		
 		
 		$output .= "</select>";

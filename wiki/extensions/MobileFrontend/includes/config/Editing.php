@@ -4,18 +4,6 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 }
 
 /**
- * Specify whether to show red links (page doesn't exist) for logged in users
- * using stable or beta mode. Red links are always shown in alpha mode.
- */
-$wgMFShowRedLinks = false;
-
-/**
- * Specify whether to show red links (page doesn't exist) for anonymous users
- * using stable or beta mode. Red links are always shown in alpha mode.
- */
-$wgMFShowRedLinksAnon = false;
-
-/**
  * Options to control several functions of the mobile editor.
  * Possible values:
  * - 'anonymousEditing':
@@ -28,6 +16,6 @@ $wgMFShowRedLinksAnon = false;
  *	the user the possibility to review the new text resulting of his changes or not.
  */
 $wgMFEditorOptions = array(
-	'anonymousEditing' => false,
+	'anonymousEditing' => true,
 	'skipPreview' => false,
 );

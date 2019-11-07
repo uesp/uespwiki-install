@@ -513,12 +513,11 @@ class AFPData {
 }
 
 class AFPParserState {
-	public $pos, $token, $lastInput;
+	public $pos, $token;
 
 	public function __construct( $token, $pos ) {
 		$this->token = $token;
 		$this->pos = $pos;
-		$this->lastInput = AbuseFilterParser::$lastHandledToken;
 	}
 }
 
@@ -590,7 +589,7 @@ class AFPRegexErrorHandler {
 }
 
 class AbuseFilterParser {
-	public $mParams, $mCode, $mTokens, $mPos, $mCur, $mShortCircuit, $mAllowShort, $mLen;
+	public $mCode, $mTokens, $mPos, $mCur, $mShortCircuit, $mAllowShort, $mLen;
 
 	/**
 	 * @var AbuseFilterVariableHolder
@@ -630,31 +629,7 @@ class AbuseFilterParser {
 		'funcSetVar',
 	);
 
-	// Order is important. The punctuation-matching regex requires that
-	//  ** comes before *, etc. They are sorted to make it easy to spot
-	//  such errors.
-	static $mOps = array(
-		'!==', '!=', '!', 	// Inequality
-		'**', '*', 			// Multiplication/exponentiation
-		'/', '+', '-', '%', // Other arithmetic
-		'&', '|', '^', 		// Logic
-		':=',				// Setting
-		'?', ':', 			// Ternery
-		'<=', '<', 			// Less than
-		'>=', '>', 			// Greater than
-		'===', '==', '=', 	// Equality
-	);
-
-	static $mKeywords = array(
-		'in', 'like', 'true', 'false', 'null', 'contains', 'matches',
-		'rlike', 'irlike', 'regex', 'if', 'then', 'else', 'end',
-	);
-
-	static $parserCache = array();
-
 	static $funcCache = array();
-
-	static $lastHandledToken = array();
 
 	/**
 	 * Create a new instance
@@ -669,7 +644,6 @@ class AbuseFilterParser {
 	}
 
 	public function resetState() {
-		$this->mParams = array();
 		$this->mCode = '';
 		$this->mTokens = array();
 		$this->mVars = new AbuseFilterVariableHolder;
@@ -720,12 +694,7 @@ class AbuseFilterParser {
 	 * @return AFPToken
 	 */
 	protected function move() {
-		list( $val, $type, , $offset ) = self::nextToken( $this->mCode, $this->mPos );
-
-		$token = new AFPToken( $type, $val, $this->mPos );
-		$this->mPos = $offset;
-
-		return $this->mCur = $token;
+		list( $this->mCur, $this->mPos ) = $this->mTokens[$this->mPos];
 	}
 
 	/**
@@ -743,7 +712,6 @@ class AbuseFilterParser {
 	protected function setState( AFPParserState $state ) {
 		$this->mCur = $state->token;
 		$this->mPos = $state->pos;
-		self::$lastHandledToken = $state->lastInput;
 	}
 
 	/**
@@ -793,6 +761,7 @@ class AbuseFilterParser {
 	function intEval( $code ) {
 		// Setup, resetting
 		$this->mCode = $code;
+		$this->mTokens = AbuseFilterTokenizer::tokenize( $code );
 		$this->mPos = 0;
 		$this->mLen = strlen( $code );
 		$this->mShortCircuit = false;
@@ -1421,223 +1390,7 @@ class AbuseFilterParser {
 		$this->mVars->setVar( $name, $value );
 	}
 
-	/**
-	 * @param $code
-	 * @param $offset
-	 * @return array
-	 * @throws AFPException
-	 * @throws AFPUserVisibleException
-	 */
-	static function nextToken( $code, $offset ) {
-		$tok = '';
 
-		// Check for infinite loops
-		if ( self::$lastHandledToken == array( $code, $offset ) ) {
-			// Should never happen
-			throw new AFPException( "Entered infinite loop. Offset $offset of $code" );
-		}
-
-		self::$lastHandledToken = array( $code, $offset );
-
-		// Spaces
-		$matches = array();
-		if ( preg_match( '/\s+/uA', $code, $matches, 0, $offset ) ) {
-			$offset += strlen( $matches[0] );
-		}
-
-		if ( $offset >= strlen( $code ) ) {
-			return array( '', AFPToken::TNone, $code, $offset );
-		}
-
-		// Comments
-		if ( substr( $code, $offset, 2 ) == '/*' ) {
-			$end = strpos( $code, '*/', $offset );
-
-			return self::nextToken( $code, $end + 2 );
-		}
-
-		// Commas
-		if ( $code[$offset] == ',' ) {
-			return array( ',', AFPToken::TComma, $code, $offset + 1 );
-		}
-
-		// Braces
-		if ( $code[$offset] == '(' or $code[$offset] == ')' ) {
-			return array( $code[$offset], AFPToken::TBrace, $code, $offset + 1 );
-		}
-
-		// Square brackets
-		if ( $code[$offset] == '[' or $code[$offset] == ']' ) {
-			return array( $code[$offset], AFPToken::TSquareBracket, $code, $offset + 1 );
-		}
-
-		// Semicolons
-		if ( $code[$offset] == ';' ) {
-			return array( ';', AFPToken::TStatementSeparator, $code, $offset + 1 );
-		}
-
-		// Strings
-		if ( $code[$offset] == '"' || $code[$offset] == "'" ) {
-			$type = $code[$offset];
-			$offset++;
-			$strLen = strlen( $code );
-			while ( $offset < $strLen ) {
-
-				if ( $code[$offset] == $type ) {
-					$offset++;
-					return array( $tok, AFPToken::TString, $code, $offset );
-				}
-
-				// Performance: Use a PHP function (implemented in C)
-				// to scan ahead.
-				$addLength = strcspn( $code, $type . "\\", $offset );
-				if ( $addLength ) {
-					$tok .= substr( $code, $offset, $addLength );
-					$offset += $addLength;
-				} elseif ( $code[$offset] == '\\' ) {
-					switch( $code[$offset + 1] ) {
-						case '\\':
-							$tok .= '\\';
-							break;
-						case $type:
-							$tok .= $type;
-							break;
-						case 'n';
-							$tok .= "\n";
-							break;
-						case 'r':
-							$tok .= "\r";
-							break;
-						case 't':
-							$tok .= "\t";
-							break;
-						case 'x':
-							$chr = substr( $code, $offset + 2, 2 );
-
-							if ( preg_match( '/^[0-9A-Fa-f]{2}$/', $chr ) ) {
-								$chr = base_convert( $chr, 16, 10 );
-								$tok .= chr( $chr );
-								$offset += 2; # \xXX -- 2 done later
-							} else {
-								$tok .= 'x';
-							}
-							break;
-						default:
-							$tok .= "\\" . $code[$offset + 1];
-					}
-
-					$offset += 2;
-
-				} else {
-					$tok .= $code[$offset];
-					$offset++;
-				}
-			}
-			throw new AFPUserVisibleException( 'unclosedstring', $offset, array() );
-		}
-
-		// Find operators
-
-		static $operator_regex = null;
-		// Match using a regex. Regexes are faster than PHP
-		if ( !$operator_regex ) {
-			$quoted_operators = array();
-
-			foreach ( self::$mOps as $op ) {
-				$quoted_operators[] = preg_quote( $op, '/' );
-			}
-			$operator_regex = '/(' . implode( '|', $quoted_operators ) . ')/A';
-		}
-
-		$matches = array();
-
-		preg_match( $operator_regex, $code, $matches, 0, $offset );
-
-		if ( count( $matches ) ) {
-			$tok = $matches[0];
-			$offset += strlen( $tok );
-			return array( $tok, AFPToken::TOp, $code, $offset );
-		}
-
-		// Find bare numbers
-		$bases = array(
-			'b' => 2,
-			'x' => 16,
-			'o' => 8
-		);
-		$baseChars = array(
-			2 => '[01]',
-			16 => '[0-9A-Fa-f]',
-			8 => '[0-8]',
-			10 => '[0-9.]',
-		);
-		$baseClass = '[' . implode( '', array_keys( $bases ) ) . ']';
-		$radixRegex = "/([0-9A-Fa-f]+(?:\.\d*)?|\.\d+)($baseClass)?/Au";
-		$matches = array();
-
-		if ( preg_match( $radixRegex, $code, $matches, 0, $offset ) ) {
-			$input = $matches[1];
-			$baseChar = @$matches[2];
-			// Sometimes the base char gets mixed in with the rest of it because
-			// the regex targets hex, too.
-			// This mostly happens with binary
-			if ( !$baseChar && !empty( $bases[ substr( $input, - 1 ) ] ) ) {
-				$baseChar = substr( $input, - 1, 1 );
-				$input = substr( $input, 0, - 1 );
-			}
-
-			if ( $baseChar ) {
-				$base = $bases[$baseChar];
-			} else {
-				$base = 10;
-			}
-
-			// Check against the appropriate character class for input validation
-			$baseRegex = "/^" . $baseChars[$base] . "+$/";
-
-			if ( preg_match( $baseRegex, $input ) ) {
-				if ( $base != 10 ) {
-					$num = base_convert( $input, $base, 10 );
-				} else {
-					$num = $input;
-				}
-
-				$offset += strlen( $matches[0] );
-
-				$float = strpos( $input, '.' ) !== false;
-
-				return array(
-					$float
-						? floatval( $num )
-						: intval( $num ),
-					$float
-						? AFPToken::TFloat
-						: AFPToken::TInt,
-					$code,
-					$offset
-				);
-			}
-		}
-
-		// The rest are considered IDs
-
-		// Regex match > PHP
-		$idSymbolRegex = '/[0-9A-Za-z_]+/A';
-		$matches = array();
-
-		if ( preg_match( $idSymbolRegex, $code, $matches, 0, $offset ) ) {
-			$tok = $matches[0];
-
-			$type = in_array( $tok, self::$mKeywords )
-				? AFPToken::TKeyword
-				: AFPToken::TID;
-
-			return array( $tok, $type, $code, $offset + strlen( $tok ) );
-		}
-
-		throw new AFPUserVisibleException(
-			'unrecognisedtoken', $offset, array( substr( $code, $offset ) ) );
-	}
 
 	// Built-in functions
 

@@ -461,7 +461,7 @@ function efMetaTemplateImplementSave(&$parser) {
 	$pstack = new MetaTemplateParserStack($parser, $frame);
 	$tosave = array();
 	foreach ($data as $arg) {
-		$value=$pstack->get($arg);
+		// $value=$pstack->get($arg) - RH70: commented out because it appears to be redundant to next line
 		if (!is_null($value=$pstack->get($arg))) {
 			if (strpos($value, '-nowiki-')) {
 				// demangle any nowiki tags in the text

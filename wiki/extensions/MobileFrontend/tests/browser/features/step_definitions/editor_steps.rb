@@ -1,9 +1,13 @@
+Given(/^the page "(.+)" has the following edits:$/) do |page, table|
+  page = page.gsub(' ', '_')
+  table.rows.each { |(text)| api.edit(title: page, text: text) }
+end
+
 When(/^I clear the editor$/) do
   on(ArticlePage).editor_textarea_element.when_present.clear
 end
 
 When(/^I click the edit button$/) do
-  sleep 1
   on(ArticlePage).edit_link_element.when_present.click
 end
 
@@ -41,6 +45,10 @@ end
 
 Then(/^I should not see the wikitext editor overlay$/) do
   expect(on(ArticlePage).editor_overlay_element).not_to be_visible
+end
+
+Then(/^I see the anonymous editor warning$/) do
+  expect(on(ArticlePage).anon_editor_warning_element.when_present).to be_visible
 end
 
 Then /^I should see the read in another language button$/ do

@@ -3,7 +3,8 @@
 		"authors": [
 			"නන්දිමිතුරු",
 			"පසිඳු කාවින්ද",
-			"Susith Chandira Gts"
+			"Susith Chandira Gts",
+			"හරිත"
 		]
 	},
 	"timedmedia-desc": "Ogg Theora සහ Vorbis ගොනු සඳහා හසුරුවනය, ජාවාස්ක්‍රිප්ට් ප්ලේයර් සමඟ",
@@ -19,6 +20,7 @@
 	"timedmedia-webm-long-video": "WebM ශ්‍රව්‍ය/දෘශ්‍ය ගොනුව, $1, දිග $2, $4 × $5 පික්සල්, $3 සමස්ථය",
 	"timedmedia-mp4-short-video": "MP4 $1 දෘශ්‍ය ගොනුව, $2",
 	"timedmedia-mp4-long-video": "MP4 ශ්‍රව්‍ය/දෘශ්‍ය ගොනුව, $1, දිග $2, $4 × $5 පික්සල්, $3 සමස්ථය",
+	"timedmedia-no-player-js": "සමාවන්න, ඔබේ ගවේෂකයේ ජාවාස්ක්‍රිප්ට් අක්‍රීය වී ඇත නැතහොත් කිසිදු අනුග්‍රහය දක්වන ප්ලේයරයක් ඔබ සතුව නැත.<br />\nඔබේ ගවේෂකයෙහි වීඩියෝව ධාවනය කිරීමට <a href=\"$1\">වීඩියෝව බාගත කිරීම</a> හෝ <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">ප්ලේයරය බාගත කිරීම</a> සිදු කළ හැකිය.",
 	"timedmedia-more": "ඉතිරිය…",
 	"timedmedia-dismiss": "වසන්න",
 	"timedmedia-download": "ගොනුව බා ගන්න",
@@ -49,6 +51,7 @@
 	"timedmedia-mp4": "MP4",
 	"timedmedia-source-file": "$1 මූලාශ්‍රය",
 	"timedmedia-source-file-desc": "නියම $1, $2 × $3 ($4)",
+	"timedmedia-source-audio-file-desc": "නියම $1 ගොනුව ($2)",
 	"timedmedia-derivative-desc-160p.ogv": "අවම කලාප පළල Ogg විදෘශ්‍ය (160P)",
 	"timedmedia-derivative-desc-360p.ogv": "ජාල ශ්‍රෝතමය Ogg වීඩියෝව (360P)",
 	"timedmedia-derivative-desc-480p.ogv": "ජාල ශ්‍රෝතමය Ogg වීඩියෝව (480P)",

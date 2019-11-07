@@ -128,7 +128,7 @@ class SpecialMobileLanguages extends MobileSpecialPage {
 	 * @param string $pagename The name of the page
 	 */
 	public function executeWhenAvailable( $pagename ) {
-		if ( $pagename === '' ) {
+		if ( !is_string( $pagename ) || $pagename === '' ) {
 			wfHttpError( 404, $this->msg( 'mobile-frontend-languages-404-title' )->text(),
 				$this->msg( 'mobile-frontend-languages-404-desc' )->text()
 			);
@@ -140,8 +140,7 @@ class SpecialMobileLanguages extends MobileSpecialPage {
 
 		$output = $this->getOutput();
 
-		$html = Html::openElement( 'div', array( 'class' => 'content' ) );
-
+		$html = '';
 		if ( $this->title && $this->title->exists() ) {
 			$titlename = $this->title->getPrefixedText();
 			$pageTitle = $this->msg( 'mobile-frontend-languages-header-page',
@@ -199,8 +198,7 @@ class SpecialMobileLanguages extends MobileSpecialPage {
 				$this->msg( 'mobile-frontend-languages-nonexistent-title' )->params( $pagename )->text() );
 		}
 
-		$html .= Html::closeElement( 'div' );
-
+		$html = MobileUI::contentElement( $html );
 		$output->setPageTitle( $pageTitle );
 		$output->addHTML( $html );
 	}

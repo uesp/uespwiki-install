@@ -3,10 +3,11 @@ Feature: Notification
 
   Background:
     Given I am logged into the mobile website
+      And I have no notifications
     When I click on the notification icon
       And the notifications overlay appears
 
-  @smoke
+  @smoke @integration
   Scenario: Opening notifications
     Then I should see the notifications overlay
 

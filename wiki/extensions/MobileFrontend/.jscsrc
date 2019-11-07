@@ -1,32 +1,23 @@
 {
   "preset": "wikimedia",
-  "requireMultipleVarDecl": "onevar",
-  "requireLineBreakAfterVariableAssignment": true,
-  "disallowOperatorBeforeLineBreak": ["."],
-  "requireBlocksOnNewline": true,
-  "requireLineFeedAtFileEnd": true,
-  "requirePaddingNewLinesInObjects": true,
+
+  "requireObjectKeysOnNewLine": true,
+  "requireSpacesInsideBrackets": null,
   "disallowDanglingUnderscores": null,
-  "requireSpacesInsideParentheses": "all",
   "disallowImplicitTypeConversion": ["numeric", "boolean", "binary", "string"],
-  "validateJSDoc": {
-    "checkParamNames": true,
-    "requireParamTypes": true,
-    "checkRedundantParams": true
-  },
-  "validateIndentation": "\t",
-  "excludeFiles": ["javascripts/externals/**/*.js", "javascripts/README.md"],
-  "additionalRules": [
-    "node_modules/jscs-jsdoc/lib/rules/*.js"
+  "excludeFiles": [
+    "libs/**",
+    "node_modules/**"
   ],
   "jsDoc": {
+    "checkParamExistence": true,
     "checkParamNames": true,
-		"checkRedundantParams": true,
+    "checkRedundantParams": true,
     "enforceExistence": true,
     "checkReturnTypes": true,
     "checkRedundantReturns": true,
     "requireReturnTypes": true,
     "checkTypes": "capitalizedNativeCase",
-    "checkParamExistence": true
+    "@fixme": "https://github.com/jscs-dev/jscs-jsdoc/pull/138"
   }
 }

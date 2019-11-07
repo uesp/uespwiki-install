@@ -1,5 +1,3 @@
-javascripts/externals
-javascripts/README.md
-tests/js/fixtures.js
-tests/externals
+libs
 styleguide-template
+node_modules

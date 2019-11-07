@@ -48,11 +48,11 @@ class ConfigUtils {
 		$result = $this->client->request( '' );
 		$result = $result->getData();
 		if ( !isset( $result['version']['number'] ) ) {
-			$this->output( 'unable to determine, aborting.', 1 );
+			$this->error( 'unable to determine, aborting.', 1 );
 		}
 		$result = $result[ 'version' ][ 'number' ];
 		$this->output( "$result..." );
-		if ( !preg_match( '/^(1|2)./', $result ) ) {
+		if ( !preg_match( '/^1./', $result ) ) {
 			$this->output( "Not supported!\n" );
 			$this->error( "Only Elasticsearch 1.x is supported.  Your version: $result.", 1 );
 		} else {

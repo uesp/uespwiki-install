@@ -2,6 +2,10 @@
 
 World(CirrusSearchApiHelper)
 
+After("@frozen") do
+  step("I globally thaw indexing")
+end
+
 main = false
 Before("@setup_main, @filters, @prefix, @bad_syntax, @wildcard, @exact_quotes, @phrase_prefix") do
   unless main
@@ -11,10 +15,11 @@ Before("@setup_main, @filters, @prefix, @bad_syntax, @wildcard, @exact_quotes, @
       And a page named Links To Catapult exists with contents [[Catapult]]
       And a page named Catapult exists with contents ♙ asdf [[Category:Weaponry]]
       And a page named Amazing Catapult exists with contents test [[Catapult]] [[Category:Weaponry]]
+      And a page named Category:Weaponry exists with contents Weaponry refers to any items designed or used to attack and kill or destroy other people and property.
       And a page named Two Words exists with contents ffnonesenseword catapult {{Template_Test}} anotherword [[Category:TwoWords]] [[Category:Categorywith Twowords]] [[Category:Categorywith " Quote]]
       And a page named AlphaBeta exists with contents [[Category:Alpha]] [[Category:Beta]]
       And a page named IHaveATwoWordCategory exists with contents [[Category:CategoryWith ASpace]]
-      And a page named Functional programming exists
+      And a page named Functional programming exists with contents Functional programming is referential transparency.
       And a page named वाङ्मय exists
       And a page named वाङ्‍मय exists
       And a page named वाङ‍्मय exists
@@ -46,6 +51,18 @@ Before("@setup_main, @prefix, @bad_syntax") do
       And a page named IHaveASound exists with contents [[File:Serenade for Strings -mvt-1- Elgar.ogg]]
         )
     main2 = true
+  end
+end
+
+commons = false
+Before("@setup_main, @commons") do
+  unless commons
+    steps %(
+      Given a file named File:OnCommons.svg exists on commons with contents OnCommons.svg and description File stored on commons for test purposes
+      And a file named File:DuplicatedLocally.svg exists on commons with contents DuplicatedLocally.svg and description File stored on commons and duplicated locally
+      And a file named File:DuplicatedLocally.svg exists with contents DuplicatedLocally.svg and description Locally stored file duplicated on commons
+        )
+    commons = true
   end
 end
 
@@ -131,6 +148,17 @@ Before("@suggestions") do
       And a page named Rrr Word 4 exists with contents #REDIRECT [[Noble Somethingelse4]]
       And a page named Rrr Word 5 exists with contents #REDIRECT [[Noble Somethingelse5]]
       And a page named Nobel Gassez exists with contents #REDIRECT [[Noble Gasses]]
+      And there are 30 pages named Grammy Awards ed. %s with contents grammy awards
+      And there are 14 pages named Grammo Awards ed. %s with contents bogus grammy awards page
+      And a page named my suggest1 suggest2 exists with contents list of grammy awards winners
+      And a page named my suggest2 suggest3 exists with contents list of grammy awards winners
+      And a page named my suggest3 suggest4 exists with contents list of grammy awards winners
+      And a page named my suggest4 suggest5 exists with contents list of grammy awards winners
+      And a page named my suggest5 suggest6 exists with contents list of grammy awards winners
+      And a page named my suggest6 suggest1 exists with contents list of grammy awards winners
+      And a page named suggest1 suggest2 suggest3 exists with contents list of grammy awards winners
+      And a page named suggest2 suggest3 suggest4 exists with contents list of grammy awards winners
+      And a page named suggest3 suggest4 suggest5 exists with contents list of grammy awards winners
         )
     suggestions = true
   end
@@ -291,6 +319,7 @@ Before("@prefer_recent") do
       And a page named PreferRecent Second Second exists with contents %{epoch}
       And wait 20 seconds
       And a page named PreferRecent Third exists with contents %{epoch}
+      And wait 10 seconds
         )
   end
   prefer_recent = true
@@ -465,20 +494,6 @@ Before("@relevancy") do
       And a page named Relevancylanguagetest/ja exists
       And a page named Relevancylanguagetest/en exists
       And a page named Relevancylanguagetest/ar exists
-      And a page named Relevancylinktest Smaller exists
-      And a page named Relevancylinktest Larger Extraword exists
-      And a page named Relevancylinktest Larger/Link A exists with contents [[Relevancylinktest Larger Extraword]]
-      And a page named Relevancylinktest Larger/Link B exists with contents [[Relevancylinktest Larger Extraword]]
-      And a page named Relevancylinktest Larger/Link C exists with contents [[Relevancylinktest Larger Extraword]]
-      And a page named Relevancylinktest Larger/Link D exists with contents [[Relevancylinktest Larger Extraword]]
-      And a page named Relevancyredirecttest Smaller exists with contents Relevancyredirecttest text text text text text text text text text text text text text
-      And a page named Relevancyredirecttest Smaller/A exists with contents [[Relevancyredirecttest Smaller]]
-      And a page named Relevancyredirecttest Smaller/B exists with contents [[Relevancyredirecttest Smaller]]
-      And a page named Relevancyredirecttest Larger exists with contents Relevancyredirecttest text text text text text text text text text text text text text
-      And a page named Relevancyredirecttest Larger/Redirect exists with contents #REDIRECT [[Relevancyredirecttest Larger]]
-      And a page named Relevancyredirecttest Larger/A exists with contents [[Relevancyredirecttest Larger]]
-      And a page named Relevancyredirecttest Larger/B exists with contents [[Relevancyredirecttest Larger/Redirect]]
-      And a page named Relevancyredirecttest Larger/C exists with contents [[Relevancyredirecttest Larger/Redirect]]
       And a page named Relevancyclosetest Foô exists
       And a page named Relevancyclosetest Foo exists
       And a page named Foo Relevancyclosetest exists
@@ -593,4 +608,27 @@ Before("@accented_namespace") do
         )
     accented_namespace = true
   end
+end
+
+suggest = false
+Before("@suggest") do
+  unless suggest
+    steps %(
+      Given a page named X-Men exists with contents The X-Men are a fictional team of superheroes
+        And a page named Xavier, Charles exists with contents Professor Charles Francis Xavier (also known as Professor X) is the founder of [[X-Men]]
+        And a page named X-Force exists with contents X-Force is a fictional team of of [[X-Men]]
+        And a page named Magneto exists with contents Magneto is a fictional character appearing in American comic books
+        And a page named Max Eisenhardt exists with contents #REDIRECT [[Magneto]]
+        And a page named Eisenhardt, Max exists with contents #REDIRECT [[Magneto]]
+        And a page named Magnetu exists with contents #REDIRECT [[Magneto]]
+        And I reindex suggestions
+    )
+    suggest = true
+  end
+end
+
+# Prevents api tests from generating fail screenshots.  Must come after all the above hooks
+# because some of them use the browser to set the preconditions necessary for api tests.
+Before("@api") do
+  @browser = false
 end

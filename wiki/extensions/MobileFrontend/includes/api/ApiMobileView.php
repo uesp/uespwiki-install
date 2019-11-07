@@ -65,6 +65,8 @@ class ApiMobileView extends ApiBase {
 		$onlyRequestedSections = $params['onlyrequestedsections'];
 		$this->offset = $params['offset'];
 		$this->maxlen = $params['maxlen'];
+		$resultObj = $this->getResult();
+		$moduleName = $this->getModuleName();
 
 		if ( $this->offset === 0 && $this->maxlen === 0 ) {
 			$this->offset = -1; // Disable text splitting
@@ -73,6 +75,7 @@ class ApiMobileView extends ApiBase {
 		}
 
 		$title = $this->makeTitle( $params['page'] );
+		$this->addXAnalyticsItem( 'ns', (string)$title->getNamespace() );
 		// See whether the actual page (or if enabled, the redirect target) is the main page
 		$this->mainPage = $this->isMainPage( $title );
 		if ( $this->mainPage && $this->noHeadings ) {
@@ -80,50 +83,25 @@ class ApiMobileView extends ApiBase {
 			$this->setWarning( "``noheadings'' makes no sense on the main page, ignoring" );
 		}
 		if ( isset( $prop['normalizedtitle'] ) && $title->getPrefixedText() != $params['page'] ) {
-			$this->getResult()->addValue( null, $this->getModuleName(),
+			$resultObj->addValue( null, $moduleName,
 				array( 'normalizedtitle' => $title->getPageLanguage()->convert( $title->getPrefixedText() ) )
 			);
 		}
 		$data = $this->getData( $title, $params['noimages'] );
-		// Bug 73109: #getData will return an empty array if the title redirects to
-		// a page in a virtual namespace (NS_SPECIAL, NS_MEDIA), so make sure that
-		// the requested data exists too.
-		if ( isset( $prop['lastmodified'] ) && isset( $data['lastmodified'] ) ) {
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array( 'lastmodified' => $data['lastmodified'] )
-			);
+		$plainData = array( 'lastmodified', 'lastmodifiedby', 'revision',
+			'languagecount', 'hasvariants', 'displaytitle', 'id', 'contentmodel' );
+		foreach ( $plainData as $name ) {
+			// Bug 73109: #getData will return an empty array if the title redirects to
+			// a page in a virtual namespace (NS_SPECIAL, NS_MEDIA), so make sure that
+			// the requested data exists too.
+			if ( isset( $prop[$name] ) && isset( $data[$name] ) ) {
+				$resultObj->addValue( null, $moduleName,
+					array( $name => $data[$name] )
+				);
+			}
 		}
-		if ( isset( $prop['lastmodifiedby'] ) && isset( $data['lastmodifiedby'] ) ) {
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array(
-					'lastmodifiedby' => $data['lastmodifiedby'],
-				)
-			);
-		}
-		if ( isset( $prop['revision'] ) && isset( $data['revision'] ) ) {
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array( 'revision' => $data['revision'] )
-			);
-		}
-		if ( isset( $prop['id'] ) && isset( $data['id'] ) ) {
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array( 'id' => $data['id'] )
-			);
-		}
-		if ( isset( $prop['languagecount'] ) && isset( $data['languagecount'] ) ) {
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array( 'languagecount' => $data['languagecount'] )
-			);
-		}
-		if ( isset( $prop['hasvariants'] ) && isset( $data['hasvariants'] ) ) {
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array( 'hasvariants' => $data['hasvariants'] )
-			);
-		}
-		if ( isset( $prop['displaytitle'] ) && isset( $data['displaytitle'] ) ) {
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array( 'displaytitle' => $data['displaytitle'] )
-			);
+		if ( isset( $data['id'] ) ) {
+			$this->addXAnalyticsItem( 'page_id', (string)$data['id'] );
 		}
 		if ( isset( $prop['pageprops'] ) ) {
 			$propNames = $params['pageprops'];
@@ -133,7 +111,7 @@ class ApiMobileView extends ApiBase {
 				$propNames = explode( '|', $propNames );
 				$pageProps = array_intersect_key( $data['pageprops'], array_flip( $propNames ) );
 			}
-			$this->getResult()->addValue( null, $this->getModuleName(),
+			$resultObj->addValue( null, $moduleName,
 				array( 'pageprops' => $pageProps )
 			);
 		}
@@ -142,7 +120,7 @@ class ApiMobileView extends ApiBase {
 				$data['pageprops']['wikibase_item']
 			);
 			if ( $desc ) {
-				$this->getResult()->addValue( null, $this->getModuleName(),
+				$resultObj->addValue( null, $moduleName,
 					array( 'description' => $desc )
 				);
 			}
@@ -159,8 +137,8 @@ class ApiMobileView extends ApiBase {
 			} else {
 				$requestedSections = array( 0 );
 			}
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array( 'mainpage' => '' )
+			$resultObj->addValue( null, $moduleName,
+				array( 'mainpage' => true )
 			);
 		} elseif ( isset( $params['sections'] ) ) {
 			$requestedSections = self::parseSections( $params['sections'], $data, $missingSections );
@@ -187,7 +165,7 @@ class ApiMobileView extends ApiBase {
 						unset( $requestedSections[$i] );
 					}
 					if ( isset( $data['refsections'][$i] ) ) {
-						$section['references'] = '';
+						$section['references'] = true;
 					}
 					$result[] = $section;
 				}
@@ -204,8 +182,8 @@ class ApiMobileView extends ApiBase {
 					$result[] = $section;
 				}
 			}
-			$this->getResult()->setIndexedTagName( $result, 'section' );
-			$this->getResult()->addValue( null, $this->getModuleName(), array( 'sections' => $result ) );
+			$resultObj->setIndexedTagName( $result, 'section' );
+			$resultObj->addValue( null, $moduleName, array( 'sections' => $result ) );
 		}
 
 		if ( isset( $prop['protection'] ) ) {
@@ -225,16 +203,19 @@ class ApiMobileView extends ApiBase {
 			if ( $isXml ) {
 				$editable = intval( $editable );
 			}
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array( 'editable' => $editable )
+			$resultObj->addValue( null, $moduleName,
+				array(
+					'editable' => $editable,
+					ApiResult::META_BC_BOOLS => array( 'editable' ),
+				)
 			);
 		}
 		// https://bugzilla.wikimedia.org/show_bug.cgi?id=51586
 		// Inform ppl if the page is infested with LiquidThreads but that's the
 		// only thing we support about it.
 		if ( class_exists( 'LqtDispatch' ) && LqtDispatch::isLqtPage( $title ) ) {
-			$this->getResult()->addValue( null, $this->getModuleName(),
-				array( 'liquidthreads' => '' )
+			$resultObj->addValue( null, $moduleName,
+				array( 'liquidthreads' => true )
 			);
 		}
 		if ( count( $missingSections ) && isset( $prop['text'] ) ) {
@@ -242,9 +223,22 @@ class ApiMobileView extends ApiBase {
 		}
 		if ( $this->maxlen < 0 ) {
 			// There is more data available
-			$this->getResult()->addValue( null, $this->getModuleName(),
+			$resultObj->addValue( null, $moduleName,
 				array( 'continue-offset' => $params['offset'] + $params['maxlen'] )
 			);
+		}
+	}
+
+	/**
+	 * Small wrapper around XAnalytics extension
+	 *
+	 * @see XAnalytics::addItem
+	 * @param string $name
+	 * @param string $value
+	 */
+	private function addXAnalyticsItem( $name, $value ) {
+		if ( is_callable( 'XAnalytics::addItem' ) ) {
+			XAnalytics::addItem( $name, $value );
 		}
 	}
 
@@ -311,7 +305,7 @@ class ApiMobileView extends ApiBase {
 	 * @return string
 	 */
 	private function stringSplitter( $text ) {
-		if ( $this->offset < 0  ) {
+		if ( $this->offset < 0 ) {
 			return $text; // NOOP - string splitting mode is off
 		} elseif ( $this->maxlen < 0 ) {
 			return ''; // Limit exceeded
@@ -448,19 +442,29 @@ class ApiMobileView extends ApiBase {
 	 * @return array
 	 */
 	private function getData( Title $title, $noImages ) {
-		global $wgMemc, $wgUseTidy, $wgMFTidyMobileViewSections, $wgMFMinCachedPageSize,
-			$wgMFSpecialCaseMainPage;
+		$mfConfig = MobileContext::singleton()->getMFConfig();
+		$useTidy = $this->getConfig()->get( 'UseTidy' );
+		$mfTidyMobileViewSections = $mfConfig->get( 'MFTidyMobileViewSections' );
+		$mfMinCachedPageSize = $mfConfig->get( 'MFMinCachedPageSize' );
+		$mfSpecialCaseMainPage = $mfConfig->get( 'MFSpecialCaseMainPage' );
 
+		global $wgMemc;
+
+		$result = $this->getResult();
 		$wp = $this->makeWikiPage( $title );
 		if ( $this->followRedirects && $wp->isRedirect() ) {
 			$newTitle = $wp->getRedirectTarget();
 			if ( $newTitle ) {
 				$title = $newTitle;
-				$this->getResult()->addValue( null, $this->getModuleName(),
-					array( 'redirected' => $title->getPrefixedText() )
+				$textTitle = $title->getPrefixedText();
+				if ( $title->hasFragment() ) {
+					$textTitle .= $title->getFragmentForUrl();
+				}
+				$result->addValue( null, $this->getModuleName(),
+					array( 'redirected' => $textTitle )
 				);
 				if ( $title->getNamespace() < 0 ) {
-					$this->getResult()->addValue( null, $this->getModuleName(),
+					$result->addValue( null, $this->getModuleName(),
 						array( 'viewable' => 'no' )
 					);
 					return array();
@@ -509,7 +513,7 @@ class ApiMobileView extends ApiBase {
 			$mf = new MobileFormatter( MobileFormatter::wrapHTML( $html ), $title );
 			$mf->setRemoveMedia( $noImages );
 			$mf->filterContent();
-			$mf->setIsMainPage( $this->mainPage && $wgMFSpecialCaseMainPage );
+			$mf->setIsMainPage( $this->mainPage && $mfSpecialCaseMainPage );
 			$html = $mf->getText();
 		}
 
@@ -541,7 +545,7 @@ class ApiMobileView extends ApiBase {
 				if ( count( $data['text'] ) ) {
 					$chunk = "<h$chunk";
 				}
-				if ( $wgUseTidy && $wgMFTidyMobileViewSections && count( $chunks ) > 1 ) {
+				if ( $useTidy && $mfTidyMobileViewSections && count( $chunks ) > 1 ) {
 					$chunk = MWTidy::tidy( $chunk );
 				}
 				if ( preg_match( '/<ol\b[^>]*?class="references"/', $chunk ) ) {
@@ -584,12 +588,14 @@ class ApiMobileView extends ApiBase {
 			$data['pageprops'] = array();
 		}
 
+		$data['contentmodel'] = $title->getContentModel();
+
 		if ( $title->getPageLanguage()->hasVariants() ) {
 			$data['hasvariants'] = true;
 		}
 
 		// Don't store small pages to decrease cache size requirements
-		if ( strlen( $html ) >= $wgMFMinCachedPageSize ) {
+		if ( strlen( $html ) >= $mfMinCachedPageSize ) {
 			// store for the same time as original parser output
 			$wgMemc->set( $key, $data, $cacheExpiry );
 		}
@@ -740,6 +746,7 @@ class ApiMobileView extends ApiBase {
 					'displaytitle',
 					'pageprops',
 					'description',
+					'contentmodel',
 				)
 			),
 			'sectionprop' => array(
@@ -823,6 +830,7 @@ class ApiMobileView extends ApiBase {
 				' displaytitle    - the rendered title of the page, with {{DISPLAYTITLE}} and such applied',
 				' pageprops       - page properties',
 				' description     - page description from Wikidata',
+				'contentmodel     - page contentmodel'
 			),
 			'sectionprop' => 'What information about sections to get',
 			'pageprops' => 'What page properties to return, a pipe (|) separated list or * for'

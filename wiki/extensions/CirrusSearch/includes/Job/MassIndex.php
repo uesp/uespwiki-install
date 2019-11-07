@@ -1,9 +1,11 @@
 <?php
 
 namespace CirrusSearch\Job;
-use \CirrusSearch\Updater;
-use \Title;
-use \WikiPage;
+
+use CirrusSearch\Updater;
+use MediaWiki\Logger\LoggerFactory;
+use Title;
+use WikiPage;
 
 /**
  * Job wrapper around Updater::updatePages.  Used by forceSearchIndex.php
@@ -46,13 +48,16 @@ class MassIndex extends Job {
 			$title = Title::newFromDBKey( $pageDBKey );
 			// Skip any titles with broken keys.  We can't do anything with them.
 			if ( !$title ) {
-				wfLogWarning( "Skipping invalid DBKey:  $pageDBKey" );
+				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
+					"Skipping invalid DBKey: {pageDBKey}",
+					array( 'pageDBKey' => $pageDBKey )
+				);
 				continue;
 			}
 			$pageData[] = WikiPage::factory( $title );
 		}
 		// Now invoke the updater!
-		$updater = new Updater();
+		$updater = new Updater( $this->connection );
 		$count = $updater->updatePages( $pageData, null, null, $this->params[ 'updateFlags' ] );
 		return $count >= 0;
 	}

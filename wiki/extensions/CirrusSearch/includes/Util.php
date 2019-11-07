@@ -1,11 +1,16 @@
 <?php
 
 namespace CirrusSearch;
-use \GenderCache;
-use \MWNamespace;
-use \PoolCounterWorkViaCallback;
-use \Title;
-use \User;
+
+use GenderCache;
+use IP;
+use MediaWiki\Logger\LoggerFactory;
+use MWNamespace;
+use PoolCounterWorkViaCallback;
+use RequestContext;
+use Status;
+use Title;
+use User;
 
 /**
  * Random utility functions that don't have a better home
@@ -112,30 +117,62 @@ class Util {
 		$perUserKey = "nowait:CirrusSearch:_per_user:$perUserKey";
 		$globalKey = "$type:$wgCirrusSearchPoolCounterKey";
 		if ( $errorCallback === null ) {
-			$errorCallback = function( $error, $key ) {
-				wfLogWarning( "Pool error on $key:  $error" );
+			$errorCallback = function( $error, $key, $userName ) {
+				$forUserName = $userName ? "for {userName} " : '';
+				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
+					"Pool error {$forUserName}on {key}:  {error}",
+					array( 'userName' => $userName, 'key' => $key, 'error' => $error )
+				);
 				return Status::newFatal( 'cirrussearch-backend-error' );
 			};
 		}
-		$errorHandler = function( $key ) use ( $errorCallback ) {
-			return function( $status ) use ( $errorCallback, $key ) {
+		$errorHandler = function( $key ) use ( $errorCallback, $user ) {
+			return function( $status ) use ( $errorCallback, $key, $user ) {
 				$status = $status->getErrorsArray();
-				return $errorCallback( $status[ 0 ][ 0 ], $key );
+				// anon usernames are needed within the logs to determine if
+				// specific ips (such as large #'s of users behind a proxy)
+				// need to be whitelisted. We do not need this information
+				// for logged in users and do not store it.
+				$userName = $user->isAnon() ? $user->getName() : '';
+				return $errorCallback( $status[ 0 ][ 0 ], $key, $userName );
 			};
 		};
+		$doPerUserWork = function() use ( $type, $globalKey, $workCallback, $errorHandler ) {
+			// Now that we have the per user lock lets get the operation lock.
+			// Note that this could block, causing the user to wait in line with their lock held.
+			$work = new PoolCounterWorkViaCallback( $type, $globalKey, array(
+				'doWork' => $workCallback,
+				'error' => $errorHandler( $globalKey ),
+			) );
+			return $work->execute();
+		};
 		$work = new PoolCounterWorkViaCallback( 'CirrusSearch-PerUser', $perUserKey, array(
-			'doWork' => function() use ( $type, $globalKey, $workCallback, $errorHandler ) {
-				// Now that we have the per user lock lets get the operation lock.
-				// Note that this could block, causing the user to wait in line with their lock held.
-				$work = new PoolCounterWorkViaCallback( $type, $globalKey, array(
-					'doWork' => $workCallback,
-					'error' => $errorHandler( $globalKey ),
-				) );
-				return $work->execute();
+			'doWork' => $doPerUserWork,
+			'error' => function( $status ) use( $errorHandler, $perUserKey, $doPerUserWork ) {
+				$errorCallback = $errorHandler( $perUserKey );
+				$errorResult = $errorCallback( $status );
+				if ( Util::isUserPoolCounterActive() ) {
+					return $errorResult;
+				} else {
+					return $doPerUserWork();
+				}
 			},
-			'error' => $errorHandler( $perUserKey ),
 		) );
 		return $work->execute();
+	}
+
+	public static function isUserPoolCounterActive() {
+		global $wgCirrusSearchBypassPerUserFailure,
+			$wgCirrusSearchForcePerUserPoolCounter;
+
+		$ip = RequestContext::getMain()->getRequest()->getIP();
+		if ( IP::isInRanges( $ip, $wgCirrusSearchForcePerUserPoolCounter ) ) {
+			return true;
+		} elseif ( $wgCirrusSearchBypassPerUserFailure ) {
+			return false;
+		} else {
+			return true;
+		}
 	}
 
 	/**
@@ -190,5 +227,146 @@ class Util {
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Iterate over a scroll.
+	 * @param \Elastica\Index $index
+	 * @param string $scrollId the initial $scrollId
+	 * @param string $scrollTime the scroll timeout
+	 * @param callable $consumer function that receives the results
+	 * @param int $limit the max number of results to fetch (0: no limit)
+	 * @param int $retryAttempts the number of times we retry
+	 * @param callable $retryErrorCallback function called before each retries
+	 */
+	public static function iterateOverScroll( \Elastica\Index $index, $scrollId, $scrollTime, $consumer, $limit = 0, $retryAttemps = 0, $retryErrorCallback = null ) {
+		$clearScroll = true;
+		$fetched = 0;
+
+		while( true ) {
+			$result = static::withRetry( $retryAttemps,
+				function() use ( $index, $scrollId, $scrollTime ) {
+					return $index->search ( array(), array(
+						'scroll_id' => $scrollId,
+						'scroll' => $scrollTime
+					) );
+				}, $retryErrorCallback );
+
+			$scrollId = $result->getResponse()->getScrollId();
+
+			if( !$result->count() ) {
+				// No need to clear scroll on the last call
+				$clearScroll = false;
+				break;
+			}
+
+			$fetched += $result->count();
+			$results =  $result->getResults();
+
+			if( $limit > 0 && $fetched > $limit ) {
+				$results = array_slice( $results, 0, sizeof( $results ) - ( $fetched - $limit ) );
+			}
+			$consumer( $results );
+
+			if( $limit > 0 && $fetched >= $limit ) {
+				break;
+			}
+		}
+		// @todo: catch errors and clear the scroll, it'd be easy with a finally block ...
+
+		if( $clearScroll ) {
+			try {
+				$index->getClient()->request( "_search/scroll/".$scrollId, \Elastica\Request::DELETE );
+			} catch ( Exception $e ) {}
+		}
+	}
+
+	/**
+	 * A function that retries callback $func if it throws an exception.
+	 * The $beforeRetry is called before a retry and receives the underlying
+	 * ExceptionInterface object and the number of failed attempts.
+	 * It's generally used to log and sleep between retries. Default behaviour
+	 * is to sleep with a random backoff.
+	 * @see Util::backoffDelay
+	 *
+	 * @param int $attempts the number of times we retry
+	 * @param callable $func
+	 * @param callable $beforeRetry function called before each retry
+	 * @return mixed
+	 */
+	public static function withRetry( $attempts, $func, $beforeRetry = null ) {
+		$errors = 0;
+		while ( true ) {
+			if ( $errors < $attempts ) {
+				try {
+					return $func();
+				} catch ( \Exception $e ) {
+					$errors += 1;
+					if( $beforeRetry ) {
+						$beforeRetry( $e, $errors );
+					} else {
+						$seconds = static::backoffDelay( $errors );
+						sleep( $seconds );
+					}
+				}
+			} else {
+				return $func();
+			}
+		}
+	}
+
+	/**
+	 * Backoff with lowest possible upper bound as 16 seconds.
+	 * With the default maximum number of errors (5) this maxes out at 256 seconds.
+	 * @param int $errorCount
+	 * @return int
+	 */
+	public static function backoffDelay( $errorCount ) {
+		return rand( 1, pow( 2, 3 + $errorCount ) );
+	}
+
+	/**
+	 * Parse a message content into an array. This function is generally used to
+	 * parse settings stored as i18n messages (see cirrussearch-boost-templates).
+	 * @param string $message
+	 * @return array of string
+	 */
+	public static function parseSettingsInMessage( $message ) {
+		$lines = explode( "\n", $message );
+		$lines = preg_replace( '/#.*$/', '', $lines ); // Remove comments
+		$lines = array_map( 'trim', $lines );          // Remove extra spaces
+		$lines = array_filter( $lines );               // Remove empty lines
+		return $lines;
+	}
+
+	/**
+	 * Tries to identify the best redirect by finding the link with the
+	 * smallest edit distance between the title and the user query.
+	 * @param $userQuery string the user query
+	 * @param $redirects array the list of redirects
+	 * @return string the best redirect text
+	 */
+	public static function chooseBestRedirect( $userQuery, $redirects ) {
+		$userQuery = mb_strtolower( $userQuery );
+		$len = mb_strlen( $userQuery );
+		$bestDistance = INF;
+		$best = null;
+
+		foreach( $redirects as $redir ) {
+			$text = $redir['title'];
+			if ( mb_strlen( $text ) > $len ) {
+				$text = mb_substr( $text, 0, $len );
+			}
+			$text = mb_strtolower( $text );
+			$distance = levenshtein( $text, $userQuery );
+			if ( $distance == 0 ) {
+				return $redir['title'];
+			}
+			if ( $distance < $bestDistance ) {
+				$bestDistance = $distance;
+				$best = $redir['title'];
+			}
+		}
+		return $best;
 	}
 }

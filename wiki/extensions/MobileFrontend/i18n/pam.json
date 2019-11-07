@@ -4,7 +4,8 @@
 			"Leeheonjin"
 		]
 	},
-	"mobile-frontend-main-menu-wikigrok-roulette": "Mag-ambag",
-	"mobile-frontend-wikigrok-roulette-info-overlay-title": "Mag-ambag",
-	"mobile-frontend-wikigrok-roulette-info-overlay-start-button-label": "Tara!"
+	"mobile-frontend-editor-reference": "Dalerayan",
+	"mobile-frontend-editor-add-reference": "Idagdag",
+	"mobile-frontend-meta-data-issues": "Deng isyu na ning bulung",
+	"mobile-frontend-browse-tags-header": "Deng tag"
 }

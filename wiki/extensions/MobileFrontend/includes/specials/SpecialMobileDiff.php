@@ -17,6 +17,13 @@ class SpecialMobileDiff extends MobileSpecialPage {
 	private $prevRev;
 	/** @var Title Saves the title of the actual revision */
 	private $targetTitle;
+	/**
+	 * @var InlineDifferenceEngine|DifferenceEngine $mDiffEngine
+	 * DifferenceEngine for this Diff-page
+	 */
+	protected $mDiffEngine;
+	/** @var String $diffClass The name of the Difference class */
+	protected $diffClass = 'InlineDifferenceEngine';
 
 	/**
 	 * Construct function
@@ -112,14 +119,17 @@ class SpecialMobileDiff extends MobileSpecialPage {
 			$this->targetTitle->getPrefixedText()
 		) );
 
-		// @todo FIXME: Don't add these styles. This is only needed for the user
-		// icon to the left of the username
-		$output->addModuleStyles( 'mobile.special.pagefeed.styles' );
+		$output->addModuleStyles( array(
+			'mobile.pagesummary.styles',
+			// @todo FIXME: Don't add these styles. This is only needed for the user
+			// icon to the left of the username
+			'mobile.special.pagefeed.styles'
+		) );
 
 		// Allow other extensions to load more stuff here
 		Hooks::run( 'BeforeSpecialMobileDiffDisplay', array( &$output, $ctx, $revisions ) );
 
-		$output->addHtml( '<div id="mw-mf-diffview"><div id="mw-mf-diffarea">' );
+		$output->addHtml( '<div id="mw-mf-diffview" class="content-unstyled"><div id="mw-mf-diffarea">' );
 
 		$this->showHeader();
 		$this->showDiff();
@@ -161,6 +171,17 @@ class SpecialMobileDiff extends MobileSpecialPage {
 			$bytesChanged = abs( $bytesChanged );
 		}
 
+		if ( $this->rev->isMinor() ) {
+			$minor = ChangesList::flag( 'minor' );
+		} else {
+			$minor = '';
+		}
+		if ( $this->rev->getComment() !== '' ) {
+			$comment = Linker::formatComment( $this->rev->getComment(), $title );
+		} else {
+			$comment = $this->msg( 'mobile-frontend-changeslist-nocomment' )->escaped();
+		}
+
 		$ts = new MWTimestamp( $this->rev->getTimestamp() );
 		$this->getOutput()->addHtml(
 			Html::openElement( 'div', array( 'id' => 'mw-mf-diff-info', 'class' => 'page-summary' ) )
@@ -182,7 +203,12 @@ class SpecialMobileDiff extends MobileSpecialPage {
 					)
 				)->text()
 			. Html::closeElement( 'div' )
-			. Html::element( 'div', array( 'id' => 'mw-mf-diff-comment' ), $this->rev->getComment() )
+			. $minor
+			. Html::rawElement(
+				'div',
+				array( 'id' => 'mw-mf-diff-comment' ),
+				$comment
+			)
 		);
 	}
 
@@ -199,7 +225,7 @@ class SpecialMobileDiff extends MobileSpecialPage {
 		$de = $contentHandler->createDifferenceEngine( $this->getContext(), $prevId, $this->revId );
 		// HACK:
 		if ( get_class( $de ) == 'DifferenceEngine' ) {
-			$de = new InlineDifferenceEngine(
+			$de = new $this->diffClass(
 				$this->getContext(),
 				$prevId,
 				$this->revId,
@@ -211,6 +237,7 @@ class SpecialMobileDiff extends MobileSpecialPage {
 			$de->showDiffPage();
 			return;
 		}
+		$this->mDiffEngine = $de;
 		$diff = $de->getDiffBody();
 		if ( !$prevId ) {
 			$audience = $unhide ? Revision::FOR_THIS_USER : Revision::FOR_PUBLIC;
@@ -221,12 +248,7 @@ class SpecialMobileDiff extends MobileSpecialPage {
 
 		$warnings = $de->getWarningMessageText();
 		if ( $warnings ) {
-			$warnings = Html::openElement( 'div',
-				array(
-					'class' => 'warning alert',
-				) ) .
-				$warnings .
-				Html::closeElement( 'div' );
+			$warnings = MobileUI::warningBox( $warnings );
 		}
 		$this->getOutput()->addHtml(
 			$warnings .
@@ -263,7 +285,8 @@ class SpecialMobileDiff extends MobileSpecialPage {
 
 		$output->addHtml(
 			Html::openElement( 'div', array( 'id' => 'mw-mf-userinfo',
-				'class' => 'position-fixed' ) )
+				'class' => 'position-fixed' ) ) .
+			Html::openElement( 'div', array( 'class' => 'post-content' ) )
 		);
 
 		$userId = $this->rev->getUser();
@@ -308,7 +331,12 @@ class SpecialMobileDiff extends MobileSpecialPage {
 			);
 		}
 
+		if ( $this->mDiffEngine instanceof InlineDifferenceEngine ) {
+			$output->addHtml( $this->mDiffEngine->getPatrolledLink() );
+		}
+
 		$output->addHtml(
+			Html::closeElement( 'div' ) .
 			Html::closeElement( 'div' )
 		);
 	}
