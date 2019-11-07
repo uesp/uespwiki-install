@@ -104,8 +104,7 @@ class WebVideoTranscodeJob extends Job {
 					'transcode_image_name' => $this->getFile()->getName(),
 					'transcode_key' => $transcodeKey
 			),
-			__METHOD__,
-			array( 'LIMIT' => 1 )
+			__METHOD__
 		);
 		$this->setLastError( $error );
 	}
@@ -159,14 +158,12 @@ class WebVideoTranscodeJob extends Job {
 				'transcode_image_name' => $this->getFile()->getName(),
 				'transcode_key' => $transcodeKey
 			),
-			__METHOD__,
-			array( 'ORDER BY' => 'transcode_id' )
+			__METHOD__
 		);
 		if( ! is_null( $dbStartTime ) ){
 			$error = 'Error, running transcode job, for job that has already started';
 			$this->output( $error );
-			$this->setLastError( $error );
-			return false;
+			return true;
 		}
 
 		// Update the transcode table letting it know we have "started work":
@@ -178,17 +175,18 @@ class WebVideoTranscodeJob extends Job {
 				'transcode_image_name' => $this->getFile()->getName(),
 				'transcode_key' => $transcodeKey
 			),
-			__METHOD__,
-			array( 'ORDER BY' => 'transcode_id', 'LIMIT' => 1 )
+			__METHOD__
 		);
-
+		// Avoid contention and "server has gone away" errors as
+		// the transcode will take a very long time in some cases
+		$dbw->commit( __METHOD__, 'flush' );
 
 		// Check the codec see which encode method to call;
 		if ( isset( $options[ 'novideo' ] ) ) {
 			$status = $this->ffmpegEncode( $options );
 		} elseif( $options['videoCodec'] == 'theora' && $wgFFmpeg2theoraLocation !== false ){
 			$status = $this->ffmpeg2TheoraEncode( $options );
-		} elseif( $options['videoCodec'] == 'vp8' || $options['videoCodec'] == 'h264' || ( $options['videoCodec'] == 'theora' && $wgFFmpeg2theoraLocation === false ) ){
+		} elseif( $options['videoCodec'] == 'vp8' || $options['videoCodec'] == 'vp9' || $options['videoCodec'] == 'h264' || ( $options['videoCodec'] == 'theora' && $wgFFmpeg2theoraLocation === false ) ){
 			// Check for twopass:
 			if( isset( $options['twopass'] ) ){
 				// ffmpeg requires manual two pass
@@ -201,7 +199,7 @@ class WebVideoTranscodeJob extends Job {
 			}
 		} else {
 			wfDebug( 'Error unknown codec:' . $options['videoCodec'] );
-			$status =  'Error unknown target encode codec:' . $options['codec'];
+			$status =  'Error unknown target encode codec:' . $options['videoCodec'];
 		}
 
 		// Remove any log files all useful info should be in status and or we are done with 2 passs encoding
@@ -271,9 +269,9 @@ class WebVideoTranscodeJob extends Job {
 						'transcode_image_name' => $this->getFile()->getName(),
 						'transcode_key' => $transcodeKey,
 					),
-					__METHOD__,
-					array( 'LIMIT' => 1 )
+					__METHOD__
 				);
+				$dbw->commit( __METHOD__, 'flush' );
 				WebVideoTranscode::invalidatePagesWithFile( $this->title );
 			}
 		} else {
@@ -341,7 +339,7 @@ class WebVideoTranscodeJob extends Job {
 
 		if ( isset( $options['novideo'] )  ) {
 			$cmd.= " -vn ";
-		} elseif( $options['videoCodec'] == 'vp8' ){
+		} elseif( $options['videoCodec'] == 'vp8' || $options['videoCodec'] == 'vp9' ){
 			$cmd.= $this->ffmpegAddWebmVideoOptions( $options, $pass );
 		} elseif( $options['videoCodec'] == 'h264'){
 			$cmd.= $this->ffmpegAddH264VideoOptions( $options, $pass );
@@ -510,7 +508,14 @@ class WebVideoTranscodeJob extends Job {
 			$cmd.= " -vb " . wfEscapeShellArg( $options['videoBitrate'] * 1000 );
 		}
 		// Set the codec:
-		$cmd.= " -vcodec libvpx";
+		if ( $options['videoCodec'] === 'vp9' ) {
+			$cmd.= " -vcodec libvpx-vp9";
+			if ( isset( $options['tileColumns'] ) ) {
+				$cmd.= ' -tile-columns ' . wfEscapeShellArg( $options['tileColumns'] );
+			}
+		} else {
+			$cmd.= " -vcodec libvpx";
+		}
 
 		// Check for keyframeInterval
 		if( isset( $options['keyframeInterval'] ) ){
@@ -926,6 +931,7 @@ class WebVideoTranscodeJob extends Job {
 		'videoQuality'=> "-v",
 		'videoBitrate'	=> "-V",
 		'twopass'		=> "--two-pass",
+		'optimize'		=> "--optimize",
 		'framerate'		=> "-F",
 		'aspect'		=> "--aspect",
 		'starttime'		=> "--starttime",

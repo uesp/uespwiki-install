@@ -20,9 +20,7 @@ class SpecialMobileEditor extends MobileSpecialPage {
 	 * @param string $subpage The name of the page to edit
 	 */
 	public function executeWhenAvailable( $subpage ) {
-		$title = Title::newFromText( $subpage );
-
-		if ( is_null( $title )) {
+		if ( !is_string( $subpage ) || is_null( $title = Title::newFromText( $subpage ) ) ) {
 			$this->showPageNotFound();
 			return;
 		}
@@ -48,21 +46,11 @@ class SpecialMobileEditor extends MobileSpecialPage {
 				)
 			) .
 			Html::openElement( 'noscript' ) .
-			Html::openElement( 'div',
-				array(
-					'class' => 'error alert',
-				)
-			) .
-			Html::element( 'h2', array(),
-				$this->msg( 'mobile-frontend-editor-unavailable-header' )->text() ) .
-			Html::element( 'p', array(),
-				$this->msg( 'mobile-frontend-editor-unavailable' )->text() ) .
+			MobileUI::errorBox( $this->msg( 'mobile-frontend-editor-unavailable' )->text() ) .
 			Html::openElement( 'p' ) .
 				Html::element( 'a',
 					array( 'href' => $title->getLocalUrl() ),
 					$this->msg( 'returnto', $title->getText() )->text() ) .
-			Html::closeElement( 'p' ) .
-			Html::closeElement( 'div' ) . // .error .alert
 			Html::closeElement( 'noscript' ) .
 			Html::closeElement( 'div' ); // #mw-mf-editorunavailable
 

@@ -2,9 +2,10 @@
 
 namespace CirrusSearch\Maintenance;
 
-use \CirrusSearch\Connection;
-use \CirrusSearch\ElasticsearchIntermediary;
-use \CirrusSearch\Util;
+use CirrusSearch\Connection;
+use CirrusSearch\ElasticsearchIntermediary;
+use CirrusSearch\Util;
+use ConfigFactory;
 use Elastica;
 
 /**
@@ -137,8 +138,8 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 			"to the current time in seconds which should give you a unique identifier.", false, true);
 		$maintenance->addOption( 'reindexAndRemoveOk', "If the alias is held by another index then " .
 			"reindex all documents from that index (via the alias) to this one, swing the " .
-			"alias to this index, and then remove other index.  You'll have to redo all updates ".
-			"performed during this operation manually.  Defaults to false." );
+			"alias to this index, and then remove other index.  Updates performed while this".
+			"operation is in progress will be queued up in the job queue.  Defaults to false." );
 		$maintenance->addOption( 'reindexProcesses', 'Number of processes to use in reindex.  ' .
 			'Not supported on Windows.  Defaults to 1 on Windows and 5 otherwise.', false, true );
 		$maintenance->addOption( 'reindexAcceptableCountDeviation', 'How much can the reindexed ' .
@@ -176,10 +177,11 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 
 		// Make sure we don't flood the pool counter
 		unset( $wgPoolCounterConf['CirrusSearch-Search'] );
+
 		// Set the timeout for maintenance actions
 		$this->setConnectionTimeout();
 
-		$utils = new ConfigUtils( $this->getClient(), $this );
+		$utils = new ConfigUtils( $this->getConnection()->getClient(), $this );
 
 		$this->indexType = $this->getOption( 'indexType' );
 		$this->startOver = $this->getOption( 'startOver', false );
@@ -200,7 +202,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		$this->refreshInterval = $wgCirrusSearchRefreshInterval;
 
 		try{
-			$indexTypes = $this->getAllIndexTypes();
+			$indexTypes = $this->getConnection()->getAllIndexTypes();
 			if ( !in_array( $this->indexType, $indexTypes ) ) {
 				$this->error( 'indexType option must be one of ' .
 					implode( ', ', $indexTypes ), 1 );
@@ -351,7 +353,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 
 		$reindexer = new Reindexer(
 			$this->getIndex(),
-			Connection::getSingleton(),
+			$this->getConnection(),
 			array( $this->getPageType() ),
 			array( $this->getOldPageType() ),
 			$this->getShardCount(),
@@ -363,7 +365,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		);
 
 		$validator = new \CirrusSearch\Maintenance\Validators\SpecificAliasValidator(
-			$this->getClient(),
+			$this->getConnection()->getClient(),
 			$this->getIndexTypeName(),
 			$this->getSpecificIndexName(),
 			$this->startOver,
@@ -381,7 +383,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	}
 
 	public function validateAllAlias() {
-		$validator = new \CirrusSearch\Maintenance\Validators\IndexAllAliasValidator( $this->getClient(),
+		$validator = new \CirrusSearch\Maintenance\Validators\IndexAllAliasValidator( $this->getConnection()->getClient(),
 			$this->getIndexName(), $this->getSpecificIndexName(), $this->startOver, $this->getIndexTypeName(), $this );
 		$status = $validator->validate();
 		if ( !$status->isOK() ) {
@@ -455,42 +457,28 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	 * @return \Elastica\Index being updated
 	 */
 	public function getIndex() {
-		return Connection::getIndex( $this->indexBaseName, $this->indexType, $this->indexIdentifier );
+		return $this->getConnection()->getIndex( $this->indexBaseName, $this->indexType, $this->indexIdentifier );
 	}
 
 	/**
 	 * @return string name of the index being updated
 	 */
 	protected function getSpecificIndexName() {
-		return Connection::getIndexName( $this->indexBaseName, $this->indexType, $this->indexIdentifier );
+		return $this->getConnection()->getIndexName( $this->indexBaseName, $this->indexType, $this->indexIdentifier );
 	}
 
 	/**
 	 * @return string name of the index type being updated
 	 */
 	protected function getIndexTypeName() {
-		return Connection::getIndexName( $this->indexBaseName, $this->indexType );
+		return $this->getConnection()->getIndexName( $this->indexBaseName, $this->indexType );
 	}
 
 	/**
 	 * @return string
 	 */
 	protected function getIndexName() {
-		return Connection::getIndexName( $this->indexBaseName );
-	}
-
-	/**
-	 * @return Elastica\Client
-	 */
-	protected function getClient() {
-		return Connection::getClient();
-	}
-
-	/**
-	 * @return array
-	 */
-	protected function getAllIndexTypes() {
-		return Connection::getAllIndexTypes();
+		return $this->getConnection()->getIndexName( $this->indexBaseName );
 	}
 
 	/**
@@ -515,12 +503,12 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	 * @return Elastica\Type
 	 */
 	protected function getOldPageType() {
-		return Connection::getPageType( $this->indexBaseName, $this->indexType );
+		return $this->getConnection()->getPageType( $this->indexBaseName, $this->indexType );
 	}
 
 	protected function setConnectionTimeout() {
 		global $wgCirrusSearchMaintenanceTimeout;
-		Connection::setTimeout( $wgCirrusSearchMaintenanceTimeout );
+		$this->getConnection()->setTimeout( $wgCirrusSearchMaintenanceTimeout );
 	}
 
 	/**

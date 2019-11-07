@@ -236,7 +236,7 @@ class AbuseFilter {
 			array( 'user' => $user, 'method' => 'isBlocked' )
 		);
 
-		wfRunHooks( 'AbuseFilter-generateUserVars', array( $vars, $user ) );
+		Hooks::run( 'AbuseFilter-generateUserVars', array( $vars, $user ) );
 
 		return $vars;
 	}
@@ -256,7 +256,7 @@ class AbuseFilter {
 		if ( !$wgDisableCounters ) {
 			$realValues['vars']['article_views'] = 'article-views';
 		}
-		wfRunHooks( 'AbuseFilter-builder', array( &$realValues ) );
+		Hooks::run( 'AbuseFilter-builder', array( &$realValues ) );
 
 		return $realValues;
 	}
@@ -286,7 +286,7 @@ class AbuseFilter {
 			array( 'af_id' => $filter ),
 			__METHOD__
 		);
-		return $hidden ? true : false;
+		return (bool)$hidden;
 	}
 
 	/**
@@ -317,7 +317,7 @@ class AbuseFilter {
 		$vars = new AbuseFilterVariableHolder;
 
 		if ( !$title ) {
-			return new AbuseFilterVariableHolder;
+			return $vars;
 		}
 
 		$vars->setVar( $prefix . '_ARTICLEID', $title->getArticleID() );
@@ -360,7 +360,7 @@ class AbuseFilter {
 					'namespace' => $title->getNamespace()
 				) );
 
-		wfRunHooks( 'AbuseFilter-generateTitleVars', array( $vars, $title, $prefix ) );
+		Hooks::run( 'AbuseFilter-generateTitleVars', array( $vars, $title, $prefix ) );
 
 		return $vars;
 	}
@@ -441,6 +441,8 @@ class AbuseFilter {
 	 * @return array
 	 */
 	public static function checkAllFilters( $vars, $group = 'default' ) {
+		global $wgAbuseFilterCentralDB, $wgAbuseFilterIsCentral;
+
 		// Fetch from the database.
 		$filter_matched = array();
 
@@ -460,34 +462,36 @@ class AbuseFilter {
 			$filter_matched[$row->af_id] = self::checkFilter( $row, $vars, true );
 		}
 
-		global $wgAbuseFilterCentralDB, $wgAbuseFilterIsCentral, $wgMemc;
-
 		if ( $wgAbuseFilterCentralDB && !$wgAbuseFilterIsCentral ) {
 			// Global filters
 			$globalRulesKey = self::getGlobalRulesKey( $group );
-			$memcacheRules = $wgMemc->get( $globalRulesKey );
 
-			if ( $memcacheRules ) {
-				$res =  $memcacheRules;
-			} else {
-				$fdb = wfGetDB( DB_SLAVE, array(), $wgAbuseFilterCentralDB );
-				$res = $fdb->select(
-					'abuse_filter',
-					'*',
-					array(
-						'af_enabled' => 1,
-						'af_deleted' => 0,
-						'af_global' => 1,
-						'af_group' => $group,
-					),
-					__METHOD__
-				);
-				$memcacheRules = array();
-				foreach ( $res as $row ) {
-					$memcacheRules[] = $row;
-				}
-				$wgMemc->set( $globalRulesKey, $memcacheRules );
-			}
+			$fname = __METHOD__;
+			$res = ObjectCache::getMainWANInstance()->getWithSetCallback(
+				$globalRulesKey,
+				function() use ( $group, $fname ) {
+					global $wgAbuseFilterCentralDB;
+
+					$fdb = wfGetLB( $wgAbuseFilterCentralDB )->getConnectionRef(
+						DB_SLAVE, array(), $wgAbuseFilterCentralDB
+					);
+
+					return iterator_to_array( $fdb->select(
+						'abuse_filter',
+						'*',
+						array(
+							'af_enabled' => 1,
+							'af_deleted' => 0,
+							'af_global' => 1,
+							'af_group' => $group,
+						),
+						$fname
+					) );
+				},
+				0,
+				array( $globalRulesKey ),
+				array( 'lockTSE' => 300 )
+			);
 
 			foreach( $res as $row ) {
 				$filter_matched['global-' . $row->af_id] =
@@ -542,77 +546,10 @@ class AbuseFilter {
 			$timeTaken = $endTime - $startTime;
 			$condsUsed = $endConds - $startConds;
 
-			self::recordProfilingResult( $row->af_id, $timeTaken, $condsUsed );
+			// @TODO: log slow/complex filters
 		}
 
 		return $result;
-	}
-
-	/**
-	 * @param $filter
-	 */
-	public static function resetFilterProfile( $filter ) {
-		global $wgMemc;
-		$countKey = wfMemcKey( 'abusefilter', 'profile', $filter, 'count' );
-		$totalKey = wfMemcKey( 'abusefilter', 'profile', $filter, 'total' );
-
-		$wgMemc->delete( $countKey );
-		$wgMemc->delete( $totalKey );
-	}
-
-	/**
-	 * @param $filter
-	 * @param $time
-	 * @param $conds
-	 */
-	public static function recordProfilingResult( $filter, $time, $conds ) {
-		global $wgMemc;
-
-		$countKey = wfMemcKey( 'abusefilter', 'profile', $filter, 'count' );
-		$totalKey = wfMemcKey( 'abusefilter', 'profile', $filter, 'total' );
-		$totalCondKey = wfMemcKey( 'abusefilter', 'profile-conds', 'total' );
-
-		$curCount = $wgMemc->get( $countKey );
-		$curTotal = $wgMemc->get( $totalKey );
-		$curTotalConds = $wgMemc->get( $totalCondKey );
-
-		if ( $curCount ) {
-			$wgMemc->set( $totalCondKey, $curTotalConds + $conds, 3600 );
-			$wgMemc->set( $totalKey, $curTotal + $time, 3600 );
-			$wgMemc->incr( $countKey );
-		} else {
-			$wgMemc->set( $countKey, 1, 3600 );
-			$wgMemc->set( $totalKey, $time, 3600 );
-			$wgMemc->set( $totalCondKey, $conds, 3600 );
-		}
-	}
-
-	/**
-	 * @param $filter
-	 * @return array
-	 */
-	public static function getFilterProfile( $filter ) {
-		global $wgMemc;
-
-		$countKey = wfMemcKey( 'abusefilter', 'profile', $filter, 'count' );
-		$totalKey = wfMemcKey( 'abusefilter', 'profile', $filter, 'total' );
-		$totalCondKey = wfMemcKey( 'abusefilter', 'profile-conds', 'total' );
-
-		$curCount = $wgMemc->get( $countKey );
-		$curTotal = $wgMemc->get( $totalKey );
-		$curTotalConds = $wgMemc->get( $totalCondKey );
-
-		if ( !$curCount ) {
-			return array( 0, 0 );
-		}
-
-		$timeProfile = ( $curTotal / $curCount ) * 1000; // 1000 ms in a sec
-		$timeProfile = round( $timeProfile, 2 ); // Return in ms, rounded to 2dp
-
-		$condProfile = ( $curTotalConds / $curCount );
-		$condProfile = round( $condProfile, 0 );
-
-		return array( $timeProfile, $condProfile );
 	}
 
 	/**
@@ -862,7 +799,7 @@ class AbuseFilter {
 		}
 
 		// Add vars from extensions
-		wfRunHooks( 'AbuseFilter-filterAction', array( &$vars, $title ) );
+		Hooks::run( 'AbuseFilter-filterAction', array( &$vars, $title ) );
 
 		// Set context
 		$vars->setVar( 'context', 'filter' );
@@ -1370,10 +1307,12 @@ class AbuseFilter {
 
 				break;
 			case 'blockautopromote':
-				global $wgUser, $wgMemc;
+				global $wgUser;
 				if ( !$wgUser->isAnon() ) {
 					$blockPeriod = (int)mt_rand( 3 * 86400, 7 * 86400 ); // Block for 3-7 days.
-					$wgMemc->set( self::autoPromoteBlockKey( $wgUser ), true, $blockPeriod );
+					ObjectCache::getMainStashInstance()->set(
+						self::autoPromoteBlockKey( $wgUser ), true, $blockPeriod
+					);
 
 					$message = array(
 						'abusefilter-autopromote-blocked',
@@ -2133,7 +2072,7 @@ class AbuseFilter {
 
 			if ( is_null( $value ) )
 				$value = '';
-			$value = Xml::element( 'div', array( 'class' => 'mw-abuselog-var-value' ), $value );
+			$value = Xml::element( 'div', array( 'class' => 'mw-abuselog-var-value' ), $value, false );
 
 			$trow =
 				Xml::tags( 'td', array( 'class' => 'mw-abuselog-var' ), $keyDisplay ) .
@@ -2290,7 +2229,7 @@ class AbuseFilter {
 	static function contentToString( Content $content ) {
 		$text = null;
 
-		if ( wfRunHooks( 'AbuseFilter-contentToString', array( $content, &$text ) ) ) {
+		if ( Hooks::run( 'AbuseFilter-contentToString', array( $content, &$text ) ) ) {
 			$text = $content instanceof TextContent
 						? $content->getNativeData()
 						: $content->getTextForSearchIndex();

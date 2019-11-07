@@ -41,7 +41,7 @@ class SiteSpecialSearch extends SpecialSearch {
 
 		foreach ( $orignamespaces as $namespace => $name )
 		{
-			$this->namespaces[] = $name + 1;
+			$this->namespaces[] = $name | 1;
 		}
 
 		//error_log("SearchLog: C1=" . count($this->namespaces) . "  C2=" . count($talknamespaces));
@@ -147,7 +147,11 @@ class SiteSpecialSearch extends SpecialSearch {
 	</tr><tr>
 		<td style="white-space: nowrap"><input name="ns104" type="checkbox" value="1" $checked_data[104] id="mw-search-ns104" />&#160;<label for="mw-search-ns104">Daggerfall</label></td>
 	</tr><tr>		
+		<td style="white-space: nowrap"><input name="ns156" type="checkbox" value="1" $checked_data[156] id="mw-search-ns156" />&#160;<label for="mw-search-ns156">Tes2Mod</label></td>
+	</tr><tr>		
 		<td style="white-space: nowrap"><input name="ns102" type="checkbox" value="1" $checked_data[102] id="mw-search-ns102" />&#160;<label for="mw-search-ns102">Arena</label></td>
+	</tr><tr>		
+		<td style="white-space: nowrap"><input name="ns154" type="checkbox" value="1" $checked_data[154] id="mw-search-ns154" />&#160;<label for="mw-search-ns154">Tes1Mod</label></td>
 	</tr>
 </table>
 <table cellpadding="0" cellspacing="0" border="0">

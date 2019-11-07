@@ -116,11 +116,16 @@ END;
 }
 
 class MockSpecialMobileDiff extends SpecialMobileDiff {
+	protected $diffClass = 'MockInlineDifferenceEngine';
 	public static function getRevision( $id ) {
 		return MFMockRevision::newFromId( $id );
 	}
 	public function executeBadQuery() {
 		return false;
+	}
+	public function showDiff() {
+		// showDiff can be stubed, but the differenceengine has to be created
+		$this->mDiffEngine = new $this->diffClass();
 	}
 }
 
@@ -145,7 +150,7 @@ class MFMockRevision extends Revision {
 	}
 
 	public function getTitle() {
-		return new Title( "page_$this->id" );
+		return Title::newFromText( "Page_$this->id" );
 	}
 
 	public function getPrevious() {
@@ -159,6 +164,12 @@ class MFMockRevision extends Revision {
 	 */
 	public function getNext() {
 		return new MFMockRevision( $this->id + 1 );
+	}
+}
+
+class MockInlineDifferenceEngine extends InlineDifferenceEngine {
+	public function getPatrolledLink() {
+		return '';
 	}
 }
 

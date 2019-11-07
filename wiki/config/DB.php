@@ -39,7 +39,7 @@ else
 				'password' => $uespWikiPW,
 				'type' => "mysql",
 				'flag' => DBO_DEFAULT,
-				'load' => 1,
+				'load' => 0.01,
 		),
 		array(          # db2 - Primary Read
 				'host' => $UESP_SERVER_DB2,
@@ -48,8 +48,8 @@ else
 				'password' => $uespWikiPW,
 				'type' => "mysql",
 				'flag' => DBO_DEFAULT,
-				'load' => 0,
-				'max lag' => 10,
+				'load' => 10,
+				'max lag' => 1000,
 		),
 /* Comment out to prevent issue with slave lag reading
 		array(          # content3 - Backup Read

@@ -227,7 +227,7 @@ class MetaTemplateSaveData {
 				// RH70 2019-03-24: Regex was no longer working - replaced with built-in parser function.
 				// $value = preg_replace("/\x7fUNIQ.*?QINU\x7f/", '', $value);
 				$value = $this->_parser->killMarkers( $value );
-
+				
 				if (array_key_exists('parsed', $vdata))
 					$parsed = $vdata['parsed'];
 				else

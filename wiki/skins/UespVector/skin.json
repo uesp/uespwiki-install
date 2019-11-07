@@ -3,12 +3,14 @@
 	"author": [
 		"[http://www.uesp.net/wiki/User:RobinHood70 RobinHood70]"
 	],
+	"version": "1.26",
 	"url": "https://www.mediawiki.org/wiki/Skin:Vector",
 	"descriptionmsg": "uespvector-skin-desc",
 	"namemsg": "skinname-uespvector",
 	"license-name": "GPL-2.0+",
 	"type": "skin",
 	"ConfigRegistry": {
+		"vector": "GlobalVarConfig::newInstance",
 		"uespvector": "GlobalVarConfig::newInstance"
 	},
 	"ValidSkinNames": {
@@ -78,6 +80,7 @@
 		}
 	},
 	"config": {
+                "VectorResponsive": false,
 		"VectorUseSimpleSearch": true,
 		"VectorUseIconWatch": true
 	}

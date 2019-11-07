@@ -1,0 +1,87 @@
+{
+	"name": "Graph",
+	"author": [
+		"Dan Andreescu",
+		"Yuri Astrakhan",
+		"Frédéric Bolduc"
+	],
+	"url": "https://www.mediawiki.org/wiki/Extension:Graph",
+	"descriptionmsg": "graph-desc",
+	"license-name": "MIT",
+	"type": "other",
+	"MessagesDirs": {
+		"Graph": [
+			"i18n"
+		]
+	},
+	"AutoloadClasses": {
+		"Graph\\Singleton": "Graph.body.php",
+		"Graph\\Content": "Graph.body.php",
+		"GraphHooks": "Graph.hooks.php"
+	},
+	"ResourceModules": {
+		"ext.graph": {
+			"scripts": [
+				"lib/d3.js",
+				"lib/topojson.js",
+				"lib/vega.js",
+				"js/graph.js"
+			],
+			"styles": [
+				"styles/common.less"
+			],
+			"dependencies": [
+				"mediawiki.Uri"
+			],
+			"targets": [
+				"mobile",
+				"desktop"
+			]
+		},
+		"ext.graph.editor": {
+			"scripts": [
+				"js/graph.editor.js"
+			],
+			"targets": [
+				"mobile",
+				"desktop"
+			]
+		}
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "Graph"
+	},
+	"Hooks": {
+		"ParserFirstCallInit": [
+			"Graph\\Singleton::onParserFirstCallInit"
+		],
+		"EditPage::showEditForm:initial": [
+			"Graph\\Singleton::editPageShowEditFormInitial"
+		],
+		"ParserAfterParse": [
+			"Graph\\Singleton::onParserAfterParse"
+		],
+		"ResourceLoaderRegisterModules": [
+			"GraphHooks::onResourceLoaderRegisterModules"
+		],
+		"ResourceLoaderTestModules": [
+			"GraphHooks::onResourceLoaderTestModules"
+		]
+	},
+	"VisualEditorPluginModules": [
+		"ext.graph.visualEditor"
+	],
+	"config": {
+		"GraphDataDomains": [],
+		"GraphUrlBlacklist": false,
+		"GraphIsTrusted": false,
+		"GraphImgServiceAlways": false,
+		"GraphImgServiceUrl": false
+	},
+	"TrackingCategories": [
+		"graph-tracking-category",
+		"graph-broken-category"
+	],
+	"manifest_version": 1
+}

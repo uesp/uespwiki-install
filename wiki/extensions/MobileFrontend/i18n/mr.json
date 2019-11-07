@@ -11,7 +11,8 @@
 			"Skomal",
 			"V.narsikar",
 			"संतोष दहिवळ",
-			"BPositive"
+			"BPositive",
+			"अभय नातू"
 		]
 	},
 	"mobile-frontend-account-create-email-placeholder": "विपत्रपत्ता (ई-मेल) (ऐच्छिक)",
@@ -21,7 +22,7 @@
 	"mobile-frontend-changeslist-ip": "अनामिक सदस्य",
 	"mobile-frontend-changeslist-nocomment": "बदलांचा आढावा नाही",
 	"mobile-frontend-clear-search": "हटवा",
-	"mobile-frontend-copyright": "लेख <a href='http://en.wikipedia.org/wiki/{{SITENAME}}:Text_of_Creative_Commons_Attribution-ShareAlike_3.0_Unported_License'>Creative Commons Attribution/Share-Alike License</a>; नुसार उपलब्ध आहेत, अधिक अटी असू शकतात. विशेष माहितीसाठी <a href='http://wikimediafoundation.org/wiki/Terms_of_Use'>Terms of Use</a> पाहा. विकीपिडीया हे <a href='http://www.wikimediafoundation.org/'>Wikimedia Foundation, Inc.</a> या ना-नफा तत्त्वावर चालणार्‍या संस्थेचे नोंदणीकृत व्यवसायचिन्ह आहे.",
+	"mobile-frontend-copyright": "इतर काही नोंद केली नसल्यास,येथील मजकूर $1च्या अंतर्गत उपलब्ध आहे.",
 	"mobile-frontend-desc": "मोबाइल फ्रंटएंड",
 	"mobile-frontend-diffview-404-title": "खराब आवृत्ती",
 	"mobile-frontend-diffview-anonymous": "अनामिक सदस्य",
@@ -46,7 +47,7 @@
 	"mobile-frontend-editor-keep-editing": "संपादन चालू ठेवा",
 	"mobile-frontend-editor-newpage-prompt": "हे पान अस्तित्वात नाही. बनवण्यासाठी प्रयत्न करता का ?",
 	"mobile-frontend-editor-placeholder": "हा विभाग रिकामा आहे.त्याचा विस्तार करणारी आपण 'सर्वप्रथम' व्यक्ति व्हा!",
-	"mobile-frontend-editor-previewing-page": "<strong>झलक</strong><span> $1</span>",
+	"mobile-frontend-editor-previewing-page": "<span><strong>झलक</strong> $1</span>",
 	"mobile-frontend-editor-redirect-title": "संपादन खिडकीकडे पाठवत आहे...",
 	"mobile-frontend-editor-save": "जतन करा",
 	"mobile-frontend-editor-success": "यशस्वी! तुमचे संपादन जतन करण्यात आले आहे.",
@@ -68,6 +69,7 @@
 	"mobile-frontend-footer-sitename": "{{SITENAME}}",
 	"mobile-frontend-generic-404-desc": "तुम्ही शोधू पाहात असलेले पान सापडले नाही.",
 	"mobile-frontend-generic-404-title": "त्रूटी - पान सापडले नाही",
+	"mobile-frontend-generic-login": "{{SITENAME}} तुमच्यासारख्या लोकांनीच घडवलेला आहे.",
 	"mobile-frontend-generic-login-action": "योगदान करण्यास सनोंद प्रवेशित व्हा.",
 	"mobile-frontend-history": "या पानाचा संपादन इतिहास बघा.",
 	"mobile-frontend-history-404-title": "असे पान नाही",
@@ -129,7 +131,7 @@
 	"mobile-frontend-overlay-continue": "चालू ठेवा",
 	"mobile-frontend-page-menu-contents": "आशय",
 	"mobile-frontend-page-menu-history": "इतिहास",
-	"mobile-frontend-page-edit-summary": "<strong>बदलाचा सारांश</strong><span> $1</span>",
+	"mobile-frontend-page-edit-summary": "<span><strong>बदलाचा सारांश</strong> $1</span>",
 	"mobile-frontend-password": "परवलीचा शब्द:",
 	"mobile-frontend-password-confirm-placeholder": "परवलीच्या शब्दाची निश्चिती करा",
 	"mobile-frontend-password-placeholder": "परवलीचा शब्द",
@@ -146,7 +148,6 @@
 	"mobile-frontend-profile-footer-years": "{{PLURAL:$2|1 वर्ष|$2 वर्षां}}पूर्वी सामील - [[Special:Contributions/$1|{{PLURAL:$3|1 संपादन|$3 संपादने}}]] आणि [[Special:Uploads/$1|{{PLURAL:$4|1 चित्र|$4 चित्रे|500=500+ uploads}}]].",
 	"mobile-frontend-profile-last-edit": " [[:$1]], पानाचे {{GENDER:$3|संपादन}} केले {{PLURAL:$2|काल|$2 दिवसांपूर्वी|0=आजच}}.",
 	"mobile-frontend-profile-last-thank": "[[Special:UserProfile/$1|$1]] {{GENDER:$1|द्वारा }} {{GENDER:$2|धन्यवाद दिल्या गेले}}",
-	"mobile-frontend-profile-last-upload-caption": "{{PLURAL:$1|काल|$1 दिवसांपूर्वी|0=आज}} {{GENDER:$2|चित्र चढवले}}.",
 	"mobile-frontend-profile-title": "सदस्य व्यक्तिरेखा",
 	"mobile-frontend-profile-userpage-link": "सदस्य पान पाहा.",
 	"mobile-frontend-profile-usertalk": "{{GENDER:$1|$1शी चर्चा करा}}",
@@ -208,5 +209,6 @@
 	"tag-mobile_edit": "[[विकिपीडिया:मोबाईल संपादन|मोबाईल संपादन]]",
 	"tag-mobile_edit-description": "मोबाईल संकेतस्थळाकडून संपादन झाले",
 	"tag-mobile_web_edit": "[[विकिपीडिया:मोबाईल संपादन|मोबाईल वेब संपादन]]",
-	"tag-mobile_web_edit-description": "मोबाईल संकेतस्थळाकडून संपादन झाले"
+	"tag-mobile_web_edit-description": "मोबाईल संकेतस्थळाकडून संपादन झाले",
+	"mobile-frontend-pageaction-edit-tooltip": "या पानाचा प्रथम च्छेद संपादित करा"
 }

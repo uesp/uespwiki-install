@@ -29,12 +29,18 @@ class Connection extends ElasticaConnection {
 	 * @var string
 	 */
 	const CONTENT_INDEX_TYPE = 'content';
-	
+
 	/**
 	 * Name of the index that holds non-content articles.
 	 * @var string
 	 */
 	const GENERAL_INDEX_TYPE = 'general';
+
+	/**
+	 * Name of the index that hosts content title suggestions
+	 * @var string
+	 */
+	const TITLE_SUGGEST_TYPE = 'titlesuggest';
 
 	/**
 	 * Name of the page type.
@@ -49,11 +55,25 @@ class Connection extends ElasticaConnection {
 	const NAMESPACE_TYPE_NAME = 'namespace';
 
 	/**
+	 * Name of the title suggest type
+	 * @var string
+	 */
+	const TITLE_SUGGEST_TYPE_NAME = 'titlesuggest';
+
+	/**
+	 * @var SearchConfig
+	 */
+	protected $config;
+
+	public function __construct( SearchConfig $config ) {
+		$this->config = $config;
+	}
+
+	/**
 	 * @return array(string)
 	 */
 	public function getServerList() {
-		global $wgCirrusSearchServers;
-		return $wgCirrusSearchServers;
+		return $this->config->get( 'CirrusSearchServers' );
 	}
 
 	/**
@@ -62,8 +82,31 @@ class Connection extends ElasticaConnection {
 	 * @return int
 	 */
 	public function getMaxConnectionAttempts() {
-		global $wgCirrusSearchConnectionAttempts;
-		return $wgCirrusSearchConnectionAttempts;
+		return $this->config->get( 'CirrusSearchConnectionAttempts' );
+	}
+
+	/**
+	 * Fetch the Elastica Type used for all wikis in the cluster to track
+	 * frozen indexes that should not be written to.
+	 * @return \Elastica\Index
+	 */
+	public function getFrozenIndex() {
+		$index = $this->getIndex( 'mediawiki_cirrussearch_frozen_indexes' );
+		if ( !$index->exists() ) {
+			$options = array(
+				'number_of_shards' => 1,
+				'auto_expand_replicas' => '0-2',
+			 );
+			$index->create( $options, true );
+		}
+		return $index;
+	}
+
+	/**
+	 * @return \Elastica\Type
+	 */
+	public function getFrozenIndexNameType() {
+		return $this->getFrozenIndex()->getType( 'name' );
 	}
 
 	/**
@@ -72,8 +115,8 @@ class Connection extends ElasticaConnection {
 	 * @param mixed $type type of index (content or general or false to get all)
 	 * @return \Elastica\Type
 	 */
-	public static function getPageType( $name, $type = false ) {
-		return self::getIndex( $name, $type )->getType( self::PAGE_TYPE_NAME );
+	public function getPageType( $name, $type = false ) {
+		return $this->getIndex( $name, $type )->getType( self::PAGE_TYPE_NAME );
 	}
 
 	/**
@@ -81,19 +124,57 @@ class Connection extends ElasticaConnection {
 	 * @param mixed $name basename of index
 	 * @return \Elastica\Type
 	 */
-	public static function getNamespaceType( $name ) {
+	public function getNamespaceType( $name ) {
 		$type = 'general'; // Namespaces are always stored in the 'general' index.
-		return self::getIndex( $name, $type )->getType( self::NAMESPACE_TYPE_NAME );
+		return $this->getIndex( $name, $type )->getType( self::NAMESPACE_TYPE_NAME );
 	}
+
 	/**
 	 * Get all index types we support, content, general, plus custom ones
 	 *
 	 * @return array(string)
 	 */
-	public static function getAllIndexTypes() {
-		global $wgCirrusSearchNamespaceMappings;
-		return array_merge( array_values( $wgCirrusSearchNamespaceMappings ),
+	public function getAllIndexTypes() {
+		return array_merge( array_values( $this->config->get( 'CirrusSearchNamespaceMappings' ) ),
 			array( self::CONTENT_INDEX_TYPE, self::GENERAL_INDEX_TYPE ) );
+	}
+
+	/**
+	 * Given a list of Index objects, return the 'type' portion of the name
+	 * of that index. This matches the types as returned from
+	 * self::getAllIndexTypes().
+	 *
+	 * @param \Elastica\Index[] $indexes
+	 * @return string[]
+	 */
+	public function indexToIndexTypes( array $indexes ) {
+		$allowed = $this->getAllIndexTypes();
+		return array_map( function( $type ) use ( $allowed ) {
+			$fullName = $type->getIndex()->getName();
+			$parts = explode( '_', $fullName );
+			// In 99% of cases it should just be the second
+			// piece of a 2 or 3 part name.
+			if ( isset( $parts[1] ) && in_array( $parts[1], $allowed ) ) {
+				return $parts[1];
+			}
+			// the wikiId should be the first part of the name and
+			// not part of our result, strip it
+			if ( $parts[0] === wfWikiId() ) {
+				$parts = array_slice( $parts, 1 );
+			}
+			// there might be a suffix at the end, try stripping it
+			$maybe = implode( '_', array_slice( $parts, 0, -1 ) );
+			if ( in_array( $maybe, $allowed ) ) {
+				return $maybe;
+			}
+			// maybe there wasn't a suffix at the end, try the whole thing
+			$maybe = implode( '_', $parts );
+			if ( in_array( $maybe, $allowed ) ) {
+				return $maybe;
+			}
+			// probably not right, but at least we tried
+			return $fullName;
+		}, $indexes );
 	}
 
 	/**
@@ -101,10 +182,10 @@ class Connection extends ElasticaConnection {
 	 * @param int $namespace A namespace id
 	 * @return string
 	 */
-	public static function getIndexSuffixForNamespace( $namespace ) {
-		global $wgCirrusSearchNamespaceMappings;
-		if ( isset( $wgCirrusSearchNamespaceMappings[$namespace] ) ) {
-			return $wgCirrusSearchNamespaceMappings[$namespace];
+	public function getIndexSuffixForNamespace( $namespace ) {
+		$mappings = $this->config->get( 'CirrusSearchNamespaceMappings' );
+		if ( isset( $mappings[$namespace] ) ) {
+			return $mappings[$namespace];
 		}
 
 		return MWNamespace::isContent( $namespace ) ?
@@ -116,19 +197,18 @@ class Connection extends ElasticaConnection {
 	 * @var string $indexType an index type
 	 * @return false|integer false if the number of indexes is unknown, an integer if it is known
 	 */
-	public static function namespacesInIndexType( $indexType ) {
-		global $wgCirrusSearchNamespaceMappings,
-			$wgContentNamespaces;
-
+	public function namespacesInIndexType( $indexType ) {
 		if ( $indexType === self::GENERAL_INDEX_TYPE ) {
 			return false;
 		}
 
-		$count = count( array_keys( $wgCirrusSearchNamespaceMappings, $indexType ) );
+		$mappings = $this->config->get( 'CirrusSearchNamespaceMappings' );
+		$count = count( array_keys( $mappings, $indexType ) );
 		if ( $indexType === self::CONTENT_INDEX_TYPE ) {
 			// The content namespace includes everything set in the mappings to content (count right now)
 			// Plus everything in wgContentNamespaces that isn't already in namespace mappings
-			$count += count( array_diff( $wgContentNamespaces, array_keys( $wgCirrusSearchNamespaceMappings ) ) );
+			$contentNamespaces = $this->config->get( 'ContentNamespaces' );
+			$count += count( array_diff( $contentNamespaces, array_keys( $mappings ) ) );
 		}
 		return $count;
 	}

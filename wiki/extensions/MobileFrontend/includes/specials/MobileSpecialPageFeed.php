@@ -57,7 +57,10 @@ abstract class MobileSpecialPageFeed extends MobileSpecialPage {
 			}
 			$output->addHtml(
 				Html::element( 'h2', array( 'class' => 'list-header' ), $date ) .
-				Html::openElement( 'ul', array( 'class' => 'page-list side-list' ) )
+				Html::openElement( 'ul', array(
+						'class' => 'page-list diff-summary-list side-list'
+					)
+				)
 			);
 		}
 		$this->lastDate = $date;
@@ -85,9 +88,9 @@ abstract class MobileSpecialPageFeed extends MobileSpecialPage {
 		$lang = $this->getLanguage();
 
 		if ( $isAnon ) {
-			$usernameClass = MobileUI::iconClass( 'anonymous', 'before', 'icon-16px mw-mf-user mw-mf-anon' );
+			$usernameClass = MobileUI::iconClass( 'anonymous', 'before', 'mw-mf-user mw-mf-anon' );
 		} else {
-			$usernameClass = MobileUI::iconClass( 'user', 'before', 'icon-16px mw-mf-user' );
+			$usernameClass = MobileUI::iconClass( 'user', 'before', 'mw-mf-user' );
 		}
 
 		$html = Html::openElement( 'li', array( 'class' => 'page-summary' ) );

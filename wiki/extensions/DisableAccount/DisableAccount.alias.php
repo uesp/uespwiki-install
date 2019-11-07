@@ -18,7 +18,7 @@ $specialPageAliases['ar'] = array(
 	'DisableAccount' => array( 'تعطيل_حساب' ),
 );
 
-/** Egyptian Spoken Arabic (مصرى) */
+/** Egyptian Arabic (مصرى) */
 $specialPageAliases['arz'] = array(
 	'DisableAccount' => array( 'تعطيل_حساب' ),
 );
@@ -31,6 +31,11 @@ $specialPageAliases['bgn'] = array(
 /** Min Dong Chinese (Mìng-dĕ̤ng-ngṳ̄) */
 $specialPageAliases['cdo'] = array(
 	'DisableAccount' => array( '禁止賬戶' ),
+);
+
+/** Czech (čeština) */
+$specialPageAliases['cs'] = array(
+	'DisableAccount' => array( 'Deaktivovat_účet', 'Deaktivovat_ucet' ),
 );
 
 /** German (Deutsch) */
@@ -106,6 +111,11 @@ $specialPageAliases['kw'] = array(
 /** Luxembourgish (Lëtzebuergesch) */
 $specialPageAliases['lb'] = array(
 	'DisableAccount' => array( 'Benotzerkont_desaktivéieren' ),
+);
+
+/** Northern Luri (لۊری شومالی) */
+$specialPageAliases['lrc'] = array(
+	'DisableAccount' => array( 'ناکونئشتگأر_کئردئن_حئساڤ' ),
 );
 
 /** Macedonian (македонски) */

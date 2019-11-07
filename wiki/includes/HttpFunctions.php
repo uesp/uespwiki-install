@@ -46,7 +46,6 @@ class Http {
 	 *    - postData            An array of key-value pairs or a url-encoded form data
 	 *    - proxy               The proxy to use.
 	 *                          Otherwise it will use $wgHTTPProxy (if set)
-	 *                          Otherwise it will use the environment variable "http_proxy" (if set)
 	 *    - noProxy             Don't use any proxy at all. Takes precedence over proxy value(s).
 	 *    - sslVerifyHost       Verify hostname against certificate
 	 *    - sslVerifyCert       Verify SSL certificate
@@ -257,7 +256,7 @@ class MWHttpRequest {
 		$this->parsedUrl = wfParseUrl( $this->url );
 
 		if ( !$this->parsedUrl || !Http::isValidURI( $this->url ) ) {
-			$this->status = Status::newFatal( 'http-invalid-url' );
+			$this->status = Status::newFatal( 'http-invalid-url', $url );
 		} else {
 			$this->status = Status::newGood( 100 ); // continue
 		}
@@ -374,14 +373,12 @@ class MWHttpRequest {
 			return;
 		}
 
-		// Otherwise, fallback to $wgHTTPProxy/http_proxy (when set) if this is not a machine
+		// Otherwise, fallback to $wgHTTPProxy (when set) if this is not a machine
 		// local URL and proxies are not disabled
 		if ( Http::isLocalURL( $this->url ) || $this->noProxy ) {
 			$this->proxy = '';
 		} elseif ( $wgHTTPProxy ) {
 			$this->proxy = $wgHTTPProxy;
-		} elseif ( getenv( "http_proxy" ) ) {
-			$this->proxy = getenv( "http_proxy" );
 		}
 	}
 
@@ -812,14 +809,14 @@ class CurlHttpRequest extends MWHttpRequest {
 		}
 
 		if ( $this->followRedirects && $this->canFollowRedirects() ) {
-			wfSuppressWarnings();
+			MediaWiki\suppressWarnings();
 			if ( !curl_setopt( $curlHandle, CURLOPT_FOLLOWLOCATION, true ) ) {
 				wfDebug( __METHOD__ . ": Couldn't set CURLOPT_FOLLOWLOCATION. " .
 					"Probably safe_mode or open_basedir is set.\n" );
 				// Continue the processing. If it were in curl_setopt_array,
 				// processing would have halted on its entry
 			}
-			wfRestoreWarnings();
+			MediaWiki\restoreWarnings();
 		}
 
 		if ( $this->profiler ) {

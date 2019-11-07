@@ -52,6 +52,7 @@ class UespMonoBookTemplate extends MonoBookTemplate {
 				?>
 				<ul>
 					<?php
+					$isindent = false;
 					foreach ( $cont as $key => $val ) {
 						if (substr($val['text'],0,1)=='*') {
 							if (!$isindent)

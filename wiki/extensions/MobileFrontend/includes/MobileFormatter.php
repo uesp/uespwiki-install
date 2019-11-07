@@ -19,6 +19,9 @@ class MobileFormatter extends HtmlFormatter {
 	/** @var string $headingTransformEnd String prefixes to be
 		applied before and after section content. */
 	protected $headingTransformEnd = '<div>';
+	/** @var array $topHeadingTags Array of strings with possible tags,
+		can be recognized as top headings. */
+	public $topHeadingTags = array();
 
 	/**
 	 * Saves a Title Object
@@ -47,6 +50,8 @@ class MobileFormatter extends HtmlFormatter {
 		parent::__construct( $html );
 
 		$this->title = $title;
+		$this->topHeadingTags = MobileContext::singleton()
+			->getMFConfig()->get( 'MFMobileFormatterHeadings' );
 	}
 
 	/**
@@ -57,11 +62,11 @@ class MobileFormatter extends HtmlFormatter {
 	 *
 	 * @return MobileFormatter
 	 */
-	public static function newFromContext( $context, $html ) {
-		global $wgMFSpecialCaseMainPage;
+	public static function newFromContext( MobileContext $context, $html ) {
+		$mfSpecialCaseMainPage = $context->getMFConfig()->get( 'MFSpecialCaseMainPage' );
 
 		$title = $context->getTitle();
-		$isMainPage = $title->isMainPage() && $wgMFSpecialCaseMainPage;
+		$isMainPage = $title->isMainPage() && $mfSpecialCaseMainPage;
 		$isFilePage = $title->inNamespace( NS_FILE );
 		$isSpecialPage = $title->isSpecialPage();
 
@@ -100,11 +105,12 @@ class MobileFormatter extends HtmlFormatter {
 	 * @return array
 	 */
 	public function filterContent( $removeDefaults = true ) {
-		global $wgMFRemovableClasses;
+		$mfRemovableClasses = MobileContext::singleton()->getMFConfig()
+			->get( 'MFRemovableClasses' );
 
 		if ( $removeDefaults ) {
-			$this->remove( $wgMFRemovableClasses['base'] );
-			$this->remove( $wgMFRemovableClasses['HTML'] ); // @todo: Migrate this variable
+			$this->remove( $mfRemovableClasses['base'] );
+			$this->remove( $mfRemovableClasses['HTML'] ); // @todo: Migrate this variable
 		}
 
 		if ( $this->removeMedia ) {
@@ -286,7 +292,11 @@ class MobileFormatter extends HtmlFormatter {
 	 * @return string the tag name for the top level headings
 	 */
 	protected function findTopHeading( $html ) {
-		$tags = array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
+		$tags = $this->topHeadingTags;
+		if ( !is_array( $tags ) ) {
+			throw new UnexpectedValueException( 'Possible top headings needs to be an array of strings, ' .
+				gettype( $tags ) . ' given.' );
+		}
 		foreach ( $tags as $tag ) {
 			if ( strpos( $html, '<' . $tag ) !== false ) {
 				return $tag;

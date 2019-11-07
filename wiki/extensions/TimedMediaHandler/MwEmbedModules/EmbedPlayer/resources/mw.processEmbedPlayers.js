@@ -84,6 +84,12 @@ mw.processEmbedPlayers = function( playerSet, callback ) {
 
 			var playerInterface = new mw.EmbedPlayer( playerElement );
 			var inDomPlayer = swapEmbedPlayerElement( playerElement, playerInterface );
+
+			// IE/Edge with WebM components re-triggers autoplay after removal as well.
+			if( playerElement.pause ){
+				playerElement.pause();
+			}
+
 			// Trigger the EmbedPlayerNewPlayer for embedPlayer interface
 			mw.log("processEmbedPlayers::trigger:: EmbedPlayerNewPlayer " + inDomPlayer.id );
 
@@ -344,4 +350,4 @@ mw.processEmbedPlayers = function( playerSet, callback ) {
 	}
 };
 
-})( window.mw, jQuery );
+})( mw, jQuery );

@@ -1,18 +1,18 @@
 class ArticlePage
   include PageObject
 
-  include URL
-  page_url URL.url('<%=params[:article_name]%><%=params[:hash]%>')
+  page_url '<%=params[:article_name]%><%=params[:hash]%>'
 
   # UI elements
   a(:mainmenu_button, id: 'mw-mf-main-menu-button')
+  body(:is_authenticated, css: '.is-authenticated')
 
   # pre-content
   h1(:first_heading, id: 'section_0')
-  a(:edit_history_link, id: 'mw-mf-last-modified')
+  a(:edit_history_link, css: '#mw-mf-last-modified a')
 
   # left nav
-  div(:navigation, css: '#mw-mf-page-left')
+  nav(:navigation, css: 'nav')
   a(:about_link) { |page| page.navigation_element.link_element(text: /^About/) }
   a(:disclaimer_link) { |page| page.navigation_element.link_element(text: 'Disclaimers') }
 
@@ -27,6 +27,7 @@ class ArticlePage
   li(:upload_page_action, id: 'ca-upload')
 
   a(:edit_link, text: 'Edit')
+  div(:anon_editor_warning, css: '.anon-msg')
   div(:editor_overlay, class: 'editor-overlay')
   button(:editor_overlay_close_button) do |page|
     page.editor_overlay_element.button_element(css: '.back')
@@ -47,8 +48,8 @@ class ArticlePage
   end
 
   ## watch star
-  span(:watch_star, text: 'Watch this page')
-  span(:unwatch_star, text: 'Stop watching')
+  button(:watch_star, text: 'Watch this page')
+  button(:unwatch_star, text: 'Stop watching')
   button(:watch_confirm, class: 'mw-htmlform-submit')
 
   # search
@@ -57,6 +58,7 @@ class ArticlePage
   text_field(:search_box_placeholder, name: 'search', index: 0)
   text_field(:search_box2, name: 'search', index: 1)
   li(:search_results, css: '.search-overlay .page-list li')
+  div(:search_watchstars, css: '.search-overlay .page-list li .watch-this-article')
   div(:search_overlay, class: 'search-overlay')
   button(:search_overlay_close_button) do |page|
     page.search_overlay_element.button_element(class: 'cancel')
@@ -79,7 +81,7 @@ class ArticlePage
 
   # page-actions
   ul(:page_actions, id: 'page-actions')
-  a(:talk, css: '.mw-ui-icon-talk')
+  a(:talk, css: '.talk')
   a(:nearby_button, css: '#page-secondary-actions .nearby')
 
   # toc
@@ -127,8 +129,8 @@ class ArticlePage
   div(:toast, class: 'toast')
 
   # loader
-  div(:content_wrapper, id: 'content_wrapper')
-  div(:content, id: 'content')
+  div(:content_wrapper, id: 'content')
+  div(:content, id: 'bodyContent')
 
   # secondary menu
   ## languages
@@ -163,4 +165,7 @@ class ArticlePage
   # error and warning boxes
   div(:warning_box, css: '.warning')
   div(:error_message, css: '.error')
+
+  # talk overlay
+  a(:talkadd, css: '.add.continue')
 end

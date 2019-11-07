@@ -229,44 +229,23 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 
 			// Reset Memcache if this was a global rule
 			if ( $newRow['af_global'] ) {
-				global $wgMemc;
 				$group = 'default';
 				if ( isset( $newRow['af_group'] ) && $newRow['af_group'] != '' ) {
 					$group = $newRow['af_group'];
 				}
 
-				$memcacheRules = array();
-				$res = $dbw->select(
-					'abuse_filter',
-					'*',
-					array(
-						'af_enabled' => 1,
-						'af_deleted' => 0,
-						'af_global' => 1,
-						'af_group' => $group,
-					),
-					__METHOD__
-				);
-				foreach ( $res as $row ) {
-					$memcacheRules[] = $row;
-				}
-
-				$wgMemc->set( AbuseFilter::getGlobalRulesKey( $group ), $memcacheRules );
+				$globalRulesKey = AbuseFilter::getGlobalRulesKey( $group );
+				ObjectCache::getMainWANInstance()->touchCheckKey( $globalRulesKey );
 			}
 
 			// Logging
-
 			$lp = new LogPage( 'abusefilter' );
-
 			$lp->addEntry( 'modify', $this->getTitle( $new_id ), '', array( $history_id, $new_id ) );
 
-			// Special-case stuff for tags -- purge the tag list cache.
+			// Purge the tag list cache so the fetchAllTags hook applies tag changes
 			if ( isset( $actions['tag'] ) ) {
-				global $wgMemc;
-				$wgMemc->delete( wfMemcKey( 'valid-tags' ) );
+				ChangeTags::purgeTagCacheAll();
 			}
-
-			AbuseFilter::resetFilterProfile( $new_id );
 
 			$out->redirect(
 				$this->getTitle()->getLocalURL(
@@ -399,10 +378,9 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 
 			if ( $total > 0 ) {
 				$matches_percent = sprintf( '%.2f', 100 * $matches_count / $total );
-				list( $timeProfile, $condProfile ) = AbuseFilter::getFilterProfile( $filter );
 
 				$fields['abusefilter-edit-status-label'] = $this->msg( 'abusefilter-edit-status' )
-					->numParams( $total, $matches_count, $matches_percent, $timeProfile, $condProfile )
+					->numParams( $total, $matches_count, $matches_percent )
 					->escaped();
 			}
 		}

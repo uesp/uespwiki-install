@@ -2,7 +2,12 @@
 	global $wgVideoPlayerSkinModule;
 	// Register all the EmbedPlayer modules
 	return array(
-			"mw.MediaElement" => array( 'scripts' => 'resources/mw.MediaElement.js' ),
+			"mw.MediaElement" => array(
+				'scripts' => 'resources/mw.MediaElement.js',
+				'dependencies' => array(
+					'ext.tmh.OgvJsSupport',
+				)
+			),
 			"mw.MediaPlayer" => array( 'scripts' => 'resources/mw.MediaPlayer.js' ),
 			"mw.MediaPlayers" => array(
 				'scripts' => 'resources/mw.MediaPlayers.js',
@@ -34,6 +39,9 @@
 					// Browser fullscreen api support:
 					'fullScreenApi',
 
+					// Kinda need this
+					'mw.MwEmbedSupport',
+
 					// We always end up loading native player
 					'mw.EmbedPlayerNative',
 
@@ -62,7 +70,6 @@
 
 			"mw.EmbedPlayerKplayer"	=> array( 'scripts'=> "resources/mw.EmbedPlayerKplayer.js" ),
 			"mw.EmbedPlayerGeneric"	=> array( 'scripts'=> "resources/mw.EmbedPlayerGeneric.js" ),
-			"mw.EmbedPlayerJava" => array( 'scripts'=> "resources/mw.EmbedPlayerJava.js"),
 			"mw.EmbedPlayerNative"	=> array( 'scripts'=> "resources/mw.EmbedPlayerNative.js" ),
 			"mw.EmbedPlayerVLCApp"	=> array(
 				'scripts'=> "resources/mw.EmbedPlayerVLCApp.js",
@@ -71,6 +78,13 @@
 			"mw.EmbedPlayerIEWebMPrompt" => array(
 				'scripts' => 'resources/mw.EmbedPlayerIEWebMPrompt.js',
 				'styles' => 'resources/mw.EmbedPlayerIEWebMPrompt.css',
+			),
+			"mw.EmbedPlayerOgvJs" => array(
+				'scripts' => 'resources/mw.EmbedPlayerOgvJs.js',
+				'dependencies' => array(
+					'jquery.spinner',
+					'ext.tmh.OgvJsSupport',
+				),
 			),
 			"mw.EmbedPlayerImageOverlay" => array( 'scripts'=> "resources/mw.EmbedPlayerImageOverlay.js" ),
 

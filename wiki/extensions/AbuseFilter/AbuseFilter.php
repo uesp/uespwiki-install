@@ -26,11 +26,11 @@ $wgExtensionCredits['antispam'][] = array(
 
 $dir = __DIR__;
 $wgMessagesDirs['AbuseFilter'] = "$dir/i18n";
-$wgExtensionMessagesFiles['AbuseFilter'] = "$dir/AbuseFilter.i18n.php";
 $wgExtensionMessagesFiles['AbuseFilterAliases'] = "$dir/AbuseFilter.alias.php";
 
 $wgAutoloadClasses['AbuseFilter'] = "$dir/AbuseFilter.class.php";
 $wgAutoloadClasses['AbuseFilterParser'] = "$dir/AbuseFilter.parser.php";
+$wgAutoloadClasses['AbuseFilterTokenizer'] = "$dir/AbuseFilterTokenizer.php";
 $wgAutoloadClasses['AbuseFilterHooks'] = "$dir/AbuseFilter.hooks.php";
 $wgAutoloadClasses['SpecialAbuseLog'] = "$dir/special/SpecialAbuseLog.php";
 $wgAutoloadClasses['AbuseLogPager'] = "$dir/special/SpecialAbuseLog.php";
@@ -65,8 +65,6 @@ $wgAutoloadClasses['AFPUserVisibleException'] = "$dir/AbuseFilter.parser.php";
 
 $wgSpecialPages['AbuseLog'] = 'SpecialAbuseLog';
 $wgSpecialPages['AbuseFilter'] = 'SpecialAbuseFilter';
-$wgSpecialPageGroups['AbuseLog'] = 'changes';
-$wgSpecialPageGroups['AbuseFilter'] = 'wiki';
 
 $wgAutoloadClasses['ApiQueryAbuseLog'] = "$dir/api/ApiQueryAbuseLog.php";
 $wgAPIListModules['abuselog'] = 'ApiQueryAbuseLog';
@@ -133,6 +131,7 @@ $commonModuleInfo = array(
 );
 
 $wgResourceModules['ext.abuseFilter'] = array(
+	'position' => 'top',
 	'styles' => 'ext.abuseFilter.css',
 ) + $commonModuleInfo;
 

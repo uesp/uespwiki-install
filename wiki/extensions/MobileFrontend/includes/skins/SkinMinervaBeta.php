@@ -9,7 +9,7 @@
 class SkinMinervaBeta extends SkinMinerva {
 	/** @var string $template Name of this template */
 	public $template = 'MinervaTemplateBeta';
-	/** @var string $mode Describes 'stability' of the skin - alpha, beta, stable */
+	/** @var string $mode Describes 'stability' of the skin - beta, stable */
 	protected $mode = 'beta';
 
 	/** @inheritdoc **/
@@ -29,6 +29,7 @@ class SkinMinervaBeta extends SkinMinerva {
 	public function getSkinConfigVariables() {
 		$vars = parent::getSkinConfigVariables();
 		$vars['wgMFDescription'] = $this->getOutput()->getProperty( 'wgMFDescription' );
+		$vars['wgMFImagesCategory'] = $this->getOutput()->getProperty( 'wgMFImagesCategory' );
 
 		return $vars;
 	}
@@ -41,29 +42,21 @@ class SkinMinervaBeta extends SkinMinerva {
 		if ( !$out ) {
 			$out = $this->getOutput();
 		}
-		# Replace page content before DOMParse to make sure images are scrubbed
-		# and Zero transformations are applied.
-		$this->handleNewPages( $out );
 		parent::outputPage( $out );
 	}
 
 	/**
-	 * Returns true, if the page can have a talk page.
-	 * @return boolean
+	 * Returns an array with details for a talk button.
+	 * @param Title $talkTitle Title object of the talk page
+	 * @param array $talkButton Array with data of desktop talk button
+	 * @return array
 	 */
-	protected function isTalkAllowed() {
-		$title = $this->getTitle();
-		return $this->isAllowedPageAction( 'talk' ) &&
-			!$title->isTalkPage() &&
-			$title->canTalk();
-	}
+	protected function getTalkButton( $talkTitle, $talkButton ) {
+		$button = parent::getTalkButton( $talkTitle, $talkButton );
+		// use a button with icon in beta
+		$button['attributes']['class'] = MobileUI::iconClass( 'talk', 'before', 'talk icon-32px' );
 
-	/**
-	 * Returns true, if the talk page of this page is wikitext-based.
-	 * @return boolean
-	 */
-	protected function isWikiTextTalkPage() {
-		return $this->getTitle()->getTalkPage()->getContentModel() === CONTENT_MODEL_WIKITEXT;
+		return $button;
 	}
 
 	/**
@@ -72,12 +65,8 @@ class SkinMinervaBeta extends SkinMinerva {
 	 */
 	public function getContextSpecificModules() {
 		$modules = parent::getContextSpecificModules();
-		$title = $this->getTitle();
-		if (
-			( $this->isTalkAllowed() || $title->isTalkPage() ) &&
-			$this->isWikiTextTalkPage()
-		) {
-			$modules[] = 'mobile.talk';
+		if ( $this->getCategoryLinks( false ) ) {
+			$modules[] = 'skins.minerva.categories';
 		}
 
 		return $modules;
@@ -89,7 +78,15 @@ class SkinMinervaBeta extends SkinMinerva {
 	 */
 	public function getDefaultModules() {
 		$modules = parent::getDefaultModules();
-		$modules['beta'] = array( 'skins.minerva.beta.scripts' );
+		$modules['beta'] = array(
+			'skins.minerva.beta.scripts',
+		);
+		// Only load the banner experiment if WikidataPageBanner is not installed
+		// & experiment is enabled
+		if ( $this->getMFConfig()->get( 'MFIsBannerEnabled' )
+			&& !ExtensionRegistry::getInstance()->isLoaded( 'WikidataPageBanner' ) ) {
+			$modules['beta'][] = 'skins.minerva.beta.banner.scripts';
+		}
 		Hooks::run( 'SkinMinervaDefaultModules', array( $this, &$modules ) );
 
 		// Disable CentralNotice modules in beta
@@ -121,7 +118,7 @@ class SkinMinervaBeta extends SkinMinerva {
 			$buttons['talk'] = array(
 				'attributes' => array(
 					'href' => $talkTitle->getLinkURL(),
-					'class' =>  MobileUI::iconClass( 'talk', 'before', 'talk icon-32px' ),
+					'class' =>  MobileUI::iconClass( 'talk', 'before', 'talk' ),
 					'data-title' => $talkTitle->getFullText(),
 				),
 				'label' => $talkButton,
@@ -137,53 +134,41 @@ class SkinMinervaBeta extends SkinMinerva {
 	 */
 	protected function getSkinStyles() {
 		$styles = parent::getSkinStyles();
-		$styles[] = 'mediawiki.ui.icon';
-		$styles[] = 'skins.minerva.icons.styles';
-		$styles[] = 'skins.minerva.icons.images';
-		$styles[] = 'skins.minerva.beta.styles';
 		$styles[] = 'skins.minerva.beta.images';
+		if ( $this->getTitle()->isMainPage() ) {
+			$styles[] = 'skins.minerva.mainPage.beta.styles';
+		}
 
 		return $styles;
 	}
 
 	/**
-	 * Handles new pages to show error message and print message, that page does not exist.
-	 * @param OutputPage $out
+	 * @return html for a message to display at top of old revisions
 	 */
-	protected function handleNewPages( OutputPage $out ) {
-		# Show error message
+	protected function getOldRevisionHtml() {
+		$viewSourceLink = Html::openElement( 'p' ) .
+				Html::element( 'a', array( 'href' => '#editor/0' ),
+					$this->msg( 'mobile-frontend-view-source' )->text() ) .
+				Html::closeElement( 'p' );
+		return $viewSourceLink . parent::getOldRevisionHtml();
+	}
+
+	/** @inheritdoc */
+	protected function preparePageContent( QuickTemplate $tpl ) {
+		parent::preparePageContent( $tpl );
+
 		$title = $this->getTitle();
-		if ( !$title->exists()
-			&& !$title->isSpecialPage()
-			&& $title->userCan( 'create', $this->getUser() )
-			&& $title->getNamespace() !== NS_FILE
-		) {
-			$out->clearHTML();
-			$out->addHTML(
-				Html::openElement( 'div', array( 'id' => 'mw-mf-newpage' ) )
-				. wfMessage( 'mobile-frontend-editor-newpage-prompt' )->parse()
-				. Html::closeElement( 'div' )
-			);
+
+		if ( !$title ) {
+			return;
 		}
 	}
 
 	/**
-	 * Prepare warnings for mobile devices
-	 * @param BaseTemplate $tpl
+	 * If the user is in beta mode, we assume, he is an experienced
+	 * user (he/she found the "beta" switch ;))
 	 */
-	protected function prepareWarnings( BaseTemplate $tpl ) {
-		parent::prepareWarnings( $tpl );
-		$out = $this->getOutput();
-		if ( $out->getRequest()->getText( 'oldid' ) ) {
-			$subtitle = $out->getSubtitle();
-			$tpl->set( '_old_revision_warning',
-				Html::openElement( 'div', array( 'class' => 'alert warning' ) ) .
-				Html::openElement( 'p', array() ).
-					Html::element( 'a', array( 'href' => '#editor/0' ),
-					$this->msg( 'mobile-frontend-view-source' )->text() ) .
-				Html::closeElement( 'p' ) .
-				$subtitle .
-				Html::closeElement( 'div' ) );
-		}
+	protected function isExperiencedUser() {
+		return true;
 	}
 }

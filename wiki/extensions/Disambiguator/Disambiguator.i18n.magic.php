@@ -18,9 +18,14 @@ $magicWords['ar'] = array(
 	'disambiguation' => array( '__توضيح__' ),
 );
 
-/** Egyptian Spoken Arabic (مصرى) */
+/** Egyptian Arabic (مصرى) */
 $magicWords['arz'] = array(
 	'disambiguation' => array( '__توضيح__' ),
+);
+
+/** Chuvash (Чӑвашла) */
+$magicWords['cv'] = array(
+	'disambiguation' => array( '__DISAMBIG__' ),
 );
 
 /** German (Deutsch) */

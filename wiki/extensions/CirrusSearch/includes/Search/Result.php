@@ -2,12 +2,13 @@
 
 namespace CirrusSearch\Search;
 
-use \CirrusSearch\InterwikiSearcher;
-use \CirrusSearch\Util;
-use \CirrusSearch\Searcher;
-use \MWTimestamp;
-use \SearchResult;
-use \Title;
+use CirrusSearch\InterwikiSearcher;
+use CirrusSearch\Util;
+use CirrusSearch\Searcher;
+use MediaWiki\Logger\LoggerFactory;
+use MWTimestamp;
+use SearchResult;
+use Title;
 
 /**
  * An individual search result from Elasticsearch.
@@ -183,10 +184,13 @@ class Result extends SearchResult {
 			}
 		}
 		if ( $best === null ) {
-			wfLogWarning( "Search backend highlighted a redirect ($title) but didn't return it." );
+			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
+				"Search backend highlighted a redirect ({title}) but didn't return it.",
+				array( 'title' => $title )
+			);
 			return null;
 		}
-		return Title::makeTitleSafe( $best[ 'namespace' ], $best[ 'title' ] );
+		return Title::makeTitleSafe( $best[ 'namespace' ], $best[ 'title' ], '', $this->interwiki );
 	}
 
 	private function findSectionTitle() {

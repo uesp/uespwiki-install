@@ -29,35 +29,30 @@ class SpecialNearby extends MobileSpecialPage {
 
 		// set config
 		$output->addJsConfigVars( 'wgMFNearbyRange', $this->getMFConfig()->get( 'MFNearbyRange' ) );
-		// Only the Minerva skin loads this module so make sure we load it for desktop
-		$output->addModuleStyles( 'mobile.pagelist.styles' );
-
 		$output->setPageTitle( wfMessage( 'mobile-frontend-nearby-title' )->escaped() );
 
 		$html =
 			Html::openElement( 'div',
 				array(
+					'class' => 'content-unstyled',
 					'id' => 'mw-mf-nearby',
 				)
 			) .
-			Html::openElement( 'div',
-				array(
-					'class' => 'noscript errorbox',
-				)
+			MobileUI::contentElement(
+				MobileUI::errorBox(
+					Html::element( 'h2', array(),
+						wfMessage( 'mobile-frontend-nearby-requirements' ) ) .
+					Html::element( 'p', array(),
+						wfMessage( 'mobile-frontend-nearby-requirements-guidance' ) )
+				),
+				'noscript'
 			) .
-			Html::openElement( 'div',
-				array(
-					'class' => 'content',
-				)
-			) .
-			Html::element( 'h2', array(),
-				wfMessage( 'mobile-frontend-nearby-requirements' ) ) .
-			Html::element( 'p', array(),
-				wfMessage( 'mobile-frontend-nearby-requirements-guidance' ) ) .
-			Html::closeElement( 'div' ) . // .content
-			Html::closeElement( 'div' ) . // .noscript
 			Html::closeElement( 'div' ); // #mw-mf-nearby
 
 		$output->addHTML( $html );
+	}
+
+	protected function getGroupName() {
+		return 'pages';
 	}
 }

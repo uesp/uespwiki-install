@@ -1,16 +1,17 @@
 <?php
-
 namespace CirrusSearch\Maintenance;
-
+use CirrusSearch\Connection;
+use CirrusSearch\DataSender;
 use CirrusSearch\ElasticsearchIntermediary;
 use CirrusSearch\Util;
 use Elastica\Document;
 use Elastica\Exception\Connection\HttpException;
 use Elastica\Exception\ExceptionInterface;
-use Elastica\Filter\Script;
 use Elastica\Index;
 use Elastica\Query;
 use Elastica\Type;
+use ForkController;
+use MediaWiki\Logger\LoggerFactory;
 
 /**
  * This program is free software; you can redistribute it and/or modify
@@ -30,12 +31,9 @@ use Elastica\Type;
  */
 class Reindexer {
 	/**
-	 * This one's public because it's used in a Closure, where $this is passed
-	 * in as $self (because PHP<5.4 doesn't properly support $this in closures)
-	 *
 	 * @var Index
 	 */
-	public $index;
+	private $index;
 
 	/**
 	 * @var \Elastica\Client
@@ -130,6 +128,8 @@ class Reindexer {
 	 * @param float $acceptableCountDeviation
 	 */
 	public function reindex( $processes = 1, $refreshInterval = 1, $retryAttempts = 5, $chunkSize = 100, $acceptableCountDeviation = .05 ) {
+		global $wgCirrusSearchWikimediaExtraPlugin;
+
 		// Set some settings that should help io load during bulk indexing.  We'll have to
 		// optimize after this to consolidate down to a proper number of shards but that is
 		// is worth the price.  total_shards_per_node will help to make sure that each shard
@@ -143,10 +143,20 @@ class Reindexer {
 			'routing.allocation.total_shards_per_node' => $maxShardsPerNode,
 		) );
 
+		$sender = new DataSender( $this->connection );
+		$frozenIndexes = $conn->indexToIndexTypes( $this->types );
+		$sender->freezeIndexes( $frozenIndexes );
 		if ( $processes > 1 ) {
-			$fork = new ReindexForkController( $processes );
+			if ( !isset( $wgCirrusSearchWikimediaExtraPlugin[ 'id_hash_mod_filter' ] ) ||
+					!$wgCirrusSearchWikimediaExtraPlugin[ 'id_hash_mod_filter' ] ) {
+				$this->error( "Can't use multiple processes without \$wgCirrusSearchWikimediaExtraPlugin[ 'id_hash_mod_filter' ] = true", 1 );
+			}
+
+			$fork = new ForkController( $processes );
 			$forkResult = $fork->start();
-			// Forking clears the timeout so we have to reinstate it.
+			// we don't want to share sockets between forks, so destroy the client.
+			$this->connection->destroyClient();
+			// destroying the client resets the timeout so we have to reinstate it.
 			$this->setConnectionTimeout();
 
 			switch ( $forkResult ) {
@@ -191,6 +201,7 @@ class Reindexer {
 			'refresh_interval' => $refreshInterval . 's',
 			'merge.policy' => $this->mergeSettings,
 		) );
+		$sender->thawIndexes( $frozenIndexes );
 	}
 
 	public function optimize() {
@@ -259,17 +270,14 @@ class Reindexer {
 			$messagePrefix = "\t\t[$childNumber] ";
 			$this->outputIndented( $messagePrefix . "Starting child process reindex\n" );
 			// Note that it is not ok to abs(_uid.hashCode) because hashCode(Integer.MIN_VALUE) == Integer.MIN_VALUE
-			$filter = new Script( array(
-				'script' => "(doc['_uid'].value.hashCode() & Integer.MAX_VALUE) % $children == $childNumber",
-				'lang' => 'groovy'
-			) );
+			$filter = new \CirrusSearch\Extra\Filter\IdHashMod( $children, $childNumber );
 		}
 		$properties = $this->mappingConfig[$oldType->getName()]['properties'];
 		try {
 			$query = new Query();
 			$query->setFields( array( '_id', '_source' ) );
 			if ( $filter ) {
-				$query->setFilter( $filter );
+				$query->setQuery( new \Elastica\Query\Filtered( new \Elastica\Query\MatchAll(), $filter ) );
 			}
 
 			// Note here we dump from the current index (using the alias) so we can use Connection::getPageType
@@ -285,48 +293,56 @@ class Reindexer {
 			$operationStartTime = microtime( true );
 			$completed = 0;
 			$self = $this;
-			while ( true ) {
-				$result = $this->withRetry( $retryAttempts, $messagePrefix, 'fetching documents to reindex',
-					function() use ( $self, $result ) {
-						return $self->index->search( array(), array(
-							'scroll_id' => $result->getResponse()->getScrollId(),
-							'scroll' => '1h'
-						) );
-					} );
-				if ( !$result->count() ) {
-					$this->outputIndented( $messagePrefix . "All done\n" );
-					break;
-				}
-				$documents = array();
-				while ( $result->current() ) {
-					// Build the new document to just contain keys which have a mapping in the new properties.  To clean
-					// out any old fields that we no longer use.
-					$data = Util::cleanUnusedFields( $result->current()->getSource(), $properties );
-					$document = new Document( $result->current()->getId(), $data );
+			Util::iterateOverScroll( $this->index, $result->getResponse()->getScrollId(), '1h',
+				function( $results ) use ( $properties, $retryAttempts, $messagePrefix, $self, $type,
+						&$completed, $totalDocsToReindex, $operationStartTime ) {
+					$documents = array();
+					foreach( $results as $result ) {
+						$documents[] = $self->buildNewDocument( $result, $properties );
+					}
+					$self->withRetry( $retryAttempts, $messagePrefix, 'retrying as singles',
+						function() use ( $self, $type, $messagePrefix, $documents ) {
+							$self->sendDocuments( $type, $messagePrefix, $documents );
+						} );
+					$completed += sizeof( $results );
+					$rate = round( $completed / ( microtime( true ) - $operationStartTime ) );
+					$this->outputIndented( $messagePrefix .
+						"Reindexed $completed/$totalDocsToReindex documents at $rate/second\n");
+				}, 0, $retryAttempts,
+				function( $e, $errors ) use ( $self, $messagePrefix ) {
+					$self->sleepOnRetry( $e, $errors, $messagePrefix, 'fetching documents to reindex' );
+				} );
 
-					// Note that while setting the opType to create might improve performance slightly it can cause
-					// trouble if the scroll returns the same id twice.  It can do that if the document is updated
-					// during the scroll process.  I'm unclear on if it will always do that, so you still have to
-					// perform the date based catch up after the reindex.
-					$documents[] = $document;
-					$result->next();
-				}
-				$this->withRetry( $retryAttempts, $messagePrefix, 'retrying as singles',
-					function() use ( $self, $type, $messagePrefix, $documents ) {
-						$self->sendDocuments( $type, $messagePrefix, $documents );
-					} );
-				$completed += $result->count();
-				$rate = round( $completed / ( microtime( true ) - $operationStartTime ) );
-				$this->outputIndented( $messagePrefix .
-					"Reindexed $completed/$totalDocsToReindex documents at $rate/second\n");
-			}
+			$this->outputIndented( $messagePrefix . "All done\n" );
 		} catch ( ExceptionInterface $e ) {
 			// Note that we can't fail the master here, we have to check how many documents are in the new index in the master.
 			$type = get_class( $e );
 			$message = ElasticsearchIntermediary::extractMessage( $e );
-			wfLogWarning( "Search backend error during reindex.  Error type is '$type' and message is:  $message" );
+			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
+				"Search backend error during reindex.  Error type is '{type}' and message is:  {message}",
+				array( 'type' => $type, 'message' => $message )
+			);
 			die( 1 );
 		}
+	}
+
+	/**
+	 * Build the new document to just contain keys which have a mapping in the new properties.  To clean
+	 * out any old fields that we no longer use.
+	 * @param array() $result original document retrieved from a search
+	 * @param array() $properties mapping properties
+	 * @return Document
+	 */
+	public function buildNewDocument( $result, $properties ) {
+		// Build the new document to just contain keys which have a mapping in the new properties.  To clean
+		// out any old fields that we no longer use.
+		$data = Util::cleanUnusedFields( $result->getSource(), $properties );
+
+		// Note that while setting the opType to create might improve performance slightly it can cause
+		// trouble if the scroll returns the same id twice.  It can do that if the document is updated
+		// during the scroll process.  I'm unclear on if it will always do that, so you still have to
+		// perform the date based catch up after the reindex.
+		return new Document( $result->getId(), $data );
 	}
 
 	private function getHealth() {
@@ -362,27 +378,28 @@ class Reindexer {
 	 * @param callable $func
 	 * @return mixed
 	 */
-	private function withRetry( $attempts, $messagePrefix, $description, $func ) {
-		$errors = 0;
-		while ( true ) {
-			if ( $errors < $attempts ) {
-				try {
-					return $func();
-				} catch ( ExceptionInterface $e ) {
-					$errors += 1;
-					// Random backoff with lowest possible upper bound as 16 seconds.
-					// With the default maximum number of errors (5) this maxes out at 256 seconds.
-					$seconds = rand( 1, pow( 2, 3 + $errors ) );
-					$type = get_class( $e );
-					$message = ElasticsearchIntermediary::extractMessage( $e );
-					$this->outputIndented( $messagePrefix . "Caught an error $description.  " .
-						"Backing off for $seconds and retrying.  Error type is '$type' and message is:  $message\n" );
-					sleep( $seconds );
-				}
-			} else {
-				return $func();
-			}
-		}
+	public function withRetry( $attempts, $messagePrefix, $description, $func) {
+		$self = $this;
+		return Util::withRetry ( $attempts, $func,
+			function( $e, $errors ) use ( $self, $messagePrefix, $description ) {
+				$self->sleepOnRetry( $e, $errors, $messagePrefix, $description );
+			} );
+	}
+
+	/**
+	 * @param \Exception $e exception caught
+	 * @param int $errors number of errors
+	 * @param Maintenance $out
+	 * @param string $messagePrefix
+	 * @param string $description
+	 */
+	public function sleepOnRetry(\Exception $e, $errors, $messagePrefix, $description ) {
+		$type = get_class( $e );
+		$seconds = Util::backoffDelay( $errors );
+		$message = ElasticsearchIntermediary::extractMessage( $e );
+		$this->outputIndented( $messagePrefix . "Caught an error $description.  " .
+			"Backing off for $seconds and retrying.  Error type is '$type' and message is:  $message\n" );
+		sleep( $seconds );
 	}
 
 	/**
@@ -403,7 +420,7 @@ class Reindexer {
 	}
 
 	private function setConnectionTimeout() {
-		$this->connection->setTimeout2( $this->connectionTimeout );
+		$this->connection->setTimeout( $this->connectionTimeout );
 	}
 
 	private function destroySingleton() {

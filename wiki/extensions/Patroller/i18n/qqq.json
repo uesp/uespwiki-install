@@ -1,0 +1,36 @@
+{
+	"@metadata": {
+		"authors": [
+			"Aotake",
+			"EugeneZelenko",
+			"Ferrer",
+			"Jon Harald Søby",
+			"Purodha",
+			"The Evil IP address",
+			"Umherirrender",
+			"아라"
+		]
+	},
+	"patrol-desc": "{{desc|what=extension|name=Patroller|url=https://www.mediawiki.org/wiki/Extension:Patroller}}",
+	"patrol-endorse": "{{Identical|Endorse}}",
+	"patrol-revert": "{{Identical|Revert}}",
+	"patrol-revert-reason": "{{Identical|Reason}}",
+	"patrol-skip": "{{Identical|Skip}}",
+	"patrol-reverting": "{{Identical|Revert}}",
+	"patrol-nonefound": "This message is for saying it could not find an appropriate edit for patrolling.",
+	"patrol-endorsed-ok": "{{Identical|Endorse}}",
+	"patrol-endorsed-failed": "{{Identical|Endorse}}",
+	"patrol-reverted-ok": "{{Identical|Revert}}",
+	"patrol-reverted-failed": "{{Identical|Revert}}",
+	"patrol-skipped-ok": "{{Identical|Skipped}}",
+	"patrol-reasons": "{{Identical|Reason}}",
+	"patrol-another": "{{Identical|Another}}",
+	"patrol-stopped": "{{Identical|Stopped}}",
+	"patrol-resume": "{{Identical|Resume}}",
+	"group-patroller": "{{doc-group|patroller}}",
+	"group-patroller-member": "{{doc-group|patroller|member}}",
+	"grouppage-patroller": "{{doc-group|patroller|page}}",
+	"right-patroller": "{{doc-right|patroller}}",
+	"group-patroller.css": "{{doc-group|patroller}}",
+	"group-patroller.js": "{{doc-group|patroller}}"
+}

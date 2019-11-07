@@ -9,7 +9,7 @@
 class MobileContext extends ContextSource {
 	const USEFORMAT_COOKIE_NAME = 'mf_useformat';
 	/**
-	 * Saves the testing mode user has opted in: 'alpha', 'beta' or 'stable'
+	 * Saves the testing mode user has opted in: 'beta' or 'stable'
 	 * @var string $mobileMode
 	 */
 	protected $mobileMode;
@@ -82,6 +82,14 @@ class MobileContext extends ContextSource {
 	 * @var Config MobileFrontend's config object
 	 */
 	private $configObj;
+	/**
+	 * @var String Domain to use for the stopMobileRedirect cookie
+	 */
+	public static $mfStopRedirectCookieHost = null;
+	/**
+	 * @var String Stores the actual mobile url template.
+	 */
+	private $mobileUrlTemplate = false;
 
 	/**
 	 * Returns the actual MobileContext Instance or create a new if no exists
@@ -273,10 +281,10 @@ class MobileContext extends ContextSource {
 	}
 
 	/**
-	 * Returns the testing mode user has opted in: 'alpha', 'beta' or any other value for stable
+	 * Returns the testing mode user has opted in: 'beta' or any other value for stable
 	 * @return string
 	 */
-	protected function getMobileMode() {
+	public function getMobileMode() {
 		$enableBeta = $this->getMFConfig()->get( 'MFEnableBeta' );
 
 		if ( !$enableBeta ) {
@@ -284,7 +292,7 @@ class MobileContext extends ContextSource {
 		}
 		if ( is_null( $this->mobileMode ) ) {
 			$mobileAction = $this->getMobileAction();
-			if ( $mobileAction === 'alpha' || $mobileAction === 'beta' || $mobileAction === 'stable' ) {
+			if ( $mobileAction === 'beta' || $mobileAction === 'stable' ) {
 				$this->mobileMode = $mobileAction;
 			} else {
 				$req = $this->getRequest();
@@ -299,19 +307,12 @@ class MobileContext extends ContextSource {
 	 * @param string $mode Mode to set
 	 */
 	public function setMobileMode( $mode ) {
-		if ( $mode !== 'alpha' && $mode !== 'beta' ) {
+		if ( $mode !== 'beta' ) {
 			$mode = '';
 		}
 		// Update statistics
-		if ( $mode === 'alpha' && !is_null( $this->mobileMode ) ) {
-			wfIncrStats( 'mobile.alpha.opt_in_cookie_set' );
-		}
 		if ( $mode === 'beta' ) {
-			if ( $this->mobileMode === 'alpha' ) {
-				wfIncrStats( 'mobile.alpha.opt_in_cookie_unset' );
-			} else {
-				wfIncrStats( 'mobile.opt_in_cookie_set' );
-			}
+			wfIncrStats( 'mobile.opt_in_cookie_set' );
 		}
 		if ( !$mode ) {
 			wfIncrStats( 'mobile.opt_in_cookie_unset' );
@@ -329,20 +330,11 @@ class MobileContext extends ContextSource {
 	}
 
 	/**
-	 * Wether user is Alpha group member
-	 * @return boolean
-	 */
-	public function isAlphaGroupMember() {
-		return $this->getMobileMode() === 'alpha';
-	}
-
-	/**
 	 * Wether user is Beta group member
 	 * @return boolean
 	 */
 	public function isBetaGroupMember() {
-		$mode = $this->getMobileMode();
-		return $mode === 'beta' || $mode === 'alpha';
+		return $this->getMobileMode() === 'beta';
 	}
 
 	/**
@@ -400,9 +392,6 @@ class MobileContext extends ContextSource {
 	 * @return bool
 	 */
 	private function shouldDisplayMobileViewInternal() {
-		$config = $this->getMFConfig();
-		$mobileHeader = $config->get( 'MFMobileHeader' );
-
 		// May be overridden programmatically
 		if ( $this->forceMobileView ) {
 			return true;
@@ -417,18 +406,12 @@ class MobileContext extends ContextSource {
 		}
 
 		/**
-		 * If a mobile-domain is specified by the $wgMobileUrlTemplate and
-		 * there's a mobile header, then we assume the user is accessing
-		 * the site from the mobile-specific domain (because why would the
-		 * desktop site set the header?). If a user is accessing the
-		 * site from a mobile domain, then we should always display the mobile
-		 * version of the site (otherwise, the cache may get polluted). See
+		 * If a user is accessing the site from a mobile domain, then we should
+		 * always display the mobile version of the site (otherwise, the cache
+		 * may get polluted). See
 		 * https://bugzilla.wikimedia.org/show_bug.cgi?id=46473
 		 */
-		if ( $config->get( 'MobileUrlTemplate' )
-			&& $mobileHeader
-			&& $this->getRequest()->getHeader( $mobileHeader ) !== false )
-		{
+		if ( $this->usingMobileDomain() ) {
 			return true;
 		}
 
@@ -621,13 +604,15 @@ class MobileContext extends ContextSource {
 	 * @return string
 	 */
 	public function getStopMobileRedirectCookieDomain() {
-		global $wgMFStopRedirectCookieHost;
+		$mfStopRedirectCookieHost = $this->getMFConfig()->get( 'MFStopRedirectCookieHost' );
 
-		if ( !$wgMFStopRedirectCookieHost ) {
-			$wgMFStopRedirectCookieHost = $this->getBaseDomain();
+		if ( !$mfStopRedirectCookieHost ) {
+			self::$mfStopRedirectCookieHost = $this->getBaseDomain();
+		} else {
+			self::$mfStopRedirectCookieHost = $mfStopRedirectCookieHost;
 		}
 
-		return $wgMFStopRedirectCookieHost;
+		return self::$mfStopRedirectCookieHost;
 	}
 
 	/**
@@ -721,6 +706,17 @@ class MobileContext extends ContextSource {
 	}
 
 	/**
+	 * Get the template for mobile URLs.
+	 * @see $wgMobileUrlTemplate
+	 */
+	public function getMobileUrlTemplate() {
+		if ( !$this->mobileUrlTemplate ) {
+			$this->mobileUrlTemplate = $this->getMFConfig()->get( 'MobileUrlTemplate' );
+		}
+		return $this->mobileUrlTemplate;
+	}
+
+	/**
 	 * Take a URL and return a copy that conforms to the mobile URL template
 	 * @param string $url
 	 * @param bool $forceHttps
@@ -732,19 +728,27 @@ class MobileContext extends ContextSource {
 			$subdomainTokenReplacement = null;
 			if ( Hooks::run( 'GetMobileUrl', array( &$subdomainTokenReplacement, $this ) ) ) {
 				if ( !empty( $subdomainTokenReplacement ) ) {
-					global $wgMobileUrlTemplate;
 					$mobileUrlHostTemplate = $this->parseMobileUrlTemplate( 'host' );
 					$mobileToken = $this->getMobileHostToken( $mobileUrlHostTemplate );
-					$wgMobileUrlTemplate = str_replace(
+					$this->mobileUrlTemplate = str_replace(
 						$mobileToken,
 						$subdomainTokenReplacement,
-						$wgMobileUrlTemplate
+						$this->getMobileUrlTemplate()
 					);
 				}
 			}
 		}
 
 		$parsedUrl = wfParseUrl( $url );
+		// if parsing failed, maybe it's a local Url, try to expand and reparse it - task T107505
+		if ( !$parsedUrl ) {
+			$expandedUrl = wfExpandUrl( $url );
+			// if Url could not be expanded or parsed, return false, instead of an empty string
+			if ( !$expandedUrl || !$parsedUrl = wfParseUrl( $expandedUrl ) ) {
+				return false;
+			}
+		}
+
 		$this->updateMobileUrlHost( $parsedUrl );
 		if ( $forceHttps ) {
 			$parsedUrl['scheme'] = 'https';
@@ -753,6 +757,22 @@ class MobileContext extends ContextSource {
 
 		$assembleUrl = wfAssembleUrl( $parsedUrl );
 		return $assembleUrl;
+	}
+
+	/**
+	 * If a mobile-domain is specified by the $wgMobileUrlTemplate and
+	 * there's a mobile header, then we assume the user is accessing
+	 * the site from the mobile-specific domain (because why would the
+	 * desktop site set the header?).
+	 * @return bool
+	 */
+	public function usingMobileDomain() {
+		$config = $this->getMFConfig();
+		$mobileHeader = $config->get( 'MFMobileHeader' );
+		return ( $config->get( 'MobileUrlTemplate' )
+			&& $mobileHeader
+			&& $this->getRequest()->getHeader( $mobileHeader ) !== false
+		);
 	}
 
 	/**
@@ -877,7 +897,7 @@ class MobileContext extends ContextSource {
 	 * @return mixed
 	 */
 	public function parseMobileUrlTemplate( $part = null ) {
-		$mobileUrlTemplate = $this->getMFConfig()->get( 'MobileUrlTemplate' );
+		$mobileUrlTemplate = $this->getMobileUrlTemplate();
 
 		$pathStartPos = strpos( $mobileUrlTemplate, '/' );
 
@@ -915,7 +935,7 @@ class MobileContext extends ContextSource {
 	 */
 	public function toggleView( $view ) {
 		$this->viewChange = $view;
-		if ( !strlen( trim( $this->getMFConfig()->get( 'MobileUrlTemplate' ) ) ) ) {
+		if ( !strlen( trim( $this->getMobileUrlTemplate() ) ) ) {
 			$this->setUseFormat( $view );
 		}
 	}
@@ -924,7 +944,7 @@ class MobileContext extends ContextSource {
 	 * Performs view change as requested vy toggleView()
 	 */
 	public function doToggling() {
-		$mobileUrlTemplate = $this->getMFConfig()->get( 'MobileUrlTemplate' );
+		$mobileUrlTemplate = $this->getMobileUrlTemplate();
 
 		if ( !$this->viewChange ) {
 			return;
@@ -1046,18 +1066,16 @@ class MobileContext extends ContextSource {
 	 */
 	public function addAnalyticsLogItemFromXAnalytics( $xanalytics_item ) {
 		list( $key, $val ) = explode( '=', $xanalytics_item, 2 );
-		$this->addAnalyticsLogItem( urldecode( $key ), urldecode( $val ));
+		$this->addAnalyticsLogItem( urldecode( $key ), urldecode( $val ) );
 	}
 
 	/**
-	 * Adds analytics log items if the user is in alpha or beta mode
+	 * Adds analytics log items if the user is in beta mode
 	 *
 	 * Invoked from MobileFrontendHooks::onRequestContextCreateSkin()
 	 */
 	public function logMobileMode() {
-		if ( $this->isAlphaGroupMember() ) {
-			$this->addAnalyticsLogItem( 'mf-m', 'a' );
-		} elseif ( $this->isBetaGroupMember() ) {
+		if ( $this->isBetaGroupMember() ) {
 			$this->addAnalyticsLogItem( 'mf-m', 'b' );
 		}
 	}

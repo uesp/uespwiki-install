@@ -115,7 +115,7 @@ $wgAllowSiteCSSOnRestrictedPages = true;
 
 # When you make changes to this configuration file, change this date if
 # required to make sure that cached pages are cleared.
-$wgCacheEpoch = '20190401032405';
+$wgCacheEpoch = '20190925101600';
 $wgInvalidateCacheOnLocalSettingsChange = false;
 
 $wgReadOnlyFile = "$wgUploadDirectory/UESP_LOCK_DB";

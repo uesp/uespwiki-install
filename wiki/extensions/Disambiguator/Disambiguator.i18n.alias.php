@@ -21,7 +21,7 @@ $specialPageAliases['ar'] = array(
 	'DisambiguationPageLinks' => array( 'وصلات_صفحات_توضيح' ),
 );
 
-/** Egyptian Spoken Arabic (مصرى) */
+/** Egyptian Arabic (مصرى) */
 $specialPageAliases['arz'] = array(
 	'DisambiguationPages' => array( 'صفحات_توضيح' ),
 	'DisambiguationPageLinks' => array( 'وصلات_صفحات_توضيح' ),
@@ -49,6 +49,12 @@ $specialPageAliases['de'] = array(
 $specialPageAliases['diq'] = array(
 	'DisambiguationPages' => array( 'PelêManeyêBini' ),
 	'DisambiguationPageLinks' => array( 'GıreyéPelanêManeyêBini' ),
+);
+
+/** Spanish (español) */
+$specialPageAliases['es'] = array(
+	'DisambiguationPages' => array( 'Páginas_de_desambiguación' ),
+	'DisambiguationPageLinks' => array( 'Páginas_que_enlazan_a_páginas_de_desambiguación' ),
 );
 
 /** Estonian (eesti) */

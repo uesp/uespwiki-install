@@ -21,16 +21,6 @@ var kplayer = new mw.MediaPlayer('kplayer', [
 	'audio/mpeg'
 ], 'Kplayer');
 
-// Java based player
-var cortadoPlayer = new mw.MediaPlayer( 'cortado', [
-	'video/ogg',
-	'video/ogg; codecs="theora"',
-	'video/ogg; codecs="theora, vorbis"',
-	'audio/ogg',
-	'audio/ogg; codecs="vorbis"',
-	'application/ogg'
-], 'Java' );
-
 // Native html5 players
 var oggNativePlayer = new mw.MediaPlayer( 'oggNative', [
 	'video/ogg',
@@ -67,6 +57,12 @@ var webmNativePlayer = new mw.MediaPlayer( 'webmNative', [
 	'audio/webm',
 	'audio/webm; codecs="vorbis"'
 ], 'Native' );
+var vp9NativePlayer = new mw.MediaPlayer( 'vp9Native', [
+	'video/webm; codecs="vp9"',
+	'video/webm; codecs="vp9, opus"',
+	'video/webm; codecs="vp9, vorbis"',
+	'audio/webm; codecs="opus"'
+], 'Native' );
 
 // Image Overlay player ( extends native )
 var imageOverlayPlayer = new mw.MediaPlayer( 'imageOverlay', [
@@ -96,6 +92,17 @@ var IEWebMPrompt = new mw.MediaPlayer( 'IEWebMPrompt', [
 	'video/webm; codecs="vp8"',
 	'video/webm; codecs="vp8, vorbis"'
 ], 'IEWebMPrompt' );
+
+var ogvJsPlayer = new mw.MediaPlayer( 'ogvJsPlayer', [
+	'video/ogg',
+	'video/ogg; codecs="theora"',
+	'video/ogg; codecs="theora, vorbis"',
+	'video/ogg; codecs="theora, opus"',
+	'audio/ogg',
+	'audio/ogg; codecs="vorbis"',
+	'audio/ogg; codecs="opus"',
+	'application/ogg'
+], 'OgvJs' );
 
 // Generic plugin
 //var oggPluginPlayer = new mw.MediaPlayer( 'oggPlugin', ['video/ogg', 'application/ogg'], 'Generic' );
@@ -150,12 +157,6 @@ mw.EmbedTypes = {
 			this.mediaPlayers.addPlayer( kplayer );
 		}
 	},
-	addJavaPlayer: function(){
-		if( !mw.config.get( 'EmbedPlayer.DisableJava' ) ){
-			mw.log("EmbedTypes::addJavaPlayer: adding cortadoPlayer");
-			this.mediaPlayers.addPlayer( cortadoPlayer );
-		}
-	},
 	/**
 	 * Detects what plug-ins the client supports
 	 */
@@ -165,22 +166,8 @@ mw.EmbedTypes = {
 		// All players support for playing "images"
 		this.mediaPlayers.addPlayer( imageOverlayPlayer );
 
-		// In Mozilla, navigator.javaEnabled() only tells us about preferences, we need to
-		// search navigator.mimeTypes to see if it's installed
-		try{
-			var javaEnabled = navigator.javaEnabled();
-		} catch ( e ){
-
-		}
 		// Some browsers filter out duplicate mime types, hiding some plugins
 		var uniqueMimesOnly = $.client.test( { opera: null, safari: null } );
-
-		// Opera will switch off javaEnabled in preferences if java can't be
-		// found. And it doesn't register an application/x-java-applet mime type like
-		// Mozilla does.
-		if ( javaEnabled && ( navigator.appName == 'Opera' ) ) {
-			this.addJavaPlayer();
-		}
 
 		// Use core mw.supportsFlash check:
 		if( mw.supportsFlash() ){
@@ -193,11 +180,6 @@ mw.EmbedTypes = {
 			 //if ( this.testActiveX( 'VideoLAN.VLCPlugin.2' ) ) {
 			 //	 this.mediaPlayers.addPlayer( vlcPlayer );
 			 //}
-
-			 // Java ActiveX
-			 if ( this.testActiveX( 'JavaWebStart.isInstalled' ) ) {
-				 this.addJavaPlayer();
-			 }
 
 			 // quicktime (currently off)
 			 // if ( this.testActiveX(
@@ -220,6 +202,9 @@ mw.EmbedTypes = {
 					// Add the webm player
 					if( dummyvid.canPlayType('video/webm; codecs="vp8, vorbis"') ){
 						this.mediaPlayers.addPlayer( webmNativePlayer );
+					}
+					if( dummyvid.canPlayType('video/webm; codecs="vp9, opus"') ){
+						this.mediaPlayers.addPlayer( vp9NativePlayer );
 					}
 
 					// Test for MP3:
@@ -251,11 +236,9 @@ mw.EmbedTypes = {
 					}
 
 					// Test for ogg
-					if ( dummyvid.canPlayType( 'video/ogg; codecs="theora, vorbis"' ) ) {
-						this.mediaPlayers.addPlayer( oggNativePlayer );
-					// older versions of safari do not support canPlayType,
-				  	// but xiph qt registers mimetype via quicktime plugin
-					} else if ( this.supportedMimeType( 'video/ogg' ) ) {
+					if ( dummyvid.canPlayType( 'video/ogg; codecs="theora, vorbis"' ) || 
+						dummyvid.canPlayType( 'audio/ogg; codecs="vorbis"' )
+					) {
 						this.mediaPlayers.addPlayer( oggNativePlayer );
 					}
 
@@ -287,11 +270,6 @@ mw.EmbedTypes = {
 				//	this.mediaPlayers.addPlayer( vlcPlayer );
 				//	continue;
 				//}
-
-				if ( type == 'application/x-java-applet' ) {
-					this.addJavaPlayer();
-					continue;
-				}
 
 				if ( (type == 'video/mpeg' || type == 'video/x-msvideo') ){
 					//pluginName.toLowerCase() == 'vlc multimedia plugin' ) {
@@ -336,6 +314,23 @@ mw.EmbedTypes = {
 				this.mediaPlayers.addPlayer( IEWebMPrompt );
 			}
 		}
+
+		// ogv.js compatibility detection...
+		if ( OGVCompat.supported( 'OGVPlayer' ) ) {
+			// ogv.js emscripten version
+			//
+			// Works in:
+			// * Safari 6.1+ on Mac OS X
+			// * Safari on iOS 8+ (best on 64-bit devices)
+			// * IE 10/11 on Windows 7/8/8.1 (requires Flash for audio)
+			// * Edge on Windows 10 (no plugins needed)
+			//
+			// Current Firefox, Chrome, Opera all work great too, but use
+			// native playback by default of course!
+			//
+			this.mediaPlayers.addPlayer( ogvJsPlayer );
+		}
+
 		// Allow extensions to detect and add their own "players"
 		mw.log("EmbedPlayer::trigger:embedPlayerUpdateMediaPlayersEvent");
 		$( mw ).trigger( 'embedPlayerUpdateMediaPlayersEvent' , this.mediaPlayers );

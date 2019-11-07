@@ -18,18 +18,12 @@ $wgAvailableRights[] = 'transcode-status';
 
 /*** MwEmbed module configuration: *********************************/
 
-// Path overdie for cortado ( by default its false and uses hard coded paths relative to TMH
-// or the predefined path on upload server: http://upload.wikimedia.org/jars/cortado.jar
-$wgCortadoJarFile = false;
-
 // Show a warning to the user if they are not using an html5 browser with high quality ogg support
 $wgMwEmbedModuleConfig['EmbedPlayer.DirectFileLinkWarning'] = true;
 
 // Show the options menu:
 $wgMwEmbedModuleConfig['EmbedPlayer.EnableOptionsMenu'] = true;
 
-// TMH needs java ( no h.264 or mp3 derivatives )
-$wgMwEmbedModuleConfig['EmbedPlayer.DisableJava' ] = false;
 $wgMwEmbedModuleConfig['EmbedPlayer.DisableHTML5FlashFallback' ] = true;
 
 // The text interface should always be shown
@@ -128,13 +122,15 @@ $wgEnableLocalTimedText = true;
  * -Derivative should be listed min to max
  */
 $wgEnabledTranscodeSet = array(
-	// Small WebM version for default small embed size thumbs
+
+	// WebM VP8/Vorbis
+	// primary free/open video format
+	// supported by Chrome/Firefox/Opera but not Safari/IE/Edge
+
+	// Medium-bitrate web streamable WebM video
 	WebVideoTranscode::ENC_WEBM_360P,
 
-	// Ogg fallback for IE/cortado
-	WebVideoTranscode::ENC_OGV_480P,
-
-	// A web streamable WebM video
+	// Moderate-bitrate web streamable WebM video
 	WebVideoTranscode::ENC_WEBM_480P,
 
 	// A high quality WebM stream
@@ -142,7 +138,36 @@ $wgEnabledTranscodeSet = array(
 
 	// A full-HD high quality WebM stream
 	WebVideoTranscode::ENC_WEBM_1080P,
+
+	// A 4K full high quality WebM stream
+	// WebVideoTranscode::ENC_WEBM_2160P,
+
+
+	// Ogg Theora/Vorbis
+	// Fallback for Safari/IE/Edge with ogv.js
+	//
+	// Requires twice the bitrate for same quality as VP8,
+	// and JS decoder can be slow, so shift to smaller sizes.
+
+	// Low-bitrate Ogg stream
+	WebVideoTranscode::ENC_OGV_160P,
+
+	// Medium-bitrate Ogg stream
+	WebVideoTranscode::ENC_OGV_240P,
+
+	// Moderate-bitrate Ogg stream
+	WebVideoTranscode::ENC_OGV_360P,
+
+	// High-bitrate Ogg stream
+	WebVideoTranscode::ENC_OGV_480P,
+
 /*
+	// MP4 H.264/AAC
+	// Primary format for the Apple/Microsoft world
+	//
+	// Check patent licensing issues in your country before use!
+	// Similar to WebM in quality/bitrate
+
 	// A least common denominator h.264 stream; first gen iPhone, iPods, early android etc.
 	WebVideoTranscode::ENC_H264_320P,
 
@@ -154,6 +179,9 @@ $wgEnabledTranscodeSet = array(
 
 	// A full-HD high quality stream; higher end phones, tablets, smart tvs
 	WebVideoTranscode::ENC_H264_1080P,
+
+	// A 4K high quality stream; higher end phones, tablets, smart tvs
+	WebVideoTranscode::ENC_H264_2160P,
 */
 );
 
@@ -197,10 +225,15 @@ $wgAutoloadClasses['ApiTestCaseVideoUpload'] = "$timedMediaDir/tests/phpunit/Api
 
 // Ogg Handler
 $wgAutoloadClasses['OggHandlerTMH'] = "$timedMediaDir/handlers/OggHandler/OggHandler.php";
-ini_set( 'include_path',
-	"$timedMediaDir/handlers/OggHandler/PEAR/File_Ogg" .
-	PATH_SEPARATOR .
-	ini_get( 'include_path' ) );
+$wgAutoloadClasses['OggException'] = "$timedMediaDir/handlers/OggHandler/OggException.php";
+$wgAutoloadClasses['File_Ogg'] = "$timedMediaDir/handlers/OggHandler/File_Ogg/File/Ogg.php";
+$wgAutoloadClasses['File_Ogg_Bitstream'] = "$timedMediaDir/handlers/OggHandler/File_Ogg/File/Ogg/Bitstream.php";
+$wgAutoloadClasses['File_Ogg_Flac'] = "$timedMediaDir/handlers/OggHandler/File_Ogg/File/Ogg/Flac.php";
+$wgAutoloadClasses['File_Ogg_Media'] = "$timedMediaDir/handlers/OggHandler/File_Ogg/File/Ogg/Media.php";
+$wgAutoloadClasses['File_Ogg_Opus'] = "$timedMediaDir/handlers/OggHandler/File_Ogg/File/Ogg/Opus.php";
+$wgAutoloadClasses['File_Ogg_Speex'] = "$timedMediaDir/handlers/OggHandler/File_Ogg/File/Ogg/Speex.php";
+$wgAutoloadClasses['File_Ogg_Theora'] = "$timedMediaDir/handlers/OggHandler/File_Ogg/File/Ogg/Theora.php";
+$wgAutoloadClasses['File_Ogg_Vorbis'] = "$timedMediaDir/handlers/OggHandler/File_Ogg/File/Ogg/Vorbis.php";
 
 // getID3 provides metadata for mp4 and webm files:
 $wgAutoloadClasses['getID3'] = "$timedMediaDir/libs/getid3/getid3.php";
@@ -238,35 +271,36 @@ $wgAPIModules['transcodereset'] = 'ApiTranscodeReset';
 
 // Localization
 $wgMessagesDirs['TimedMediaHandler'] = __DIR__ . '/i18n';
-$wgExtensionMessagesFiles['TimedMediaHandler'] = "$timedMediaDir/TimedMediaHandler.i18n.php";
 $wgExtensionMessagesFiles['TimedMediaHandlerMagic'] = "$timedMediaDir/TimedMediaHandler.i18n.magic.php";
 $wgExtensionMessagesFiles['TimedMediaHandlerAliases'] = "$timedMediaDir/TimedMediaHandler.i18n.alias.php";
 // Inlcude module locationlizations
 $wgMessagesDirs['MwEmbed.EmbedPlayer'] = __DIR__ . '/MwEmbedModules/EmbedPlayer/i18n';
-$wgExtensionMessagesFiles['MwEmbed.EmbedPlayer'] = "$timedMediaDir/MwEmbedModules/EmbedPlayer/EmbedPlayer.i18n.php";
 $wgMessagesDirs['MwEmbed.TimedText'] = __DIR__ . '/MwEmbedModules/TimedText/i18n';
-$wgExtensionMessagesFiles['MwEmbed.TimedText'] = "$timedMediaDir/MwEmbedModules/TimedText/TimedText.i18n.php";
 
 // Special Pages
 $wgAutoloadClasses['SpecialTimedMediaHandler'] = "$timedMediaDir/SpecialTimedMediaHandler.php";
 $wgAutoloadClasses['SpecialOrphanedTimedText'] = "$timedMediaDir/SpecialOrphanedTimedText.php";
 
-// Register all Timed Media Handler hooks right after the cache check.
-// This way if you set a variable like $wgTimedTextNS in LocalSettings.php after you include TimedMediaHandler
-// we can still read the variable values
-$wgHooks['SetupAfterCache'][] = 'TimedMediaHandlerHooks::register';
+// This way if you set a variable like $wgTimedTextNS in LocalSettings.php
+// after you include TimedMediaHandler we can still read the variable values
+// See also T123695 and T123823
+$wgHooks['SetupAfterCache'][] = 'TimedMediaHandlerHooks::onSetupAfterCache';
+
+// Register remaining Timed Media Handler hooks right after initial setup
+$wgExtensionFunctions[] = 'TimedMediaHandlerHooks::register';
 
 # add Special pages
 $wgSpecialPages['OrphanedTimedText'] = 'SpecialOrphanedTimedText';
 $wgSpecialPages['TimedMediaHandler'] = 'SpecialTimedMediaHandler';
-$wgSpecialPageGroups['TimedMediaHandler'] = 'media';
 
 // Extension Credits
 $wgExtensionCredits['media'][] = array(
 	'path'           => __FILE__,
 	'name'           => 'TimedMediaHandler',
-	'author'         => array( 'Michael Dale', 'Tim Starling', 'James Heinrich', 'Jan Gerber' ),
+	'namemsg'        => 'extensionname-timedmedia',
+	'author'         => array( 'Michael Dale', 'Tim Starling', 'James Heinrich', 'Jan Gerber', 'Brion Vibber' ),
 	'url'            => 'https://www.mediawiki.org/wiki/Extension:TimedMediaHandler',
 	'descriptionmsg' => 'timedmedia-desc',
 	'version'        => '0.4.0',
+	'license-name'   => 'GPL-2.0+',
 );

@@ -1,0 +1,15 @@
+{
+	"@metadata": {
+		"authors": [
+			"Chrumps"
+		]
+	},
+	"graph-tracking-category-desc": "Strona zawiera znacznik <code><nowiki><graph></nowiki></code>.",
+	"graph-broken-category-desc": "Strona zawiera nieprawidłowo zastosowany znacznik <code><nowiki><graph></nowiki></code>.",
+	"graph-ve-dialog-edit-apply": "Zastosuj",
+	"graph-ve-dialog-edit-cancel": "Anuluj",
+	"graph-ve-dialog-edit-json-invalid": "Nieprawidłowy ciąg znaków JSON",
+	"graph-ve-dialog-edit-page-data": "Dane",
+	"graph-ve-dialog-edit-page-raw": "Surowe dane",
+	"graph-ve-dialog-edit-table-row-delete": "Usuwanie wiersza"
+}

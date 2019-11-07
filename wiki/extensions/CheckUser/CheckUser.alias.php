@@ -21,7 +21,7 @@ $specialPageAliases['ar'] = array(
 	'CheckUserLog' => array( 'سجل_تدقيق_المستخدم' ),
 );
 
-/** Egyptian Spoken Arabic (مصرى) */
+/** Egyptian Arabic (مصرى) */
 $specialPageAliases['arz'] = array(
 	'CheckUser' => array( 'تدقيق_يوزر' ),
 	'CheckUserLog' => array( 'سجل_التشيك-يوزر' ),
@@ -139,7 +139,7 @@ $specialPageAliases['fr'] = array(
 	'CheckUser' => array( 'Vérificateur_d\'utilisateur', 'Vérificateur_d\'utilisateurs', 'VérificateurUtilisateur', 'VérificateurUtilisateurs', 'Vérificateur_d’adresse' ),
 );
 
-/** Franco-Provençal (arpetan) */
+/** Arpitan (arpetan) */
 $specialPageAliases['frp'] = array(
 	'CheckUser' => array( 'Controlor_d\'usanciér', 'ControlorDUsanciér' ),
 );
@@ -221,6 +221,11 @@ $specialPageAliases['ja'] = array(
 	'CheckUserLog' => array( 'チェックユーザー記録', '利用者調査記録' ),
 );
 
+/** Georgian (ქართული) */
+$specialPageAliases['ka'] = array(
+	'CheckUser' => array( 'ჩეკიუზერი' ),
+);
+
 /** Khmer (ភាសាខ្មែរ) */
 $specialPageAliases['km'] = array(
 	'CheckUser' => array( 'ត្រួតពិនិត្យអ្នកប្រើប្រាស់' ),
@@ -254,10 +259,10 @@ $specialPageAliases['lb'] = array(
 	'CheckUserLog' => array( 'Logbuch_vun_der_Benotzerkontroll' ),
 );
 
-/** لوری (لوری) */
+/** Northern Luri (لۊری شومالی) */
 $specialPageAliases['lrc'] = array(
-	'CheckUser' => array( 'وارسی_کاریار' ),
-	'CheckUserLog' => array( 'پهرستنومه_وارسی_کاریار' ),
+	'CheckUser' => array( 'ڤارئسی_کاریار' ),
+	'CheckUserLog' => array( 'پئھرئستنوٙمە_ڤارئسی_کاریار' ),
 );
 
 /** Malagasy (Malagasy) */

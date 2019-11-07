@@ -7,34 +7,36 @@
 
 
 $wgExtraNamespaces =
-array(	100 => "Tamold",      101 => "Tamold_talk",
-		102 => "Arena",       103 => "Arena_talk",
-		104 => "Daggerfall",  105 => "Daggerfall_talk",
-		106 => "Battlespire", 107 => "Battlespire_talk",
-		108 => "Redguard",    109 => "Redguard_talk",
-		110 => "Morrowind",   111 => "Morrowind_talk",
-		112 => "Tribunal",    113 => "Tribunal_talk",
-		114 => "Bloodmoon",   115 => "Bloodmoon_talk",
-		116 => "Oblivion",    117 => "Oblivion_talk",
-		118 => "General",     119 => "General_talk",
-		120 => "Review",      121 => "Review_talk",
-		122 => "Tes3Mod",     123 => "Tes3Mod_talk",
-		124 => "Tes4Mod",     125 => "Tes4Mod_talk",
-		126 => "Shivering",   127 => "Shivering_talk",
-		128 => "Shadowkey",   129 => "Shadowkey_talk",
-		130 => "Lore",        131 => "Lore_talk",
-		132 => "Dawnstar",    133 => "Dawnstar_talk",
-		134 => "Skyrim",      135 => "Skyrim_talk",
-		136 => "OBMobile",    137 => "OBMobile_talk",
-		138 => "Stormhold",   139 => "Stormhold_talk",
-		140 => "Books",       141 => "Books_talk",
-		142 => "Tes5Mod",     143 => "Tes5Mod_talk",
-		144 => "Online",      145 => "Online_talk",
-		146 => "Dragonborn",  147 => "Dragonborn_talk",
-		148 => "ESOMod",      149 => "ESOMod_talk",
-		150 => "Legends",	  151 => "Legends_talk",
-		152 => "Blades",	  153 => "Blades_talk",
-		200 => "Dapel",       201 => "Dapel_talk");
+array(	100 => 'Tamold',      101 => 'Tamold_talk',
+		102 => 'Arena',       103 => 'Arena_talk',
+		104 => 'Daggerfall',  105 => 'Daggerfall_talk',
+		106 => 'Battlespire', 107 => 'Battlespire_talk',
+		108 => 'Redguard',    109 => 'Redguard_talk',
+		110 => 'Morrowind',   111 => 'Morrowind_talk',
+		112 => 'Tribunal',    113 => 'Tribunal_talk',
+		114 => 'Bloodmoon',   115 => 'Bloodmoon_talk',
+		116 => 'Oblivion',    117 => 'Oblivion_talk',
+		118 => 'General',     119 => 'General_talk',
+		120 => 'Review',      121 => 'Review_talk',
+		122 => 'Tes3Mod',     123 => 'Tes3Mod_talk',
+		124 => 'Tes4Mod',     125 => 'Tes4Mod_talk',
+		126 => 'Shivering',   127 => 'Shivering_talk',
+		128 => 'Shadowkey',   129 => 'Shadowkey_talk',
+		130 => 'Lore',        131 => 'Lore_talk',
+		132 => 'Dawnstar',    133 => 'Dawnstar_talk',
+		134 => 'Skyrim',      135 => 'Skyrim_talk',
+		136 => 'OBMobile',    137 => 'OBMobile_talk',
+		138 => 'Stormhold',   139 => 'Stormhold_talk',
+		140 => 'Books',       141 => 'Books_talk',
+		142 => 'Tes5Mod',     143 => 'Tes5Mod_talk',
+		144 => 'Online',      145 => 'Online_talk',
+		146 => 'Dragonborn',  147 => 'Dragonborn_talk',
+		148 => 'ESOMod',      149 => 'ESOMod_talk',
+		150 => 'Legends',     151 => 'Legends_talk',
+		152 => 'Blades',      153 => 'Blades_talk',
+		154 => 'Tes1Mod',     155 => 'Tes1Mod_talk',
+		156 => 'Tes2Mod',     157 => 'Tes2Mod_talk',
+		200 => 'Dapel',       201 => 'Dapel_talk');
 
 $wgNamespaceAliases =
 array(	'UESP' => NS_PROJECT, 'UESP_talk' => NS_PROJECT+1,
@@ -64,6 +66,8 @@ array(	'UESP' => NS_PROJECT, 'UESP_talk' => NS_PROJECT+1,
 		'DB' => 146,          'DB_talk' => 147,
 		'LG' => 150,          'LG_talk' => 151,
 		'BL' => 152,          'BL_talk' => 153,
+		'T1' => 154,          'T1_talk' => 155,
+		'T2' => 156,          'T2_talk' => 157,
 );
 
 $wgNamespacesWithSubpages = array(
@@ -75,7 +79,7 @@ $wgNamespacesWithSubpages = array(
 		120 => 1, 121 => 1, 122 => 1, 123 => 1, 124 => 1, 125 => 1, 126 => 1, 127 => 1, 128 => 1, 129 => 1,
 		130 => 1, 131 => 1, 132 => 1, 133 => 1, 134 => 1, 135 => 1, 136 => 1, 137 => 1, 138 => 1, 139 => 1,
 		140 => 1, 141 => 1, 142 => 1, 143 => 1, 144 => 1, 145 => 1, 146 => 1, 147 => 1, 148 => 1, 149 => 1,
-		150 => 1, 151 => 1, 152 => 1, 153 => 1, 
+		150 => 1, 151 => 1, 152 => 1, 153 => 1, 154 => 1, 155 => 1, 156 => 1, 157 => 1,
 		200 => 1, 201 => 1);
 
 $wgNamespacesToBeSearchedDefault = array(
@@ -87,8 +91,15 @@ $wgNamespacesToBeSearchedDefault = array(
 		120 => 1, 121 => 0, 122 => 1, 123 => 0, 124 => 1, 125 => 0, 126 => 1, 127 => 0, 128 => 1, 129 => 0,
 		130 => 1, 131 => 0, 132 => 1, 133 => 0, 134 => 1, 135 => 0, 136 => 1, 137 => 0, 138 => 1, 139 => 0,
 		140 => 1, 141 => 0, 142 => 1, 143 => 0, 144 => 1, 145 => 0, 146 => 1, 147 => 0, 148 => 1, 149 => 0,
-		150 => 1, 151 => 0, 152 => 1, 153 => 0, 
+		150 => 1, 151 => 0, 152 => 1, 153 => 0, 154 => 1, 155 => 0, 156 => 1, 157 => 0,
 		200 => 0, 201 => 0);
 
-$wgContentNamespaces = array( NS_MAIN, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 
-		                      130, 132, 134, 136, 138, 140, 142, 144, 146, 148, 150, 152 );
+$wgContentNamespaces = array(
+		NS_MAIN, 102, 104, 106, 108,
+		110, 112, 114, 116, 118,
+		120, 122, 124, 126, 128, 
+		130, 132, 134, 136, 138,
+		140, 142, 144, 146, 148,
+		150, 152, 154, 156);
+
+$wgExtraSignatureNamespaces[] = NS_PROJECT;

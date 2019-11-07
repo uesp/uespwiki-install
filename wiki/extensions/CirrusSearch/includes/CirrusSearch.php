@@ -1,8 +1,12 @@
 <?php
 
+use CirrusSearch\Connection;
 use CirrusSearch\InterwikiSearcher;
 use CirrusSearch\Search\FullTextResultsType;
 use CirrusSearch\Searcher;
+use CirrusSearch\Search\ResultSet;
+use CirrusSearch\SearchConfig;
+use CirrusSearch\Search\InterwikiResultsType;
 
 /**
  * SearchEngine implementation for CirrusSearch.  Delegates to
@@ -40,6 +44,26 @@ class CirrusSearch extends SearchEngine {
 	private $lastSearchMetrics;
 
 	/**
+	 * @var string
+	 */
+	private $indexBaseName;
+
+	/**
+	 * @var Connection
+	 */
+	private $connection;
+
+	public function __construct( $baseName = null ) {
+		$this->indexBaseName = $baseName === null ? wfWikiId() : $baseName;
+		$config = ConfigFactory::getDefaultInstance()->makeConfig( 'CirrusSearch' );
+		$this->connection = new Connection( $config );
+	}
+
+	public function setConnection( Connection $connection ) {
+		$this->connection = $connection;
+	}
+
+	/**
 	 * Override supports to shut off updates to Cirrus via the SearchEngine infrastructure.  Page
 	 * updates and additions are chained on the end of the links update job.  Deletes are noticed
 	 * via the ArticleDeleteComplete hook.
@@ -59,20 +83,121 @@ class CirrusSearch extends SearchEngine {
 	/**
 	 * Overridden to delegate prefix searching to Searcher.
 	 * @param string $term text to search
-	 * @return Search\ResultSet|null|Status results, no results, or error respectively
+	 * @return ResultSet|null|Status results, no results, or error respectively
 	 */
 	public function searchText( $term ) {
+		$config = null;
+		$request = RequestContext::getMain()->getRequest();
+		if ( $request && $request->getVal( 'cirrusLang' ) ) {
+			$config = new SearchConfig( $request->getVal( 'cirrusLang' ) );
+		}
+		$matches = $this->searchTextReal( $term, $config );
+		if (!$matches instanceof ResultSet) {
+			return $matches;
+		}
+
+		if ( $this->isFeatureEnabled( 'rewrite' ) && $matches->isQueryRewriteAllowed() ) {
+			$matches = $this->searchTextSecondTry( $term, $matches );
+		}
+		return $matches;
+	}
+
+	/**
+	 * Check whether we want to try another language.
+	 * @param string $term Search term
+	 * @return array|null Array of (interwiki, dbname) for another wiki to try, or null
+	 */
+	private function hasSecondaryLanguage( $term ) {
+		if ( empty( $GLOBALS['wgCirrusSearchLanguageToWikiMap'] ) ||
+				empty( $GLOBALS['wgCirrusSearchWikiToNameMap'] ) ) {
+			// map's empty - no need to bother with detection
+			return null;
+		}
+
+		// check whether we have second language functionality enabled
+		if ( !$GLOBALS['wgCirrusSearchEnableAltLanguage'] ) {
+			return null;
+		}
+
+		$lang = Searcher::detectLanguage( $term );
+		if ( empty( $GLOBALS['wgCirrusSearchLanguageToWikiMap'][$lang] ) ) {
+			return null;
+		}
+		$interwiki = $GLOBALS['wgCirrusSearchLanguageToWikiMap'][$lang];
+
+		if ( empty( $GLOBALS['wgCirrusSearchWikiToNameMap'][$interwiki] ) ) {
+			return null;
+		}
+		$interWikiId = $GLOBALS['wgCirrusSearchWikiToNameMap'][$interwiki];
+		if ( $interWikiId == wfWikiID() ) {
+			// we're back to the same wiki, no use to try again
+			return null;
+		}
+
+		return array( $interwiki, $interWikiId );
+	}
+
+	private function isFeatureEnabled( $feature ) {
+		return isset( $this->features[$feature] ) && $this->features[$feature];
+	}
+
+	private function searchTextSecondTry( $term, ResultSet $zeroResult ) {
+		// TODO: figure out who goes first - language or suggestion?
+		if ( $zeroResult->hasSuggestion() ) {
+			$rewritten = $zeroResult->getSuggestionQuery();
+			$rewrittenSnippet = $zeroResult->getSuggestionSnippet();
+			$this->showSuggestion = false;
+		} else {
+			$altWiki = $this->hasSecondaryLanguage( $term );
+			if ( $altWiki ) {
+				try {
+					$config = new SearchConfig( $altWiki[0], $altWiki[1] );
+				} catch ( MWException $e ) {
+					wfDebug( "Failed to get $altWiki config: {$e->getMessage()}");
+					$config = null;
+				}
+				if ( $config ) {
+					$matches = $this->searchTextReal( $term, $config );
+					return $matches;
+				}
+			}
+			// Don't have any other options yet.
+			return $zeroResult;
+		}
+
+		$rewrittenResult = $this->searchTextReal( $rewritten );
+		if (
+			$rewrittenResult instanceof ResultSet
+			&& $rewrittenResult->numRows() > 0
+		) {
+			$rewrittenResult->setRewrittenQuery( $rewritten, $rewrittenSnippet );
+			return $rewrittenResult;
+		} else {
+			return $zeroResult;
+		}
+	}
+
+	private function searchTextReal( $term, SearchConfig $config = null ) {
 		global $wgCirrusSearchInterwikiSources;
 
-		$term = trim( $term );
+		// Convert the unicode character 'idiographic whitespace' into standard
+		// whitespace.  Cirrussearch treats them both as normal whitespace, but
+		// the preceding isn't appropriatly trimmed.
+		$term = trim( str_replace( "\xE3\x80\x80", " ", $term) );
 		// No searching for nothing!  That takes forever!
 		if ( !$term ) {
 			return null;
 		}
 
 		$context = RequestContext::getMain();
+		$request = $context->getRequest();
 		$user = $context->getUser();
-		$searcher = new Searcher( $this->offset, $this->limit, $this->namespaces, $user );
+
+		if ( $config ) {
+			$this->indexBaseName = $config->getWikiId();
+		}
+
+		$searcher = new Searcher( $this->connection, $this->offset, $this->limit, $config, $this->namespaces, $user, $this->indexBaseName );
 
 		// Ignore leading ~ because it is used to force displaying search results but not to effect them
 		if ( substr( $term, 0, 1 ) === '~' )  {
@@ -80,20 +205,16 @@ class CirrusSearch extends SearchEngine {
 			$searcher->addSuggestPrefix( '~' );
 		}
 
-		if ( $this->lastNamespacePrefix ) {
-			$searcher->addSuggestPrefix( $this->lastNamespacePrefix );
-		} else {
-			$searcher->updateNamespacesFromQuery( $term );
-		}
 		// TODO remove this when we no longer have to support core versions without
 		// Ie946150c6796139201221dfa6f7750c210e97166
 		if ( method_exists( $this, 'getSort' ) ) {
 			$searcher->setSort( $this->getSort() );
 		}
 
-		$request = $context->getRequest();
 		$dumpQuery = $request && $request->getVal( 'cirrusDumpQuery' ) !== null;
 		$searcher->setReturnQuery( $dumpQuery );
+		$dumpResult = $request && $request->getVal( 'cirrusDumpResult' ) !== null;
+		$searcher->setDumpResult( $dumpResult );
 		// Delegate to either searchText or moreLikeThisArticle and dump the result into $status
 		if ( substr( $term, 0, strlen( self::MORE_LIKE_THIS_PREFIX ) ) === self::MORE_LIKE_THIS_PREFIX ) {
 			$term = substr( $term, strlen( self::MORE_LIKE_THIS_PREFIX ) );
@@ -102,6 +223,12 @@ class CirrusSearch extends SearchEngine {
 			$term = substr( $term, strlen( self::MORE_LIKE_THIS_JUST_WIKIBASE_PREFIX ) );
 			$status = $this->moreLikeThis( $term, $searcher, Searcher::MORE_LIKE_THESE_ONLY_WIKIBASE );
 		} else {
+			# Namespace lookup should not be done for morelike special syntax (T111244)
+			if ( $this->lastNamespacePrefix ) {
+				$searcher->addSuggestPrefix( $this->lastNamespacePrefix );
+			} else {
+				$searcher->updateNamespacesFromQuery( $term );
+			}
 			$highlightingConfig = FullTextResultsType::HIGHLIGHT_ALL;
 			if ( $request ) {
 				if ( $request->getVal( 'cirrusSuppressSuggest' ) !== null ) {
@@ -126,10 +253,11 @@ class CirrusSearch extends SearchEngine {
 			if ( $this->namespaces && !in_array( NS_FILE, $this->namespaces ) ) {
 				$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_FILE_TEXT;
 			}
-			$searcher->setResultsType( new FullTextResultsType( $highlightingConfig ) );
+
+			$searcher->setResultsType( new FullTextResultsType( $highlightingConfig, $config ? $config->getWikiCode() : '') );
 			$status = $searcher->searchText( $term, $this->showSuggestion );
 		}
-		if ( $dumpQuery ) {
+		if ( $dumpQuery || $dumpResult ) {
 			// When dumping the query we skip _everything_ but echoing the query.
 			$context->getOutput()->disable();
 			$request->response()->header( 'Content-type: application/json; charset=UTF-8' );
@@ -146,11 +274,13 @@ class CirrusSearch extends SearchEngine {
 		// Add interwiki results, if we have a sane result
 		// Note that we have no way of sending warning back to the user.  In this case all warnings
 		// are logged when they are added to the status object so we just ignore them here....
-		if ( $status->isOK() && $wgCirrusSearchInterwikiSources && $status->getValue() ) {
+		if ( $status->isOK() && $wgCirrusSearchInterwikiSources && $status->getValue() &&
+				method_exists( $status->getValue(), 'addInterwikiResults' ) ) {
 			// @todo @fixme: This should absolutely be a multisearch. I knew this when I
 			// wrote the code but Searcher needs some refactoring first.
 			foreach ( $wgCirrusSearchInterwikiSources as $interwiki => $index ) {
 				$iwSearch = new InterwikiSearcher( $this->namespaces, $user, $index, $interwiki );
+				$iwSearch->setConnection( $this->connection );
 				$interwikiResult = $iwSearch->getInterwikiResults( $term );
 				if ( $interwikiResult ) {
 					$status->getValue()->addInterwikiResults( $interwikiResult );
@@ -197,7 +327,7 @@ class CirrusSearch extends SearchEngine {
 		if ( count( $titles ) ) {
 			return $searcher->moreLikeTheseArticles( $titles, $options );
 		}
-		return Status::newGood( new SearchResultSet() /* empty */ );
+		return Status::newGood( new SearchResultSet( true ) /* empty */ );
 	}
 	/**
 	 * Merge the prefix into the query (if any).

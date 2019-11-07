@@ -4,15 +4,7 @@
  *
  * @file
  * @ingroup Extensions
- * @author Arthur Richards
- * @author Jon Robson
- * @author Juliusz Gonera
- * @author Max Semenik
- * @author Patrick Reilly
- * @author Ryan Kaldari
- * @author Florian Schmidt
- * @author Rob Moen
- * @author Sam Smith
+ * @author See CREDITS.mediawiki
  * @licence GNU General Public Licence 2.0 or later
  */
 
@@ -37,6 +29,7 @@ define( 'MOBILEFRONTEND', 'MobileFrontend' );
 $wgExtensionCredits['other'][] = array(
 	'path' => __FILE__,
 	'name' => 'MobileFrontend',
+	'version' => '1.0.0',
 	'author' => array( 'Patrick Reilly', 'Max Semenik', 'Jon Robson', 'Arthur Richards',
 		'Brion Vibber', 'Juliusz Gonera', 'Ryan Kaldari', 'Florian Schmidt', 'Rob Moen',
 		'Sam Smith' ),
@@ -49,7 +42,7 @@ $wgMessagesDirs['MobileFrontend'] = __DIR__ . '/i18n';
 $wgExtensionMessagesFiles['MobileFrontendAlias'] = __DIR__ . "/MobileFrontend.alias.php";
 
 // autoload extension classes
-$autoloadClasses = array (
+$autoloadClasses = array(
 	'ExtMobileFrontend' => 'MobileFrontend.body',
 	'MobileFrontendHooks' => 'MobileFrontend.hooks',
 
@@ -90,23 +83,20 @@ $autoloadClasses = array (
 	'SpecialNearby' => 'specials/SpecialNearby',
 	'SpecialMobileLanguages' => 'specials/SpecialMobileLanguages',
 	'SpecialMobilePreferences' => 'specials/SpecialMobilePreferences',
-	'SpecialMobileNotifications' => 'specials/SpecialMobileNotifications',
+	'SpecialTopicTag' => 'specials/browse/SpecialTopicTag',
 	'MobileSpecialPage' => 'specials/MobileSpecialPage',
 	'MobileSpecialPageFeed' => 'specials/MobileSpecialPageFeed',
 
 	'MinervaTemplate' => 'skins/MinervaTemplate',
 	'MinervaTemplateBeta' => 'skins/MinervaTemplateBeta',
-	'MinervaTemplateAlpha' => 'skins/MinervaTemplateAlpha',
 
 	'MFResourceLoaderParsedMessageModule' => 'modules/MFResourceLoaderParsedMessageModule',
 
 	'SkinMinerva' => 'skins/SkinMinerva',
 	'SkinMinervaBeta' => 'skins/SkinMinervaBeta',
-	'SkinMinervaAlpha' => 'skins/SkinMinervaAlpha',
 
-	'UserLoginAndCreateTemplate' => 'skins/UserLoginAndCreateTemplate',
-	'UserLoginMobileTemplate' => 'skins/UserLoginMobileTemplate',
-	'UserAccountCreateMobileTemplate' => 'skins/UserAccountCreateMobileTemplate',
+	'MobileFrontend\Browse\TagService' => 'browse/TagService',
+	'MobileFrontend\Browse\NullTagService' => 'browse/NullTagService',
 );
 
 foreach ( $autoloadClasses as $className => $classFilename ) {
@@ -167,8 +157,8 @@ $wgSpecialPages += array(
 	'MobileLanguages' => 'SpecialMobileLanguages',
 	'Uploads' => 'SpecialUploads',
 	'UserProfile' => 'SpecialUserProfile',
+	'TopicTag' => 'SpecialTopicTag',
 );
-$wgSpecialPageGroups['Nearby'] = 'pages';
 
 // Register Minerva as a valid skin
 $wgValidSkinNames['minerva'] = "Minerva";
@@ -183,7 +173,8 @@ $wgGroupPermissions['sysop']['mf-uploadbutton'] = true;
 $wgConfigRegistry['mobilefrontend'] = 'GlobalVarConfig::newInstance';
 
 // Set LESS importpath
-$wgResourceLoaderLESSImportPaths[] = __DIR__ . "/less/minerva.less/";
+$wgResourceLoaderLESSImportPaths[] = __DIR__ . "/minerva.less/";
+$wgResourceLoaderLESSImportPaths[] = __DIR__ . "/resources/";
 
 // ResourceLoader modules
 
@@ -209,7 +200,6 @@ $wgMFResourceFileModuleBoilerplate = $wgMFResourceBoilerplate + array(
  */
 $wgMFMobileSpecialPageResourceBoilerplate = $wgMFResourceBoilerplate + array(
 	'targets' => 'mobile',
-	'group' => 'other',
 );
 
 /**

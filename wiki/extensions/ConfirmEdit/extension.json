@@ -1,7 +1,7 @@
 {
 	"@doc": "Please read README.md",
 	"name": "ConfirmEdit",
-	"version": "1.3.0",
+	"version": "1.4.0",
 	"author": [
 		"Brion Vibber",
 		"..."
@@ -124,5 +124,6 @@
 		"wgCaptchaBadLoginAttempts": 3,
 		"wgCaptchaWhitelist": false,
 		"wgCaptchaRegexes": []
-	}
+	},
+	"manifest_version": 1
 }

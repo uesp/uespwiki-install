@@ -1,8 +1,30 @@
 {
 	"@metadata": {
 		"authors": [
-			"Andriykopanytsia"
+			"Andriykopanytsia",
+			"Ата",
+			"Base",
+			"Dars"
 		]
 	},
-	"graph-desc": "Дозволяє &lt;graph> тегам або цілим сторінкам стати графіками на основі [http://trifacta.github.io/vega/ Vega]"
+	"graph-desc": "Дозволяє &lt;graph&gt; тегам або цілим сторінкам стати графіками на основі [http://trifacta.github.io/vega/ Vega]",
+	"graph-ve-dialog-edit-apply": "Застосувати",
+	"graph-ve-dialog-edit-cancel": "Скасувати",
+	"graph-ve-dialog-edit-field-graph-type": "Тип графіка",
+	"graph-ve-dialog-edit-field-raw-json": "Специфікація сирого JSON",
+	"graph-ve-dialog-edit-json-invalid": "Неправильний рядок JSON",
+	"graph-ve-dialog-edit-page-data": "Дані",
+	"graph-ve-dialog-edit-page-general": "Загальні",
+	"graph-ve-dialog-edit-page-raw": "Необроблені дані",
+	"graph-ve-dialog-edit-table-row-delete": "Видалити рядок",
+	"graph-ve-dialog-edit-title": "Редагувати діаграму",
+	"graph-ve-dialog-edit-type-area": "Площа графіка",
+	"graph-ve-dialog-edit-type-bar": "Гістограма",
+	"graph-ve-dialog-edit-type-line": "Лінійний графік",
+	"graph-ve-dialog-edit-type-unknown": "Невідомий тип графіка",
+	"graph-ve-dialog-edit-unknown-graph-type-warning": "Тип цього графіку не підтримується й будь-які зроблені зміни можуть пошкодити його відображення. Будь ласка, редагуйте графік через вказання сирих даних за допомогою вкладки «{{int:graph-ve-dialog-edit-page-raw}}»",
+	"graph-ve-dialog-button-tooltip": "Графік",
+	"graph-ve-no-spec": "Не знайдено специфікації графів",
+	"graph-ve-vega-error": "У Веги сталася помилка під час візуалізації цього графіка",
+	"graph-ve-vega-error-no-render": "Вега не в змозі відобразити цей графік"
 }

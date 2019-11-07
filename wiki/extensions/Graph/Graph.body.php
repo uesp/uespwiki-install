@@ -4,7 +4,7 @@
  * @license MIT
  * @file
  *
- * @author Dan Andreescu, Yuri Astrakhan
+ * @author Dan Andreescu, Yuri Astrakhan, Frédéric Bolduc
  */
 
 namespace Graph;
@@ -26,7 +26,8 @@ class Singleton {
 	}
 
 	public static function onParserAfterParse( Parser $parser ) {
-		self::finalizeParserOutput( $parser->getOutput() );
+		self::finalizeParserOutput( $parser->getOutput(), $parser->getTitle(),
+			$parser->getOptions()->getIsPreview() );
 		return true;
 	}
 
@@ -42,19 +43,28 @@ class Singleton {
 		// expand template arguments and other wiki markup
 		$input = $parser->recursivePreprocess( $input, $frame );
 		return self::buildHtml( $input, $parser->getTitle(), $parser->getRevisionId(),
-			$parser->getOutput() );
+			$parser->getOutput(), $parser->getOptions()->getIsPreview() );
 	}
 
-	public static function finalizeParserOutput( ParserOutput $output ) {
+	public static function finalizeParserOutput( ParserOutput $output, $title, $isPreview ) {
+		if ( $output->getExtensionData( 'graph_specs_broken' ) ) {
+			$output->addTrackingCategory( 'graph-broken-category', $title );
+		}
 		$specs = $output->getExtensionData( 'graph_specs' );
 		if ( $specs !== null ) {
-			global $wgGraphDataDomains;
-			$output->addJsConfigVars( 'wgGraphDataDomains', $wgGraphDataDomains );
-			$output->addModules( 'ext.graph' );
-
-			$output->addJsConfigVars( 'wgGraphSpecs', $specs );
+			global $wgGraphImgServiceAlways, $wgGraphImgServiceUrl;
+			if ( $isPreview || !$wgGraphImgServiceUrl || !$wgGraphImgServiceAlways ) {
+				global $wgGraphDataDomains, $wgGraphUrlBlacklist, $wgGraphIsTrusted;
+				$output->addModules( 'ext.graph' );
+				$output->addJsConfigVars( 'wgGraphSpecs', $specs );
+				// TODO: these 3 js vars should be per domain if 'ext.graph' is added, not per page
+				$output->addJsConfigVars( 'wgGraphDataDomains', $wgGraphDataDomains );
+				$output->addJsConfigVars( 'wgGraphUrlBlacklist', $wgGraphUrlBlacklist );
+				$output->addJsConfigVars( 'wgGraphIsTrusted', $wgGraphIsTrusted );
+			}
 			$output->setProperty( 'graph_specs',
 				FormatJson::encode( $specs, false, FormatJson::ALL_OK ) );
+			$output->addTrackingCategory( 'graph-tracking-category', $title );
 		}
 	}
 
@@ -78,48 +88,53 @@ class Singleton {
 	 * @param Title $title
 	 * @param int $revid
 	 * @param ParserOutput $parserOutput
+	 * @param bool $isPreview
 	 * @return string
 	 */
-	public static function buildHtml( $jsonText, $title, $revid, $parserOutput ) {
-		global $wgGraphImgServiceUrl, $wgServerName;
+	public static function buildHtml( $jsonText, $title, $revid, $parserOutput, $isPreview ) {
+		global $wgGraphImgServiceUrl, $wgServerName, $wgGraphImgServiceAlways;
 
 		$status = FormatJson::parse( $jsonText, FormatJson::TRY_FIXING | FormatJson::STRIP_COMMENTS );
-		if ( !$status->isGood() ) {
+		if ( !$status->isOK() ) {
+			$parserOutput->setExtensionData( 'graph_specs_broken', true );
 			return $status->getWikiText();
 		}
 
-		// Make sure that multiple json blobs that only differ in spacing hash the same
+		// Calculate hash and store graph definition in graph_specs extension data
+		$specs = $parserOutput->getExtensionData( 'graph_specs' ) ?: array();
 		$data = $status->getValue();
+		// Make sure that multiple json blobs that only differ in spacing hash the same
 		$hash = sha1( FormatJson::encode( $data, false, FormatJson::ALL_OK ) );
+		$specs[$hash] = $data;
+		$parserOutput->setExtensionData( 'graph_specs', $specs );
 
-		// Render fallback image rendering html (noscript and old-script)
+		$html = '';
+
+		// Graphoid service image URL
 		if ( $wgGraphImgServiceUrl ) {
 			$server = rawurlencode( $wgServerName );
-			$title = !$title ? '' : rawurlencode( str_replace( ' ', '_', $title->getText() ) );
+			$title = !$title ? '' : rawurlencode( $title->getPrefixedDBkey() );
 			$revid = rawurlencode( (string)$revid ) ?: '0';
 			$url = sprintf( $wgGraphImgServiceUrl, $server, $title, $revid, $hash );
 
 			// TODO: Use "width" and "height" from the definition if available
 			// In some cases image might still be larger - need to investigate
-			$img = Html::rawElement( 'img', array( 'src' => $url ) );
-
-			$backendImgLinks =
-				Html::inlineScript( 'if(!window.mw){document.write(' .
-									FormatJson::encode( $img, false, FormatJson::UTF8_OK ) .
-									');}' ) .
-				Html::rawElement( 'noscript', array(), $img );
-		} else {
-			$backendImgLinks = '';
+			$html .= Html::rawElement( 'img', array(
+				'class' => 'mw-wiki-graph-img',
+				'src' => $url,
+			) );
 		}
 
-		$specs = $parserOutput->getExtensionData( 'graph_specs' ) ?: array();
-		$specs[$hash] = $data;
-		$parserOutput->setExtensionData( 'graph_specs', $specs );
+		if ( $isPreview || !$wgGraphImgServiceUrl || !$wgGraphImgServiceAlways ) {
+			$html .= Html::element( 'div', array(
+				'class' => 'mw-wiki-graph',
+				'data-graph-id' => $hash,
+			) );
+		}
 
-		return Html::element( 'div', array(
-			'class' => 'mw-wiki-graph',
-			'data-graph-id' => $hash,
-		) ) . $backendImgLinks;
+		return Html::rawElement( 'div', array(
+			'class' => 'mw-wiki-graph-container',
+		), $html );
 	}
 }
 
@@ -149,10 +164,11 @@ class Content extends JCContent {
 		$parser = $wgParser->getFreshParser();
 		$text = $parser->preprocess( $text, $title, $options, $revId );
 
-		$html = $generateHtml ? Singleton::buildHtml( $text, $title, $revId, $output ) : '';
+		$html = !$generateHtml ? '' : Singleton::buildHtml( $text, $title, $revId, $output,
+			$options->getIsPreview() );
 		$output->setText( $html );
 
 		// Since we invoke parser manually, the ParserAfterParse never gets called, do it manually
-		Singleton::finalizeParserOutput( $output );
+		Singleton::finalizeParserOutput( $output, $title, $options->getIsPreview() );
 	}
 }

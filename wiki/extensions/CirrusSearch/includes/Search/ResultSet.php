@@ -2,6 +2,7 @@
 
 namespace CirrusSearch\Search;
 use \CirrusSearch\Searcher;
+use \LinkBatch;
 use \SearchResultSet;
 
 /**
@@ -25,7 +26,8 @@ use \SearchResultSet;
 class ResultSet extends SearchResultSet {
 	private $result, $hits, $totalHits, $suggestionQuery, $suggestionSnippet;
 	private $searchContainedSyntax;
-	private $interwikiPrefix, $interwikiResults;
+	private $interwikiPrefix,$interwikiResults;
+	private $rewrittenQuery;
 
 	public function __construct( $suggestPrefixes, $suggestSuffixes, $res, $searchContainedSyntax, $interwiki = '' ) {
 		$this->result = $res;
@@ -33,6 +35,7 @@ class ResultSet extends SearchResultSet {
 		$this->hits = $res->count();
 		$this->totalHits = $res->getTotalHits();
 		$this->interwikiPrefix = $interwiki;
+		$this->preCacheContainedTitles();
 		$suggestion = $this->findSuggestion();
 		if ( $suggestion && ! $this->resultContainsFullyHighlightedMatch() ) {
 			$this->suggestionQuery = $suggestion[ 'text' ];
@@ -50,6 +53,23 @@ class ResultSet extends SearchResultSet {
 				$this->suggestionSnippet = $this->suggestionSnippet . htmlspecialchars( $suggestSuffix );
 			}
 		}
+	}
+
+	/**
+	 * @return bool True when rewriting this query is allowed
+	 */
+	public function isQueryRewriteAllowed() {
+		if ( $this->numRows() > 0 || $this->searchContainedSyntax() ) {
+			return false;
+		}
+		if ( $this->interwikiResults !== null ) {
+			foreach ( $this->interwikiResults as $resultSet ) {
+				if ( $resultSet->numRows() > 0 ) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	private function findSuggestion() {
@@ -101,6 +121,27 @@ class ResultSet extends SearchResultSet {
 		return false;
 	}
 
+	/**
+	 * Loads the result set into the mediawiki LinkCache via a
+	 * batch query. By pre-caching this we ensure methods such as
+	 * Result::isMissingRevision() don't trigger a query for each and
+	 * every search result.
+	 */
+	private function preCacheContainedTitles() {
+		// We can only pull in information about the local wiki
+		if ( $this->interwikiPrefix !== '' ) {
+			return;
+		}
+		$lb = new LinkBatch;
+		foreach ( $this->result->getResults() as $result ) {
+			$lb->add( $result->namespace, $result->title );
+		}
+		if ( !$lb->isEmpty() ) {
+			$lb->setCaller( __METHOD__ );
+			$lb->execute();
+		}
+	}
+
 	public function getTotalHits() {
 		return $this->totalHits;
 	}
@@ -140,5 +181,22 @@ class ResultSet extends SearchResultSet {
 
 	public function searchContainedSyntax() {
 		return $this->searchContainedSyntax;
+	}
+
+	public function setRewrittenQuery($newQuery, $newQuerySnippet=null) {
+		$this->rewrittenQuery = $newQuery;
+		$this->rewrittenQuerySnippet = $newQuerySnippet ?: htmlspecialchars( $newQuery );
+	}
+
+	public function hasRewrittenQuery() {
+		return $this->rewrittenQuery !== null;
+	}
+
+	public function getQueryAfterRewrite() {
+		return $this->rewrittenQuery;
+	}
+
+	public function getQueryAfterRewriteSnippet() {
+		return $this->rewrittenQuerySnippet;
 	}
 }

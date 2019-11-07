@@ -43,6 +43,7 @@ class MobileFrontendHooks {
 	 * for mobile users.
 	 */
 	private static function enableMediaWikiUI() {
+		// FIXME: Temporary variables, will be deprecated in core in the future
 		global $wgHTMLFormAllowTableFormat, $wgUseMediaWikiUIEverywhere;
 
 		$mobileContext = MobileContext::singleton();
@@ -65,7 +66,9 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onRequestContextCreateSkin( $context, &$skin ) {
-		global $wgMFDefaultSkinClass, $wgULSPosition;
+		// FIXME: This shouldn't be a global, it should be possible for other extensions
+		// to set this via a static variable or set function in ULS
+		global $wgULSPosition;
 
 		$mobileContext = MobileContext::singleton();
 
@@ -96,20 +99,21 @@ class MobileFrontendHooks {
 			}
 		}
 
-		// log whether user is using alpha/beta/stable
+		// log whether user is using beta/stable
 		$mobileContext->logMobileMode();
 
-		$skinName = $wgMFDefaultSkinClass;
+		$skinName = $mobileContext->getMFConfig()->get( 'MFDefaultSkinClass' );
 		$betaSkinName = $skinName . 'Beta';
-		$alphaSkinName = $skinName . 'Alpha';
-		// Force alpha for test mode to sure all modules can run
+		// Force beta for test mode to sure all modules can run
 		$name = $context->getTitle()->getDBkey();
 		$inTestMode =
 			$name === SpecialPage::getTitleFor( 'JavaScriptTest', 'qunit' )->getDBkey();
-		if ( ( $mobileContext->isAlphaGroupMember() || $inTestMode ) &&
-			class_exists( $alphaSkinName ) ) {
-			$skinName = $alphaSkinName;
-		} elseif ( $mobileContext->isBetaGroupMember() && class_exists( $betaSkinName ) ) {
+		// FIXME: remove the migration code below at some point.
+		// alpha no more, fallback to beta
+		if ( $mobileContext->getMobileMode() === 'alpha' ) {
+			$mobileContext->setMobileMode( 'beta' );
+		}
+		if ( $mobileContext->isBetaGroupMember() && class_exists( $betaSkinName ) ) {
 			$skinName = $betaSkinName;
 		}
 		$skin = new $skinName( $context );
@@ -194,7 +198,7 @@ class MobileFrontendHooks {
 
 		// Bug 43123: force mobile URLs only for local redirects
 		if ( $context->isLocalUrl( $redirect ) ) {
-			$out->addVaryHeader( 'X-Subdomain');
+			$out->addVaryHeader( 'X-Subdomain' );
 			$out->addVaryHeader( 'X-CS' );
 			$redirect = $context->getMobileUrl( $redirect );
 		}
@@ -254,65 +258,48 @@ class MobileFrontendHooks {
 	public static function onResourceLoaderTestModules( array &$testModules,
 		ResourceLoader &$resourceLoader
 	) {
+		// FIXME: Global core variable don't use it.
 		global $wgResourceModules;
-
-		$baseTemplateDir = 'tests/qunit/templates/';
-		$testModuleBoilerplate = array(
-			'localBasePath' => dirname( __DIR__ ),
-			'remoteExtPath' => 'MobileFrontend',
-			'targets' => array( 'mobile' ),
-		);
+		$testFiles = array();
+		$dependencies = array();
+		$localBasePath = dirname( __DIR__ );
 
 		// find test files for every RL module
 		foreach ( $wgResourceModules as $key => $module ) {
+			$hasTests = false;
 			if ( substr( $key, 0, 7 ) === 'mobile.' && isset( $module['scripts'] ) ) {
-				$testFiles = array();
-				$templates = array();
 				foreach ( $module['scripts'] as $script ) {
 					$testFile = 'tests/' . dirname( $script ) . '/test_' . basename( $script );
-					$testFile = str_replace( 'tests/javascripts/', 'tests/qunit/', $testFile );
+					// For resources folder
+					$testFile = str_replace( 'tests/resources/', 'tests/qunit/', $testFile );
 					// if a test file exists for a given JS file, add it
-					if ( file_exists( $testModuleBoilerplate['localBasePath'] . '/' . $testFile ) ) {
+					if ( file_exists( $localBasePath . '/' . $testFile ) ) {
 						$testFiles[] = $testFile;
-					}
-
-					// FIXME: Rewrite/cleanup the template logic
-					// save the relative name of the template directory
-					$templateDir = str_replace( 'javascripts/', '', dirname( $script ) );
-					// absolute filepath to the template dir (for several checks)
-					$templateAbsoluteDir = dirname( __DIR__ ) . '/' . $baseTemplateDir . $templateDir;
-
-					// check, if there is a template directory to load templates from
-					if ( file_exists( $templateAbsoluteDir ) && is_dir( $templateAbsoluteDir ) ) {
-						// open the template directory
-						$templateHandle = opendir( $templateAbsoluteDir );
-						// read and process all files in this directory
-						while ( $template = readdir( $templateHandle ) ) {
-							// only files can be loaded and every template should only be loaded once
-							if (
-								!is_file( $templateAbsoluteDir . '/' . $template ) ||
-								in_array( $template, $templates )
-							) {
-								continue;
-							}
-							// add this template to the templates array
-							$templates[$template] = $baseTemplateDir . $templateDir . '/' . $template;
-						}
-						// close the directory handle
-						closedir( $templateHandle );
+						$hasTests = true;
 					}
 				}
 
 				// if test files exist for given module, create a corresponding test module
-				if ( !empty( $testFiles ) ) {
-					$testModules['qunit']["$key.tests"] = $testModuleBoilerplate + array(
-						'dependencies' => array( $key ),
-						'scripts' => $testFiles,
-						'templates' => $templates,
-					);
+				if ( $hasTests ) {
+					$dependencies[] = $key;
 				}
 			}
 		}
+
+		$testModule = array(
+			'dependencies' => $dependencies,
+			'templates' => array(
+				'section.hogan' => 'tests/qunit/tests.mobilefrontend/section.hogan',
+				'issues.hogan' => 'tests/qunit/tests.mobilefrontend/issues.hogan',
+			),
+			'localBasePath' => $localBasePath,
+			'remoteExtPath' => 'MobileFrontend',
+			'targets' => array( 'mobile', 'desktop' ),
+			'scripts' => $testFiles,
+		);
+
+		// Expose templates module
+		$testModules['qunit']["tests.mobilefrontend"] = $testModule;
 
 		return true;
 	}
@@ -326,16 +313,16 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onGetCacheVaryCookies( $out, &$cookies ) {
-		global $wgMobileUrlTemplate;
+		$context = MobileContext::singleton();
+		$mobileUrlTemplate = $context->getMobileUrlTemplate();
 
 		// Enables mobile cookies on wikis w/o mobile domain
 		$cookies[] = MobileContext::USEFORMAT_COOKIE_NAME;
 		// Don't redirect to mobile if user had explicitly opted out of it
 		$cookies[] = 'stopMobileRedirect';
 
-		$context = MobileContext::singleton();
-		if ( $context->shouldDisplayMobileView() || !$wgMobileUrlTemplate ) {
-			$cookies[] = 'optin'; // Alpha/beta cookie
+		if ( $context->shouldDisplayMobileView() || !$mobileUrlTemplate ) {
+			$cookies[] = 'optin'; // beta cookie
 			$cookies[] = 'disableImages';
 		}
 		// Redirect people who want so from HTTP to HTTPS. Ideally, should be
@@ -347,7 +334,7 @@ class MobileFrontendHooks {
 	/**
 	 * ResourceLoaderGetConfigVars hook handler
 	 * This should be used for variables which vary with the html
-	 * and for variables this should work cross skin
+	 * and for variables this should work cross skin including anonymous users
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ResourceLoaderGetConfigVars
 	 *
 	 * @param array $vars
@@ -357,6 +344,8 @@ class MobileFrontendHooks {
 		$context = MobileContext::singleton();
 		$config = $context->getMFConfig();
 
+		// Get the licensing agreement that is displayed in the uploading interface.
+		$wgMFUploadLicense = SkinMinerva::getLicense( 'upload' );
 		$vars += array(
 			'wgMFNearbyEndpoint' => $config->get( 'MFNearbyEndpoint' ),
 			'wgMFThumbnailSizes' => array(
@@ -365,11 +354,8 @@ class MobileFrontendHooks {
 			),
 			'wgMFContentNamespace' => $config->get( 'MFContentNamespace' ),
 			'wgMFEditorOptions' => $config->get( 'MFEditorOptions' ),
-
-			// Set the licensing agreement that is displayed in the editor.
-			'wgMFLicenseLink' => SkinMinerva::getLicenseLink( 'editor' ),
-			// Set the licensing agreement that is displayed in the uploading interface.
-			'wgMFUploadLicenseLink' => SkinMinerva::getLicenseLink( 'upload' ),
+			'wgMFLicense' => SkinMinerva::getLicense( 'editor' ),
+			'wgMFUploadLicenseLink' => $wgMFUploadLicense['link'],
 		);
 
 		// add CodeMirror specific things, if it is installed (for CodeMirror editor)
@@ -377,6 +363,7 @@ class MobileFrontendHooks {
 			$vars += CodeMirrorHooks::getGlobalVariables( MobileContext::singleton() );
 			$vars['wgMFCodeMirror'] = true;
 		}
+
 		return true;
 	}
 
@@ -403,10 +390,6 @@ class MobileFrontendHooks {
 			 * Special:Contributions without the bells and whistles.
 			 */
 			$list['Contributions'] = 'SpecialMobileContributions';
-
-			if ( class_exists( 'MWEchoNotifUser' ) ) {
-				$list['Notifications'] = 'SpecialMobileNotifications';
-			}
 		}
 		// add Special:Nearby only, if Nearby is activated
 		if ( $ctx->getMFConfig()->get( 'MFNearby' ) ) {
@@ -501,18 +484,32 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onSpecialPageBeforeExecute( SpecialPage $special, $subpage ) {
-		global $wgSecureLogin;
 		$mobileContext = MobileContext::singleton();
 		$isMobileView = $mobileContext->shouldDisplayMobileView();
-		$out = $special->getContext()->getOutput();
+		$context = $special->getContext();
+		$out = $context->getOutput();
+		$secureLogin = $context->getConfig()->get( 'SecureLogin' );
+		$request = $special->getContext()->getRequest();
 		$skin = $out->getSkin()->getSkinName();
 
 		$name = $special->getName();
 
 		// Ensure desktop version of Special:Preferences page gets mobile targeted modules
 		// FIXME: Upstream to core (?)
-		if ( $name === 'Preferences' && $skin === 'minerva' ) {
-			$out->addModules( 'skins.minerva.special.preferences.scripts' );
+		if ( $skin === 'minerva' ) {
+			if ( $name === 'Preferences' ) {
+				$out->addModules( 'skins.minerva.special.preferences.scripts' );
+			}
+
+			// Add default warning message to Special:UserLogin and Special:UserCreate
+			// if no warning message set.
+			if (
+				$name === 'Userlogin' &&
+				!$request->getVal( 'warning', null ) &&
+				!$context->getUser()->isLoggedIn()
+			) {
+				$request->setVal( 'warning', 'mobile-frontend-generic-login-new' );
+			}
 		}
 
 		if ( $isMobileView ) {
@@ -525,7 +522,7 @@ class MobileFrontendHooks {
 				// most of this is lifted from https redirect code in SpecialUserlogin::execute()
 				// also, checking for 'https' in $wgServer is a little funky, but this is what
 				// is done on the WMF cluster (see config in CommonSettings.php)
-				if ( $wgSecureLogin && WebRequest::detectProtocol() != 'https' ) {
+				if ( $secureLogin && WebRequest::detectProtocol() != 'https' ) {
 					// get the https url and redirect
 					$query = $special->getContext()->getRequest()->getQueryValues();
 					if ( isset( $query['title'] ) )  {
@@ -573,6 +570,37 @@ class MobileFrontendHooks {
 	}
 
 	/**
+	 * Decide if the login/usercreate page should be overwritten by a mobile only
+	 * special specialpage. If not, do some changes to the template.
+	 * @param QuickTemplate $tpl Login or Usercreate template
+	 * @param String $mode Is this function called in context of UserCreate or UserLogin?
+	 */
+	public static function changeUserLoginCreateForm( &$tpl ) {
+		$context = MobileContext::singleton();
+		// otherwise just(tm) add a logoheader, if there is any
+		$mfLogo = $context->getMFConfig()
+			->get( 'MobileFrontendLogo' );
+
+		// do nothing in desktop mode
+		if ( $context->shouldDisplayMobileView() && $mfLogo ) {
+			$tpl->extend(
+				'formheader',
+				Html::openElement(
+					'div',
+					array( 'class' => 'watermark' )
+				) .
+				Html::element( 'img',
+					array(
+						'src' => $mfLogo,
+						'alt' => '',
+					)
+				) .
+				Html::closeElement( 'div' )
+			);
+		}
+	}
+
+	/**
 	 * UserLoginForm hook handler
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/UserLoginForm
 	 *
@@ -580,11 +608,7 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onUserLoginForm( &$template ) {
-		$context = MobileContext::singleton();
-		if ( $context->shouldDisplayMobileView() && !$context->isAlphaGroupMember() ) {
-			$template = new UserLoginMobileTemplate( $template );
-		}
-
+		self::changeUserLoginCreateForm( $template );
 		return true;
 	}
 
@@ -596,11 +620,7 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onUserCreateForm( &$template ) {
-		$context = MobileContext::singleton();
-		if ( $context->shouldDisplayMobileView() && !$context->isAlphaGroupMember() ) {
-			$template = new UserAccountCreateMobileTemplate( $template );
-		}
-
+		self::changeUserLoginCreateForm( $template );
 		return true;
 	}
 
@@ -613,14 +633,19 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onBeforePageDisplay( &$out, &$sk ) {
-		global $wgMFEnableXAnalyticsLogging, $wgMFAppPackageId, $wgMFAppScheme;
-
 		$context = MobileContext::singleton();
+		$config = $context->getMFConfig();
+		$mfEnableXAnalyticsLogging = $config->get( 'MFEnableXAnalyticsLogging' );
+		$mfAppPackageId = $config->get( 'MFAppPackageId' );
+		$mfAppScheme = $config->get( 'MFAppScheme' );
+		$mfNoIndexPages = $config->get( 'MFNoindexPages' );
+		$mfMobileUrlTemplate = $context->getMobileUrlTemplate();
+		$tabletSize = $config->get( 'MFDeviceWidthTablet' );
 
 		$title = $sk->getTitle();
 		$request = $context->getRequest();
 		# Add deep link to a mobile app specified by $wgMFAppScheme
-		if ( ( $wgMFAppPackageId !== false ) && ( $title->isContentPage() )
+		if ( ( $mfAppPackageId !== false ) && ( $title->isContentPage() )
 			&& ( $request->getRawQueryString() === '' )
 		) {
 			$fullUrl = $title->getFullURL();
@@ -628,8 +653,8 @@ class MobileFrontendHooks {
 			$path = preg_replace( "/^([a-z]+:)?(\/)*/", '', $mobileUrl, 1 );
 
 			$scheme = 'http';
-			if ( $wgMFAppScheme !== false ) {
-				$scheme = $wgMFAppScheme;
+			if ( $mfAppScheme !== false ) {
+				$scheme = $mfAppScheme;
 			} else {
 				$protocol = $request->getProtocol();
 				if ( $protocol != '' ) {
@@ -637,60 +662,42 @@ class MobileFrontendHooks {
 				}
 			}
 
-			$hreflink = 'android-app://' . $wgMFAppPackageId . '/' . $scheme . '/' . $path;
+			$hreflink = 'android-app://' . $mfAppPackageId . '/' . $scheme . '/' . $path;
 			$out->addLink( array( 'rel' => 'alternate', 'href' => $hreflink ) );
 		}
 
-		$config = $context->getMFConfig();
-		$mfNoIndexPages = $config->get( 'MFNoindexPages' );
-		$mfMobileUrlTemplate = $config->get( 'MobileUrlTemplate' );
-		$tabletSize = $config->get( 'MFDeviceWidthTablet' );
-		// an alternate link is only useful, if the mobile and desktop URL are different
+		// an canonical/alternate link is only useful, if the mobile and desktop URL are different
 		// and $wgMFNoindexPages needs to be true
-		// add alternate link to desktop sites - bug T91183
 		if ( $mfMobileUrlTemplate && $mfNoIndexPages ) {
-			$desktopUrl = $title->getFullUrl();
-			$out->addHeadItem(
-				'mobilelink',
-				Html::element(
-					'link',
-					array(
-						'rel' => 'alternate',
-						'media' => 'only screen and (max-width: ' . $tabletSize . 'px)',
-						'href' => $context->getMobileUrl( $desktopUrl ),
-					)
-				)
-			);
-		}
-		if ( !$context->shouldDisplayMobileView() ) {
-			return true;
-		}
-		// an canonical link is only useful, if the mobile and desktop URL are different
-		// and $wgMFNoindexPages needs to be true
-		// add canonical link to mobile pages, instead of noindex - bug T91183
-		if ( $mfMobileUrlTemplate && $mfNoIndexPages ) {
-			$out->addHeadItem(
-				'desktoplink',
-				Html::element(
-					'link',
-					array(
-						'rel' => 'canonical',
-						'href' => $title->getFullUrl(),
-					)
-				)
-			);
+			if ( !$context->shouldDisplayMobileView() ) {
+				// add alternate link to desktop sites - bug T91183
+				$desktopUrl = $title->getFullUrl();
+				$link = array(
+					'rel' => 'alternate',
+					'media' => 'only screen and (max-width: ' . $tabletSize . 'px)',
+					'href' => $context->getMobileUrl( $desktopUrl ),
+				);
+			} else {
+				// add canonical link to mobile pages, instead of noindex - bug T91183
+				$link = array(
+					'rel' => 'canonical',
+					'href' => $title->getFullUrl(),
+				);
+			}
+			$out->addLink( $link );
 		}
 
 		// Set X-Analytics HTTP response header if necessary
-		if ( $wgMFEnableXAnalyticsLogging ) {
-			$analyticsHeader = $context->getXAnalyticsHeader();
+		if ( $context->shouldDisplayMobileView() ) {
+			$analyticsHeader = ( $mfEnableXAnalyticsLogging ? $context->getXAnalyticsHeader() : false );
 			if ( $analyticsHeader ) {
 				$resp = $out->getRequest()->response();
 				$resp->header( $analyticsHeader );
 			}
-		}
 
-		$out->addVaryHeader( 'Cookie' );
+			// in mobile view: always add vary header
+			$out->addVaryHeader( 'Cookie' );
+		}
 
 		return true;
 	}
@@ -733,7 +740,8 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onGetPreferences( $user, &$preferences ) {
-		global $wgMFEnableMinervaBetaFeature;
+		$mfEnableMinervaBetaFeature = MobileContext::singleton()->getMFConfig()
+			->get( 'MFEnableMinervaBetaFeature' );
 		$definition = array(
 			'type' => 'api',
 			'default' => '',
@@ -745,7 +753,7 @@ class MobileFrontendHooks {
 		// BetaFeatures.
 		if ( !class_exists( 'BetaFeatures' )
 			|| !BetaFeatures::isFeatureEnabled( $user, 'betafeatures-minerva' )
-			|| !$wgMFEnableMinervaBetaFeature
+			|| !$mfEnableMinervaBetaFeature
 		) {
 			// Preference key/values are backwards. The value is the name of the skin. The
 			// key is the text+links to display.
@@ -768,9 +776,11 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onGetBetaFeaturePreferences( $user, &$preferences ) {
-		global $wgExtensionAssetsPath, $wgMFEnableMinervaBetaFeature;
+		$context = MobileContext::singleton();
+		$extensionAssetsPath = $context->getConfig()->get( 'ExtensionAssetsPath' );
+		$mfEnableMinervaBetaFeature = $context->getMFConfig()->get( 'MFEnableMinervaBetaFeature' );
 
-		if ( $wgMFEnableMinervaBetaFeature ) {
+		if ( $mfEnableMinervaBetaFeature ) {
 			// Enable the mobile skin on desktop
 			$preferences['betafeatures-minerva'] = array(
 				'label-message' => 'beta-feature-minerva',
@@ -778,8 +788,8 @@ class MobileFrontendHooks {
 				'info-link' => '//www.mediawiki.org/wiki/Beta_Features/Minerva',
 				'discussion-link' => '//www.mediawiki.org/wiki/Talk:Beta_Features/Minerva',
 				'screenshot' => array(
-					'ltr' => "$wgExtensionAssetsPath/MobileFrontend/images/BetaFeatures/minerva-ltr.svg",
-					'rtl' => "$wgExtensionAssetsPath/MobileFrontend/images/BetaFeatures/minerva-rtl.svg",
+					'ltr' => "$extensionAssetsPath/MobileFrontend/images/BetaFeatures/minerva-ltr.svg",
+					'rtl' => "$extensionAssetsPath/MobileFrontend/images/BetaFeatures/minerva-rtl.svg",
 				),
 			);
 		}
@@ -820,10 +830,10 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onCentralAuthLoginRedirectData( $centralUser, &$data ) {
-		global $wgServer;
 		$context = MobileContext::singleton();
+		$server = $context->getConfig()->get( 'Server' );
 		if ( $context->shouldDisplayMobileView() ) {
-			$data['mobileServer'] = $context->getMobileUrl( $wgServer );
+			$data['mobileServer'] = $context->getMobileUrl( $server );
 		}
 		return true;
 	}
@@ -851,9 +861,9 @@ class MobileFrontendHooks {
 	/**
 	 * ResourceLoaderRegisterModules hook handler
 	 *
-	 * Registers the mobile.loggingSchemas module without a dependency on the
-	 * ext.EventLogging module so that calls to the various log functions are
-	 * effectively NOPs.
+	 * Registers the mobile.loggingSchemas module
+	 * without a dependency on the EventLogging schema modules so that calls to the various log
+	 * functions are effectively NOPs.  And registers VisualEditor and Echo related modules.
 	 *
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ResourceLoaderRegisterModules
 	 *
@@ -861,7 +871,7 @@ class MobileFrontendHooks {
 	 * @return bool Always true
 	 */
 	public static function onResourceLoaderRegisterModules( ResourceLoader &$resourceLoader ) {
-		self::registerMobileLoggingSchemasModule();
+		self::registerMobileLoggingSchemasModule( $resourceLoader );
 		$config = MobileContext::singleton()->getMFConfig();
 
 		// add VisualEditor related modules only, if VisualEditor seems to be installed - T85007
@@ -869,9 +879,10 @@ class MobileFrontendHooks {
 			$resourceLoader->register( $config->get( 'MobileVEModules' ) );
 		}
 
-		if ( class_exists( 'CodeMirrorHooks' ) ) {
-			$resourceLoader->register( $config->get( 'MobileCodeMirrorModules' ) );
-		}
+		// add Echo, if it's installed
+		if ( class_exists( 'MWEchoNotifUser' ) ) {
+			$resourceLoader->register( $config->get( 'MobileEchoModules' ) );
+		};
 
 		return true;
 	}
@@ -897,6 +908,24 @@ class MobileFrontendHooks {
 	}
 
 	/**
+	 * Returns an array of schema names mapped to a schema revision ID
+	 *
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ResourceLoaderGetLessVars
+	 * @param array Array of schema names associated to revision IDs
+	 */
+	private static function getEventLoggingSchemas() {
+		return array(
+			'MobileWebBrowse' => 12119641,
+			'MobileWebDiffClickTracking' => 10720373,
+			'MobileWebMainMenuClickTracking' => 11568715,
+			'MobileWebSearch' => 12054448,
+			'MobileWebUIClickTracking' => 10742159,
+			'MobileWebWatching' => 11761466,
+			'MobileWebWatchlistClickTracking' => 10720361,
+		);
+	}
+
+	/**
 	 * EventLoggingRegisterSchemas hook handler.
 	 *
 	 * Registers our EventLogging schemas so that they can be converted to
@@ -911,62 +940,48 @@ class MobileFrontendHooks {
 	 * @return bool Always true
 	 */
 	public static function onEventLoggingRegisterSchemas( &$schemas ) {
-		$mobileEventLoggingSchemas = array(
-			'MobileWebUploads'       => 8209043,
-			'MobileWebEditing'       => 8599025,
-			'MobileWebWatchlistClickTracking' => 10720361,
-			'MobileWebDiffClickTracking' => 10720373,
-			'MobileWebMainMenuClickTracking' => 11568715,
-			'MobileWebUIClickTracking' => 10742159,
-		);
-
-		$schemas += $mobileEventLoggingSchemas;
-
-		$additionalDependencies = array_map(
-			function ( $schema ) {
-				return "schema.{$schema}";
-			},
-			array_keys( $mobileEventLoggingSchemas )
-		);
-		self::registerMobileLoggingSchemasModule( $additionalDependencies, true );
-
+		$schemas += self::getEventLoggingSchemas();
 		return true;
 	}
 
 	/**
-	 * Registers the mobile.loggingSchemas module with any additional
-	 * dependencies.
+	 * Registers the mobile.loggingSchemas module with optional dependency on the
+	 * EventLogging schema modules registered in onEventLoggingRegisterSchemas
 	 *
-	 * @param array $additionalDependencies Additional dependencies that the module
-	 *  depends on. Defaults to empty array
-	 * @param boolean $overwrite Whether or not to re-register the module if it has
-	 *  already been registered. Defaults to false
+	 * @param ResourceLoader &$resourceLoader The ResourceLoader object
 	 */
-	private static function registerMobileLoggingSchemasModule(
-		$additionalDependencies = array(),
-		$overwrite = false
-	) {
-		global $wgResourceModules, $wgMFResourceFileModuleBoilerplate;
-
-		if ( isset( $wgResourceModules['mobile.loggingSchemas'] ) && !$overwrite ) {
-			return;
-		}
+	private static function registerMobileLoggingSchemasModule( $resourceLoader ) {
+		$mfResourceFileModuleBoilerplate = MobileContext::singleton()
+			->getMFConfig()->get( 'MFResourceFileModuleBoilerplate' );
 
 		$scripts = array(
-			'javascripts/loggingSchemas/SchemaMobileWebUploads.js',
-			'javascripts/loggingSchemas/SchemaMobileWebClickTracking.js',
-			'javascripts/loggingSchemas/SchemaMobileWebEditing.js',
+			'resources/mobile.loggingSchemas/SchemaEdit.js',
+			'resources/mobile.loggingSchemas/SchemaMobileWeb.js',
+			'resources/mobile.loggingSchemas/SchemaMobileWebClickTracking.js',
+			'resources/mobile.loggingSchemas/SchemaMobileWebWatching.js',
+			'resources/mobile.loggingSchemas/SchemaMobileWebSearch.js',
+			'resources/mobile.loggingSchemas/SchemaMobileWebBrowse.js',
 		);
 
-		$wgResourceModules['mobile.loggingSchemas'] = $wgMFResourceFileModuleBoilerplate + array(
-			'dependencies' => array_merge( $additionalDependencies, array(
+		$schemaModules = array();
+		if ( class_exists( 'EventLogging' ) ) {
+			$schemaModules = array_map(
+				function ( $schema ) {
+					return "schema.{$schema}";
+				},
+				array_keys( self::getEventLoggingSchemas() )
+			);
+		}
+
+		$loggingSchemasModule = $mfResourceFileModuleBoilerplate + array(
+			'dependencies' => array_merge( array(
 				'mobile.startup',
 				'mobile.settings',
-			) ),
+			), $schemaModules ),
 			'scripts' => $scripts,
 		);
 
-		$wgResourceModules['skins.minerva.scripts']['scripts'][] = 'javascripts/loggingSchemas/init.js';
+		$resourceLoader->register( array( 'mobile.loggingSchemas' => $loggingSchemasModule ) );
 	}
 
 	/**
@@ -979,19 +994,25 @@ class MobileFrontendHooks {
 	 * @return bool
 	 */
 	public static function onOutputPageParserOutput( $outputPage, ParserOutput $po ) {
-		global $wgMFUseWikibaseDescription;
+		global $wgMFWikibaseImageCategory;
 
 		$context = MobileContext::singleton();
+		$mfUseWikibaseDescription = $context->getMFConfig()->get( 'MFUseWikibaseDescription' );
+
 		if ( $context->shouldDisplayMobileView() ) {
 			$outputPage->enableTOC( false );
 			$outputPage->setProperty( 'MinervaTOC', $po->getTOCHTML() !== '' );
 
-			if ( $wgMFUseWikibaseDescription && $context->isAlphaGroupMember() ) {
+			if ( $mfUseWikibaseDescription && $context->isBetaGroupMember() ) {
 				$item = $po->getProperty( 'wikibase_item' );
 				if ( $item ) {
 					$desc = ExtMobileFrontend::getWikibaseDescription( $item );
+					$category =  ExtMobileFrontend::getWikibasePropertyValue( $item, $wgMFWikibaseImageCategory );
 					if ( $desc ) {
 						$outputPage->setProperty( 'wgMFDescription', $desc );
+					}
+					if ( $category ) {
+						$outputPage->setProperty( 'wgMFImagesCategory', $category );
 					}
 				}
 			}
@@ -1016,6 +1037,16 @@ class MobileFrontendHooks {
 	 * @param array $messages Array of already added messages
 	 */
 	public static function onLoginFormValidErrorMessages( &$messages ) {
-		$messages[] = 'mobile-frontend-donate-image-anon';
+		$messages = array_merge( $messages,
+			array(
+				'mobile-frontend-watchlist-signup-action', // watchstart sign up CTA
+				'mobile-frontend-watchlist-purpose', // Watchlist and watchstar sign in CTA
+				'mobile-frontend-donate-image-anon', // Uploads link
+				'mobile-frontend-edit-login-action', // Edit button sign in CTA
+				'mobile-frontend-edit-signup-action', // Edit button sign-up CTA
+				'mobile-frontend-donate-image-login-action',
+				'mobile-frontend-generic-login-new', // default message
+			)
+		);
 	}
 }

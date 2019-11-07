@@ -1,0 +1,27 @@
+{
+	"name": "mediawiki/patroller",
+	"type": "mediawiki-extension",
+	"license": "GPL-2.0",
+	"homepage": "https://mediawiki.org/wiki/Extension:Patroller",
+	"description": "Enhanced patrolling interface with workload sharing",
+	"authors": [
+		{
+			"name": "Rob Church",
+			"email": "robchur@gmail.com"
+		},
+		{
+			"name": "Kris Blair (Cblair91)",
+			"email": "admin@betadev.co.uk"
+		}
+	],
+	"require-dev": {
+		"jakub-onderka/php-parallel-lint": "0.9",
+		"mediawiki/mediawiki-codesniffer": "0.3.0"
+	},
+	"scripts": {
+		"test": [
+			"parallel-lint . --exclude vendor",
+			"phpcs -p"
+		]
+	}
+}
