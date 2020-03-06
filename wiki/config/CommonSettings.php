@@ -60,10 +60,21 @@ $wgShellLocale = "en_US.utf8";
 
 $wgSecretKey = $uespWikiSecretKey;
 
+$wgThumbLimits = array(
+   120,
+   150,
+   180,
+   200,
+   220,
+   250,
+   300,
+   400
+   );
+
 $wgDefaultSkin = 'uespmonobook';
 $wgDefaultUserOptions['thumbsize'] = 3; // thumb size 200
-// $wgGalleryOptions['imageWidth'] = 200;
-// $wgGalleryOptions['imageHeight'] = 200;
+$wgGalleryOptions['imageWidth'] = 200;
+$wgGalleryOptions['imageHeight'] = 200;
 // $wgGalleryOptions['mode'] = 'nolines';
 
 $wgRightsPage = "UESPWiki:Copyright_and_Ownership";

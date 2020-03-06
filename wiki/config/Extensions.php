@@ -68,8 +68,6 @@ require_once( "$IP/extensions/RegexFunctions/RegexFunctions.php" );
 wfLoadExtension( "Renameuser" );
 
 wfLoadExtension( "SpamBlacklist" );
-$wgSpamBlacklistFiles = array( "DB: uesp_net_wiki5 UESPWiki:Spam_Blacklist" );
-
 wfLoadExtension( "TitleBlacklist" );
 
 require_once( "$IP/extensions/TorBlock/TorBlock.php" );
@@ -115,3 +113,5 @@ require_once( "$IP/extensions/Tabs/Tabs.php" );
 # wfLoadExtension( "WikiEditor" );
 
 wfLoadExtension( "PageSpeedLog" );
+
+wfLoadExtension( "UespPatreon" );

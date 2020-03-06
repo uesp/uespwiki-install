@@ -242,9 +242,10 @@ $wgGroupPermissions['sysop']['unrestrictedblock'] = true;
 $egSiteEnableGoogleAds = true;  // UESP
 #$egSiteEnableGoogleAds = false; // ESPO
 
-$wgResourceModules['ext.UespCustomCode.ad.scripts'] = array(
+$wgResourceModules['ext.UespCustomCode.ad'] = array(
 	'position' => 'top',
 	'scripts' => array( 'modules/uespCurse.js' ),
+	'styles' => array( 'modules/uespCurse.css' ),
 	'localBasePath' => __DIR__,
 	'remoteBasePath' => "$wgScriptPath/extensions/UespCustomCode/",
 	'targets' => array( 'desktop', 'mobile' ),
@@ -356,16 +357,48 @@ function efSiteCustomCode() {
 	}
 	else
 	{
-		$wgOut->addModules( 'ext.UespCustomCode.ad.scripts' );
+		if (UESP_isShowAds()) 
+		{
+			$wgOut->addModules( 'ext.UespCustomCode.ad' );
+		}
+		else 
+		{
+		}
 	}
 
 	return true;
 }
 
+
+function UESP_isShowAds() {
+	global $wgUser;
+	static $cachedUser = null;
+		
+	if (!$wgUser->isLoggedIn()) return true;
+	
+	if ($cachedUser == null) {
+		$db = wfGetDB(DB_SLAVE);
+	
+		$res = $db->select('patreon_user', '*', ['user_id' => $wgUser->getId()]);
+		if ($res->numRows() == 0) return true;
+	
+		$row = $res->fetchRow();
+		if ($row == null) return true;
+	
+		$cachedUser = $row;
+	}
+
+	$hasPaid = ($cachedUser['has_donated'] > 0);
+	
+	//error_log("Has Donated: " . $cachedUser['has_donated']);
+	
+	if ($hasPaid) return false;
+	return true;
+}
+
+
 function UESP_beforePageDisplay(&$out) {
 	global $wgScriptPath;
-
-	//$out->addHeadItem("uesp", "<script src='$wgScriptPath/extensions/UespCustomCode/modules/uespCurse.js'></script>");
 
 	SetUespEsoMapSessionData();
 	
@@ -472,6 +505,8 @@ function onUespTitleSquidURLs( Title $title, array &$urls )
 }
 
 // group pages appear under at Special:SpecialPages
-$wgSpecialPageGroups['Preferences'] = 'users';
-$wgSpecialPageGroups['Search'] = 'redirects';
-$wgSpecialPageGroups['Wantedpages'] = 'maintenance';
+// $wgSpecialPageGroups['Preferences'] = 'users';
+// $wgSpecialPageGroups['Search'] = 'redirects';
+// $wgSpecialPageGroups['Wantedpages'] = 'maintenance';
+
+return true;
