@@ -1,6 +1,4 @@
 ( function () {
-	var loader;
-
 	/**
 	 * Class for managing modules
 	 *
@@ -8,6 +6,7 @@
 	 * ResourceLoader modules).
 	 *
 	 * @class ModuleLoader
+	 * @extends OO.EventEmitter
 	 */
 	function ModuleLoader() {
 		/**
@@ -15,20 +14,42 @@
 		 * @private
 		 */
 		this._register = {};
+		OO.EventEmitter.call( this );
 	}
 
 	ModuleLoader.prototype = {
 		/**
 		 * Require (import) a module previously defined using define().
+		 * Searches core module registry using mw.loader.require before consulting
+		 * its own local registry. This method is deprecated, please do not use.
 		 *
 		 * @param {String} id Required module id.
 		 * @return {Object} Required module, can be any JavaScript object.
 		 */
 		require: function ( id ) {
-			if ( !this._register.hasOwnProperty( id ) ) {
-				throw new Error( 'Module not found: ' + id );
+			var module, args,
+				registry = this._register;
+
+			/**
+			 * @ignore
+			 */
+			function localRequire() {
+				if ( !registry.hasOwnProperty( id ) ) {
+					throw new Error( 'MobileFrontend Module not found: ' + id );
+				}
+				return registry[ id ];
 			}
-			return this._register[ id ];
+			args = id.split( '/' );
+			try {
+				module = mw.loader.require( args[0] );
+				if ( module[ args[1] ] ) {
+					return module[ args[1] ];
+				} else {
+					return localRequire();
+				}
+			} catch ( e ) {
+				return localRequire();
+			}
 		},
 
 		/**
@@ -49,7 +70,7 @@
 			return {
 				/**
 				 * @see ModuleLoader#deprecate
-				 * @param {Number} deprecatedId Defined module id, which is deprecated.
+				 * @param {String} deprecatedId Defined module id, which is deprecated.
 				 */
 				deprecate: function ( deprecatedId ) {
 					self.deprecate( deprecatedId, obj, id );
@@ -75,8 +96,7 @@
 			mw.log.deprecate( this._register, id, obj, depreacteMsg );
 		}
 	};
-
-	loader = new ModuleLoader();
+	OO.mixinClass( ModuleLoader, OO.EventEmitter );
 
 	/**
 	 *
@@ -85,29 +105,10 @@
 	 * @class mw.mobileFrontend
 	 * @singleton
 	 */
-	mw.mobileFrontend = {
-		/**
-		 * @see ModuleLoader#define
-		 * @return {Object}
-		 */
-		define: function () {
-			return loader.define.apply( loader, arguments );
-		},
-		/**
-		 * @see ModuleLoader#require
-		 */
-		require: function () {
-			return loader.require.apply( loader, arguments );
-		},
-		/**
-		 * @see ModuleLoader#deprecate
-		 */
-		deprecate: function () {
-			return loader.deprecate.apply( loader, arguments );
-		}
-	};
+	mw.mobileFrontend = new ModuleLoader();
 
 	// inception to support testing (!!)
+	module.exports.ModuleLoader = ModuleLoader;
 	mw.mobileFrontend.define( 'ModuleLoader', ModuleLoader );
 
 }() );

@@ -11,7 +11,6 @@ use Elastica\Exception\ResponseException;
 use Elastica\Type;
 use RawMessage;
 use Status;
-use Title;
 
 class CacheWarmersValidator extends Validator {
 	/**
@@ -35,7 +34,7 @@ class CacheWarmersValidator extends Validator {
 	 * @param array $cacheWarmers
 	 * @param Maintenance $out
 	 */
-	public function __construct( $indexType, $pageType, array $cacheWarmers = array(), Maintenance $out = null ) {
+	public function __construct( $indexType, Type $pageType, array $cacheWarmers = array(), Maintenance $out = null ) {
 		parent::__construct( $out );
 
 		$this->indexType = $indexType;
@@ -62,6 +61,10 @@ class CacheWarmersValidator extends Validator {
 		return $status;
 	}
 
+	/**
+	 * @return array[] Set of elasticsearch queries suitable for individually
+	 *  json encoding and sending to elasticsearch.
+	 */
 	private function buildExpectedWarmers() {
 		$warmers = array();
 		foreach ( $this->cacheWarmers as $search ) {
@@ -71,6 +74,11 @@ class CacheWarmersValidator extends Validator {
 		return $warmers;
 	}
 
+	/**
+	 * @param string $search
+	 * @return array Elasticsearch query suitable for json encoding and sending
+	 *  to elasticsearch.
+	 */
 	private function buildWarmer( $search ) {
 		// This has a couple of compromises:
 		$searcher = new Searcher(
@@ -92,6 +100,9 @@ class CacheWarmersValidator extends Validator {
 		return $query[ 'query' ];
 	}
 
+	/**
+	 * @return array[]
+	 */
 	private function fetchActualWarmers() {
 		$data = $this->pageType->getIndex()->request( "_warmer/", 'GET' )->getData();
 		$firstKeys = array_keys( $data );
@@ -111,6 +122,10 @@ class CacheWarmersValidator extends Validator {
 		return $warmers;
 	}
 
+	/**
+	 * @param array[] $warmers
+	 * @return Status
+	 */
 	private function updateWarmers( $warmers ) {
 		$type = $this->pageType->getName();
 		foreach ( $warmers as $name => $contents ) {
@@ -137,6 +152,10 @@ class CacheWarmersValidator extends Validator {
 		return Status::newGood();
 	}
 
+	/**
+	 * @param array[] $warmers
+	 * @return Status
+	 */
 	private function deleteWarmers( $warmers ) {
 		foreach ( array_keys( $warmers ) as $name ) {
 			$this->outputIndented( "\tDeleting $name..." );
@@ -149,6 +168,11 @@ class CacheWarmersValidator extends Validator {
 		return Status::newGood();
 	}
 
+	/**
+	 * @param array[] $expectedWarmers
+	 * @param array[] $actualWarmers
+	 * @return array[] List of warmers that differ
+	 */
 	private function diff( $expectedWarmers, $actualWarmers ) {
 		$result = array();
 		foreach ( $expectedWarmers as $key => $value ) {

@@ -21,7 +21,6 @@
 #mw-mf-page-center {
 	width: 100%;
 	position: relative;
-	z-index: @z-indexMain;
 }
 
 .main-menu-button {
@@ -190,7 +189,7 @@ body.navigation-enabled {
 	}
 }
 
-@media all and (min-width: @wgMFDeviceWidthTablet) {
+@media all and (min-width: @deviceWidthTablet) {
 	@rightDrawerLeftOffset: 100% - @rightDrawerWidth;
 	.secondary-navigation-enabled {
 		#mw-mf-page-center {
@@ -210,8 +209,7 @@ body.navigation-enabled {
 
 // animated version
 @duration: .25s;
-// Trying to mimic easeOutBack. More info: https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-@easing: cubic-bezier(0.175, 0.885, 0.320, 1.275);
+@easing: ease-in-out;
 
 // FIXME: Cleanup animation css
 .animations {

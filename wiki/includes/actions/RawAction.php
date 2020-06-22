@@ -26,6 +26,8 @@
  * @file
  */
 
+use MediaWiki\Logger\LoggerFactory;
+
 /**
  * A simple method to retrieve the plain source of an article,
  * using "action=raw" in the GET request string.
@@ -33,14 +35,6 @@
  * @ingroup Actions
  */
 class RawAction extends FormlessAction {
-	/**
-	 * Whether the request includes a 'gen' parameter
-	 * @var bool
-	 * @deprecated since 1.17 This used to be a string for "css" or "javascript" but
-	 * it is no longer used. Setting this parameter results in an empty response.
-	 */
-	private $gen = false;
-
 	public function getName() {
 		return 'raw';
 	}
@@ -77,35 +71,84 @@ class RawAction extends FormlessAction {
 		$maxage = $request->getInt( 'maxage', $config->get( 'SquidMaxage' ) );
 		$smaxage = $request->getIntOrNull( 'smaxage' );
 		if ( $smaxage === null ) {
-			if ( $this->gen ) {
-				$smaxage = $config->get( 'SquidMaxage' );
-			} elseif ( $contentType == 'text/css' || $contentType == 'text/javascript' ) {
-				// CSS/JS raw content has its own squid max age configuration.
-				// Note: Title::getSquidURLs() includes action=raw for css/js pages,
+			if ( $contentType == 'text/css' || $contentType == 'text/javascript' ) {
+				// CSS/JS raw content has its own CDN max age configuration.
+				// Note: Title::getCdnUrls() includes action=raw for css/js pages,
 				// so if using the canonical url, this will get HTCP purges.
 				$smaxage = intval( $config->get( 'ForcedRawSMaxage' ) );
 			} else {
-				// No squid cache for anything else
+				// No CDN cache for anything else
 				$smaxage = 0;
 			}
 		}
 
 		// Set standard Vary headers so cache varies on cookies and such (T125283)
 		$response->header( $this->getOutput()->getVaryHeader() );
-		if ( $config->get( 'UseXVO' ) ) {
-			$response->header( $this->getOutput()->getXVO() );
+		if ( $config->get( 'UseKeyHeader' ) ) {
+			$response->header( $this->getOutput()->getKeyHeader() );
 		}
 
-		$response->header( 'Content-type: ' . $contentType . '; charset=UTF-8' );
 		// Output may contain user-specific data;
 		// vary generated content for open sessions on private wikis
-		$privateCache = !User::isEveryoneAllowed( 'read' ) && ( $smaxage == 0 || session_id() != '' );
+		$privateCache = !User::isEveryoneAllowed( 'read' ) &&
+			( $smaxage == 0 || MediaWiki\Session\SessionManager::getGlobalSession()->isPersistent() );
 		// Don't accidentally cache cookies if user is logged in (T55032)
 		$privateCache = $privateCache || $this->getUser()->isLoggedIn();
 		$mode = $privateCache ? 'private' : 'public';
 		$response->header(
 			'Cache-Control: ' . $mode . ', s-maxage=' . $smaxage . ', max-age=' . $maxage
 		);
+
+		// In the event of user JS, don't allow loading a user JS/CSS/Json
+		// subpage that has no registered user associated with, as
+		// someone could register the account and take control of the
+		// JS/CSS/Json page.
+		$title = $this->getTitle();
+		if ( $title->isCssJsSubpage() && $contentType !== 'text/x-wiki' ) {
+			// not using getRootText() as we want this to work
+			// even if subpages are disabled.
+			$rootPage = strtok( $title->getText(), '/' );
+			$userFromTitle = User::newFromName( $rootPage, 'usable' );
+			if ( !$userFromTitle || $userFromTitle->getId() === 0 ) {
+				$log = LoggerFactory::getInstance( "security" );
+				$log->warning(
+					"Unsafe JS/CSS/Json load - {user} loaded {title} with {ctype}",
+					[
+						'user' => $this->getUser()->getName(),
+						'title' => $title->getPrefixedDBKey(),
+						'ctype' => $contentType,
+					]
+				);
+				$msg = wfMessage( 'unregistered-user-config' );
+				throw new HttpError( 403, $msg );
+			}
+		}
+
+		// Don't allow loading non-protected pages as javascript.
+		// In future we may further restrict this to only CONTENT_MODEL_JAVASCRIPT
+		// in NS_MEDIAWIKI or NS_USER, as well as including other config types,
+		// but for now be more permissive. Allowing protected pages outside of
+		// NS_USER and NS_MEDIAWIKI in particular should be considered a temporary
+		// allowance.
+		if (
+			$contentType === 'text/javascript' &&
+			!$title->isJsSubpage() &&
+			!$title->inNamespace( NS_MEDIAWIKI ) &&
+			!in_array( 'sysop', $title->getRestrictions( 'edit' ) ) &&
+			!in_array( 'editprotected', $title->getRestrictions( 'edit' ) )
+		) {
+
+			$log = LoggerFactory::getInstance( "security" );
+			$log->info( "Blocked loading unprotected JS {title} for {user}",
+				[
+					'user' => $this->getUser()->getName(),
+					'title' => $title->getPrefixedDBKey(),
+				]
+			);
+			throw new HttpError( 403, wfMessage( 'unprotected-js' ) );
+		}
+
+		$response->header( 'Content-type: ' . $contentType . '; charset=UTF-8' );
 
 		$text = $this->getRawText();
 
@@ -117,7 +160,9 @@ class RawAction extends FormlessAction {
 			$response->statusHeader( 404 );
 		}
 
-		if ( !Hooks::run( 'RawPageViewBeforeOutput', array( &$this, &$text ) ) ) {
+		// Avoid PHP 7.1 warning of passing $this by reference
+		$rawAction = $this;
+		if ( !Hooks::run( 'RawPageViewBeforeOutput', [ &$rawAction, &$text ] ) ) {
 			wfDebug( __METHOD__ . ": RawPageViewBeforeOutput hook broke raw page output.\n" );
 		}
 
@@ -132,11 +177,6 @@ class RawAction extends FormlessAction {
 	 */
 	public function getRawText() {
 		global $wgParser;
-
-		# No longer used
-		if ( $this->gen ) {
-			return '';
-		}
 
 		$text = false;
 		$title = $this->getTitle();
@@ -248,7 +288,7 @@ class RawAction extends FormlessAction {
 			}
 		}
 
-		$allowedCTypes = array( 'text/x-wiki', 'text/javascript', 'text/css', 'application/x-zope-edit' );
+		$allowedCTypes = [ 'text/x-wiki', 'text/javascript', 'text/css', 'application/x-zope-edit' ];
 		if ( $ctype == '' || !in_array( $ctype, $allowedCTypes ) ) {
 			$ctype = 'text/x-wiki';
 		}

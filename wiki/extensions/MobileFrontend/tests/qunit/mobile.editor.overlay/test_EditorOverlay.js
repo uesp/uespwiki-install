@@ -1,18 +1,14 @@
 ( function ( M, $ ) {
-
-	var EditorApi = M.require( 'mobile.editor.api/EditorApi' ),
-		EditorOverlay = M.require( 'mobile.editor.overlay/EditorOverlay' ),
-		apiSpy;
+	var EditorGateway = M.require( 'mobile.editor.api/EditorGateway' ),
+		EditorOverlay = M.require( 'mobile.editor.overlay/EditorOverlay' );
 
 	QUnit.module( 'MobileFrontend mobile.editor.overlay/EditorOverlay', {
 		setup: function () {
 			var getContentStub;
 
-			apiSpy = this.sandbox.spy( EditorApi.prototype, 'initialize' );
-
 			// prevent event logging requests
 			this.sandbox.stub( EditorOverlay.prototype, 'log' ).returns( $.Deferred().resolve() );
-			getContentStub = this.sandbox.stub( EditorApi.prototype, 'getContent' );
+			getContentStub = this.sandbox.stub( EditorGateway.prototype, 'getContent' );
 			// the first call returns a getContent deferred for a blocked user.
 			getContentStub.onCall( 0 ).returns( $.Deferred().resolve( 'section 0', {
 					blockid: 1,
@@ -21,7 +17,7 @@
 				} ) );
 			// all other calls returns a deferred for unblocked users.
 			getContentStub.returns( $.Deferred().resolve( 'section 0', {} ) );
-			this.sandbox.stub( EditorApi.prototype, 'getPreview' )
+			this.sandbox.stub( EditorGateway.prototype, 'getPreview' )
 				.returns( $.Deferred().resolve( 'previewtest' ) );
 		}
 	} );
@@ -33,26 +29,37 @@
 		} );
 
 		assert.strictEqual(
-			$( '.toast' ).text(),
+			$( '.mw-notification-content' ).text(),
 			'Your IP address is blocked from editing. The block was made by Test for the following reason: Testreason.',
 			'There is a toast notice, that i am blocked from editing'
 		);
 	} );
 
-	QUnit.test( '#initialize, with given page and section', 3, function ( assert ) {
+	QUnit.test( '#initialize, with given page and section', 5, function ( assert ) {
 		var editorOverlay = new EditorOverlay( {
 			title: 'test',
 			sectionId: 0
 		} );
 
-		assert.ok( apiSpy.calledOnce, 'initialize EditorApi once' );
-		assert.ok( apiSpy.calledWithMatch( {
-			title: 'test',
-			isNewPage: undefined,
-			oldId: undefined,
-			sectionId: 0
-		} ), 'initialize EditorApi with correct pageTitle' );
+		// The gateway is initialized with the correct properties,
+		// particularly the correct section ID.
+		assert.strictEqual( editorOverlay.gateway.title, 'test' );
+		assert.strictEqual( editorOverlay.gateway.isNewPage, undefined );
+		assert.strictEqual( editorOverlay.gateway.oldId, undefined );
+		assert.strictEqual( editorOverlay.gateway.sectionId, 0 );
+
 		assert.strictEqual( editorOverlay.$content.val(), 'section 0', 'load correct section' );
+	} );
+
+	QUnit.test( '#initialize, without a section', 4, function ( assert ) {
+		var editorOverlay = new EditorOverlay( {
+			title: 'test.css'
+		} );
+
+		assert.strictEqual( editorOverlay.gateway.title, 'test.css' );
+		assert.strictEqual( editorOverlay.gateway.isNewPage, undefined );
+		assert.strictEqual( editorOverlay.gateway.oldId, undefined );
+		assert.strictEqual( editorOverlay.gateway.sectionId, undefined );
 	} );
 
 	QUnit.test( '#preview', 1, function ( assert ) {
@@ -78,20 +85,6 @@
 			sectionId: 0
 		} );
 		assert.strictEqual( editorOverlay.$( '.continue' ).text(), 'Save', 'no preview loaded' );
-	} );
-
-	QUnit.test( '#initialize, without a section', 2, function ( assert ) {
-		new EditorOverlay( {
-			title: 'test.css'
-		} );
-
-		assert.ok( apiSpy.calledOnce, 'initialize EditorApi once' );
-		assert.ok( apiSpy.calledWithMatch( {
-			title: 'test.css',
-			isNewPage: undefined,
-			oldId: undefined,
-			sectionId: undefined
-		} ), 'initialize EditorApi without a section' );
 	} );
 
 	QUnit.test( '#initialize, as anonymous', 2, function ( assert ) {

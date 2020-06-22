@@ -8,6 +8,12 @@
  */
 class MobileContext extends ContextSource {
 	const USEFORMAT_COOKIE_NAME = 'mf_useformat';
+	const USER_MODE_PREFERENCE_NAME = 'mfMode';
+	const LAZY_LOAD_IMAGES_COOKIE_NAME = 'mfLazyLoadImages';
+	const LAZY_LOAD_IMAGES_COOKIE_VALUE = 'A';
+	const LAZY_LOAD_REFERENCES_COOKIE_NAME = 'mfLazyLoadReferences';
+	const LAZY_LOAD_REFERENCES_COOKIE_VALUE = 'A';
+
 	/**
 	 * Saves the testing mode user has opted in: 'beta' or 'stable'
 	 * @var string $mobileMode
@@ -18,6 +24,16 @@ class MobileContext extends ContextSource {
 	 * @var boolean $disableImages
 	 */
 	protected $disableImages;
+	/**
+	 * Save whether images will be lazy loaded for current user
+	 * @var boolean $lazyLoadImages
+	 */
+	protected $lazyLoadImages;
+	/**
+	 * Save whether references will be lazy loaded for current user
+	 * @var boolean $lazyLoadReferences
+	 */
+	protected $lazyLoadReferences;
 	/**
 	 * Save explicitly requested format
 	 * @var string $useFormat
@@ -156,44 +172,48 @@ class MobileContext extends ContextSource {
 	}
 
 	/**
+	 * Checks whether references should be lazy loaded for the current user
+	 * @return bool
+	 */
+	public function isLazyLoadReferencesEnabled() {
+		if ( $this->lazyLoadReferences === null ) {
+			$mfLazyLoadReferences = $this->getMFConfig()->get( 'MFLazyLoadReferences' );
+			$cookie = $this->getRequest()->getCookie( self::LAZY_LOAD_REFERENCES_COOKIE_NAME, '' );
+			$this->lazyLoadReferences = $mfLazyLoadReferences['base'] ||
+				( $this->isBetaGroupMember() && $mfLazyLoadReferences['beta'] ) ||
+				$cookie === self::LAZY_LOAD_REFERENCES_COOKIE_VALUE;
+		}
+		return $this->lazyLoadReferences;
+	}
+
+	/**
+	 * Checks whether images should be lazy loaded for the current user
+	 * @return bool
+	 */
+	public function isLazyLoadImagesEnabled() {
+		if ( $this->lazyLoadImages === null ) {
+			$mfLazyLoadImages = $this->getMFConfig()->get( 'MFLazyLoadImages' );
+			$cookie = $this->getRequest()->getCookie( self::LAZY_LOAD_IMAGES_COOKIE_NAME, '' );
+			$this->lazyLoadImages = $mfLazyLoadImages['base'] ||
+				( $this->isBetaGroupMember() && $mfLazyLoadImages['beta'] ) ||
+				$cookie === self::LAZY_LOAD_IMAGES_COOKIE_VALUE;
+		}
+		return $this->lazyLoadImages;
+	}
+
+	/**
 	 * Checks whether images are disabled for the current user
 	 * @return bool
 	 */
 	public function imagesDisabled() {
 		if ( is_null( $this->disableImages ) ) {
-			$this->disableImages = (bool)$this->getRequest()->getCookie( 'disableImages' );
+			$this->disableImages = (
+				( isset( $_COOKIE['disableImages'] ) && $_COOKIE['disableImages'] === '1' ) ||
+				(bool) $this->getRequest()->getCookie( 'disableImages' )
+			);
 		}
 
 		return $this->disableImages;
-	}
-
-	/**
-	 * Whether the user is allowed to upload
-	 * @return boolean
-	 */
-	public function userCanUpload() {
-		$config = $this->getMFConfig();
-		$user = $this->getUser();
-
-		// check if upload is enabled local or to remote location (to commons e.g.)
-		// TODO: what if the user cannot upload to the destination wiki in $wgMFPhotoUploadEndpoint?
-		$uploadEnabled = ( UploadBase::isEnabled() &&
-			UploadBase::isallowed( $user )
-		) || $config->get( 'MFPhotoUploadEndpoint' );
-
-		if ( $uploadEnabled ) {
-			// Make sure the user is either in desktop mode or meets the special
-			// conditions necessary for uploading in mobile mode.
-			if ( !$this->shouldDisplayMobileView() ||
-				(
-					$user->isAllowed( 'mf-uploadbutton' ) &&
-					$user->getEditCount() >= $config->get( 'MFUploadMinEdits' )
-				)
-			) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/**
@@ -281,10 +301,18 @@ class MobileContext extends ContextSource {
 	}
 
 	/**
+	 * Sets the value of $this->mobileMode property to the value of the 'optin' cookie.
+	 * If the cookie is not set the value will be an empty string.
+	 */
+	private function loadMobileModeCookie() {
+		$this->mobileMode = $this->getRequest()->getCookie( 'optin', '' );
+	}
+
+	/**
 	 * Returns the testing mode user has opted in: 'beta' or any other value for stable
 	 * @return string
 	 */
-	public function getMobileMode() {
+	private function getMobileMode() {
 		$enableBeta = $this->getMFConfig()->get( 'MFEnableBeta' );
 
 		if ( !$enableBeta ) {
@@ -295,8 +323,19 @@ class MobileContext extends ContextSource {
 			if ( $mobileAction === 'beta' || $mobileAction === 'stable' ) {
 				$this->mobileMode = $mobileAction;
 			} else {
-				$req = $this->getRequest();
-				$this->mobileMode = $req->getCookie( 'optin', '' );
+				$user = $this->getUser();
+				if ( $user->isAnon() ) {
+					$this->loadMobileModeCookie();
+				} else {
+					$mode = $user->getOption( self::USER_MODE_PREFERENCE_NAME );
+					$this->mobileMode = $mode;
+					// Edge case where preferences are corrupt or the user opted
+					// in before change.
+					if ( $mode === null ) {
+						// Should we set the user option here?
+						$this->loadMobileModeCookie();
+					}
+				}
 			}
 		}
 		return $this->mobileMode;
@@ -318,6 +357,9 @@ class MobileContext extends ContextSource {
 			wfIncrStats( 'mobile.opt_in_cookie_unset' );
 		}
 		$this->mobileMode = $mode;
+		$user = $this->getUser();
+		$user->setOption( self::USER_MODE_PREFERENCE_NAME, $mode );
+		$user->saveSettings();
 
 		$host = $this->getBaseDomain();
 		// Deal with people running off localhost. see http://curl.haxx.se/rfc/cookie_spec.html
@@ -367,12 +409,18 @@ class MobileContext extends ContextSource {
 	 * If a page has an equivalent but different mobile page redirect to it
 	 */
 	private function redirectMobileEnabledPages() {
+		$request = $this->getRequest();
+		$title = $this->getTitle();
+
 		$redirectUrl = null;
-		if ( $this->getRequest()->getCheck( 'diff' ) ) {
+		if ( $request->getCheck( 'diff' ) ) {
 			$redirectUrl = SpecialMobileDiff::getMobileUrlFromDesktop();
 		}
 
-		if ( $this->getRequest()->getVal( 'action' ) === 'history' ) {
+		if ( $request->getVal( 'action' ) === 'history' &&
+			// check, if SpecialMobileHistory supports the history action set for this title
+			// content model
+			SpecialMobileHistory::shouldUseSpecialHistory( $title ) ) {
 			$values = $this->getRequest()->getValues();
 			// avoid infinite redirect loops
 			unset( $values['action'] );
@@ -470,13 +518,8 @@ class MobileContext extends ContextSource {
 			}
 		}
 		// ...and individual page blacklisting
-		if ( $noMobilePages && $title ) {
-			$name = $title->getPrefixedText();
-			foreach ( $noMobilePages as $page ) {
-				if ( $page === $name ) {
-					return true;
-				}
-			}
+		if ( $noMobilePages && $title && in_array( $title->getPrefixedText(), $noMobilePages ) ) {
+			return true;
 		}
 		return false;
 	}
@@ -568,11 +611,16 @@ class MobileContext extends ContextSource {
 	}
 
 	/**
-	 * Set cookie to disable images on pages
-	 * @param bool $disable
+	 * Set or unset cookie to disable images on pages
+	 * @param bool $shouldDisableImages
 	 */
-	public function setDisableImagesCookie( $disable ) {
-		$this->getRequest()->response()->setcookie( 'disableImages', $disable ? '1' : '' );
+	public function setDisableImagesCookie( $shouldDisableImages ) {
+		$resp = $this->getRequest()->response();
+		if ( $shouldDisableImages ) {
+			$resp->setCookie( 'disableImages', 1, 0, array( 'prefix' => '' ) );
+		} else {
+			$resp->clearCookie( 'disableImages', array( 'prefix' => '' ) );
+		}
 	}
 
 	/**
@@ -668,7 +716,9 @@ class MobileContext extends ContextSource {
 		}
 
 		// use $startTime if it's valid
-		if ( intval( $startTime ) === 0 ) $startTime = time();
+		if ( intval( $startTime ) === 0 ) {
+			$startTime = time();
+		}
 
 		$expiry = $startTime + $cookieDuration;
 		return $expiry;
@@ -720,7 +770,7 @@ class MobileContext extends ContextSource {
 	 * Take a URL and return a copy that conforms to the mobile URL template
 	 * @param string $url
 	 * @param bool $forceHttps
-	 * @return string
+	 * @return string|bool
 	 */
 	public function getMobileUrl( $url, $forceHttps = false ) {
 
@@ -743,8 +793,10 @@ class MobileContext extends ContextSource {
 		// if parsing failed, maybe it's a local Url, try to expand and reparse it - task T107505
 		if ( !$parsedUrl ) {
 			$expandedUrl = wfExpandUrl( $url );
-			// if Url could not be expanded or parsed, return false, instead of an empty string
-			if ( !$expandedUrl || !$parsedUrl = wfParseUrl( $expandedUrl ) ) {
+			if ( $expandedUrl ) {
+				$parsedUrl = wfParseUrl( $expandedUrl );
+			}
+			if ( !$expandedUrl || !$parsedUrl ) {
 				return false;
 			}
 		}
@@ -950,9 +1002,7 @@ class MobileContext extends ContextSource {
 			return;
 		}
 
-		$url = $this->getRequest()->getFullRequestURL();
-		$parsed = wfParseUrl( $url );
-		$query = isset( $parsed['query'] ) ? wfCgiToArray( $parsed['query'] ) : array();
+		$query = $this->getRequest()->getQueryValues();
 		unset( $query['mobileaction'] );
 		unset( $query['useformat'] );
 		unset( $query['title'] );

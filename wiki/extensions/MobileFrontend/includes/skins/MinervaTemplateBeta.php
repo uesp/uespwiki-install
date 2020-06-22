@@ -8,14 +8,17 @@
  * beta mode via Special:MobileOptions
  */
 class MinervaTemplateBeta extends MinervaTemplate {
+	/** @inheritdoc */
+	protected $shouldDisplayPageActionsBeforeHeading = false;
+
 	/**
-	 * Render available page actions
-	 * @param array $data Data used to build page actions
+	 * Get attributes to create search input
+	 * @return array Array with attributes for search bar
 	 */
-	public function renderPageActions( $data ) {
-		if ( !$this->isMainPage ) {
-			parent::renderPageActions( $data );
-		}
+	protected function getSearchAttributes() {
+		$searchBox = parent::getSearchAttributes();
+		$searchBox['placeholder'] = $this->getMsg( 'mobile-frontend-placeholder-beta' )->text();
+		return $searchBox;
 	}
 
 	/**
@@ -39,7 +42,7 @@ class MinervaTemplateBeta extends MinervaTemplate {
 					// be removed in categories/init.js)
 					'class' => 'category-button hidden',
 				),
-				'label' => wfMessage( 'categories' )->text()
+				'label' => $this->getMsg( 'categories' )->text()
 			),
 		);
 	}
@@ -57,7 +60,7 @@ class MinervaTemplateBeta extends MinervaTemplate {
 				'attributes' => array(
 					'href' => $donationUrl,
 				),
-				'label' => wfMessage( 'mobile-frontend-donate-button-label' )->text()
+				'label' => $this->getMsg( 'mobile-frontend-donate-button-label' )->text()
 			);
 		}
 

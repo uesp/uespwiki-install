@@ -1,8 +1,5 @@
 ( function ( M ) {
-	var TableOfContents,
-		SchemaMobileWebClickTracking = M.require( 'mobile.loggingSchemas/SchemaMobileWebClickTracking' ),
-		uiSchema = new SchemaMobileWebClickTracking( {}, 'MobileWebUIClickTracking' ),
-		View = M.require( 'mobile.view/View' ),
+	var View = M.require( 'mobile.view/View' ),
 		Icon = M.require( 'mobile.startup/Icon' );
 
 	/**
@@ -10,9 +7,12 @@
 	 * @class TableOfContents
 	 * @extends View
 	 * @uses Icon
-	 * @uses SchemaMobileWebClickTracking
 	 */
-	TableOfContents = View.extend( {
+	function TableOfContents() {
+		View.apply( this, arguments );
+	}
+
+	OO.mfExtend( TableOfContents, View, {
 		templatePartials: {
 			tocHeading: mw.template.get( 'mobile.toc', 'heading.hogan' )
 		},
@@ -30,30 +30,8 @@
 		},
 		tagName: 'div',
 		className: 'toc-mobile',
-		template: mw.template.get( 'mobile.toc', 'toc.hogan' ),
-		events: {
-			// Click tracking for table of contents so we can see if people interact with it
-			'click h2': 'onTocToggle',
-			'click a': 'onLinkClick'
-		},
-		/**
-		 * Log toggling the header
-		 */
-		onTocToggle: function () {
-			uiSchema.log( {
-				name: 'page-toc-toggle'
-			} );
-		},
-		/**
-		 * Log clicking a TOC link
-		 */
-		onLinkClick: function () {
-			uiSchema.log( {
-				name: 'page-toc-link'
-			} );
-		}
+		template: mw.template.get( 'mobile.toc', 'toc.hogan' )
 	} );
 
-	M.define( 'mobile.toc/TableOfContents', TableOfContents )
-		.deprecate( 'modules/toc/TableOfContents' );
+	M.define( 'mobile.toc/TableOfContents', TableOfContents );
 }( mw.mobileFrontend ) );

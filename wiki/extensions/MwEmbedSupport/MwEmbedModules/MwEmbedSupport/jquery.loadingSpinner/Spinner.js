@@ -34,23 +34,6 @@
 	}
 
 	/**
-	 * Insert a new stylesheet to hold the
-	 *
-	 * @keyframe or VML rules.
-	 */
-	// ins(document.getElementsByTagName('head')[0], createEl('style'));
-	// var sheet = document.styleSheets[document.styleSheets.length-1];
-	var sheet = (function() {
-		var style = document.createElement('style');
-		style['title'] = 'spinjs';
-		document.getElementsByTagName('head')[0].appendChild(style);
-		if (!window.createPopup) { /* For Safari */
-			style.appendChild(document.createTextNode(''));
-		}
-		return document.styleSheets[document.styleSheets.length - 1];
-	})();
-
-	/**
 	 * Creates an opacity keyframe animation rule and returns its name. Since
 	 * most mobile Webkits have timing issues with animation-delay, we create
 	 * separate rules for each line/segment.
@@ -63,11 +46,11 @@
 						&& '-' + prefix + '-' || '';
 
 		if (!animations[name]) {
-			sheet.insertRule('@' + pre + 'keyframes ' + name + '{'
+			mw.util.addCSS('@' + pre + 'keyframes ' + name + '{'
 					+ '0%{opacity:' + z + '}' + start + '%{opacity:' + alpha
 					+ '}' + (start + 0.01) + '%{opacity:1}' + (start + trail)
 					% 100 + '%{opacity:' + alpha + '}' + '100%{opacity:' + z
-					+ '}' + '}', 0);
+					+ '}' + '}');
 			animations[name] = 1;
 		}
 		return name;
@@ -233,9 +216,11 @@
 		if (!vendor(s, 'transform') && s.adj) {
 
 			// VML support detected. Insert CSS rules ...
-			for (i = 4; i--;)
-				sheet.addRule([ 'group', 'roundrect', 'fill', 'stroke' ][i],
-				'behavior:url(#default#VML)');
+			for (i = 4; i--;) {
+				mw.util.addCSS( [ 'group', 'roundrect', 'fill', 'stroke' ][i] + ' {'
+					+ 'behavior:url(#default#VML)'
+					+ '}' );
+			}
 
 			proto.lines = function(el, o) {
 				var r = o.length + o.width, s = 2 * r;

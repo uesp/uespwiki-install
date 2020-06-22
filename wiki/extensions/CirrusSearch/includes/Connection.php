@@ -1,8 +1,9 @@
 <?php
 
 namespace CirrusSearch;
-use \ElasticaConnection;
-use \MWNamespace;
+
+use ElasticaConnection;
+use MWNamespace;
 
 /**
  * Forms and caches connection to Elasticsearch as well as client objects
@@ -65,15 +66,117 @@ class Connection extends ElasticaConnection {
 	 */
 	protected $config;
 
-	public function __construct( SearchConfig $config ) {
-		$this->config = $config;
+	/**
+	 * @var string
+	 */
+	protected $cluster;
+
+	/**
+	 * @var ClusterSettings|null
+	 */
+	private $clusterSettings;
+
+	/**
+	 * @var Connection[]
+	 */
+	private static $pool = array();
+
+	/**
+	 * @param SearchConfig $config
+	 * @param string|null $cluster
+	 * @return Connection
+	 */
+	public static function getPool( SearchConfig $config, $cluster = null ) {
+		if ( $cluster === null ) {
+			$cluster = $config->get( 'CirrusSearchDefaultCluster' );
+		}
+		$wiki = $config->getWikiId();
+		if ( isset( self::$pool[$wiki][$cluster] ) ) {
+			return self::$pool[$wiki][$cluster];
+		} else {
+			return new self( $config, $cluster );
+		}
 	}
 
 	/**
-	 * @return array(string)
+	 * Pool state must be cleared when forking. Also useful
+	 * in tests.
+	 */
+	public static function clearPool() {
+		self::$pool = array();
+	}
+
+	/**
+	 * @param SearchConfig $config
+	 * @param string|null $cluster Name of cluster to use, or
+	 *  null for the default cluster.
+	 */
+	public function __construct( SearchConfig $config, $cluster = null ) {
+		$this->config = $config;
+		if ( $cluster === null ) {
+			$this->cluster = $config->get( 'CirrusSearchDefaultCluster' );
+		} else {
+			$this->cluster = $cluster;
+		}
+		$this->setConnectTimeout( $this->getSettings()->getConnectTimeout() );
+		// overwrites previous connection if it exists, but these
+		// seemed more centralized than having the entry points
+		// all call a static method unnecessarily.
+		self::$pool[$config->getWikiId()][$this->cluster] = $this;
+	}
+
+	public function __sleep() {
+		throw new \RuntimeException( 'Attempting to serialize ES connection' );
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getClusterName() {
+		return $this->cluster;
+	}
+
+	/**
+	 * @return ClusterSettings
+	 */
+	public function getSettings() {
+		if ( $this->clusterSettings === null ) {
+			$this->clusterSettings = new ClusterSettings( $this->config, $this->cluster );
+		}
+		return $this->clusterSettings;
+	}
+
+	/**
+	 * @return string[]|array[] Either a list of hostnames, for default
+	 *  connection configuration or an array of arrays giving full connection
+	 *  specifications.
 	 */
 	public function getServerList() {
-		return $this->config->get( 'CirrusSearchServers' );
+		// This clause provides backwards compatibility with previous versions
+		// of CirrusSearch. Once this variable is removed cluster configuration
+		// will work as expected.
+		if ( $this->config->has( 'CirrusSearchServers' ) ) {
+			return $this->config->get( 'CirrusSearchServers' );
+		}
+		$config = $this->config->getElement( 'CirrusSearchClusters', $this->cluster );
+		if ( $config === null ) {
+			throw new \RuntimeException( "No configuration available for cluster: {$this->cluster}" );
+		}
+
+		// Elastica will only create transports from within it's own
+		// namespace. To use the CirrusSearch PooledHttp(s) this
+		// clause is necessary.
+		foreach ( $config as $idx => $server ) {
+			if (
+				isset( $server['transport'] ) &&
+				class_exists( $server['transport'] )
+			) {
+				$transportClass = $server['transport'];
+				$config[$idx]['transport'] = new $transportClass;
+			}
+		}
+
+		return $config;
 	}
 
 	/**
@@ -91,13 +194,17 @@ class Connection extends ElasticaConnection {
 	 * @return \Elastica\Index
 	 */
 	public function getFrozenIndex() {
+		global $wgCirrusSearchCreateFrozenIndex;
+
 		$index = $this->getIndex( 'mediawiki_cirrussearch_frozen_indexes' );
-		if ( !$index->exists() ) {
-			$options = array(
-				'number_of_shards' => 1,
-				'auto_expand_replicas' => '0-2',
-			 );
-			$index->create( $options, true );
+		if ( $wgCirrusSearchCreateFrozenIndex ) {
+			if ( !$index->exists() ) {
+				$options = array(
+					'number_of_shards' => 1,
+					'auto_expand_replicas' => '0-2',
+				 );
+				$index->create( $options, true );
+			}
 		}
 		return $index;
 	}
@@ -132,49 +239,11 @@ class Connection extends ElasticaConnection {
 	/**
 	 * Get all index types we support, content, general, plus custom ones
 	 *
-	 * @return array(string)
+	 * @return string[]
 	 */
 	public function getAllIndexTypes() {
 		return array_merge( array_values( $this->config->get( 'CirrusSearchNamespaceMappings' ) ),
 			array( self::CONTENT_INDEX_TYPE, self::GENERAL_INDEX_TYPE ) );
-	}
-
-	/**
-	 * Given a list of Index objects, return the 'type' portion of the name
-	 * of that index. This matches the types as returned from
-	 * self::getAllIndexTypes().
-	 *
-	 * @param \Elastica\Index[] $indexes
-	 * @return string[]
-	 */
-	public function indexToIndexTypes( array $indexes ) {
-		$allowed = $this->getAllIndexTypes();
-		return array_map( function( $type ) use ( $allowed ) {
-			$fullName = $type->getIndex()->getName();
-			$parts = explode( '_', $fullName );
-			// In 99% of cases it should just be the second
-			// piece of a 2 or 3 part name.
-			if ( isset( $parts[1] ) && in_array( $parts[1], $allowed ) ) {
-				return $parts[1];
-			}
-			// the wikiId should be the first part of the name and
-			// not part of our result, strip it
-			if ( $parts[0] === wfWikiId() ) {
-				$parts = array_slice( $parts, 1 );
-			}
-			// there might be a suffix at the end, try stripping it
-			$maybe = implode( '_', array_slice( $parts, 0, -1 ) );
-			if ( in_array( $maybe, $allowed ) ) {
-				return $maybe;
-			}
-			// maybe there wasn't a suffix at the end, try the whole thing
-			$maybe = implode( '_', $parts );
-			if ( in_array( $maybe, $allowed ) ) {
-				return $maybe;
-			}
-			// probably not right, but at least we tried
-			return $fullName;
-		}, $indexes );
 	}
 
 	/**
@@ -194,7 +263,7 @@ class Connection extends ElasticaConnection {
 
 	/**
 	 * Is there more then one namespace in the provided index type?
-	 * @var string $indexType an index type
+	 * @param string $indexType an index type
 	 * @return false|integer false if the number of indexes is unknown, an integer if it is known
 	 */
 	public function namespacesInIndexType( $indexType ) {
@@ -211,5 +280,10 @@ class Connection extends ElasticaConnection {
 			$count += count( array_diff( $contentNamespaces, array_keys( $mappings ) ) );
 		}
 		return $count;
+	}
+
+	public function destroyClient() {
+		self::$pool = array();
+		parent::destroyClient();
 	}
 }

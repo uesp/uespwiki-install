@@ -1,4 +1,9 @@
 <?php
+
+/**
+ * NOTE: This is an old file that is no longer used. See SkinUespMonoBook.php and UespMonoBookTemplate.php instead. 
+ */
+
 /**
  * UespMonoBook as copied from MonoBook.
  *
@@ -46,7 +51,7 @@ class SkinUespMonoBook extends SkinTemplate {
 	 */
 	function setupSkinUserCss( OutputPage $out ) {
 		parent::setupSkinUserCss( $out );
-		
+		error_log("uesp monobook");
 		$out->addModuleStyles( array('mediawiki.skinning.elements', 'mediawiki.skinning.content', 'mediawiki.skinning.interface', 'skins.uespmonobook' ));
 
 		// TODO: Migrate all of these
@@ -209,7 +214,7 @@ class UespMonoBookTemplate extends MonoBookTemplate
 	})();
 </script>
 <noscript>
-   <img src="http://b.scorecardresearch.com/p?c1=2&amp;c2=6035118&amp;cv=2.0&amp;cj=1" />
+   <img src="https://sb.scorecardresearch.com/p?c1=2&amp;c2=6035118&amp;cv=2.0&amp;cj=1" />
 </noscript>
 <!-- End comScore -->
 

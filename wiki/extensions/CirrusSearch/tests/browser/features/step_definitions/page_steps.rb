@@ -3,10 +3,11 @@ Given(/^a page named (.*) exists(?: with contents (.*))?$/) do |title, text|
   edit_page(title, text, false)
 end
 
-Given(/^a file named (.*) exists( on commons)? with contents (.*) and description (.*)$/) do |title, on_commons, contents, description|
-  current_api = on_commons ? commons_api : api
-  upload_file(title, contents, description, current_api)   # Make sure the file is correct
-  edit_page(title, description, false, current_api)        # Make sure the description is correct
+Given(/^a file named (.*) exists(?: on (commons))? with contents (.*) and description (.*)$/) do |title, wiki, contents, description|
+  on_wiki(wiki) do
+    upload_file(title, contents, description)   # Make sure the file is correct
+    edit_page(title, description, false)        # Make sure the description is correct
+  end
 end
 
 Given(/^there are (\d+) pages named (.*) with contents (.*)?$/) do |count, title, text|
@@ -31,13 +32,9 @@ Given(/^a page named (.*) doesn't exist$/) do |title|
   step("I delete #{title}")
 end
 
-When(/^I delete (?!the second)(.+)$/) do |title|
-  require "mediawiki_api"
-  client = MediawikiApi::Client.new("#{ENV["MEDIAWIKI_URL"]}../w/api.php", false)
-  client.log_in(ENV["MEDIAWIKI_USER"], ENV["MEDIAWIKI_PASSWORD"])
+When(/^I delete (?:on (commons))?(?!the second)(.+)$/) do |wiki, title|
   begin
-    result = client.delete_page(title, "Testing")
-    result.status.should eq 200
+    on_wiki(wiki) { api.delete_page(title, "Testing") }
   rescue MediawikiApi::ApiError => e
     # If we get an error it better be that the page doesn't exist, which would be ok.
     expect(e.info).to include "doesn't exist"
@@ -72,8 +69,7 @@ When(/^I delete the second most recent revision via api of (.*)$/) do |title|
     :revisiondelete,
     type: "revision",
     ids: [second_rev_id],
-    hide: "content",
-    token_type: "edit"
+    hide: "content"
   )
 end
 When(/^I go to (.*)$/) do |title|

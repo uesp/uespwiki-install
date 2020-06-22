@@ -97,12 +97,20 @@ class RecentPopularPagesPage extends SpecialPage
 		
 		foreach ($this->pageCountData as $name => $count)
 		{
+			$nameParts = explode('?', $name, 2);
+			$name = $nameParts[0];
+			$query = $nameParts[1];
 			$title = Title::newFromText($name, 0);
 			
-			if ($title)
+			if ($query) {
+				$wikiText .= "<li><span class=\"plainlinks\">[//en.uesp.net/wiki/$name?$query $name?$query]</span> has $count views</li>";
+			}
+			else if ($title) {
 				$wikiText .= "<li>[[:$name]] has $count views</li>";
-			else
-				$wikiText .= "<li>$name has $count views</li>";			
+			}
+			else {
+				$wikiText .= "<li>$name has $count views</li>";
+			}
 			
 		}
 

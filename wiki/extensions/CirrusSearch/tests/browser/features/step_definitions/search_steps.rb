@@ -1,13 +1,10 @@
 require "cgi"
 
-Given(/^I am logged in via api$/) do
-  log_in_api
-end
 Given(/^I am at the search results page(?: with the search (.+?)(?: and the prefix (.+))?)?$/) do |search, prefix|
   visit(SearchResultsPage, using_params: { search: search, prefix: prefix })
 end
 When(/^I go search for (.*)$/) do |search|
-  visit(SearchResultsPage, using_params: { search: search })
+  visit(SearchResultsPage, using_params: { search: URI.encode(search) })
 end
 Before do
   @search_vars = {
@@ -24,8 +21,12 @@ When(/^I set did you mean suggester option (.*) to (.*)$/) do |varname, value|
   @didyoumean_options ||= {}
   @didyoumean_options[varname] = value
 end
-# rubocop:disable LineLength
-# rubocop:disable ParameterLists
+When(/^I activate common terms query with the (.*) profile/) do |profile|
+  @common_terms_option ||= {}
+  @common_terms_option["cirrusUseCommonTermsQuery"] = "yes"
+  @common_terms_option["cirrusCommonTermsQueryProfile"] = profile
+end
+
 When(/^I api search( with rewrites enabled)?( with disabled incoming link weighting)?(?: with offset (\d+))?(?: in the (.*) language)?(?: in namespaces? (\d+(?: \d+)*))? for (.*)$/) do |enable_rewrites, incoming_links, offset, lang, namespaces, search|
   begin
     options = {
@@ -36,6 +37,7 @@ When(/^I api search( with rewrites enabled)?( with disabled incoming link weight
       enablerewrites: enable_rewrites ? 1 : 0
     }
     options = options.merge(@didyoumean_options) if defined?@didyoumean_options
+    options = options.merge(@common_terms_option) if defined?@common_terms_option
 
     @api_result = search_for(
       search.gsub(/%[^ {]+%/, @search_vars)
@@ -46,12 +48,16 @@ When(/^I api search( with rewrites enabled)?( with disabled incoming link weight
     )
   rescue MediawikiApi::ApiError => e
     @api_error = e
+  rescue MediawikiApi::HttpError => e
+    @api_error = e
   end
 end
 When(/^I get api suggestions for (.*)$/) do |search|
   begin
     @api_result = suggestions_for(search)
   rescue MediawikiApi::ApiError => e
+    @api_error = e
+  rescue MediawikiApi::HttpError => e
     @api_error = e
   end
 end
@@ -74,19 +80,19 @@ When(/^I ask suggestion API at most (\d+) items? for (.*)$/) do |limit, search|
 end
 Then(/^the API should produce list containing (.*)/) do |term|
   found = false
-  @api_result["suggest"].each do |el|
-    found = true if el["title"] == term
+  @api_result[1].each do |el|
+    found = true if el == term
   end
   found.should == true
 end
 Then(/^the API should produce list starting with (.*)/) do |term|
-  @api_result["suggest"][0]["title"].should == term
+  @api_result[1][0].should == term
 end
 Then(/^the API should produce list of length (\d+)/) do |length|
-  @api_result["suggest"].length.should == length.to_i
+  @api_result[1].length.should == length.to_i
 end
 Then(/^the API should produce empty list/) do
-  @api_result["suggest"].should == []
+  @api_result[1].should == []
 end
 When(/^I get api near matches for (.*)$/) do |search|
   begin
@@ -141,16 +147,16 @@ When(/^I search for (.+)$/) do |text|
   end
 end
 When(/^I switch the language to (.+)$/) do |language|
-  @browser.goto("#{@browser.url}&uselang=#{language}")
+  browser.goto("#{browser.url}&uselang=#{language}")
 end
 When(/^I disable incoming links in the weighting$/) do
-  @browser.goto("#{@browser.url}&cirrusBoostLinks=no")
+  browser.goto("#{browser.url}&cirrusBoostLinks=no")
 end
 When(/^I jump to offset (.+)$/) do |offset|
-  @browser.goto("#{@browser.url}&offset=#{offset}")
+  browser.goto("#{browser.url}&offset=#{offset}")
 end
 When(/^I click the (.*) link$/) do |text|
-  @browser.link(text: text).click
+  browser.link(text: text).click
 end
 When(/^I click the (.*) label(?:s)?$/) do |text|
   text.split(",").each do |link_text|
@@ -159,7 +165,7 @@ When(/^I click the (.*) label(?:s)?$/) do |text|
       found = false
       link_text.split(" or ").each do |or_text|
         or_text.strip!
-        label = @browser.label(text: or_text)
+        label = browser.label(text: or_text)
         if label.exists?
           found = true
           label.click
@@ -167,7 +173,7 @@ When(/^I click the (.*) label(?:s)?$/) do |text|
       end
       fail "none of \"#{link_text}\" could be found" unless found
     else
-      @browser.label(text: link_text).click
+      browser.label(text: link_text).click
     end
   end
 end
@@ -175,7 +181,7 @@ When(/^I dump the cirrus data for (.+)$/) do |title|
   visit(CirrusDumpPage, using_params: { page_name: title })
 end
 When(/^I request a dump of the query$/) do
-  @browser.goto("#{@browser.url}&cirrusDumpQuery=yes")
+  browser.goto("#{browser.url}&cirrusDumpQuery=yes")
 end
 When(/^I dump the cirrus config$/) do
   visit(CirrusConfigDumpPage)
@@ -187,22 +193,22 @@ When(/^I dump the cirrus settings$/) do
   visit(CirrusSettingsDumpPage)
 end
 When(/^I set the custom param ([^ ]+) to ([^ ]+)/) do |param, value|
-  @browser.goto("#{@browser.url}&#{param}=#{value}")
+  browser.goto("#{browser.url}&#{param}=#{value}")
 end
 
 When(/^I set More Like This Options to ([^ ]+) field, word length to (\d+) and I search for (.+)$/) do |field, length, search|
   step("I search for " + search)
-  @browser.goto("#{@browser.url}&cirrusMtlUseFields=yes&cirrusMltFields=#{field}&cirrusMltMinTermFreq=1&cirrusMltMinDocFreq=1&cirrusMltMinWordLength=#{length}")
+  browser.goto("#{browser.url}&cirrusMtlUseFields=yes&cirrusMltFields=#{field}&cirrusMltMinTermFreq=1&cirrusMltMinDocFreq=1&cirrusMltMinWordLength=#{length}")
 end
 
 When(/^I set More Like This Options to ([^ ]+) field, percent terms to match to ([\.\d]+) and I search for (.+)$/) do |field, percent, search|
   step("I search for " + search)
-  @browser.goto("#{@browser.url}&cirrusMtlUseFields=yes&cirrusMltFields=#{field}&cirrusMltMinTermFreq=1&cirrusMltMinDocFreq=1&cirrusMltMinWordLength=0&cirrusMltPercentTermsToMatch=#{percent}")
+  browser.goto("#{browser.url}&cirrusMtlUseFields=yes&cirrusMltFields=#{field}&cirrusMltMinTermFreq=1&cirrusMltMinDocFreq=1&cirrusMltMinWordLength=0&cirrusMltPercentTermsToMatch=#{percent}")
 end
 
 When(/^I set More Like This Options to bad settings and I search for (.+)$/) do |search|
   step("I search for " + search)
-  @browser.goto("#{@browser.url}&cirrusMtlUseFields=yes&cirrusMltFields=title&cirrusMltMinTermFreq=100&cirrusMltMinDocFreq=200000&cirrusMltMinWordLength=190&cirrusMltPercentTermsToMatch=1")
+  browser.goto("#{browser.url}&cirrusMtlUseFields=yes&cirrusMltFields=title&cirrusMltMinTermFreq=100&cirrusMltMinDocFreq=200000&cirrusMltMinWordLength=190&cirrusMltPercentTermsToMatch=1")
 end
 
 Then(/^suggestions should( not)? appear$/) do |not_appear|
@@ -224,6 +230,10 @@ end
 Then(/^the api warns (.*)$/) do |warning|
   @api_error.should_not be nil
   @api_error.info.should == warning
+end
+Then(/^the api returns error code (.*)$/) do |code|
+  @api_error.should_not be nil
+  @api_error.status.should == code.to_i
 end
 Then(/^(.+) is the (.+) api suggestion$/) do |title, position|
   pos = %w(first second third fourth fifth sixth seventh eighth ninth tenth).index position
@@ -433,7 +443,7 @@ Then(/^there is (no|a)? link to create a new page from the search result$/) do |
 end
 Then(/^(.*) is suggested by api$/) do |text|
   fixed = @api_result["searchinfo"]["suggestionsnippet"]
-  fixed = fixed.gsub(/<em>(.*?)<\/em>/, '*\1*') unless fixed.nil?
+  fixed = fixed.gsub(%r{<em>(.*?)</em>}, '*\1*') unless fixed.nil?
   fixed.should == CGI.escapeHTML(text)
 end
 Then(/^(.*) is suggested$/) do |text|
@@ -512,10 +522,11 @@ def within(seconds)
     yield
   rescue RSpec::Expectations::ExpectationNotMetError => e
     raise e if Time.new > end_time
-    @browser.refresh
+    browser.refresh
     retry
   end
 end
+
 # this name sucks
 def repeat_within(seconds, &block)
   end_time = Time.new + Integer(seconds)
@@ -558,7 +569,7 @@ end
 def check_api_highlight(key, index, highlighted, in_ok)
   expect(@api_result["search"].length).to be > index
   expect(@api_result["search"][index]).to have_key(key)
-  text = @api_result["search"][index][key].gsub(/<span class="searchmatch">(.*?)<\/span>/, '*\1*')
+  text = @api_result["search"][index][key].gsub(%r{<span class="searchmatch">(.*?)</span>}, '*\1*')
   if in_ok
     expect(text).to include(highlighted)
   else

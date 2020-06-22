@@ -1,24 +1,24 @@
 ( function ( M, $, OO ) {
 	/**
 	 * @class CategoryLookupInputWidget
-	 * @extends OO.ui.LookupElement
+	 * @extends OO.ui.mixin.LookupElement
 	 * @param {Object} options
-	 * @param {CategoryApi} options.api to use to retrieve search results
+	 * @param {CategoryGateway} options.gateway to use to retrieve search results
 	 * @param {jQuery.Object} options.suggestions container element for search suggestions
 	 * @param {jQuery.Object} options.saveButton element. Will get disabled when suggested item clicked.
 	 */
 	function CategoryLookupInputWidget( options ) {
 		this.$element = $( '<div>' );
-		this.api = options.api;
+		this.gateway = options.gateway;
 		this.$suggestions = options.suggestions;
 		this.categories = options.categories;
 		this.$saveButton = options.saveButton;
 		options.placeholder = mw.msg( 'mobile-frontend-categories-search' );
 		OO.ui.TextInputWidget.call( this, options );
-		OO.ui.LookupElement.call( this, options );
+		OO.ui.mixin.LookupElement.call( this, options );
 	}
 	OO.inheritClass( CategoryLookupInputWidget, OO.ui.TextInputWidget );
-	OO.mixinClass( CategoryLookupInputWidget, OO.ui.LookupElement );
+	OO.mixinClass( CategoryLookupInputWidget, OO.ui.mixin.LookupElement );
 
 	/**
 	 * Handle a click on a suggested item. Add it to the list of added categories and show save button.
@@ -42,7 +42,7 @@
 	 * @return {jQuery.Deferred}
 	 */
 	CategoryLookupInputWidget.prototype.getLookupRequest = function () {
-		return this.api.search( this.value );
+		return this.gateway.search( this.value );
 	};
 
 	/**
@@ -87,7 +87,6 @@
 		return result;
 	};
 
-	M.define( 'mobile.categories.overlays/CategoryLookupInputWidget', CategoryLookupInputWidget )
-		.deprecate( 'modules/categories/CategoryLookupInputWidget' );
+	M.define( 'mobile.categories.overlays/CategoryLookupInputWidget', CategoryLookupInputWidget );
 
 }( mw.mobileFrontend, jQuery, OO ) );

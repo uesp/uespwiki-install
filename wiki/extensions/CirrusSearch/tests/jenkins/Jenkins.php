@@ -1,8 +1,9 @@
 <?php
 namespace CirrusSearch\Jenkins;
 
-use \JobQueueAggregator;
-use \JobQueueGroup;
+use DatabaseUpdater;
+use Language;
+use Title;
 
 /**
  * Sets up configuration required to run the browser tests on Jenkins.
@@ -80,6 +81,7 @@ $wgAPIModules['cirrus-freeze-writes'] = 'CirrusSearch\Api\FreezeWritesToCluster'
 $wgAPIModules['cirrus-suggest-index'] = 'CirrusSearch\Api\SuggestIndex';
 // Bring the ElasticWrite backoff down to between 2^-1 and 2^3 seconds during browser tests
 $wgCirrusSearchWriteBackoffExponent = -1;
+$wgCirrusSearchUseCompletionSuggester = "yes";
 
 class Jenkins {
 	/**
@@ -95,9 +97,10 @@ class Jenkins {
 
 	/**
 	 * If the page ends in '/<language code>' then set the page's language to that code.
-	 * @param Title @title page title object
+	 * @param Title $title page title object
 	 * @param string|Language $pageLang the page content language (either an object or a language code)
 	 * @param Language $wgLang the user language
+	 * @return bool
 	 */
 	public static function setLanguage( $title, &$pageLang, $wgLang ) {
 		$matches = array();

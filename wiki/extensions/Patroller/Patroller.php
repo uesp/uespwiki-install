@@ -32,19 +32,16 @@ $wgExtensionCredits['specialpage'][] = array(
 	'licence-name'		=> 'GPL-2.0'
 );
 
-$dir = dirname( __FILE__ ) . '/';
-
 # Register hooks
-$wgAutoloadClasses['PatrollerHooks']			= $dir . 'Patroller.hooks.php';
-$wgAutoloadClasses['SpecialPatroller']					= $dir . 'SpecialPatroller.php';
+$wgAutoloadClasses['PatrollerHooks']			= __DIR__ . '/Patroller.hooks.php';
+$wgAutoloadClasses['SpecialPatroller']					= __DIR__ . '/SpecialPatroller.php';
 
 $wgHooks['LoadExtensionSchemaUpdates'][]		= 'PatrollerHooks::onLoadExtensionSchemaUpdates';
 $wgSpecialPages['Patrol']						= 'SpecialPatroller';
 
 # Register messages
-$wgMessagesDir['Patroller']						= $dir . 'i18n';
-$wgExtensionMessagesFiles['Patroller']			= $dir . 'Patroller.i18n.php';
-$wgExtensionMessagesFiles['PatrollerAlias']		= $dir . 'Patroller.alias.php';
+$wgMessagesDir['Patroller']						= __DIR__ . '/i18n';
+$wgExtensionMessagesFiles['PatrollerAlias']		= __DIR__ . '/Patroller.alias.php';
 
 # Register rights
 $wgAvailableRights[]							= 'patroller';

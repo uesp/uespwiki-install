@@ -1,7 +1,13 @@
 @import "minerva.variables";
 @import "minerva.mixins";
 
-@media all and (min-width: @wgMFDeviceWidthTablet) {
+.client-js {
+	.page-summary .info {
+		visibility: hidden;
+	}
+}
+
+@media all and (min-width: @deviceWidthTablet) {
 	#bodyContent {
 		.content-header {
 			border-bottom: none;

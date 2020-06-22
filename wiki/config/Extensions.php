@@ -86,7 +86,10 @@ require_once( "$IP/extensions/UespEsoSkills/UespEsoSkills.php" );
 
 require_once( "$IP/extensions/MwEmbedSupport/MwEmbedSupport.php" );
 require_once( "$IP/extensions/TimedMediaHandler/TimedMediaHandler.php" );
-$wgEnableTranscode = false; // Disabled for now, since transcoding isn't working anyway - needs FFMPEG.
+$wgEnableTranscode = true;
+$wgTranscodeBackgroundTimeLimit = 60 * 5;
+	# Use custom compiled version instead of default one at /usr/bin/
+$wgFFmpegLocation = '/home/uesp/ffmpeg/ffmpeg';
 
 require_once( "$IP/extensions/UespLegendsCards/UespLegendsCards.php" );
 
@@ -109,9 +112,10 @@ require_once( "$IP/extensions/Tabs/Tabs.php" );
 # RM: Things to consider adding
 # wfLoadExtension( "Interwiki" );
 # wfLoadExtension( "Nuke" );
-# wfLoadExtension( "SyntaxHighlight_GeSHi" );
 # wfLoadExtension( "WikiEditor" );
 
 wfLoadExtension( "PageSpeedLog" );
-
 wfLoadExtension( "UespPatreon" );
+wfLoadExtension( "SyntaxHighlight_GeSHi" );
+wfLoadExtension( "UespShortLinks" );
+

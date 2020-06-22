@@ -2,14 +2,12 @@
 
 namespace CirrusSearch\Maintenance;
 
-use CirrusSearch\ElasticsearchIntermediary;
 use CirrusSearch\Util;
 use Elastica;
 use Elastica\Filter;
 use Elastica\Index;
 use Elastica\JSON;
 use Elastica\Query;
-use Elastica\Type;
 
 /**
  * Dump an index to stdout
@@ -42,8 +40,19 @@ require_once( __DIR__ . '/../includes/Maintenance/Maintenance.php' );
  */
 class DumpIndex extends Maintenance {
 
+	/**
+	 * @var string
+	 */
 	private $indexType;
+
+	/**
+	 * @var string
+	 */
 	private $indexBaseName;
+
+	/**
+	 * @var string
+	 */
 	private $indexIdentifier;
 
 	/**
@@ -59,7 +68,7 @@ class DumpIndex extends Maintenance {
 	/**
 	 * @var int
 	 */
-	 private $lastProgressPrinted;
+	private $lastProgressPrinted;
 
 	public function __construct() {
 		parent::__construct();
@@ -69,7 +78,8 @@ class DumpIndex extends Maintenance {
 			"curl -s -XPOST localhost:9200/{index}/_bulk --data-binary @dump-file\n" .
 			"Note that you need to specify the index in the URL because the bulk commands do not " .
 			"contain the index name. Beware that the bulk import is not meant to import very large " .
-			"files, sweetspot seems to be between 2000 and 5000 documents (see examples below).".
+			"files, sweet spot seems to be between 2000 and 5000 documents (see examples below)." .
+			"\nThis always operates on a single cluster." .
 			"\n\nExamples :\n" .
 			" - Dump a general index :" .
 			"\n\tdumpIndex --indexType general\n" .
@@ -77,7 +87,7 @@ class DumpIndex extends Maintenance {
 			"\n\tdumpIndex --indexType content | split -d -a 9 -l 100000  --filter 'gzip -c > \$FILE.txt.gz' - \"\" \n" .
 			"\nYou can import the data with the following commands :\n" .
 			" - Import chunks of 2000 documents :" .
-			"\n\tcat dump | split -l 4000 --filter 'curl -s http://elastic:9200/{indexName}/_bulk --data-binarya @- > /dev/null'\n" .
+			"\n\tcat dump | split -l 4000 --filter 'curl -s http://elastic:9200/{indexName}/_bulk --data-binary @- > /dev/null'\n" .
 			" - Import 3 chunks of 2000 documents in parallel :" .
 			"\n\tcat dump | parallel --pipe -L 2 -N 2000 -j3 'curl -s http://elastic:9200/{indexName}/_bulk --data-binary @- > /dev/null'");
 		$this->addOption( 'indexType', 'Index to dump. Either content or general.', true, true );
@@ -87,6 +97,7 @@ class DumpIndex extends Maintenance {
 			'(queryString syntax).', false, true );
 		$this->addOption( 'limit', 'Maximum number of documents to dump, 0 means no limit. Defaults to 0.', false, true );
 		$this->addOption( 'indexIdentifier', 'Force the index identifier, use the alias otherwise.', false, true );
+		$this->addOption( 'sourceFields', 'List of comma separated source fields to extract.', false, true );
 	}
 
 	public function execute() {
@@ -98,15 +109,13 @@ class DumpIndex extends Maintenance {
 		$this->setConnectionTimeout();
 
 		$this->indexType = $this->getOption( 'indexType' );
-		$this->indexBaseName = $this->getOption( 'baseName', wfWikiId() );
+		$this->indexBaseName = $this->getOption( 'baseName', wfWikiID() );
 
 		$indexTypes = $this->getConnection()->getAllIndexTypes();
 		if ( !in_array( $this->indexType, $indexTypes ) ) {
 			$this->error( 'indexType option must be one of ' .
 				implode( ', ', $indexTypes ), 1 );
 		}
-
-		$utils = new ConfigUtils( $this->getConnection()->getClient(), $this );
 
 		$this->indexIdentifier = $this->getOption( 'indexIdentifier' );
 
@@ -120,6 +129,10 @@ class DumpIndex extends Maintenance {
 
 		$query = new Query();
 		$query->setFields( array( '_id', '_type', '_source' ) );
+		if ( $this->hasOption( 'sourceFields' ) ) {
+			$sourceFields = explode( ',', $this->getOption( 'sourceFields' ) );
+			$query->setSource( array( 'include' => $sourceFields ) );
+		}
 		if ( $filter ) {
 			$query->setQuery( new \Elastica\Query\Filtered(
 				new \Elastica\Query\MatchAll(), $filter ) );
@@ -142,18 +155,17 @@ class DumpIndex extends Maintenance {
 		$this->logToStderr = true;
 		$this->output( "Dumping $totalDocsToDump documents ($totalDocsInIndex in the index)\n" );
 
-		$self = $this;
 		Util::iterateOverScroll( $index, $result->getResponse()->getScrollId(), '15m',
-			function( $results ) use ( $self, &$docsDumped, $totalDocsToDump ) {
+			function( $results ) use ( &$docsDumped, $totalDocsToDump ) {
 				foreach ( $results as $result ) {
 					$document = array(
 						'_id' => $result->getId(),
 						'_type' => $result->getType(),
 						'_source' => $result->getSource()
 					);
-					$self->write( $document );
+					$this->write( $document );
 					$docsDumped++;
-					$self->outputProgress( $docsDumped, $totalDocsToDump );
+					$this->outputProgress( $docsDumped, $totalDocsToDump );
 				}
 			}, $limit, 5 );
 		$this->output( "Dump done.\n" );
@@ -164,6 +176,9 @@ class DumpIndex extends Maintenance {
 		$this->getConnection()->setTimeout( $wgCirrusSearchMaintenanceTimeout );
 	}
 
+	/**
+	 * @param array $document Valid elasticsearch document to write to stdout
+	 */
 	public function write( array $document ) {
 		$indexOp = array (
 			'index' => array (
@@ -177,6 +192,9 @@ class DumpIndex extends Maintenance {
 		$this->writeLine( JSON::stringify( $document['_source'] ) );
 	}
 
+	/**
+	 * @param string $data
+	 */
 	private function writeLine( $data ) {
 		if ( !fwrite( STDOUT, $data  . "\n" ) ) {
 			throw new IndexDumperException( "Cannot write to standard output" );
@@ -194,11 +212,18 @@ class DumpIndex extends Maintenance {
 		}
 	}
 
+	/**
+	 * @param string $message
+	 */
 	public function outputIndented( $message ) {
 		$this->output( "\t$message" );
 	}
 
-	public function output( $message, $channel = NULL ) {
+	/**
+	 * @param string $message
+	 * @param string|null $channel
+	 */
+	public function output( $message, $channel = null ) {
 		if ( $this->mQuiet ) {
 			return;
 		}
@@ -213,6 +238,8 @@ class DumpIndex extends Maintenance {
 	/**
 	 * public because php 5.3 does not support accessing private
 	 * methods in a closure.
+	 * @param int $docsDumped
+	 * @param int $limit
 	 */
 	public function outputProgress( $docsDumped, $limit ) {
 		if ( $docsDumped <= 0 ) {

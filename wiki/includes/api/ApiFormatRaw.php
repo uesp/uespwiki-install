@@ -33,10 +33,9 @@ class ApiFormatRaw extends ApiFormatBase {
 	private $errorFallback;
 	private $mFailWithHTTPError = false;
 
-
 	/**
 	 * @param ApiMain $main
-	 * @param ApiFormatBase |null $errorFallback Object to fall back on for errors
+	 * @param ApiFormatBase|null $errorFallback Object to fall back on for errors
 	 */
 	public function __construct( ApiMain $main, ApiFormatBase $errorFallback = null ) {
 		parent::__construct( $main, 'raw' );
@@ -59,6 +58,17 @@ class ApiFormatRaw extends ApiFormatBase {
 		}
 
 		return $data['mime'];
+	}
+
+	public function getFilename() {
+		$data = $this->getResult()->getResultData();
+		if ( isset( $data['error'] ) ) {
+			return $this->errorFallback->getFilename();
+		} elseif ( !isset( $data['filename'] ) || $this->getIsWrappedHtml() || $this->getIsHtml() ) {
+			return parent::getFilename();
+		} else {
+			return $data['filename'];
+		}
 	}
 
 	public function initPrinter( $unused = false ) {

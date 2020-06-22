@@ -48,11 +48,8 @@ class SyntaxHighlight_GeSHi {
 		if ( $wgPygmentizePath === false ) {
 			$wgPygmentizePath = __DIR__ . '/pygments/pygmentize';
 		}
-
-		if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
-			require_once __DIR__ . '/vendor/autoload.php';
-		}
 	}
+
 	/**
 	 * Get the Pygments lexer name for a particular language.
 	 *
@@ -76,10 +73,12 @@ class SyntaxHighlight_GeSHi {
 			return $lexer;
 		}
 
+		$geshi2pygments = SyntaxHighlightGeSHiCompat::getGeSHiToPygmentsMap();
+
 		// Check if this is a GeSHi lexer name for which there exists
 		// a compatible Pygments lexer with a different name.
-		if ( isset( GeSHi::$compatibleLexers[$lexer] ) ) {
-			$lexer = GeSHi::$compatibleLexers[$lexer];
+		if ( isset( $geshi2pygments[$lexer] ) ) {
+			$lexer = $geshi2pygments[$lexer];
 			if ( in_array( $lexer, $lexers ) ) {
 				return $lexer;
 			}
@@ -203,7 +202,7 @@ class SyntaxHighlight_GeSHi {
 	 * @return Status Status object, with HTML representing the highlighted
 	 *  code as its value.
 	 */
-	protected static function highlight( $code, $lang = null, $args = array() ) {
+	public static function highlight( $code, $lang = null, $args = array() ) {
 		global $wgPygmentizePath;
 
 		$status = new Status;
@@ -266,15 +265,15 @@ class SyntaxHighlight_GeSHi {
 		}
 
 		// Starting line number
-		if ( isset( $args['start'] ) ) {
-			$options['linenostart'] = $args['start'];
+		if ( isset( $args['start'] ) && ctype_digit( $args['start'] ) ) {
+			$options['linenostart'] = (int)$args['start'];
 		}
 
 		if ( $inline ) {
 			$options['nowrap'] = 1;
 		}
 
-		$cache = wfGetMainCache();
+		$cache = ObjectCache::getMainWANInstance();
 		$cacheKey = self::makeCacheKey( $code, $lexer, $options );
 		$output = $cache->get( $cacheKey );
 
@@ -292,7 +291,15 @@ class SyntaxHighlight_GeSHi {
 				->getProcess();
 
 			$process->setInput( $code );
-			$process->run();
+
+			/* Workaround for T151523 (buggy $process->getOutput()).
+				If/when this issue is fixed in HHVM or Symfony,
+				replace this with "$process->run(); $output = $process->getOutput();"
+			*/
+			$output = '';
+			$process->run( function( $type, $capturedOutput ) use ( &$output ) {
+				$output .= $capturedOutput;
+			} );
 
 			if ( !$process->isSuccessful() ) {
 				$status->warning( 'syntaxhighlight-error-pygments-invocation-failure' );
@@ -301,7 +308,6 @@ class SyntaxHighlight_GeSHi {
 				return $status;
 			}
 
-			$output = $process->getOutput();
 			$cache->set( $cacheKey, $output );
 		}
 
@@ -500,8 +506,8 @@ class SyntaxHighlight_GeSHi {
 
 	/** Backward-compatibility shim for extensions. */
 	public static function buildHeadItem( $geshi ) {
-			wfDeprecated( __METHOD__ );
-			$geshi->parse_code();
-			return '';
+		wfDeprecated( __METHOD__ );
+		$geshi->parse_code();
+		return '';
 	}
 }

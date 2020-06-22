@@ -49,13 +49,15 @@ class ForceSearchIndex extends Maintenance {
 	public $maxJobs;
 	public $pauseForJobs;
 	public $namespace;
+	public $excludeContentTypes;
 
 	public function __construct() {
 		parent::__construct();
 		$this->mDescription = "Force indexing some pages.  Setting --from or --to will switch from id based indexing to "
 			. "date based indexing which uses less efficient queries and follows redirects.\n\n"
 			. "Note: All froms are _exclusive_ and all tos are _inclusive_.\n"
-			. "Note 2: Setting fromId and toId use the efficient query so those are ok.";
+			. "Note 2: Setting fromId and toId use the efficient query so those are ok.\n"
+			. "Note 3: Operates on all clusters unless --cluster is provided.\n";
 		$this->setBatchSize( 10 );
 		$this->addOption( 'from', 'Start date of reindex in YYYY-mm-ddTHH:mm:ssZ (exc.  Defaults to 0 epoch.', false, true );
 		$this->addOption( 'to', 'Stop date of reindex in YYYY-mm-ddTHH:mm:ssZ.  Defaults to now.', false, true );
@@ -78,23 +80,25 @@ class ForceSearchIndex extends Maintenance {
 			'This replaces the contents of the index for that entry with the entry built from a skipped process.' .
 			'Without this if the entry does not exist then it will be skipped entirely.  Only set this when running ' .
 			'the first pass of building the index.  Otherwise, don\'t tempt fate by indexing half complete documents.' );
+		$this->addOption( 'forceParse', 'Bypass ParserCache and do a fresh parse of pages from the Content.' );
 		$this->addOption( 'skipParse', 'Skip parsing the page.  This is really only good for running the second half ' .
 			'of the two phase index build.  If this is specified then the default batch size is actually 50.' );
 		$this->addOption( 'skipLinks', 'Skip looking for links to the page (counting and finding redirects).  Use ' .
 			'this with --indexOnSkip for the first half of the two phase index build.' );
 		$this->addOption( 'namespace', 'Only index pages in this given namespace', false, true );
+		$this->addOption( 'excludeContentTypes', 'Exclude pages of the specified content types. These must be a comma separated list of strings such as "wikitext" or "json" matching the CONTENT_MODEL_* constants.', false, true, false );
 	}
 
 	public function execute() {
 		global $wgPoolCounterConf,
 			$wgCirrusSearchMaintenanceTimeout;
 
-		$wiki = sprintf( "[%20s]", wfWikiId() );
+		$wiki = sprintf( "[%20s]", wfWikiID() );
 
 		// Set the timeout for maintenance actions
 		$this->getConnection()->setTimeout( $wgCirrusSearchMaintenanceTimeout );
 
-		// Make sure we've actually got indicies to populate
+		// Make sure we've actually got indices to populate
 		if ( !$this->simpleCheckIndexes() ) {
 			$this->error( "$wiki index(es) do not exist. Did you forget to run updateSearchIndexConfig?", 1 );
 		}
@@ -132,9 +136,23 @@ class ForceSearchIndex extends Maintenance {
 		if ( $this->getOption( 'skipLinks' ) ) {
 			$updateFlags |= Updater::SKIP_LINKS;
 		}
+
+		if ( $this->getOption( 'forceParse' ) ) {
+			$updateFlags |= Updater::FORCE_PARSE;
+		}
+		if ( !$this->getOption( 'batch-size' ) &&
+			( $this->getOption( 'queue' ) || $this->getOption( 'deletes' ) )
+		) {
+			$this->setBatchSize( 100 );
+		}
+
 		$this->namespace = $this->hasOption( 'namespace' ) ?
 			intval( $this->getOption( 'namespace' ) ) : null;
 
+		$this->excludeContentTypes = array_filter( array_map(
+			'trim',
+			explode( ',', $this->getOption( 'excludeContentTypes', '' ) )
+		) );
 		if ( $this->indexUpdates ) {
 			if ( $this->queue ) {
 				$operationName = 'Queued';
@@ -200,10 +218,12 @@ class ForceSearchIndex extends Maintenance {
 							} while ( $this->pauseForJobs < $queueSize );
 						}
 					}
-					JobQueueGroup::singleton()->push( Job\MassIndex::build( $pages, $updateFlags ) );
+					JobQueueGroup::singleton()->push(
+						Job\MassIndex::build( $pages, $updateFlags, $this->getOption( 'cluster' ) )
+					);
 				} else {
 					// Update size with the actual number of updated documents.
-					$updater = new Updater( $this->getConnection() );
+					$updater = $this->createUpdater();
 					$size = $updater->updatePages( $pages, null, null, $updateFlags );
 				}
 			} else {
@@ -217,11 +237,13 @@ class ForceSearchIndex extends Maintenance {
 				$minUpdate = $lastDelete[ 'timestamp' ];
 				$minNamespace = $lastDelete[ 'title' ]->getNamespace();
 				$minTitle = $lastDelete[ 'title' ]->getText();
-				$updater = new Updater( $this->getConnection() );
+				$updater = $this->createUpdater();
 				$updater->deletePages( $titlesToDelete, $idsToDelete );
 			}
+
 			$completed += $size;
-			$rate = round( $completed / ( microtime( true ) - $operationStartTime ) );
+			$rate = $this->calculateIndexingRate( $completed, $operationStartTime );
+
 			if ( is_null( $this->toDate ) ) {
 				$endingAt = $minId;
 			} else {
@@ -258,6 +280,22 @@ class ForceSearchIndex extends Maintenance {
 	}
 
 	/**
+	 * @param int $completed
+	 * @param double $operationStartTime
+	 *
+	 * @return double
+	 */
+	private function calculateIndexingRate( $completed, $operationStartTime ) {
+		$rate = $completed / ( microtime( true ) - $operationStartTime );
+
+		if ( $rate < 1 ) {
+			return round( $rate, 1 );
+		}
+
+		return round( $rate );
+	}
+
+	/**
 	 * Do some simple sanity checking to make sure we've got indexes to populate.
 	 * Note this isn't nearly as robust as updateSearchIndexConfig is, but it's
 	 * not designed to be.
@@ -265,8 +303,7 @@ class ForceSearchIndex extends Maintenance {
 	 * @return bool
 	 */
 	private function simpleCheckIndexes() {
-		$wiki = wfWikiId();
-		$status = $this->getConnection()->getClient()->getStatus();
+		$wiki = wfWikiID();
 
 		// Top-level alias needs to exist
 		if ( !$this->getConnection()->getIndex( $wiki )->exists() ) {
@@ -287,9 +324,9 @@ class ForceSearchIndex extends Maintenance {
 	/**
 	 * Find $this->mBatchSize pages that have updates made after (minUpdate,minId) and before maxUpdate.
 	 *
-	 * @param $minUpdate
-	 * @param $minId
-	 * @param $maxUpdate
+	 * @param $minUpdate string|null Minimum mediawiki timestamp
+	 * @param $minId int|null Minimum mediawiki page id
+	 * @param string|null $maxUpdate Maximum mediawiki timestamp
 	 * @return array An array of the last update timestamp, id, and page that was found.
 	 *    Sometimes page is null - those record should be used to determine new
 	 *    inputs for this function but should not by synced to the search index.
@@ -305,6 +342,10 @@ class ForceSearchIndex extends Maintenance {
 			}
 			if ( $this->namespace ) {
 				$where['page_namespace'] = $this->namespace;
+			}
+			if ( $this->excludeContentTypes ) {
+				$list = $dbr->makeList( $this->excludeContentTypes, LIST_COMMA );
+				$where[] = "page_content_model NOT IN ($list)";
 			}
 
 			// We'd like to filter out redirects here but it makes the query much slower on larger wikis....
@@ -329,6 +370,10 @@ class ForceSearchIndex extends Maintenance {
 			if ( $this->namespace ) {
 				$where['page_namespace'] = $this->namespace;
 			}
+			if ( $this->excludeContentTypes ) {
+				$list = $dbr->makeList( $this->excludeContentTypes, LIST_COMMA );
+				$where[] = "page_content_model NOT IN ($list)";
+			}
 
 			$res = $dbr->select(
 				array( 'page', 'revision' ),
@@ -347,11 +392,16 @@ class ForceSearchIndex extends Maintenance {
 		return $this->decodeResults( $res, $maxUpdate );
 	}
 
+	/**
+	 * @param mixed $res Database result
+	 * @param string|null Maximum mediawiki timestamp
+	 * @return array[]
+	 */
 	private function decodeResults( $res, $maxUpdate ) {
 		$result = array();
 		// Build the updater outside the loop because it stores the redirects it hits.  Don't build it at the top
 		// level so those are stored when it is freed.
-		$updater = new Updater( $this->getConnection() );
+		$updater = $this->createUpdater();
 
 		foreach ( $res as $row ) {
 			// No need to call Updater::traceRedirects here because we know this is a valid page because
@@ -405,16 +455,16 @@ class ForceSearchIndex extends Maintenance {
 	/**
 	 * Find $this->mBatchSize deletes who were deleted after (minUpdate,minNamespace,minTitle) and before maxUpdate.
 	 *
-	 * @param $minUpdate
-	 * @param $minNamespace
-	 * @param $minTitle
-	 * @param $maxUpdate
+	 * @param string $minUpdate
+	 * @param int $minNamespace
+	 * @param string $minTitle
+	 * @param string $maxUpdate
 	 * @return array An array of the last update timestamp and id that were found
 	 */
 	private function findDeletes( $minUpdate, $minNamespace, $minTitle, $maxUpdate ) {
 		$dbr = $this->getDB( DB_SLAVE );
 		$minUpdate = $dbr->addQuotes( $dbr->timestamp( $minUpdate ) );
-		$minNamespace = $dbr->addQuotes( $minNamespace );
+		$minNamespace = $dbr->addQuotes( (string) $minNamespace );
 		$minTitle = $dbr->addQuotes( $minTitle );
 		$maxUpdate = $dbr->addQuotes( $dbr->timestamp( $maxUpdate ) );
 		$where = array(
@@ -445,6 +495,12 @@ class ForceSearchIndex extends Maintenance {
 		return $result;
 	}
 
+	/**
+	 * @param string|int $buildChunks If specified as a number then chunks no
+	 *  larger than that size are spat out.  If specified as a number followed
+	 *  by the word "total" without a space between them then that many chunks
+	 *  will be spat out sized to cover the entire wiki.
+	 */
 	private function buildChunks( $buildChunks ) {
 		$dbr = $this->getDB( DB_SLAVE );
 		if ( $this->toId === null ) {
@@ -473,6 +529,17 @@ class ForceSearchIndex extends Maintenance {
 	 */
 	private function getUpdatesInQueue() {
 		return JobQueueGroup::singleton()->get( 'cirrusSearchMassIndex' )->getSize();
+	}
+
+	/**
+	 * @return Updater
+	 */
+	private function createUpdater() {
+		$flags = array();
+		if ( $this->hasOption( 'cluster' ) ) {
+			$flags[] = 'same-cluster';
+		}
+		return new Updater( $this->getConnection(), $flags );
 	}
 }
 

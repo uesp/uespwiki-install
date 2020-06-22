@@ -1,19 +1,23 @@
 ( function ( M, $ ) {
 
-	var CategoryOverlay,
-		Overlay = M.require( 'mobile.overlays/Overlay' ),
-		CategoryApi = M.require( 'mobile.categories.overlays/CategoryApi' );
+	var Overlay = M.require( 'mobile.overlays/Overlay' ),
+		CategoryGateway = M.require( 'mobile.categories.overlays/CategoryGateway' );
 
 	/**
 	 * Displays the list of categories for a page
 	 * @class CategoryOverlay
 	 * @extends Overlay
-	 * @uses CategoryApi
+	 * @uses CategoryGateway
 	 */
-	CategoryOverlay = Overlay.extend( {
+	function CategoryOverlay() {
+		Overlay.apply( this, arguments );
+	}
+
+	OO.mfExtend( CategoryOverlay, Overlay, {
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
+		 * @cfg {mw.Api} defaults.api to use to construct gateway
 		 * @cfg {String} defaults.heading Title of the list of categories this page is
 		 * categorized in.
 		 * @cfg {String} defaults.subheading Introduction text for the list of categories,
@@ -21,7 +25,7 @@
 		 * @cfg {Array} defaults.headerButtons Objects that will be used as defaults for
 		 * generating header buttons.
 		 */
-		defaults: {
+		defaults: $.extend( {}, Overlay.prototype.defaults, {
 			heading: mw.msg( 'mobile-frontend-categories-heading' ),
 			subheading: mw.msg( 'mobile-frontend-categories-subheading' ),
 			headerButtonsListClassName: 'overlay-action',
@@ -32,7 +36,7 @@
 			} ],
 			normalcatlink: mw.msg( 'mobile-frontend-categories-normal' ),
 			hiddencatlink: mw.msg( 'mobile-frontend-categories-hidden' )
-		},
+		} ),
 		/**
 		 * @inheritdoc
 		 */
@@ -40,9 +44,9 @@
 		/**
 		 * @inheritdoc
 		 */
-		templatePartials: {
+		templatePartials: $.extend( {}, Overlay.prototype.templatePartials, {
 			content: mw.template.get( 'mobile.categories.overlays', 'CategoryOverlay.hogan' )
-		},
+		} ),
 		events: $.extend( {}, Overlay.prototype.events, {
 			'click .catlink': 'onCatlinkClick'
 		} ),
@@ -69,12 +73,12 @@
 		 * @param {Object} options Object passed to the constructor.
 		 */
 		_loadCategories: function ( options ) {
-			var api = new CategoryApi(),
+			var gateway = new CategoryGateway( options.api ),
 				self = this;
 
 			this.$( '.topic-title-list' ).empty();
 			this.showSpinner();
-			api.getCategories( options.title ).done( function ( data ) {
+			gateway.getCategories( options.title ).done( function ( data ) {
 				if ( data.query && data.query.pages ) {
 					options.items = [];
 					options.hiddenitems = [];
@@ -134,7 +138,6 @@
 		}
 	} );
 
-	M.define( 'mobile.categories.overlays/CategoryOverlay', CategoryOverlay )
-		.deprecate( 'categories/CategoryOverlay' );
+	M.define( 'mobile.categories.overlays/CategoryOverlay', CategoryOverlay );
 
 }( mw.mobileFrontend, jQuery ) );

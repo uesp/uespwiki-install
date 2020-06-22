@@ -1,13 +1,10 @@
 ( function ( M, $ ) {
-
-	var EventEmitter = M.require( 'mobile.oo/eventemitter' ),
-		InfiniteScroll;
-
 	/**
 	 * Class to assist a view in implementing infinite scrolling on some DOM
 	 * element.
 	 *
 	 * @class InfiniteScroll
+	 * @mixins OO.EventEmitter
 	 *
 	 * Use this class in a view to help it do infinite scrolling.
 	 *
@@ -24,9 +21,8 @@
 	 * Example:
 	 *     @example
 	 *     <code>
-	 *       var InfiniteScroll = M.require( 'mobile.infiniteScroll/InfiniteScroll' ),
-	 *         PhotoList;
-	 *       PhotoList = View.extend( {
+	 *       var InfiniteScroll = M.require( 'mobile.infiniteScroll/InfiniteScroll' );
+	 *       OO.mfExtend( PhotoList, View, {
 	 *         //...
 	 *         initialize: function ( options ) {
 	 *           this.gateway = new PhotoListGateway( {
@@ -53,18 +49,20 @@
 	 *       } );
 	 *     </code>
 	 */
-	InfiniteScroll = EventEmitter.extend( {
-		/**
-		 * Constructor.
-		 * @param {Number} threshold distance in pixels used to calculate if scroll
-		 * position is near the end of the $el
-		 */
-		initialize: function ( threshold ) {
-			EventEmitter.prototype.initialize.apply( this, arguments );
-			this.threshold = threshold || 100;
-			this.enabled = true;
-			this._bindScroll();
-		},
+	/**
+	 * Constructor.
+	 * @param {Number} threshold distance in pixels used to calculate if scroll
+	 * position is near the end of the $el
+	 */
+	function InfiniteScroll( threshold ) {
+		this.threshold = threshold || 100;
+		this.enabled = true;
+		this._bindScroll();
+		OO.EventEmitter.call( this );
+	}
+	OO.mixinClass( InfiniteScroll, OO.EventEmitter );
+
+	OO.mfExtend( InfiniteScroll, {
 		/**
 		 * Listen to scroll on window and notify this._onScroll
 		 * @method
@@ -129,6 +127,5 @@
 		}
 	} );
 
-	M.define( 'mobile.infiniteScroll/InfiniteScroll', InfiniteScroll )
-		.deprecate( 'InfiniteScroll' );
+	M.define( 'mobile.infiniteScroll/InfiniteScroll', InfiniteScroll );
 }( mw.mobileFrontend, jQuery ) );

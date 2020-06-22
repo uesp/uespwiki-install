@@ -1,6 +1,9 @@
 ( function ( M, $ ) {
 
 	var
+		// see: https://www.mediawiki.org/wiki/Manual:Interface/JavaScript#Page-specific
+		isEditable = mw.config.get( 'wgIsProbablyEditable' ),
+		blockInfo =  mw.config.get( 'wgMinervaUserBlockInfo', false ),
 		settings = M.require( 'mobile.settings/settings' ),
 		router = M.require( 'mobile.startup/router' ),
 		overlayManager = M.require( 'mobile.startup/overlayManager' ),
@@ -8,7 +11,7 @@
 		Icon = M.require( 'mobile.startup/Icon' ),
 		Button = M.require( 'mobile.startup/Button' ),
 		Anchor = M.require( 'mobile.startup/Anchor' ),
-		skin = M.require( 'mobile.startup/skin' ),
+		skin = M.require( 'skins.minerva.scripts/skin' ),
 		browser = M.require( 'mobile.browser/browser' ),
 		disabledEditIcon = new Icon( {
 			name: 'edit'
@@ -17,7 +20,6 @@
 			name: 'edit-enabled'
 		} ),
 		currentPage = M.getCurrentPage(),
-		pageApi = M.require( 'mobile.startup/pageApi' ),
 		enabledClass = enabledEditIcon.getGlyphClassName(),
 		disabledClass = disabledEditIcon.getGlyphClassName(),
 		context = M.require( 'mobile.context/context' ),
@@ -34,9 +36,14 @@
 		isVisualEditorEnabled = veConfig,
 		CtaDrawer = M.require( 'mobile.drawers/CtaDrawer' ),
 		drawer,
-		$caEdit = $( '#ca-edit' ),
-		SchemaEdit = M.require( 'loggingSchemas/SchemaEdit' );
+		$caEdit = $( '#ca-edit' );
 
+	if ( user.isAnon() ) {
+		blockInfo = false;
+	} else if ( isEditable ) {
+		// for logged in users check if they are blocked from editing this page
+		isEditable = !blockInfo;
+	}
 	/**
 	 * Prepend an edit page button to the container
 	 * @method
@@ -125,13 +132,17 @@
 			window.alert( mw.msg( 'mobile-frontend-editor-undo-unsupported' ) );
 		}
 
+		page.$( '.edit-page' ).on( 'click', function () {
+			router.navigate( '#/editor/' + $( this ).data( 'section' ) );
+			return false;
+		} );
 		overlayManager.add( /^\/editor\/(\d+)$/, function ( sectionId ) {
 			var
-				$content = $( '#content #bodyContent' ),
+				$content = $( '#mw-content-text' ),
 				result = $.Deferred(),
 				preferredEditor = getPreferredEditor(),
 				editorOptions = {
-					pageApi: pageApi,
+					api: new mw.Api(),
 					licenseMsg: skin.getLicenseMsg(),
 					title: page.title,
 					isAnon: user.isAnon(),
@@ -140,8 +151,7 @@
 					oldId: mw.util.getParamValue( 'oldid' ),
 					contentLang: $content.attr( 'lang' ),
 					contentDir: $content.attr( 'dir' ),
-					sessionId: mw.user.generateRandomSessionId(),
-					editSchema: new SchemaEdit
+					sessionId: mw.user.generateRandomSessionId()
 				},
 				visualEditorNamespaces = veConfig && veConfig.namespaces,
 				initMechanism = mw.util.getParamValue( 'redlink' ) ? 'new' : 'click';
@@ -156,7 +166,7 @@
 			 * @method
 			 */
 			function logInit( editor ) {
-				editorOptions.editSchema.log( {
+				mw.track( 'mf.schemaEdit', {
 					action: 'init',
 					type: 'section',
 					mechanism: initMechanism,
@@ -247,6 +257,8 @@
 		// Make sure we never create two edit links by accident
 		// FIXME: split the selector and cache it
 		if ( $caEdit.find( '.edit-page' ).length === 0 ) {
+			$( '.nojs-edit' ).removeClass( 'nojs-edit' );
+			$( '#ca-edit a' ).remove();
 			// FIXME: unfortunately the main page is special cased.
 			if ( mw.config.get( 'wgIsMainPage' ) || isNewPage || page.getLeadSectionElement().text() ) {
 				// if lead section is not empty, open editor with lead section
@@ -275,14 +287,10 @@
 	 * @ignore
 	 */
 	function init() {
-		var blockInfo;
-
-		if ( currentPage.isEditable( user ) ) {
+		if ( isEditable ) {
 			setupEditor( currentPage );
 		} else {
-			if ( user.isBlocked() ) {
-				blockInfo = user.getBlockInfo();
-
+			if ( blockInfo ) {
 				$caEdit.removeClass( 'hidden' );
 				$( '#ca-edit' ).on( 'click', function ( ev ) {
 					popup.show(
@@ -290,8 +298,7 @@
 							'mobile-frontend-editor-blocked-info-loggedin',
 							blockInfo.blockReason,
 							blockInfo.blockedBy
-						),
-						'toast'
+						)
 					);
 					ev.preventDefault();
 				} );
@@ -311,7 +318,7 @@
 	function initCta() {
 		// Initialize edit button links (to show Cta) only, if page is editable,
 		// otherwise show an error toast
-		if ( currentPage.isEditable( user ) ) {
+		if ( isEditable ) {
 			$caEdit.addClass( enabledClass ).removeClass( disabledClass ).removeClass( 'hidden' );
 			// Init lead section edit button
 			makeCta( $caEdit, 0 );
@@ -340,7 +347,7 @@
 	 */
 	function showSorryToast( msg ) {
 		$( '#ca-edit, .edit-page' ).on( 'click', function ( ev ) {
-			popup.show( mw.msg( msg ), 'toast' );
+			popup.show( mw.msg( msg ) );
 			ev.preventDefault();
 		} );
 	}

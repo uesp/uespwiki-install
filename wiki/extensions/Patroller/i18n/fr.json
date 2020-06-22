@@ -20,7 +20,7 @@
 	"patrol-reverted-ok": "L’édition a été annulée.",
 	"patrol-reverted-failed": "L’édition n’a pu être annulée.",
 	"patrol-skipped-ok": "Ignorer l’édition.",
-	"patrol-reasons": "* Simple vandalisme\r\n* Test de débutant\r\n* Voir page de discussion",
+	"patrol-reasons": "* Simple vandalisme\n* Test de débutant\n* Voir page de discussion",
 	"patrol-another": "Voir une autre modification, si disponible.",
 	"patrol-stopped": "Vous avez choisi de ne pas vérifier une autre modification. $1",
 	"patrol-resume": "Cliquer ici pour reprendre.",

@@ -20,7 +20,7 @@
 	"patrol-reverted-ok": "编辑被回退。",
 	"patrol-reverted-failed": "编辑不能回退。",
 	"patrol-skipped-ok": "忽略编辑。",
-	"patrol-reasons": "* 纯粹破坏\r\n* 新手测试\r\n* 参见讨论页",
+	"patrol-reasons": "* 纯粹破坏\n* 新手测试\n* 参见讨论页",
 	"patrol-another": "显示其他存在的编辑。",
 	"patrol-stopped": "您选择不巡逻其他编辑。$1",
 	"patrol-resume": "点击这里继续。",

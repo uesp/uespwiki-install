@@ -19,7 +19,7 @@
 	"patrol-reverted-ok": "Suntingan dikembalikan.",
 	"patrol-reverted-failed": "Suntingan tidak dapat dikembalikan.",
 	"patrol-skipped-ok": "Suntingan diabaikan.",
-	"patrol-reasons": "* Vandalisme sederhana\r\n* Pengujian pemula\r\n* Lihat halaman pembicaraan",
+	"patrol-reasons": "* Vandalisme sederhana\n* Pengujian pemula\n* Lihat halaman pembicaraan",
 	"patrol-another": "Tampilkan suntingan lain jika tersedia.",
 	"patrol-stopped": "Anda telah memilih untuk tidak mengontrol suntingan lain. $1",
 	"patrol-resume": "Klik di sini untuk melanjutkan.",

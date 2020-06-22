@@ -1,4 +1,4 @@
-@chrome @en.m.wikipedia.beta.wmflabs.org @firefox @login @test2.m.wikipedia.org @vagrant
+@chrome @en.m.wikipedia.beta.wmflabs.org @firefox @test2.m.wikipedia.org @vagrant
 Feature: Special:Contributions
 
   Background:
@@ -7,7 +7,7 @@ Feature: Special:Contributions
 
   Scenario: Check components in diff summary
     When I click the link in the header bar
-    Then I should be on my user profile page
+    Then I should be on my user page
 
   Scenario: Check components in diff summary
     Then I should see a list of page contributions

@@ -2,8 +2,8 @@
 
 namespace CirrusSearch\Search;
 
-use CirrusSearch\Searcher;
 use Elastica;
+use Elastica\Filter\AbstractFilter;
 
 /**
  * Utilities for dealing with filters.
@@ -27,9 +27,10 @@ class Filters {
 	/**
 	 * Merges lists of include/exclude filters into a single filter that
 	 * Elasticsearch will execute efficiently.
-	 * @param array(\Elastica\AbstractFilter) $mustFilters filters that must match all returned documents
-	 * @param array(\Elastica\AbstractFilter) $mustNotFilters filters that must not match all returned documents
-	 * @return null|\Elastica\AbstractFilter null if there are no filters or one that will execute
+	 *
+	 * @param AbstractFilter[] $mustFilters filters that must match all returned documents
+	 * @param AbstractFilter[] $mustNotFilters filters that must not match all returned documents
+	 * @return null|AbstractFilter null if there are no filters or one that will execute
 	 *     all of the provided filters
 	 */
 	public static function unify( $mustFilters, $mustNotFilters ) {
@@ -78,9 +79,10 @@ class Filters {
 
 	/**
 	 * Unify non-script filters into a single filter.
-	 * @param array(\Elastica\AbstractFilter) $must filters that must be found
-	 * @param array(\Elastica\AbstractFilter) $mustNot filters that must not be found
-	 * @return null|\Elastica\AbstractFilter null if there are no filters or one that will execute
+	 *
+	 * @param AbstractFilter[] $mustFilters filters that must be found
+	 * @param AbstractFilter[] $mustNotFilters filters that must not be found
+	 * @return null|AbstractFilter null if there are no filters or one that will execute
 	 *     all of the provided filters
 	 */
 	private static function unifyNonScript( $mustFilters, $mustNotFilters ) {
@@ -95,7 +97,7 @@ class Filters {
 		if ( $mustFilterCount === 0 && $mustNotFilterCount == 1 ) {
 			return new \Elastica\Filter\BoolNot( $mustNotFilters[ 0 ] );
 		}
-		$boolFilter = new \Elastica\Filter\Bool();
+		$boolFilter = new \Elastica\Filter\BoolFilter();
 		foreach ( $mustFilters as $must ) {
 			$boolFilter->addMust( $must );
 		}
@@ -109,13 +111,14 @@ class Filters {
 	 * Create a filter for insource: queries.  This was extracted from the big
 	 * switch block in Searcher.php.  This function is pure, deferring state
 	 * changes to the reference-updating return function.
+	 *
 	 * @param Escaper $escaper
-	 * @param Searcher $searcher
+	 * @param SearchContext $context
 	 * @param string $value
 	 * @return callable a side-effecting function to update several references
 	 */
-	public static function insource( $escaper, $searcher, $value ) {
-		return self::insourceOrIntitle( $escaper, $searcher, $value, true, function () {
+	public static function insource( Escaper $escaper, SearchContext $context, $value ) {
+		return self::insourceOrIntitle( $escaper, $context, $value, true, function () {
 			return 'source_text.plain';
 		});
 	}
@@ -124,13 +127,14 @@ class Filters {
 	 * Create a filter for intitle: queries.  This was extracted from the big
 	 * switch block in Searcher.php.  This function is pure, deferring state
 	 * changes to the reference-updating return function.
+	 *
 	 * @param Escaper $escaper
-	 * @param Searcher $searcher
+	 * @param SearchContext $context
 	 * @param string $value
 	 * @return callable a side-effecting function to update several references
 	 */
-	public static function intitle( $escaper, $searcher, $value ) {
-		return self::insourceOrIntitle( $escaper, $searcher, $value, false, function ( $queryString ) {
+	public static function intitle( Escaper $escaper, SearchContext $context, $value ) {
+		return self::insourceOrIntitle( $escaper, $context, $value, false, function ( $queryString ) {
 			if ( preg_match( '/[?*]/u', $queryString ) ) {
 				return 'title.plain';
 			} else {
@@ -141,13 +145,13 @@ class Filters {
 
 	/**
 	 * @param Escaper $escaper
-	 * @param Searcher $searcher
+	 * @param SearchContext $context
 	 * @param string $value
 	 * @param bool $updateHighlightSourceRef
 	 * @param callable $fieldF
 	 * @return callable
 	 */
-	private static function insourceOrIntitle( $escaper, $searcher, $value, $updateHighlightSourceRef, $fieldF ) {
+	private static function insourceOrIntitle( Escaper $escaper, SearchContext $context, $value, $updateHighlightSourceRef, $fieldF ) {
 		list( $queryString, $fuzzyQuery ) = $escaper->fixupWholeQueryString(
 			$escaper->fixupQueryStringPart( $value ) );
 		$field = $fieldF( $queryString );
@@ -157,7 +161,7 @@ class Filters {
 		$query->setAllowLeadingWildcard( $escaper->getAllowLeadingWildcard() );
 		$query->setFuzzyPrefixLength( 2 );
 		$query->setRewrite( 'top_terms_boost_1024' );
-		$wrappedQuery = $searcher->wrapInSaferIfPossible( $query, false );
+		$wrappedQuery = $context->wrapInSaferIfPossible( $query, false );
 
 		$updateReferences =
 			function ( &$fuzzyQueryRef, &$filterDestinationRef, &$highlightSourceRef, &$searchContainedSyntaxRef )

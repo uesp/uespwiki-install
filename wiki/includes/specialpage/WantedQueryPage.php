@@ -85,9 +85,9 @@ abstract class WantedQueryPage extends QueryPage {
 				$pageLink = Linker::link(
 					$title,
 					null,
-					array(),
-					array(),
-					array( 'broken' )
+					[],
+					[],
+					[ 'broken' ]
 				);
 			}
 			return $this->getLanguage()->specialList( $pageLink, $this->makeWlhLink( $title, $result ) );
@@ -127,14 +127,12 @@ abstract class WantedQueryPage extends QueryPage {
 		$label = $this->msg( 'nlinks' )->numParams( $result->value )->escaped();
 		return Linker::link( $wlh, $label );
 	}
-
-	/**
-	 * Order by title for pages with the same number of links to them
-	 *
-	 * @return array
-	 * @since 1.29 - RM: Imported with minor modifications (remove DESC) to fix sorting bug, fully compatible with current MW code.
-	 */
+	
 	function getOrderFields() {
-		return [ 'value', 'namespace', 'title' ];
+		return [ 'value DESC', 'namespace', 'title' ];
+	}
+	
+	function sortDescending() {
+		return false;
 	}
 }

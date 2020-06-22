@@ -31,9 +31,9 @@ class SearchEngineTest extends MediaWikiLangTestCase {
 		}
 
 		$searchType = $this->db->getSearchEngine();
-		$this->setMwGlobals( array(
+		$this->setMwGlobals( [
 			'wgSearchType' => $searchType
-		) );
+		] );
 
 		$this->search = new $searchType( $this->db );
 	}
@@ -44,7 +44,7 @@ class SearchEngineTest extends MediaWikiLangTestCase {
 		parent::tearDown();
 	}
 
-	public function addDBData() {
+	public function addDBDataOnce() {
 		if ( !$this->isWikitextNS( NS_MAIN ) ) {
 			// @todo cover the case of non-wikitext content in the main namespace
 			return;
@@ -79,7 +79,7 @@ class SearchEngineTest extends MediaWikiLangTestCase {
 		}
 		$this->assertTrue( is_object( $results ) );
 
-		$matches = array();
+		$matches = [];
 		$row = $results->next();
 		while ( $row ) {
 			$matches[] = $row->getTitle()->getPrefixedText();
@@ -96,59 +96,115 @@ class SearchEngineTest extends MediaWikiLangTestCase {
 
 	public function testFullWidth() {
 		$this->assertEquals(
-			array( 'FullOneUp', 'FullTwoLow', 'HalfOneUp', 'HalfTwoLow' ),
+			[ 'FullOneUp', 'FullTwoLow', 'HalfOneUp', 'HalfTwoLow' ],
 			$this->fetchIds( $this->search->searchText( 'AZ' ) ),
 			"Search for normalized from Half-width Upper" );
 		$this->assertEquals(
-			array( 'FullOneUp', 'FullTwoLow', 'HalfOneUp', 'HalfTwoLow' ),
+			[ 'FullOneUp', 'FullTwoLow', 'HalfOneUp', 'HalfTwoLow' ],
 			$this->fetchIds( $this->search->searchText( 'az' ) ),
 			"Search for normalized from Half-width Lower" );
 		$this->assertEquals(
-			array( 'FullOneUp', 'FullTwoLow', 'HalfOneUp', 'HalfTwoLow' ),
+			[ 'FullOneUp', 'FullTwoLow', 'HalfOneUp', 'HalfTwoLow' ],
 			$this->fetchIds( $this->search->searchText( 'ＡＺ' ) ),
 			"Search for normalized from Full-width Upper" );
 		$this->assertEquals(
-			array( 'FullOneUp', 'FullTwoLow', 'HalfOneUp', 'HalfTwoLow' ),
+			[ 'FullOneUp', 'FullTwoLow', 'HalfOneUp', 'HalfTwoLow' ],
 			$this->fetchIds( $this->search->searchText( 'ａｚ' ) ),
 			"Search for normalized from Full-width Lower" );
 	}
 
 	public function testTextSearch() {
 		$this->assertEquals(
-			array( 'Smithee' ),
+			[ 'Smithee' ],
 			$this->fetchIds( $this->search->searchText( 'smithee' ) ),
 			"Plain search failed" );
 	}
 
-	public function testTextPowerSearch() {
-		$this->search->setNamespaces( array( 0, 1, 4 ) );
+	public function testWildcardSearch() {
+		$res = $this->search->searchText( 'smith*' );
 		$this->assertEquals(
-			array(
+			[ 'Smithee' ],
+			$this->fetchIds( $res ),
+			"Search with wildcards" );
+
+		$res = $this->search->searchText( 'smithson*' );
+		$this->assertEquals(
+			[],
+			$this->fetchIds( $res ),
+			"Search with wildcards must not find unrelated articles" );
+
+		$res = $this->search->searchText( 'smith* smithee' );
+		$this->assertEquals(
+			[ 'Smithee' ],
+			$this->fetchIds( $res ),
+			"Search with wildcards can be combined with simple terms" );
+
+		$res = $this->search->searchText( 'smith* "one who smiths"' );
+		$this->assertEquals(
+			[ 'Smithee' ],
+			$this->fetchIds( $res ),
+			"Search with wildcards can be combined with phrase search" );
+	}
+
+	public function testPhraseSearch() {
+		$res = $this->search->searchText( '"smithee is one who smiths"' );
+		$this->assertEquals(
+			[ 'Smithee' ],
+			$this->fetchIds( $res ),
+			"Search a phrase" );
+
+		$res = $this->search->searchText( '"smithee is who smiths"' );
+		$this->assertEquals(
+			[],
+			$this->fetchIds( $res ),
+			"Phrase search is not sloppy, search terms must be adjacent" );
+
+		$res = $this->search->searchText( '"is smithee one who smiths"' );
+		$this->assertEquals(
+			[],
+			$this->fetchIds( $res ),
+			"Phrase search is ordered" );
+	}
+
+	public function testPhraseSearchHighlight() {
+		$phrase = "smithee is one who smiths";
+		$res = $this->search->searchText( "\"$phrase\"" );
+		$match = $res->next();
+		$snippet = "A <span class='searchmatch'>" . $phrase . "</span>";
+		$this->assertStringStartsWith( $snippet,
+			$match->getTextSnippet( $res->termMatches() ),
+			"Phrase search failed to highlight" );
+	}
+
+	public function testTextPowerSearch() {
+		$this->search->setNamespaces( [ 0, 1, 4 ] );
+		$this->assertEquals(
+			[
 				'Smithee',
 				'Talk:Not Main Page',
-			),
+			],
 			$this->fetchIds( $this->search->searchText( 'smithee' ) ),
 			"Power search failed" );
 	}
 
 	public function testTitleSearch() {
 		$this->assertEquals(
-			array(
+			[
 				'Alan Smithee',
 				'Smithee',
-			),
+			],
 			$this->fetchIds( $this->search->searchTitle( 'smithee' ) ),
 			"Title search failed" );
 	}
 
 	public function testTextTitlePowerSearch() {
-		$this->search->setNamespaces( array( 0, 1, 4 ) );
+		$this->search->setNamespaces( [ 0, 1, 4 ] );
 		$this->assertEquals(
-			array(
+			[
 				'Alan Smithee',
 				'Smithee',
 				'Talk:Smithee',
-			),
+			],
 			$this->fetchIds( $this->search->searchTitle( 'smithee' ) ),
 			"Title power search failed" );
 	}

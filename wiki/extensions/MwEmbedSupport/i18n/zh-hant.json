@@ -1,8 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"Mark85296341"
+			"Mark85296341",
+			"Cwlin0416"
 		]
 	},
-	"mwembed-desc": "提供支援 mwEmbed 的模塊及擴充套件"
+	"mwembed-desc": "提供支援 mwEmbed 的模組及擴充套件"
 }

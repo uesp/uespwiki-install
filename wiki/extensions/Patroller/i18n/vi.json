@@ -18,7 +18,7 @@
 	"patrol-reverted-ok": "Sửa đổi đã được lùi lại.",
 	"patrol-reverted-failed": "Không thể lùi sửa đổi.",
 	"patrol-skipped-ok": "Bỏ qua sửa đổi.",
-	"patrol-reasons": "* Phá hoại đơn giản\r\n* Thử nghiệm của người mới\r\n* Xem trang thảo luận",
+	"patrol-reasons": "* Phá hoại đơn giản\n* Thử nghiệm của người mới\n* Xem trang thảo luận",
 	"patrol-another": "Hiển thị sửa đổi khác, nếu có.",
 	"patrol-stopped": "Bạn đã chọn không tuần tra sửa đổi khác. $1",
 	"patrol-resume": "Nhấn vào đây để tiếp tục.",

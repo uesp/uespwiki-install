@@ -19,7 +19,7 @@
 	"patrol-reverted-ok": "A szerkesztést visszaállítottam.",
 	"patrol-reverted-failed": "A szerkesztést nem sikerült visszaállítanom.",
 	"patrol-skipped-ok": "Szerkesztés kihagyása.",
-	"patrol-reasons": "* Egyszerű vandalizmus\r\n* Újonc tesztje\r\n* Lásd a vitalapot",
+	"patrol-reasons": "* Egyszerű vandalizmus\n* Újonc tesztje\n* Lásd a vitalapot",
 	"patrol-another": "Mutass más szerkesztést, ha lehetséges.",
 	"patrol-stopped": "Nem jelölted be, hogy szeretnél további szerkesztést járőrözni. $1",
 	"patrol-resume": "Kattints ide a folytatáshoz.",

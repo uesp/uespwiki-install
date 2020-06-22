@@ -18,7 +18,7 @@
 	"patrol-reverted-ok": "La redakto estis restarigita.",
 	"patrol-reverted-failed": "Ne eblis restarigi la redakton.",
 	"patrol-skipped-ok": "Ignorante redakton.",
-	"patrol-reasons": "* Simpla vandalismo\r\n* Novula testo\r\n* Vidu diskuto-paĝon",
+	"patrol-reasons": "* Simpla vandalismo\n* Novula testo\n* Vidu diskuto-paĝon",
 	"patrol-another": "Montri alian redakton, se haveblan.",
 	"patrol-stopped": "Vi elektis ne patroli alian redakton. $1",
 	"patrol-resume": "Klaku ĉi tie por reaktivigi.",

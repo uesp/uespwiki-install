@@ -11,19 +11,78 @@ class SkinMinervaBeta extends SkinMinerva {
 	public $template = 'MinervaTemplateBeta';
 	/** @var string $mode Describes 'stability' of the skin - beta, stable */
 	protected $mode = 'beta';
+	/** @inheritdoc */
+	protected $shouldSecondaryActionsIncludeLanguageBtn = false;
 
 	/** @inheritdoc **/
 	protected function getHeaderHtml() {
 		$html = parent::getHeaderHtml();
-		$vars = $this->getSkinConfigVariables();
-		$description = $vars['wgMFDescription'];
-		if ( $description && !$this->getTitle()->isSpecialPage() ) {
-			$html .= Html::element( 'div',
-				array(
-					'class' => 'tagline',
-				), $description );
+		if ( !$this->isUserPage ) {
+			$vars = $this->getSkinConfigVariables();
+			$description = $vars['wgMFDescription'];
+			if ( $description && !$this->getTitle()->isSpecialPage() ) {
+				$html .= Html::element( 'div',
+					array(
+						'class' => 'tagline',
+					), $description );
+			}
 		}
 		return $html;
+	}
+
+	/**
+	 * Do not set page actions on the user page that hasn't been created yet.
+	 * Also add the language switcher action.
+	 *
+	 * @inheritdoc
+	 * @param BaseTemplate $tpl
+	 */
+	protected function preparePageActions( BaseTemplate $tpl ) {
+		$setPageActions = true;
+
+		if ( $this->isUserPage ) {
+			if ( !$this->getTitle()->exists() ) {
+				$setPageActions = false;
+			}
+		}
+		if ( $setPageActions ) {
+			parent::preparePageActions( $tpl );
+			$menu = $tpl->data[ 'page_actions' ];
+
+			$languageSwitcherLinks = array();
+			$languageSwitcherClasses = 'disabled';
+			if ( $this->doesPageHaveLanguages ) {
+				$languageSwitcherLinks['mobile-frontend-language-article-heading'] = array(
+					'href' => SpecialPage::getTitleFor( 'MobileLanguages', $this->getTitle() )->getLocalURL()
+				);
+				$languageSwitcherClasses = '';
+			}
+			if ( $this->getMFConfig()->get( 'MinervaAlwaysShowLanguageButton' ) ||
+				$this->doesPageHaveLanguages ) {
+				$menu['language-switcher'] = array( 'id' => 'language-switcher', 'text' => '',
+					'itemtitle' => $this->msg( 'mobile-frontend-language-article-heading' ),
+					'class' => MobileUI::iconClass( 'language-switcher', 'element', $languageSwitcherClasses ),
+					'links' => $languageSwitcherLinks,
+					'is_js_only' => false
+				);
+				$tpl->set( 'page_actions', $menu );
+			}
+		} else {
+			$tpl->set( 'page_actions', array() );
+		}
+	}
+
+	/**
+	 * Do not return secondary actions on the user page.
+	 *
+	 * @inheritdoc
+	 */
+	protected function getSecondaryActions( BaseTemplate $tpl ) {
+		if ( $this->isUserPage ) {
+			return array();
+		} else {
+			return parent::getSecondaryActions( $tpl );
+		}
 	}
 
 	public function getSkinConfigVariables() {
@@ -32,17 +91,6 @@ class SkinMinervaBeta extends SkinMinerva {
 		$vars['wgMFImagesCategory'] = $this->getOutput()->getProperty( 'wgMFImagesCategory' );
 
 		return $vars;
-	}
-
-	/**
-	 * initialize various variables and generate the template
-	 * @param OutputPage $out optional parameter: The OutputPage Obj.
-	 */
-	public function outputPage( OutputPage $out = null ) {
-		if ( !$out ) {
-			$out = $this->getOutput();
-		}
-		parent::outputPage( $out );
 	}
 
 	/**
@@ -81,12 +129,7 @@ class SkinMinervaBeta extends SkinMinerva {
 		$modules['beta'] = array(
 			'skins.minerva.beta.scripts',
 		);
-		// Only load the banner experiment if WikidataPageBanner is not installed
-		// & experiment is enabled
-		if ( $this->getMFConfig()->get( 'MFIsBannerEnabled' )
-			&& !ExtensionRegistry::getInstance()->isLoaded( 'WikidataPageBanner' ) ) {
-			$modules['beta'][] = 'skins.minerva.beta.banner.scripts';
-		}
+
 		Hooks::run( 'SkinMinervaDefaultModules', array( $this, &$modules ) );
 
 		// Disable CentralNotice modules in beta
@@ -98,77 +141,49 @@ class SkinMinervaBeta extends SkinMinerva {
 	}
 
 	/**
-	 * Returns an array of links for page secondary actions
-	 * @param BaseTemplate $tpl
-	 * @return Array
-	 */
-	protected function getSecondaryActions( BaseTemplate $tpl ) {
-		$buttons = parent::getSecondaryActions( $tpl );
-
-		$title = $this->getTitle();
-		$namespaces = $tpl->data['content_navigation']['namespaces'];
-		if ( $this->isTalkAllowed() ) {
-			// FIXME [core]: This seems unnecessary..
-			$subjectId = $title->getNamespaceKey( '' );
-			$talkId = $subjectId === 'main' ? 'talk' : "{$subjectId}_talk";
-			$talkButton = isset( $namespaces[$talkId] ) && !$title->isTalkPage() ?
-				$namespaces[$talkId]['text'] : '';
-
-			$talkTitle = $title->getTalkPage();
-			$buttons['talk'] = array(
-				'attributes' => array(
-					'href' => $talkTitle->getLinkURL(),
-					'class' =>  MobileUI::iconClass( 'talk', 'before', 'talk' ),
-					'data-title' => $talkTitle->getFullText(),
-				),
-				'label' => $talkButton,
-			);
-		}
-
-		return $buttons;
-	}
-
-	/**
 	 * Get the needed styles for this skin
 	 * @return array
 	 */
 	protected function getSkinStyles() {
+		$title = $this->getTitle();
 		$styles = parent::getSkinStyles();
-		$styles[] = 'skins.minerva.beta.images';
-		if ( $this->getTitle()->isMainPage() ) {
+		if ( $title->isMainPage() ) {
 			$styles[] = 'skins.minerva.mainPage.beta.styles';
 		}
+		$styles[] = 'skins.minerva.beta.styles';
+		$styles[] = 'skins.minerva.content.styles.beta';
+		$styles[] = 'skins.minerva.icons.beta.images';
 
 		return $styles;
 	}
 
 	/**
-	 * @return html for a message to display at top of old revisions
+	 * Add talk, contributions, and uploads links at the top of the user page.
+	 *
+	 * @inheritdoc
+	 * @param BaseTemplate $tpl
 	 */
-	protected function getOldRevisionHtml() {
-		$viewSourceLink = Html::openElement( 'p' ) .
-				Html::element( 'a', array( 'href' => '#editor/0' ),
-					$this->msg( 'mobile-frontend-view-source' )->text() ) .
-				Html::closeElement( 'p' );
-		return $viewSourceLink . parent::getOldRevisionHtml();
-	}
-
-	/** @inheritdoc */
-	protected function preparePageContent( QuickTemplate $tpl ) {
-		parent::preparePageContent( $tpl );
-
-		$title = $this->getTitle();
-
-		if ( !$title ) {
-			return;
+	protected function prepareHeaderAndFooter( BaseTemplate $tpl ) {
+		parent::prepareHeaderAndFooter( $tpl );
+		if ( $this->isUserPage ) {
+			$talkPage = $this->pageUser->getTalkPage();
+			$data = array(
+				'talkPageTitle' => $talkPage->getPrefixedURL(),
+				'talkPageLink' => $talkPage->getLocalUrl(),
+				'talkPageLinkTitle' => $this->msg(
+					'mobile-frontend-user-page-talk' )->escaped(),
+				'contributionsPageLink' => SpecialPage::getTitleFor(
+					'Contributions', $this->pageUser )->getLocalURL(),
+				'contributionsPageTitle' => $this->msg(
+					'mobile-frontend-user-page-contributions' )->escaped(),
+				'uploadsPageLink' => SpecialPage::getTitleFor(
+					'Uploads', $this->pageUser )->getLocalURL(),
+				'uploadsPageTitle' => $this->msg(
+					'mobile-frontend-user-page-uploads' )->escaped(),
+			);
+			$templateParser = new TemplateParser( __DIR__ );
+			$tpl->set( 'postheadinghtml',
+				$templateParser->processTemplate( 'user_page_links', $data ) );
 		}
-	}
-
-	/**
-	 * If the user is in beta mode, we assume, he is an experienced
-	 * user (he/she found the "beta" switch ;))
-	 */
-	protected function isExperiencedUser() {
-		return true;
 	}
 }

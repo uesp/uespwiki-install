@@ -9,7 +9,7 @@
 	var profile = $.client.profile(),
 		canonical = mw.config.get( 'wgInternalRedirectTargetUrl' ),
 		fragment = null,
-		shouldChangeFragment, index;
+		node, shouldChangeFragment, index;
 
 	index = canonical.indexOf( '#' );
 	if ( index !== -1 ) {
@@ -27,21 +27,15 @@
 			canonical += location.hash;
 		}
 
-		// RM: This section of code imported from MW 1.33 to fix redirect-to-section functionality failing most of the time. See https://phabricator.wikimedia.org/T110501 et al.
 		// Note that this will update the hash in a modern browser, retaining back behaviour
-		history.replaceState( /* data= */ history.state, /* title= */ document.title, /* url= */ canonical );
+		history.replaceState( /*data=*/ history.state, /*title=*/ document.title, /*url=*/ canonical );
 		if ( shouldChangeFragment ) {
 			// Specification for history.replaceState() doesn't require browser to scroll,
-			// so scroll to be sure (see also T110501). Support for IE10.
+			// so scroll to be sure (see also T110501). Support for IE9 and IE10.
 			node = document.getElementById( fragment.slice( 1 ) );
 			if ( node ) {
 				node.scrollIntoView();
 			}
-		}
-
-		// …except for IE 10 and 11. Prod it with a location.hash change.
-		if ( shouldChangeFragment && profile.name === 'msie' && profile.versionNumber >= 10 ) {
-			location.hash = fragment;
 		}
 
 	} else if ( shouldChangeFragment ) {

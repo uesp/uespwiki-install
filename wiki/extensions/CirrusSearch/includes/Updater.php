@@ -6,11 +6,9 @@ use CirrusSearch\BuildDocument\FileDataBuilder;
 use CirrusSearch\BuildDocument\PageDataBuilder;
 use CirrusSearch\BuildDocument\PageTextBuilder;
 use Hooks as MWHooks;
-use JobQueueGroup;
 use MediaWiki\Logger\LoggerFactory;
-use MWTimestamp;
 use ParserCache;
-use Sanitizer;
+use ParserOutput;
 use TextContent;
 use Title;
 use WikiPage;
@@ -41,16 +39,29 @@ class Updater extends ElasticsearchIntermediary {
 	const INDEX_ON_SKIP = 1;
 	const SKIP_PARSE = 2;
 	const SKIP_LINKS = 4;
+	const FORCE_PARSE = 8;
 
 	/**
 	 * Full title text of pages updated in this process.  Used for deduplication
 	 * of updates.
-	 * @var array(String)
+	 * @var string[]
 	 */
 	private $updated = array();
 
-	public function __construct( Connection $conn ) {
+	/**
+	 * @var string|null Name of cluster to write to, or null if none
+	 */
+	protected $writeToClusterName;
+
+	/**
+	 * @param Connection $conn
+	 * @param string[] $flags
+	 */
+	public function __construct( Connection $conn, array $flags = array() ) {
 		parent::__construct( $conn, null, null );
+		if ( in_array( 'same-cluster', $flags ) ) {
+			$this->writeToClusterName = $this->connection->getClusterName();
+		}
 	}
 
 	/**
@@ -91,7 +102,7 @@ class Updater extends ElasticsearchIntermediary {
 	 * @param Title $title title to trace
 	 * @return array(target, redirects)
 	 *    - target is WikiPage|null wikipage if the $title either isn't a redirect or resolves
-	 *    to an updateable page that hasn't been updated yet.  Null if the page has been
+	 *    to an updatable page that hasn't been updated yet.  Null if the page has been
 	 *    updated, is a special page, or the redirects enter a loop.
 	 *    - redirects is an array of WikiPages, one per redirect in the chain.  If title isn't
 	 *    a redirect then this will be an empty array
@@ -121,7 +132,7 @@ class Updater extends ElasticsearchIntermediary {
 			}
 			$content = $page->getContent();
 			if ( is_string( $content ) ) {
-				$content = new TextContent( $content );
+				$content = new TextContent( (string) $content );
 			}
 			// If the event that the content is _still_ not usable, we have to give up.
 			if ( !is_object( $content ) ) {
@@ -163,14 +174,14 @@ class Updater extends ElasticsearchIntermediary {
 	 *     can put half created pages in the index.  This is only a good idea during the first
 	 *     half of the two phase index build.
 	 *
-	 * @param $pages array(WikiPage) pages to update
-	 * @param $shardTimeout null|string How long should elaticsearch wait for an offline
+	 * @param WikiPage[] $pages pages to update
+	 * @param null|string $shardTimeout How long should elaticsearch wait for an offline
 	 *   shard.  Defaults to null, meaning don't wait.  Null is more efficient when sending
 	 *   multiple pages because Cirrus will use Elasticsearch's bulk API.  Timeout is in
 	 *   Elasticsearch's time format.
-	 * @param $clientSideTimeout null|int timeout in seconds to update pages or null to not
+	 * @param null|int $clientSideTimeout timeout in seconds to update pages or null to not
 	 *      change the configured timeout which defaults to 300 seconds.
-	 * @param $flags int Bitfield containing instructions about how the document should be built
+	 * @param int $flags Bit field containing instructions about how the document should be built
 	 *   and sent to Elasticsearch.
 	 * @return int Number of documents updated of -1 if there was an error
 	 */
@@ -179,7 +190,7 @@ class Updater extends ElasticsearchIntermediary {
 
 		// Don't update the same page twice. We shouldn't, but meh
 		$pageIds = array();
-		$pages = array_filter( $pages, function( $page ) use ( &$pageIds ) {
+		$pages = array_filter( $pages, function( WikiPage $page ) use ( &$pageIds ) {
 			if ( !in_array( $page->getId(), $pageIds ) ) {
 				$pageIds[] = $page->getId();
 				return true;
@@ -188,7 +199,7 @@ class Updater extends ElasticsearchIntermediary {
 		} );
 
 		$titles = $this->pagesToTitles( $pages );
-		Job\OtherIndex::queueIfRequired( $titles );
+		Job\OtherIndex::queueIfRequired( $titles, $this->writeToClusterName );
 
 		$allData = array_fill_keys( $this->connection->getAllIndexTypes(), array() );
 		foreach ( $this->buildDocumentsForPages( $pages, $flags ) as $document ) {
@@ -205,13 +216,16 @@ class Updater extends ElasticsearchIntermediary {
 			// the max.  So we chunk it and do them sequentially.
 			foreach( array_chunk( $data, 10 ) as $chunked ) {
 				$job = new Job\ElasticaWrite(
-reset( $titles ), array(
-					'clientSideTimeout' => $clientSideTimeout,
-					'method' => 'sendData',
-					'arguments' => array( $indexType, $chunked, $shardTimeout ),
-				) );
+					reset( $titles ),
+					array(
+						'clientSideTimeout' => $clientSideTimeout,
+						'method' => 'sendData',
+						'arguments' => array( $indexType, $chunked, $shardTimeout ),
+						'cluster' => $this->writeToClusterName,
+					)
+				);
 				// This job type will insert itself into the job queue
-				// with a delay if writes to ES are currently paused
+				// with a delay if writes to ES are currently unavailable
 				$job->run();
 			}
 			$count += count( $data );
@@ -224,21 +238,25 @@ reset( $titles ), array(
 	 * Delete pages from the elasticsearch index.  $titles and $ids must point to the
 	 * same pages and should point to them in the same order.
 	 *
-	 * @param $titles array(Title) of titles to delete.  If empty then skipped other index
+	 * @param Title[] $titles List of titles to delete.  If empty then skipped other index
 	 *      maintenance is skipped.
-	 * @param $ids array(integer) of ids to delete
-	 * @param $clientSideTimeout null|int timeout in seconds to update pages or null to not
+	 * @param integer[] $ids List of ids to delete
+	 * @param null|int $clientSideTimeout timeout in seconds to update pages or null to not
 	 *      change the configured timeout which defaults to 300 seconds.
 	 * @param string $indexType index from which to delete
 	 * @return bool True if nothing happened or we successfully deleted, false on failure
 	 */
 	public function deletePages( $titles, $ids, $clientSideTimeout = null, $indexType = null ) {
-		Job\OtherIndex::queueIfRequired( $titles );
-		$job = new Job\ElasticaWrite( reset( $titles ), array(
-			'clientSideTimeout' => $clientSideTimeout,
-			'method' => 'sendDeletes',
-			'arguments' => array( $ids, $indexType ),
-		) );
+		Job\OtherIndex::queueIfRequired( $titles, $this->writeToClusterName );
+		$job = new Job\ElasticaWrite(
+			$titles ? reset( $titles ) : Title::makeTitle( 0, "" ),
+			array(
+				'clientSideTimeout' => $clientSideTimeout,
+				'method' => 'sendDeletes',
+				'arguments' => array( $ids, $indexType ),
+				'cluster' => $this->writeToClusterName,
+			)
+		);
 		// This job type will insert itself into the job queue
 		// with a delay if writes to ES are currently paused
 		$job->run();
@@ -247,6 +265,7 @@ reset( $titles ), array(
 	/**
 	 * @param \WikiPage[] $pages
 	 * @param int $flags
+	 * @return \Elastica\Document[]
 	 */
 	private function buildDocumentsForPages( $pages, $flags ) {
 		global $wgCirrusSearchUpdateConflictRetryCount;
@@ -254,6 +273,7 @@ reset( $titles ), array(
 		$indexOnSkip = $flags & self::INDEX_ON_SKIP;
 		$skipParse = $flags & self::SKIP_PARSE;
 		$skipLinks = $flags & self::SKIP_LINKS;
+		$forceParse = $flags & self::FORCE_PARSE;
 		$fullDocument = !( $skipParse || $skipLinks );
 
 		$documents = array();
@@ -289,7 +309,10 @@ reset( $titles ), array(
 
 			if ( !$skipParse ) {
 				// Get text to index, based on content and parser output
-				list( $content, $parserOutput ) = $this->getContentAndParserOutput( $page );
+				list( $content, $parserOutput ) = $this->getContentAndParserOutput(
+					$page,
+					$forceParse
+				);
 
 				// Build our page data
 				$pageBuilder = new PageDataBuilder( $doc, $title, $content, $parserOutput );
@@ -323,6 +346,8 @@ reset( $titles ), array(
 
 	/**
 	 * Converts a document into a call to super_detect_noop from the wikimedia-extra plugin.
+	 * @param \Elastica\Document $doc
+	 * @return \Elastica\Script
 	 */
 	private function docToSuperDetectNoopScript( $doc ) {
 		$params = $doc->getParams();
@@ -343,13 +368,18 @@ reset( $titles ), array(
 	 * Fetch page's content and parser output, using the parser cache if we can
 	 *
 	 * @param WikiPage $page The wikipage to get output for
+	 * @param int $forceParse Bypass ParserCache and force a fresh parse.
 	 * @return array(Content,ParserOutput)
 	 */
-	private function getContentAndParserOutput( $page ) {
+	private function getContentAndParserOutput( $page, $forceParse ) {
 		$content = $page->getContent();
 		$parserOptions = $page->makeParserOptions( 'canonical' );
-		$parserOutput = ParserCache::singleton()->get( $page, $parserOptions );
-		if ( !$parserOutput ) {
+
+		if ( !$forceParse ) {
+			$parserOutput = ParserCache::singleton()->get( $page, $parserOptions );
+		}
+
+		if ( !isset( $parserOutput ) || !$parserOutput instanceof ParserOutput ) {
 			// We specify the revision ID here. There might be a newer revision,
 			// but we don't care because (a) we've already got a job somewhere
 			// in the queue to index it, and (b) we want magic words like
@@ -362,7 +392,7 @@ reset( $titles ), array(
 
 	/**
 	 * Update the search index for newly linked or unlinked articles.
-	 * @param array $titles titles to update
+	 * @param Title[] $titles titles to update
 	 * @return boolean were all pages updated?
 	 */
 	public function updateLinkedArticles( $titles ) {
@@ -394,7 +424,7 @@ reset( $titles ), array(
 				continue;
 			}
 			if ( in_array( $title->getFullText(), $this->updated ) ) {
-				// We've already updated this page in this proces so there is no need to update it again.
+				// We've already updated this page in this process so there is no need to update it again.
 				continue;
 			}
 			// Note that we don't add this page to the list of updated pages because this update isn't
@@ -409,8 +439,8 @@ reset( $titles ), array(
 	/**
 	 * Convert an array of pages to an array of their titles.
 	 *
-	 * @param $pages array(WikiPage)
-	 * @return array(Title)
+	 * @param WikiPage[] $pages
+	 * @return Title[]
 	 */
 	private function pagesToTitles( $pages ) {
 		$titles = array();

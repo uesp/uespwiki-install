@@ -22,7 +22,17 @@ namespace CirrusSearch\Maintenance;
  * http://www.gnu.org/copyleft/gpl.html
  */
 class ChunkBuilder {
-	public function build( $self, $options, $buildChunks, $from, $to ) {
+	/**
+	 * @param string $self Name of maintenance script
+	 * @param array $options
+	 * @param string|int $buildChunks If specified as a number then chunks no
+	 *  larger than that size are spat out.  If specified as a number followed
+	 *  by the word "total" without a space between them then that many chunks
+	 *  will be spat out sized to cover the entire wiki.
+	 * @param int $from
+	 * @param int $to
+	 */
+	public function build( $self, array $options, $buildChunks, $from, $to ) {
 		$fixedChunkSize = strpos( $buildChunks, 'total' ) === false;
 		$buildChunks = intval( $buildChunks );
 		if ( $fixedChunkSize ) {

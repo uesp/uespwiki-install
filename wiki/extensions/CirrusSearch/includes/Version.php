@@ -1,7 +1,9 @@
 <?php
 
 namespace CirrusSearch;
-use \Status;
+
+use ObjectCache;
+use Status;
 
 /**
  * Fetch the Elasticsearch version
@@ -24,6 +26,7 @@ use \Status;
 class Version extends ElasticsearchIntermediary {
 	/**
 	 * Constructor
+	 * @param Connection $conn
 	 */
 	public function __construct( Connection $conn ) {
 		parent::__construct( $conn, null, 0 );
@@ -32,16 +35,18 @@ class Version extends ElasticsearchIntermediary {
 	/**
 	 * Get the version of Elasticsearch with which we're communicating.
 	 *
-	 * @return Status(string) version number as a string
+	 * @return Status<string> version number as a string
 	 */
 	public function get() {
-		global $wgMemc, $wgCirrusSearchClientSideSearchTimeout;
+		global $wgCirrusSearchClientSideSearchTimeout;
 
-		$mcKey = wfMemcKey( 'CirrusSearch', 'Elasticsearch', 'version' );
-		$result = $wgMemc->get( $mcKey );
+		$cache = ObjectCache::getLocalClusterInstance();
+		$mcKey = $cache->makeKey( 'CirrusSearch', 'Elasticsearch', 'version' );
+		$result = $cache->get( $mcKey );
 		if ( !$result ) {
 			try {
-				$this->start( 'fetching elasticsearch version' );
+				$this->start( 'fetching elasticsearch version',
+					array( 'queryType' => 'version' ) );
 				// If this times out the cluster is in really bad shape but we should still
 				// check it.
 				$this->connection->setTimeout( $wgCirrusSearchClientSideSearchTimeout[ 'default' ] );
@@ -52,7 +57,7 @@ class Version extends ElasticsearchIntermediary {
 			}
 			$result = $result->getData();
 			$result = $result[ 'version' ][ 'number' ];
-			$wgMemc->set( $mcKey, $result, 3600 * 12 );
+			$cache->set( $mcKey, $result, 3600 * 12 );
 		}
 
 		return Status::newGood( $result );

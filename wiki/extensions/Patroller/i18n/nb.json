@@ -15,7 +15,7 @@
 	"patrol-reverted-ok": "Redigeringen ble tilbakestilt.",
 	"patrol-reverted-failed": "Redigeringen kunne ikke tilbakestilles.",
 	"patrol-skipped-ok": "Ignorerer redigering.",
-	"patrol-reasons": "* Enkel vandalisme\r\n* Nybegynnertest\r\n* Se diskusjonsside",
+	"patrol-reasons": "* Enkel vandalisme\n* Nybegynnertest\n* Se diskusjonsside",
 	"patrol-another": "Vis en annen redigering, om tilgjenglig.",
 	"patrol-stopped": "Du har valgt å ikke patruljere en annen redigering. $1",
 	"patrol-resume": "Klikk her for å fortsette.",

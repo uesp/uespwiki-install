@@ -20,7 +20,7 @@ class SiteOldChangesList extends OldChangesList {
 }
 
 class SiteEnhancedChangesList extends EnhancedChangesList {
-	public function recentChangesLine( &$rc, $watched = false ) {
+	public function recentChangesLine( &$rc, $watched = false, $lineNumber = null ) {
 		global $wgUser;
 		$orig_patrol = $rc->mAttribs['rc_patrolled'];
 		// turn off patrolling features on line by telling parent that it's been patrolled

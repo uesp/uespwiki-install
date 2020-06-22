@@ -17,7 +17,7 @@
 	"patrol-reverted-ok": "التعديل تم استرجاعه.",
 	"patrol-reverted-failed": "لم يمكن استرجاع التعديل.",
 	"patrol-skipped-ok": "تجاهل التعديل.",
-	"patrol-reasons": "* تخريب بسيط\r\n* تجربة مستخدم جديد\r\n* انظر صفحة النقاش",
+	"patrol-reasons": "* تخريب بسيط\n* تجربة مستخدم جديد\n* انظر صفحة النقاش",
 	"patrol-another": "اعرض تعديلا آخر، إن أمكن.",
 	"patrol-stopped": "لقد اخترت عدم مراجعة تعديل آخر. $1",
 	"patrol-resume": "اضغط هنا للمتابعة.",

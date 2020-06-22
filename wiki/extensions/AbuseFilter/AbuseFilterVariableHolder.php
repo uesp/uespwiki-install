@@ -2,7 +2,7 @@
 class AbuseFilterVariableHolder {
 	public $mVars = array();
 
-	static $varBlacklist = array( 'context' );
+	public static $varBlacklist = array( 'context' );
 
 	/**
 	 * @param $variable
@@ -106,29 +106,37 @@ class AbuseFilterVariableHolder {
 	}
 
 	/**
-	* Dump all variables stored in this object in their native types.
-	* If you want a not yet set variable to be included in the results you can either set $compute to an array
-	* with the name of the variable or set $compute to true to compute all not yet set variables.
-	*
-	* @param $compute array|bool Variables we should copute if not yet set
-	* @param $includeUserVars bool Include user set variables
-	* @return array
-	*/
+	 * Dump all variables stored in this object in their native types.
+	 * If you want a not yet set variable to be included in the results you can
+	 * either set $compute to an array with the name of the variable or set
+	 * $compute to true to compute all not yet set variables.
+	 *
+	 * @param $compute array|bool Variables we should copute if not yet set
+	 * @param $includeUserVars bool Include user set variables
+	 * @return array
+	 */
 	public function dumpAllVars( $compute = array(), $includeUserVars = false ) {
 		$allVarNames = array_keys( $this->mVars );
 		$exported = array();
 		$coreVariables = array();
 
 		if ( !$includeUserVars ) {
-			// Compile a list of all variables set by the extension to be able to filter user set ones by name
+			// Compile a list of all variables set by the extension to be able
+			// to filter user set ones by name
 			global $wgRestrictionTypes;
 
 			$coreVariables = AbuseFilter::getBuilderValues();
 			$coreVariables = array_keys( $coreVariables['vars'] );
 
 			// Title vars can have several prefixes
-			$prefixes = array( 'ARTICLE', 'MOVED_FROM', 'MOVED_TO', 'FILE' );
-			$titleVars = array( '_ARTICLEID', '_NAMESPACE', '_TEXT', '_PREFIXEDTEXT', '_recent_contributors' );
+			$prefixes = array( 'ARTICLE', 'MOVED_FROM', 'MOVED_TO' );
+			$titleVars = array(
+				'_ARTICLEID',
+				'_NAMESPACE',
+				'_TEXT',
+				'_PREFIXEDTEXT',
+				'_recent_contributors'
+			);
 			foreach ( $wgRestrictionTypes as $action ) {
 				$titleVars[] = "_restrictions_$action";
 			}
@@ -146,7 +154,10 @@ class AbuseFilterVariableHolder {
 				( $includeUserVars || in_array( strtolower( $varName ), $coreVariables ) ) &&
 				// Only include variables set in the extension in case $includeUserVars is false
 				!in_array( $varName, self::$varBlacklist ) &&
-				( $compute === true || ( is_array( $compute ) && in_array( $varName, $compute ) ) ||  $this->mVars[$varName] instanceof AFPData )
+				( $compute === true ||
+					( is_array( $compute ) && in_array( $varName, $compute ) ) ||
+					$this->mVars[$varName] instanceof AFPData
+				)
 			) {
 				$exported[$varName] = $this->getVar( $varName )->toNative();
 			}
@@ -192,8 +203,8 @@ class AbuseFilterVariableHolder {
 
 class AFComputedVariable {
 	public $mMethod, $mParameters;
-	static $userCache = array();
-	static $articleCache = array();
+	public static $userCache = array();
+	public static $articleCache = array();
 
 	/**
 	 * @param $method
@@ -257,7 +268,7 @@ class AFComputedVariable {
 		}
 
 		if ( $user instanceof User ) {
-			$userCache[$username] = $user;
+			self::$userCache[$username] = $user;
 			return $user;
 		}
 
@@ -317,7 +328,7 @@ class AFComputedVariable {
 			__METHOD__
 		);
 		$links = array();
-		foreach( $res as $row ) {
+		foreach ( $res as $row ) {
 			$links[] = $row->el_to;
 		}
 		return $links;
@@ -339,7 +350,7 @@ class AFComputedVariable {
 				? $result : AFPData::newFromPHPVar( $result );
 		}
 
-		switch( $this->mMethod ) {
+		switch ( $this->mMethod ) {
 			case 'diff':
 				$text1Var = $parameters['oldtext-var'];
 				$text2Var = $parameters['newtext-var'];
@@ -371,10 +382,7 @@ class AFComputedVariable {
 						$parameters['title']
 					);
 				}
-				if (
-					!defined( 'MW_SUPPORTS_CONTENTHANDLER' ) ||
-					$article->getContentModel() === CONTENT_MODEL_WIKITEXT
-				) {
+				if ( $article->getContentModel() === CONTENT_MODEL_WIKITEXT ) {
 					$textVar = $parameters['text-var'];
 
 					// XXX: Use prepareContentForEdit. But we need a Content object for that.
@@ -397,8 +405,7 @@ class AFComputedVariable {
 				if ( $vars->getVar( 'context' )->toString() == 'filter' ) {
 					$links = $this->getLinksFromDB( $article );
 					wfDebug( "AbuseFilter: loading old links from DB\n" );
-				} elseif ( !defined( 'MW_SUPPORTS_CONTENTHANDLER' )
-					|| $article->getContentModel() === CONTENT_MODEL_WIKITEXT ) {
+				} elseif ( $article->getContentModel() === CONTENT_MODEL_WIKITEXT ) {
 
 					wfDebug( "AbuseFilter: loading old links from Parser\n" );
 					$textVar = $parameters['text-var'];
@@ -443,10 +450,7 @@ class AFComputedVariable {
 						$parameters['title']
 					);
 				}
-				if (
-					!defined( 'MW_SUPPORTS_CONTENTHANDLER' ) ||
-					$article->getContentModel() === CONTENT_MODEL_WIKITEXT
-				) {
+				if ( $article->getContentModel() === CONTENT_MODEL_WIKITEXT ) {
 					$textVar = $parameters['wikitext-var'];
 
 					// XXX: Use prepareContentForEdit. But we need a Content object for that.
@@ -468,8 +472,7 @@ class AFComputedVariable {
 				$article = self::articleFromTitle( $parameters['namespace'], $parameters['title'] );
 				$textVar = $parameters['wikitext-var'];
 
-				if ( !defined( 'MW_SUPPORTS_CONTENTHANDLER' )
-					|| $article->getContentModel() === CONTENT_MODEL_WIKITEXT ) {
+				if ( $article->getContentModel() === CONTENT_MODEL_WIKITEXT ) {
 
 					if ( isset( $parameters['pst'] ) && $parameters['pst'] ) {
 						// $textVar is already PSTed when it's not loaded from an ongoing edit.
@@ -493,36 +496,13 @@ class AFComputedVariable {
 				$result = StringUtils::delimiterReplace( '<', '>', '', $html );
 				break;
 			case 'load-recent-authors':
-				$cutOff = $parameters['cutoff'];
 				$title = Title::makeTitle( $parameters['namespace'], $parameters['title'] );
-
 				if ( !$title->exists() ) {
 					$result = '';
 					break;
 				}
 
-				$dbr = wfGetDB( DB_SLAVE );
-				$sqlTmp = $dbr->selectSQLText(
-					'revision',
-					array( 'rev_user_text', 'rev_timestamp' ),
-					array(
-						'rev_page' => $title->getArticleID(),
-						'rev_timestamp < ' . $dbr->addQuotes( $dbr->timestamp( $cutOff ) )
-					),
-					__METHOD__,
-					// Some pages have < 10 authors but many revisions (e.g. bot pages)
-					array( 'ORDER BY' => 'rev_timestamp DESC', 'LIMIT' => 100 )
-				);
-				$res = $dbr->query(
-					"SELECT rev_user_text FROM ($sqlTmp) AS tmp " .
-					"GROUP BY rev_user_text ORDER BY MAX(rev_timestamp) DESC LIMIT 10"
-				);
-
-				$users = array();
-				foreach( $res as $row ) {
-					$users[] = $row->rev_user_text;
-				}
-				$result = $users;
+				$result = self::getLastPageAuthors( $title );
 				break;
 			case 'load-first-author':
 				$title = Title::makeTitle( $parameters['namespace'], $parameters['title'] );
@@ -607,5 +587,45 @@ class AFComputedVariable {
 
 		return $result instanceof AFPData
 			? $result : AFPData::newFromPHPVar( $result );
+	}
+
+	/**
+	 * @param Title $title
+	 * @return string[] List of the last 10 (unique) authors from $title
+	 */
+	public static function getLastPageAuthors( Title $title ) {
+		if ( !$title->exists() ) {
+			return array();
+		}
+
+		$cache = ObjectCache::getMainWANInstance();
+
+		return $cache->getWithSetCallback(
+			$cache->makeKey( 'last-10-authors', 'revision', $title->getLatestRevID() ),
+			$cache::TTL_MINUTE,
+			function ( $oldValue, &$ttl, array &$setOpts ) use ( $title ) {
+				$dbr = wfGetDB( DB_SLAVE );
+				$setOpts += Database::getCacheSetOptions( $dbr );
+				// Get the last 100 edit authors with a trivial query (avoid T116557)
+				$revAuthors = $dbr->selectFieldValues(
+					'revision',
+					'rev_user_text',
+					array( 'rev_page' => $title->getArticleID() ),
+					__METHOD__,
+					// Some pages have < 10 authors but many revisions (e.g. bot pages)
+					array( 'ORDER BY' => 'rev_timestamp DESC', 'LIMIT' => 100 )
+				);
+				// Get the last 10 distinct authors within this set of edits
+				$users = array();
+				foreach ( $revAuthors as $author ) {
+					$users[$author] = 1;
+					if ( count( $users ) >= 10 ) {
+						break;
+					}
+				}
+
+				return array_keys( $users );
+			}
+		);
 	}
 }

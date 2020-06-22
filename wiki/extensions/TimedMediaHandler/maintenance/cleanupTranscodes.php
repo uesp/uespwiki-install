@@ -5,9 +5,9 @@
  */
 $IP = getenv( 'MW_INSTALL_PATH' );
 if ( $IP === false ) {
-	$IP = dirname( __FILE__ ) . '/../../..';
+	$IP = __DIR__ . '/../../..';
 }
-require_once( "$IP/maintenance/Maintenance.php" );
+require_once "$IP/maintenance/Maintenance.php";
 
 class CleanupTranscodes extends Maintenance {
 
@@ -18,14 +18,15 @@ class CleanupTranscodes extends Maintenance {
 		$this->mDescription = "cleanup transcodes left over after changing encoding profiles.";
 	}
 	public function execute() {
-		global $wgEnabledTranscodeSet;
+		global $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet;
+		$transcodeSet = array_merge( $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet );
 
 		if ( $this->hasOption( "all" ) ) {
-			$where = array();
+			$where = [];
 		} elseif ( $this->hasOption( "key" ) ) {
-			$where = array( 'transcode_key' =>  $this->getOption( 'key' ) );
+			$where = [ 'transcode_key' =>  $this->getOption( 'key' ) ];
 		} else {
-			$where = 'transcode_key NOT IN ("'. implode('", "', $wgEnabledTranscodeSet ).'")';
+			$where = 'transcode_key NOT IN ("'. implode( '", "', $transcodeSet ).'")';
 		}
 		$this->output( "Cleanup transcodes:\n" );
 		$dbr = wfGetDB( DB_SLAVE );
@@ -43,4 +44,4 @@ class CleanupTranscodes extends Maintenance {
 }
 
 $maintClass = 'CleanupTranscodes'; // Tells it to run the class
-require_once( RUN_MAINTENANCE_IF_MAIN );
+require_once RUN_MAINTENANCE_IF_MAIN;

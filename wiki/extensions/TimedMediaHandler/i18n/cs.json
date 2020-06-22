@@ -6,10 +6,12 @@
 			"Matěj Grabovský",
 			"Mormegil",
 			"Paxt",
-			"Matěj Suchánek"
+			"Matěj Suchánek",
+			"Cvanca",
+			"Urbanecm"
 		]
 	},
-	"timedmedia-desc": "Obsluha zvuků, videa a časovaného textu s podporou formátů WebM, Ogg Theora, Vorbis, srt",
+	"timedmediahandler-desc": "Obsluha zvuků, videa a časovaného textu s podporou formátů WebM, Ogg Theora, Vorbis, srt",
 	"timedmedia-ogg-short-audio": "Zvukový soubor ogg $1, $2",
 	"timedmedia-ogg-short-video": "Videosoubor ogg $1, $2",
 	"timedmedia-ogg-short-general": "Multimediální soubor ogg $1, $2",
@@ -48,6 +50,7 @@
 	"timedmedia-minutes": "$1 {{PLURAL:$1|minuta|minuty|minut}}",
 	"timedmedia-seconds": "$1 {{PLURAL:$1|sekunda|sekundy|sekund}}",
 	"timedmedia-reset": "Obnovit transkódování",
+	"timedmedia-reset-button-dismiss": "Zavřít",
 	"timedmedia-source-file": "Zdrojový soubor $1",
 	"timedmedia-source-audio-file-desc": "Původní soubor $1 ($2)",
 	"timedmedia-subtitle-new": "Vytvoření nového překladu nebo editace stávajícího",
@@ -70,6 +73,7 @@
 	"timedmedia-ogg-audios": "{{PLURAL:$1|$1 zvukový soubor|$1 zvukové soubory|$1 zvukových souborů}} Ogg",
 	"timedmedia-flac-audios": "{{PLURAL:$1|$1 zvukový soubor|$1 zvukové soubory|$1 zvukových souborů}} FLAC",
 	"timedmedia-wav-audios": "{{PLURAL:$1|$1 zvukový soubor|$1 zvukové soubory|$1 zvukových souborů}} WAV",
+	"right-transcode-reset": "Restartovat zpracování videí, pokud skončilo chybou",
 	"right-transcode-status": "Zobrazení [[Special:TimedMediaHandler|informací o probíhajícím transkódování]]",
 	"action-transcode-status": "vidět aktuální stav transkódování"
 }

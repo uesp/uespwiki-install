@@ -35,4 +35,15 @@ class SkinUespMonoBook extends SkinMonoBook {
 	public $skinname = 'uespmonobook';
 	public $stylename = 'UESP MonoBook';
 	public $template = 'UespMonoBookTemplate';
+	
+	function setupSkinUserCss( OutputPage $out ) 
+	{
+		parent::setupSkinUserCss( $out );
+		$out->addModuleStyles( array('mediawiki.skinning.elements', 'mediawiki.skinning.content', 'mediawiki.skinning.interface', 'skins.uespmonobook' ));
+
+		// TODO: Migrate all of these
+		$out->addStyle( 'uespmonobook/IE60Fixes.css', 'screen', 'IE 6' );
+		$out->addStyle( 'uespmonobook/IE70Fixes.css', 'screen', 'IE 7' );
+
+	}
 }

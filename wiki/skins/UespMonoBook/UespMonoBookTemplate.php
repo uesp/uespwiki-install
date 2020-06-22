@@ -107,7 +107,7 @@ class UespMonoBookTemplate extends MonoBookTemplate {
 	})();
 </script>
 <noscript>
-   <img src="http://b.scorecardresearch.com/p?c1=2&amp;c2=6035118&amp;cv=2.0&amp;cj=1" />
+   <img src="https://sb.scorecardresearch.com/p?c1=2&amp;c2=6035118&amp;cv=2.0&amp;cj=1" />
 </noscript>
 <!-- End comScore -->
 
@@ -121,7 +121,7 @@ class UespMonoBookTemplate extends MonoBookTemplate {
 	function renderPortals( $sidebar ) {
 		parent::renderPortals( $sidebar );
 		?>
-		<div class='portlet' style='margin:0 auto;'>
+		<div class='portlet'>
 			<div id='cdm-zone-07'></div>
 		</div><?php
 	}

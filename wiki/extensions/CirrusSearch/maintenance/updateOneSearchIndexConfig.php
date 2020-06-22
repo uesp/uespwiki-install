@@ -5,7 +5,6 @@ namespace CirrusSearch\Maintenance;
 use CirrusSearch\Connection;
 use CirrusSearch\ElasticsearchIntermediary;
 use CirrusSearch\Util;
-use ConfigFactory;
 use Elastica;
 
 /**
@@ -38,16 +37,39 @@ require_once( __DIR__ . '/../includes/Maintenance/Maintenance.php' );
  * Update the elasticsearch configuration for this index.
  */
 class UpdateOneSearchIndexConfig extends Maintenance {
+	/**
+	 * @var string
+	 */
 	private $indexType;
 
-	// Are we going to blow the index away and start from scratch?
+	/**
+	 * @var bool  Are we going to blow the index away and start from scratch?
+	 */
 	private $startOver;
 
+	/**
+	 * @var int
+	 */
 	private $reindexChunkSize;
+
+	/**
+	 * @var int
+	 */
 	private $reindexRetryAttempts;
 
+	/**
+	 * @var string
+	 */
 	private $indexBaseName;
+
+	/**
+	 * @var string
+	 */
 	private $indexIdentifier;
+
+	/**
+	 * @var bool
+	 */
 	private $reindexAndRemoveOk;
 
 	/**
@@ -116,9 +138,14 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	 */
 	protected $refreshInterval;
 
+	/**
+	 * @var string
+	 */
+	protected $masterTimeout;
+
 	public function __construct() {
 		parent::__construct();
-		$this->addDescription( "Update the configuration or contents of one search index." );
+		$this->addDescription( "Update the configuration or contents of one search index. This always operates on a single cluster." );
 		$this->addOption( 'indexType', 'Index to update.  Either content or general.', true, true );
 		self::addSharedOptions( $this );
 	}
@@ -163,6 +190,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		$maintenance->addOption( 'justAllocation', 'Just validate the shard allocation settings.  Use ' .
 			"when you need to apply new cache warmers but want to be sure that you won't apply any other " .
 			'changes at an inopportune time.' );
+		$maintenance->addOption( 'justMapping', 'Just try to update the mapping.' );
 	}
 
 	public function execute() {
@@ -173,7 +201,8 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 			$wgCirrusSearchBannedPlugins,
 			$wgCirrusSearchOptimizeIndexForExperimentalHighlighter,
 			$wgCirrusSearchMaxShardsPerNode,
-			$wgCirrusSearchRefreshInterval;
+			$wgCirrusSearchRefreshInterval,
+			$wgCirrusSearchMasterTimeout;
 
 		// Make sure we don't flood the pool counter
 		unset( $wgPoolCounterConf['CirrusSearch-Search'] );
@@ -185,7 +214,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 
 		$this->indexType = $this->getOption( 'indexType' );
 		$this->startOver = $this->getOption( 'startOver', false );
-		$this->indexBaseName = $this->getOption( 'baseName', wfWikiId() );
+		$this->indexBaseName = $this->getOption( 'baseName', wfWikiID() );
 		$this->reindexAndRemoveOk = $this->getOption( 'reindexAndRemoveOk', false );
 		$this->reindexProcesses = $this->getOption( 'reindexProcesses', wfIsWindows() ? 1 : 5 );
 		$this->reindexAcceptableCountDeviation = Util::parsePotentialPercent(
@@ -198,6 +227,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		$this->phraseSuggestUseText = $wgCirrusSearchPhraseSuggestUseText;
 		$this->bannedPlugins = $wgCirrusSearchBannedPlugins;
 		$this->optimizeIndexForExperimentalHighlighter = $wgCirrusSearchOptimizeIndexForExperimentalHighlighter;
+		$this->masterTimeout = $wgCirrusSearchMasterTimeout;
 		$this->maxShardsPerNode = isset( $wgCirrusSearchMaxShardsPerNode[ $this->indexType ] ) ? $wgCirrusSearchMaxShardsPerNode[ $this->indexType ] : 'unlimited';
 		$this->refreshInterval = $wgCirrusSearchRefreshInterval;
 
@@ -221,6 +251,11 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 				return;
 			}
 
+			if ( $this->getOption( 'justMapping', false ) ) {
+				$this->validateMapping();
+				return;
+			}
+
 			$this->indexIdentifier = $utils->pickIndexIdentifierFromOption( $this->getOption( 'indexIdentifier', 'current' ), $this->getIndexTypeName() );
 			$this->analysisConfigBuilder = $this->pickAnalyzer( $this->langCode, $this->availablePlugins );
 			$this->validateIndex();
@@ -237,7 +272,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 			$type = get_class( $e );
 			$message = ElasticsearchIntermediary::extractMessage( $e );
-			$trace = $e->getTraceAsString();
+			$trace = $this->getExceptionTraceAsString( $e );
 			$this->output( "\nUnexpected Elasticsearch failure.\n" );
 			$this->error( "Elasticsearch failed in an unexpected way.  This is always a bug in CirrusSearch.\n" .
 				"Error type: $type\n" .
@@ -246,6 +281,15 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		}
 	}
 
+	/**
+	 * @suppress PhanAccessPropertyProtected Phan has a bug where it thinks we can't
+	 *  access mOptions because its protected. That would be true but this
+	 *  class shares the hierarchy that contains mOptions so php allows it.
+	 * @suppress PhanUndeclaredMethod runChild technically returns a
+	 *  \Maintenance instance but only \CirrusSearch\Maintenance\Maintenance
+	 *  classes have the done method. Just allow it since we know what type of
+	 *  maint class is being created
+	 */
 	private function updateVersions() {
 		$child = $this->runChild( 'CirrusSearch\Maintenance\UpdateVersionIndex' );
 		$child->mOptions['baseName'] = $this->indexBaseName;
@@ -254,6 +298,12 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		$child->done();
 	}
 
+	/**
+	 * @suppress PhanUndeclaredMethod runChild technically returns a
+	 *  \Maintenance instance but only \CirrusSearch\Maintenance\Maintenance
+	 *  classes have the done method. Just allow it since we know what type of
+	 *  maint class is being created
+	 */
 	private function indexNamespaces() {
 		// Only index namespaces if we're doing the general index
 		if ( $this->indexType === 'general' ) {
@@ -264,30 +314,48 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	}
 
 	private function validateIndex() {
-		global $wgCirrusSearchAllFields;
-
 		// $this->startOver || !$this->getIndex()->exists() are the conditions
 		// under which a new index will be created
 		$this->tooFewReplicas = ( $this->startOver || !$this->getIndex()->exists() ) && $this->reindexAndRemoveOk;
 
-		$validator = new \CirrusSearch\Maintenance\Validators\IndexValidator(
+		if ( $this->startOver ) {
+			$this->createIndex( true, "Blowing away index to start over..." );
+		} else if ( !$this->getIndex()->exists() ) {
+			$this->createIndex( false, "Creating index..." );
+		}
+
+		$this->validateIndexSettings();
+	}
+
+	/**
+	 * @param bool $rebuild
+	 * @param string $msg
+	 */
+	private function createIndex( $rebuild, $msg ) {
+		global $wgCirrusSearchAllFields;
+
+		$indexCreator = new \CirrusSearch\Maintenance\IndexCreator(
 			$this->getIndex(),
-			$this->startOver,
+			$this->analysisConfigBuilder
+		);
+
+		$this->outputIndented( $msg );
+
+		$status = $indexCreator->createIndex(
+			$rebuild,
 			$this->maxShardsPerNode,
 			$this->getShardCount(),
 			$this->getReplicaCount(),
 			$this->refreshInterval,
-			$wgCirrusSearchAllFields['build'],
-			$this->analysisConfigBuilder,
 			$this->getMergeSettings(),
-			$this
+			$wgCirrusSearchAllFields['build']
 		);
-		$status = $validator->validate();
+
 		if ( !$status->isOK() ) {
 			$this->error( $status->getMessage()->text(), 1 );
+		} else {
+			$this->output( "ok\n" );
 		}
-
-		$this->validateIndexSettings();
 	}
 
 	/**
@@ -324,6 +392,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	private function validateMapping() {
 		$validator = new \CirrusSearch\Maintenance\Validators\MappingValidator(
 			$this->getIndex(),
+			$this->masterTimeout,
 			$this->optimizeIndexForExperimentalHighlighter,
 			$this->availablePlugins,
 			$this->getMappingConfig(),
@@ -351,9 +420,11 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	private function validateSpecificAlias() {
 		global $wgCirrusSearchMaintenanceTimeout;
 
+		$connection = $this->getConnection();
+
 		$reindexer = new Reindexer(
-			$this->getIndex(),
-			$this->getConnection(),
+			$connection,
+			$connection,
 			array( $this->getPageType() ),
 			array( $this->getOldPageType() ),
 			$this->getShardCount(),
@@ -513,6 +584,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 
 	/**
 	 * Get the merge settings for this index.
+	 * @return array
 	 */
 	private function getMergeSettings() {
 		global $wgCirrusSearchMergeSettings;
@@ -524,29 +596,18 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		return $wgCirrusSearchMergeSettings[ 'content' ];
 	}
 
+	/**
+	 * @return int Number of shards this index should have
+	 */
 	private function getShardCount() {
-		global $wgCirrusSearchShardCount;
-		if ( !isset( $wgCirrusSearchShardCount[ $this->indexType ] ) ) {
-			$this->error( 'Could not find a shard count for ' . $this->indexType . '.  Did you add an index to ' .
-				'$wgCirrusSearchNamespaceMappings but forget to add it to $wgCirrusSearchShardCount?', 1 );
-		}
-		return $wgCirrusSearchShardCount[ $this->indexType ];
+		return $this->getConnection()->getSettings()->getShardCount( $this->indexType );
 	}
 
+	/**
+	 * @return string Number of replicas this index should have. May be a range such as '0-2'
+	 */
 	private function getReplicaCount() {
-		global $wgCirrusSearchReplicas;
-
-		// If $wgCirrusSearchReplicas is an array of index type to number of replicas then respect that
-		if ( is_array( $wgCirrusSearchReplicas ) ) {
-			if ( isset( $wgCirrusSearchReplicas[ $this->indexType ] ) ) {
-				return $wgCirrusSearchReplicas[ $this->indexType ];
-			} else {
-				$this->error( 'If wgCirrusSearchReplicas is an array it must contain all index types.', 1 );
-			}
-		}
-
-		// Otherwise its just a raw scalar so we should respect that too
-		return $wgCirrusSearchReplicas;
+		return $this->getConnection()->getSettings()->getReplicaCount( $this->indexType );
 	}
 }
 

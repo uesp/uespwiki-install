@@ -1,24 +1,12 @@
 ( function ( M, $ ) {
-	var searchPlaceholderMsg = 'mobile-frontend-placeholder',
-		SchemaMobileWebClickTracking = M.require( 'mobile.loggingSchemas/SchemaMobileWebClickTracking' ),
-		uiSchema = new SchemaMobileWebClickTracking( {}, 'MobileWebUIClickTracking' ),
-		context = M.require( 'mobile.context/context' ),
+	var SearchOverlay, SearchGateway,
 		router = M.require( 'mobile.startup/router' ),
 		browser = M.require( 'mobile.browser/browser' ),
 		moduleConfig = {
 			modules: [ 'mobile.search.api', 'mobile.search' ],
-			api: 'mobile.search.api/SearchApi',
+			api: 'mobile.search.api/SearchGateway',
 			overlay: 'mobile.search/SearchOverlay'
-		},
-		SearchOverlay,
-		SearchApi;
-
-	if ( context.isBetaGroupMember() ) {
-		moduleConfig = $.extend( moduleConfig, {
-			modules: [ 'mobile.search.beta.api', 'mobile.search.beta' ],
-			api: 'mobile.search.beta.api/SearchApi'
-		} );
-	}
+		};
 
 	/**
 	 * Reveal the search overlay
@@ -32,16 +20,14 @@
 			placeholder = $this.attr( 'placeholder' );
 
 		ev.preventDefault();
-		uiSchema.log( {
-			name: 'search'
-		} );
 
 		mw.loader.using( moduleConfig.modules ).done( function () {
-			SearchApi = M.require( moduleConfig.api );
+			SearchGateway = M.require( moduleConfig.api );
 			SearchOverlay = M.require( moduleConfig.overlay );
 
 			new SearchOverlay( {
-				api: new SearchApi(),
+				gatewayClass: SearchGateway,
+				api: new mw.Api(),
 				searchTerm: searchTerm,
 				placeholderMsg: placeholder
 			} ).show();
@@ -49,12 +35,11 @@
 		} );
 	}
 
-	// change the placeholder text for javascript enabled browsers
-	if ( context.isBetaGroupMember() ) {
-		searchPlaceholderMsg = 'mobile-frontend-placeholder-beta';
+	// Only continue on mobile devices as it breaks desktop search
+	// See https://phabricator.wikimedia.org/T108432
+	if ( mw.config.get( 'skin' ) !== 'minerva' ) {
+		return;
 	}
-
-	$( '#searchInput' ).attr( 'placeholder', mw.message( searchPlaceholderMsg ) );
 
 	// See https://phabricator.wikimedia.org/T76882 for why we disable search on Android 2
 	if ( browser.isAndroid2() ) {

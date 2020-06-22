@@ -18,7 +18,7 @@
 	"patrol-reverted-ok": "Die Bearbeitung wurde zurückgesetzt.",
 	"patrol-reverted-failed": "Die Bearbeitung kann nicht zurückgesetzt werden.",
 	"patrol-skipped-ok": "Bearbeitung wird ignoriert.",
-	"patrol-reasons": "* Einfacher Vandalismus\r\n* Test eines Neulings\r\n* Siehe Diskussionsseite",
+	"patrol-reasons": "* Einfacher Vandalismus\n* Test eines Neulings\n* Siehe Diskussionsseite",
 	"patrol-another": "Zeige eine weitere Bearbeitung, sofern verfügbar.",
 	"patrol-stopped": "Du hast entschieden, keine weitere Bearbeitung zu kontrollieren. $1",
 	"patrol-resume": "Klicke hier, um weiterzumachen.",

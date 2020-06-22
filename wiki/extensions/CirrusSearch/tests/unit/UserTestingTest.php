@@ -2,8 +2,6 @@
 
 namespace CirrusSearch;
 
-use CirrusSearch\UserTesting;
-
 /**
  * Make sure cirrus doens't break any hooks.
  *
@@ -23,6 +21,14 @@ use CirrusSearch\UserTesting;
  * http://www.gnu.org/copyleft/gpl.html
  */
 class UserTestingTest extends \MediaWikiTestCase {
+	/**
+	 * @beforeClass
+	 */
+	public static function setUpBeforeClass() {
+		ElasticsearchIntermediary::resetExecutionId();
+		UserTesting::resetInstance();
+	}
+
 	public function testPartitipcationInTest() {
 		$config = $this->config( 'test' );
 		$ut = $this->ut( $config, true );

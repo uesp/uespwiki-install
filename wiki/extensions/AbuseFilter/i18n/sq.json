@@ -3,7 +3,9 @@
 		"authors": [
 			"Euriditi",
 			"Marinari",
-			"Vinie007"
+			"Vinie007",
+			"Kosovastar",
+			"Matma Rex"
 		]
 	},
 	"abusefilter-desc": "Zbaton automatikisht deduktimin e redaktimeve",
@@ -106,13 +108,14 @@
 	"abusefilter-tools-reautoconfirm-user": "Përdoruesi:",
 	"abusefilter-tools-reautoconfirm-submit": "Ri-autokonfirmo",
 	"abusefilter-reautoconfirm-none": "Ky përdorues nuk ka pasur {{GENDER:$1|të tij|të saj|të tyre}} statusin e autokonfirmuar të pezulluar",
-	"abusefilter-reautoconfirm-notallowed": "Ju nuk jeni i lejuar për të rivendosur statusin e autoconfirmimit",
+	"abusefilter-reautoconfirm-notallowed": "Ti nuk je i autorizuar për të rivendosur statusin e konfirmimit automatik.",
 	"abusefilter-reautoconfirm-done": "Statusi i autokonfirmuar i llogarisë është rivendosur",
 	"abusefilter-status": "fundit $1 {{PLURAL:$1|veprimi i|veprimet e }}, $2 ($3%) {{PLURAL:$2|ka|kanë}} arritur kufirin e përcaktuar të $4, dhe $5 ($6%) {{PLURAL:$5|ka|kanë}} përputhje me një nga filtrat aktual të aktivizuar.",
 	"abusefilter-edit-subtitle": "Duke redaktuar filtrin $1",
 	"abusefilter-edit-oldwarning": "<strong>Ju jeni duke redaktuar versionin e vjetër të këtij filtri.\nStatistikat e cituara janë për versionin më të fundit të filtrit.\nNëse ju ruani ndryshimet tuaja, ju do të mbishkruani të gjitha ndryshimet që nga inspektimi që jeni duke redaktuar. </strong> &bull;\n[[Special:AbuseFilter/history/$2|Kthehu ne historinë e këtij filtri ]].",
 	"abusefilter-edit-status-label": "Statistikat:",
-	"abusefilter-edit-status": "fundit $1 {{PLURAL:$1|veprimi i|veprimet e}}, ky filtër i ka krahasuar $2 ($3%).\nMesatarisht, koha e rrjedhës është $4ms, dhe konsumon $5 {{PLURAL:$5|kusht|kushtet}} e kufirit të kushtit",
+	"abusefilter-edit-status": "fundit $1 {{PLURAL:$1|veprimi i|veprimet e}}, ky filtër i ka krahasuar $2 ($3%).",
+	"abusefilter-edit-status-profile": "fundit $1 {{PLURAL:$1|veprimi i|veprimet e}}, ky filtër i ka krahasuar $2 ($3%).\nMesatarisht, koha e rrjedhës është $4ms, dhe konsumon $5 {{PLURAL:$5|kusht|kushtet}} e kufirit të kushtit",
 	"abusefilter-edit-throttled": "' ' ' Kujdes ' ' ' : Ky filtër është deaktivizuar automatikisht si masë sigurie.\nKa arritur kufirin e përputhjes së më shumë se $1% veprimeve.",
 	"abusefilter-edit-new": "Filtër i ri",
 	"abusefilter-edit-save": "Ruaj filtrin",

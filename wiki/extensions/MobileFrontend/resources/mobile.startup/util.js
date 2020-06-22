@@ -2,7 +2,7 @@
 	var util;
 
 	/**
-	 * Utility library for looking up details on the current user
+	 * Utility library
 	 * @class util
 	 * @singleton
 	 */
@@ -39,6 +39,6 @@
 		}
 	};
 
-	M.define( 'mobile.startup/util', util ).deprecate( 'util' );
+	M.define( 'mobile.startup/util', util );
 
-}( mw.mobileFrontend ) );
+}( mw.mobileFrontend, jQuery ) );

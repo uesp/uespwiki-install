@@ -70,7 +70,7 @@ class MWException extends Exception {
 	 * @param array $args Arguments to pass to the callback functions
 	 * @return string|null String to output or null if any hook has been called
 	 */
-	public function runHooks( $name, $args = array() ) {
+	public function runHooks( $name, $args = [] ) {
 		global $wgExceptionHooks;
 
 		if ( !isset( $wgExceptionHooks ) || !is_array( $wgExceptionHooks ) ) {
@@ -84,7 +84,7 @@ class MWException extends Exception {
 		}
 
 		$hooks = $wgExceptionHooks[$name];
-		$callargs = array_merge( array( $this ), $args );
+		$callargs = array_merge( [ $this ], $args );
 
 		foreach ( $hooks as $hook ) {
 			if (
@@ -141,16 +141,18 @@ class MWException extends Exception {
 			nl2br( htmlspecialchars( MWExceptionHandler::getRedactedTraceAsString( $this ) ) ) .
 			"</p>\n";
 		} else {
-			$logId = MWExceptionHandler::getLogId( $this );
+			$logId = WebRequest::getRequestId();
 			$type = get_class( $this );
 			return "<div class=\"errorbox\">" .
-			'[' . $logId . '] ' .
-			gmdate( 'Y-m-d H:i:s' ) . ": " .
-			$this->msg( "internalerror-fatal-exception",
-				"Fatal exception of type $1",
-				$type,
-				$logId,
-				MWExceptionHandler::getURL( $this )
+			htmlspecialchars(
+				'[' . $logId . '] ' .
+				gmdate( 'Y-m-d H:i:s' ) . ": " .
+				$this->msg( "internalerror-fatal-exception",
+					"Fatal exception of type $1",
+					$type,
+					$logId,
+					MWExceptionHandler::getURL( $this )
+				)
 			) . "</div>\n" .
 			"<!-- Set \$wgShowExceptionDetails = true; " .
 			"at the bottom of LocalSettings.php to show detailed " .

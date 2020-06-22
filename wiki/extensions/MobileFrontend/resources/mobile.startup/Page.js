@@ -1,6 +1,6 @@
-( function ( M, $ ) {
+( function ( HTML, M, $ ) {
 
-	var Page,
+	var time = M.require( 'mobile.modifiedBar/time' ),
 		View = M.require( 'mobile.view/View' ),
 		Section = M.require( 'mobile.startup/Section' ),
 		Thumbnail = M.require( 'mobile.startup/Thumbnail' );
@@ -12,15 +12,37 @@
 	 * @uses Section
 	 * @extends View
 	 */
-	Page = View.extend( {
+	function Page( options ) {
+		var thumb;
+		this.options = options;
+		options.languageUrl = mw.util.getUrl( 'Special:MobileLanguages/' + options.title );
+		View.call( this, options );
+		// Fallback if no displayTitle provided
+		options.displayTitle = this.getDisplayTitle();
+		// allow usage in templates.
+		// FIXME: Should View map all options to properties?
+		this.title = options.title;
+		this.displayTitle = options.displayTitle;
+		this.thumbnail = options.thumbnail;
+		this.url = options.url || mw.util.getUrl( options.title );
+		this.id = options.id;
+		this.isMissing = options.isMissing;
+		thumb = this.thumbnail;
+		if ( thumb && thumb.width ) {
+			this.thumbnail.isLandscape = thumb.width > thumb.height;
+		}
+		this.wikidataDescription = options.wikidataDescription;
+	}
+
+	OO.mfExtend( Page, View, {
 		/**
 		 * @cfg {Object} defaults Default options hash.
 		 * @cfg {Number} defaults.id Page ID. The default value of 0 represents a new page.
 		 * Be sure to override it to avoid side effects.
 		 * @cfg {String} defaults.title Title of the page. It includes prefix where needed and
 		 * is human readable, e.g. Talk:The man who lived.
-		 * @cfg {String} defaults.displayTitle Title of the page that's displayed. Falls back
-		 * to defaults.title if no value is provided.
+		 * @cfg {String} defaults.displayTitle HTML title of the page for display. Falls back
+		 * to defaults.title (escaped) if no value is provided. Must be safe HTML!
 		 * @cfg {Number} defaults.namespaceNumber the number of the namespace the page belongs to
 		 * @cfg {Object} defaults.protection List of permissions as returned by API,
 		 * e.g. [{ edit: ['*'] }]
@@ -59,30 +81,13 @@
 		 */
 		isBorderBox: false,
 		/**
-		 * @inheritdoc
+		 * Retrieve the title that should be displayed to the user
+		 * @method
+		 * @return {String} HTML
 		 */
-		initialize: function ( options ) {
-			var thumb;
-
-			// Fallback if no displayTitle provided
-			options.displayTitle = options.displayTitle || options.title;
-			options.languageUrl = mw.util.getUrl( 'Special:MobileLanguages/' + options.title );
-			View.prototype.initialize.apply( this, arguments );
-			// allow usage in templates.
-			// FIXME: Should View map all options to properties?
-			this.title = options.title;
-			this.displayTitle = options.displayTitle || options.title;
-			this.thumbnail = options.thumbnail;
-			this.url = options.url || mw.util.getUrl( options.title );
-			this.id = options.id;
-			this.isMissing = options.isMissing;
-			thumb = this.thumbnail;
-			if ( thumb && thumb.width ) {
-				this.thumbnail.isLandscape = thumb.width > thumb.height;
-			}
-			this.wikidataDescription = options.wikidataDescription;
+		getDisplayTitle: function () {
+			return this.options.displayTitle || HTML.escape( this.options.title );
 		},
-
 		/**
 		 * Determine if current page is in a specified namespace
 		 * @method
@@ -99,7 +104,26 @@
 		 * @return {jQuery.Object}
 		 */
 		getLeadSectionElement: function () {
-			return this.$( '> div' ).eq( 0 );
+			/*
+			 * The page is formatted as follows:
+			 * <div id="bodyContent">
+			 *   <!-- content of the page.. -->
+			 *   <div id="mw-content-text">
+			 *     <div class="mf-section-0">lead section</div>
+			 *     <h2></h2>
+			 *     <div class="mf-section-1">second section</div>
+			 *   </div>
+			 * </div>
+			 */
+			if ( $( '.mf-section-0' ).length ) {
+				return $( '.mf-section-0' );
+			}
+			// for cached pages that are still using mw-mobilefrontend-leadsection
+			if ( $( '.mw-mobilefrontend-leadsection' ).length ) {
+				return $( '.mw-mobilefrontend-leadsection' );
+			}
+			// FIXME: Remove this, when the cache has cleared - bug T122471
+			return this.$( '> div > div' ).eq( 0 );
 		},
 
 		/**
@@ -126,24 +150,6 @@
 		 */
 		isWatched: function () {
 			return this.options.isWatched;
-		},
-
-		/**
-		 * Checks whether the given user can edit the page.
-		 * @method
-		 * @param {mw.user} user Object representing a user
-		 * @return {Boolean}
-		 */
-		isEditable: function ( user ) {
-			// see: https://www.mediawiki.org/wiki/Manual:Interface/JavaScript#Page-specific
-			var editable = mw.config.get( 'wgIsProbablyEditable' );
-
-			// for logged in users check if they are blocked from editing this page
-			if ( editable && !user.isAnon() ) {
-				editable = !mw.config.get( 'wgMFUserBlockInfo' );
-			}
-
-			return editable;
 		},
 
 		/**
@@ -233,14 +239,6 @@
 		},
 
 		/**
-		 * Return reference section
-		 * @method
-		 */
-		getReferenceSection: function () {
-			return this._referenceLookup;
-		},
-
-		/**
 		 * Return all the thumbnails in the article
 		 * @method
 		 * @return {Thumbnail[]}
@@ -293,6 +291,52 @@
 		}
 	} );
 
-	M.define( 'mobile.startup/Page', Page ).deprecate( 'Page' );
+	/**
+	 * Create a Page object from an API response.
+	 *
+	 * @static
+	 * @param {Object} resp as representing a page in the API
+	 * @returns {Page}
+	 */
+	Page.newFromJSON = function ( resp ) {
+		var revision, displayTitle,
+			thumb = resp.thumbnail,
+			pageprops = resp.pageprops || {
+				displaytitle: HTML.escape( resp.title )
+			},
+			terms = resp.terms;
 
-}( mw.mobileFrontend, jQuery ) );
+		if ( pageprops || terms ) {
+			// The label is either the display title or the label pageprop (the latter used by Wikidata)
+			// Long term we want to consolidate these. Note that pageprops.displaytitle is HTML, while
+			// terms.label[0] is plain text.
+			displayTitle = terms && terms.label ? HTML.escape( terms.label[0] ) : pageprops.displaytitle;
+		}
+		// Add Wikidata descriptions if available (T101719)
+		if ( terms && terms.description && terms.description.length ) {
+			resp.wikidataDescription = terms.description[0];
+		}
+
+		if ( thumb ) {
+			resp.thumbnail.isLandscape = thumb.width > thumb.height;
+		}
+
+		// page may or may not exist.
+		if ( resp.revisions && resp.revisions[0] ) {
+			revision = resp.revisions[0];
+			resp.lastModified = time.getLastModifiedMessage( new Date( revision.timestamp ).getTime() / 1000,
+				revision.user );
+		}
+
+		return new Page(
+			$.extend( resp, {
+				id: resp.pageid,
+				isMissing: resp.missing ? true : false,
+				url: mw.util.getUrl( resp.title ),
+				displayTitle: displayTitle // this is HTML!
+			} )
+		);
+	};
+	M.define( 'mobile.startup/Page', Page );
+
+}( mw.html, mw.mobileFrontend, jQuery ) );

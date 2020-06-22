@@ -1,23 +1,26 @@
 ( function ( M, $ ) {
-	var
-		Overlay = M.require( 'mobile.overlays/Overlay' ),
-		api = M.require( 'mobile.startup/api' ),
+	var TalkOverlayBase = M.require( 'mobile.talk.overlays/TalkOverlayBase' ),
 		toast = M.require( 'mobile.toast/toast' ),
-		Icon = M.require( 'mobile.startup/Icon' ),
-		TalkSectionAddOverlay;
+		Icon = M.require( 'mobile.startup/Icon' );
 
 	/**
 	 * Overlay for adding a talk section
 	 * @class TalkSectionAddOverlay
-	 * @extends Overlay
-	 * @uses Api
+	 * @extends TalkOverlayBase
 	 * @uses Toast
 	 */
-	TalkSectionAddOverlay = Overlay.extend( {
+	function TalkSectionAddOverlay( options ) {
+		TalkOverlayBase.apply( this, arguments );
+		this.title = options.title;
+		// Variable to indicate, if the overlay will be closed by the save function or by the user. If this is false and there is content in the input fields,
+		// the user will be asked, if he want to abandon his changes before we close the Overlay, otherwise the Overlay will be closed without any question.
+		this._saveHit = false;
+	}
+
+	OO.mfExtend( TalkSectionAddOverlay, TalkOverlayBase, {
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
-		 * @cfg {PageApi} defaults.pageApi an api module to retrieve pages.
 		 * @cfg {String} defaults.cancelMsg Caption for cancel button on edit form.
 		 * @cfg {String} defaults.topicTitlePlaceHolder Placeholder text to prompt user to add
 		 * a talk page topic subject.
@@ -25,7 +28,7 @@
 		 * content to talk page content.
 		 * @cfg {String} defaults.editingMsg Label for button which submits a new talk page topic.
 		 */
-		defaults: $.extend( {}, Overlay.prototype.defaults, {
+		defaults: $.extend( {}, TalkOverlayBase.prototype.defaults, {
 			cancelMsg: mw.msg( 'mobile-frontend-editor-cancel' ),
 			topicTitlePlaceHolder: mw.msg( 'mobile-frontend-talk-add-overlay-subject-placeholder' ),
 			topicContentPlaceHolder: mw.msg( 'mobile-frontend-talk-add-overlay-content-placeholder' ),
@@ -38,26 +41,18 @@
 			} ).toHtmlString()
 		} ),
 		template: mw.template.get( 'mobile.talk.overlays', 'SectionAddOverlay.hogan' ),
-		templatePartials: {
+		templatePartials: $.extend( {}, TalkOverlayBase.prototype.templatePartials, {
 			contentHeader: mw.template.get( 'mobile.talk.overlays', 'SectionAddOverlay/contentHeader.hogan' ),
 			saveHeader: mw.template.get( 'mobile.editor.common', 'saveHeader.hogan' )
-		},
-		events: $.extend( {}, Overlay.prototype.events, {
+		} ),
+		events: $.extend( {}, TalkOverlayBase.prototype.events, {
 			'input .wikitext-editor, .summary': 'onTextInput',
 			'change .wikitext-editor, .summary': 'onTextInput',
 			'click .confirm-save': 'onSaveClick'
 		} ),
 		/** @inheritdoc */
-		initialize: function ( options ) {
-			Overlay.prototype.initialize.apply( this, arguments );
-			this.title = options.title;
-			// Variable to indicate, if the overlay will be closed by the save function or by the user. If this is false and there is content in the input fields,
-			// the user will be asked, if he want to abandon his changes before we close the Overlay, otherwise the Overlay will be closed without any question.
-			this._saveHit = false;
-		},
-		/** @inheritdoc */
 		postRender: function () {
-			Overlay.prototype.postRender.call( this );
+			TalkOverlayBase.prototype.postRender.call( this );
 			this.showHidden( '.initial-header' );
 			this.$confirm = this.$( 'button.confirm-save' );
 			this.$subject = this.$( '.summary' );
@@ -70,7 +65,7 @@
 
 			empty = ( !this.$subject.val() && !this.$ta.val() );
 			if ( this._saveHit || empty || window.confirm( confirmMessage ) ) {
-				return Overlay.prototype.hide.apply( this, arguments );
+				return TalkOverlayBase.prototype.hide.apply( this, arguments );
 			} else {
 				return false;
 			}
@@ -101,8 +96,8 @@
 				if ( status === 'ok' ) {
 					// Check if the user was previously on the talk overlay
 					if ( self.title !== mw.config.get( 'wgPageName' ) ) {
-						self.options.pageApi.invalidatePage( self.title );
-						toast.show( mw.msg( 'mobile-frontend-talk-topic-feedback' ), 'toast' );
+						self.pageGateway.invalidatePage( self.title );
+						toast.show( mw.msg( 'mobile-frontend-talk-topic-feedback' ) );
 						M.emit( 'talk-discussion-added' );
 						window.history.back();
 					} else {
@@ -132,7 +127,7 @@
 						break;
 				}
 
-				toast.show( mw.msg( editMsg ), 'toast error' );
+				toast.show( mw.msg( editMsg ), 'error' );
 				self.showHidden( '.save-header, .save-panel' );
 			} );
 		},
@@ -155,7 +150,8 @@
 
 			this.$( '.content' ).empty().addClass( 'loading' );
 			// FIXME: while saving: a spinner would be nice
-			api.postWithToken( 'edit', {
+			// FIXME: This should be using a gateway e.g. TalkGateway, PageGateway or EditorGateway
+			this.editorApi.postWithToken( 'edit', {
 				action: 'edit',
 				section: 'new',
 				sectiontitle: heading,
@@ -175,7 +171,6 @@
 		}
 	} );
 
-	M.define( 'mobile.talk.overlays/TalkSectionAddOverlay', TalkSectionAddOverlay )
-		.deprecate( 'modules/talk/TalkSectionAddOverlay' );
+	M.define( 'mobile.talk.overlays/TalkSectionAddOverlay', TalkSectionAddOverlay );
 
 }( mw.mobileFrontend, jQuery ) );

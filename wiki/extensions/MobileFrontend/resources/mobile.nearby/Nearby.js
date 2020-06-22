@@ -1,6 +1,5 @@
 ( function ( M, $ ) {
-	var Nearby,
-		MessageBox = M.require( 'mobile.messageBox/MessageBox' ),
+	var MessageBox = M.require( 'mobile.messageBox/MessageBox' ),
 		NearbyGateway = M.require( 'mobile.nearby/NearbyGateway' ),
 		WatchstarPageList = M.require( 'mobile.pagelist.scripts/WatchstarPageList' ),
 		browser = M.require( 'mobile.browser/browser' ),
@@ -8,12 +7,29 @@
 
 	/**
 	 * List of nearby pages
-
 	 * @class Nearby
 	 * @uses NearbyGateway
 	 * @extends WatchstarPageList
 	 */
-	Nearby = WatchstarPageList.extend( {
+	function Nearby( options ) {
+		var self = this,
+			_super = WatchstarPageList;
+
+		this.range = options.range || mw.config.get( 'wgMFNearbyRange' ) || 1000;
+		this.source = options.source || 'nearby';
+		this.nearbyApi = new NearbyGateway( {
+			api: options.api
+		} );
+
+		if ( options.errorType ) {
+			options.errorOptions = self._errorOptions( options.errorType );
+		}
+		_super.apply( this, arguments );
+
+		this.refresh( options );
+	}
+
+	OO.mfExtend( Nearby, WatchstarPageList, {
 		errorMessages: {
 			empty: {
 				heading: mw.msg( 'mobile-frontend-nearby-noresults' ),
@@ -27,7 +43,7 @@
 				heading: mw.msg( 'mobile-frontend-nearby-permission' ),
 				msg: mw.msg( 'mobile-frontend-nearby-permission-guidance' )
 			},
-			server: {
+			http: {
 				heading: mw.msg( 'mobile-frontend-nearby-error' ),
 				msg: mw.msg( 'mobile-frontend-nearby-error-guidance' )
 			},
@@ -36,10 +52,10 @@
 				msg: mw.msg( 'mobile-frontend-nearby-requirements-guidance' )
 			}
 		},
-		templatePartials: {
+		templatePartials: $.extend( {}, WatchstarPageList.prototype.templatePartials, {
 			pageList: WatchstarPageList.prototype.template,
 			messageBox: MessageBox.prototype.template
-		},
+		} ),
 		template: mw.template.get( 'mobile.nearby', 'Nearby.hogan' ),
 		/**
 		 * @inheritdoc
@@ -49,12 +65,12 @@
 		 * @cfg {String} defaults.spinner HTML of the spinner icon with a tooltip that
 		 * tells the user that their location is being looked up
 		 */
-		defaults: {
+		defaults: $.extend( {}, WatchstarPageList.prototype.defaults, {
 			errorOptions: undefined,
 			spinner: icons.spinner( {
 				title: mw.msg( 'mobile-frontend-nearby-loading' )
 			} ).toHtmlString()
-		},
+		} ),
 
 		/**
 		 * Obtain users current location and return a deferred object with the
@@ -91,53 +107,6 @@
 			return result;
 		},
 		/**
-		 * Get pages within a nearby range of current location
-		 * @inheritdoc
-		 */
-		initialize: function ( options ) {
-			var self = this,
-				_super = WatchstarPageList.prototype.initialize;
-
-			this.range = options.range || mw.config.get( 'wgMFNearbyRange' ) || 1000;
-			this.source = options.source || 'nearby';
-			this.nearbyApi = new NearbyGateway( {
-				api: options.api
-			} );
-
-			if ( options.errorType ) {
-				options.errorOptions = self._errorOptions( options.errorType );
-			}
-
-			// Re-run after api/geolocation request
-			if ( options.useCurrentLocation ) {
-				// Flush any existing list of pages
-				options.pages = [];
-
-				// Get some new pages
-				this.getCurrentPosition().done( function ( coordOptions ) {
-					$.extend( options, coordOptions );
-					self._find( options ).done( function ( options ) {
-						_super.call( self, options );
-					} );
-				} ).fail( function ( errorType ) {
-					options.errorType = errorType;
-					_super.call( self, options );
-				} );
-			} else if ( ( options.latitude && options.longitude ) || options.pageTitle ) {
-				// Flush any existing list of pages
-				options.pages = [];
-
-				// Get some new pages
-				this._find( options ).done( function ( options ) {
-					_super.call( self, options );
-				} );
-			}
-
-			// Run it once for loader etc
-			this._isLoading = true;
-			_super.apply( this, arguments );
-		},
-		/**
 		 * Request pages from api based on provided options.
 		 * When options.longitude and options.latitude set getPages near that location.
 		 * If those are not present use options.title to find pages near that title.
@@ -166,11 +135,14 @@
 
 			/**
 			 * Handler for failed query
+			 *
+			 * @param {String} code Error Code
+			 * @param {String} details A html-safe string with ad detailed error description
 			 * @ignore
 			 */
-			function pagesError() {
+			function pagesError( code, details ) {
 				self._isLoading = false;
-				options.errorOptions = self._errorOptions( 'server' );
+				options.errorOptions = self._errorOptions( code, details );
 				result.resolve( options );
 			}
 
@@ -199,17 +171,26 @@
 		 * Generate a list of options that can be passed to a messagebox template.
 		 * @private
 		 * @param {String} key to a defined error message
+		 * @param {String} msg Message to use, instead of a mapped error message from this.errorMessages
 		 * @returns {Object}
 		 */
-		_errorOptions: function ( key ) {
+		_errorOptions: function ( key, msg ) {
+			var message;
+
+			if ( msg ) {
+				message = { msg: msg };
+			} else {
+				message = this.errorMessages[ key ] || this.errorMessages.http;
+			}
 			return $.extend( {
 				className: 'errorbox'
-			}, this.errorMessages[ key ] || {} );
+			}, message );
 		},
 		/** @inheritdoc */
 		postRender: function () {
 			if ( !this._isLoading ) {
-				this.$( '.spinner' ).hide();
+				this.$( '.spinner' ).addClass( 'hidden' );
+				this.$( '.page-list' ).removeClass( 'hidden' );
 			}
 			WatchstarPageList.prototype.postRender.apply( this );
 			this._postRenderLinks();
@@ -228,12 +209,17 @@
 			this.$( 'a' ).each( function ( i ) {
 				// FIXME: not unique if multiple Nearby objects on same page
 				$( this ).attr( 'id', 'nearby-page-list-item-' + i );
-			} ).on( 'click', function () {
-				window.location.hash = $( this ).attr( 'id' );
-				// name funnel for watchlists to catch subsequent uploads
-				$.cookie( 'mwUploadsFunnel', 'nearby', {
-					expires: new Date( new Date().getTime() + 60000 )
-				} );
+			} ).on( 'click', function ( ev ) {
+				// Do not react to 'open in new tab' clicks as changing the hash
+				// re-renders the view.
+				if ( ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.which === 2 ) {
+					return;
+				}
+				// if not on Special:Nearby/#page/page_title or Special:Nearby/#coord/
+				// then set hash to clicked element
+				if ( !hash.match( /^(#\/page|#\/coord)/i ) ) {
+					window.location.hash = $( this ).attr( 'id' );
+				}
 			} );
 
 			// Restore the offset
@@ -244,9 +230,54 @@
 					$( window ).scrollTop( offset.top );
 				}
 			}
+		},
+		/**
+		 * Refresh the list of the nearby articles depending on the options.
+		 * The current location, latitude/longitude, or page title can be used
+		 * to find the articles.
+		 *
+		 * @param {Object} options
+		 */
+		refresh: function ( options ) {
+			var self = this,
+				_super = WatchstarPageList;
+
+			this.$( '.spinner' ).removeClass( 'hidden' );
+			this.$( '.page-list' ).addClass( 'hidden' );
+
+			// Re-run after api/geolocation request
+			if ( options.useCurrentLocation ) {
+				// Flush any existing list of pages
+				options.pages = [];
+
+				// Get some new pages
+				this.getCurrentPosition().done( function ( coordOptions ) {
+					$.extend( options, coordOptions );
+					self._find( options ).done( function ( options ) {
+						_super.call( self, options );
+					} );
+				} ).fail( function ( errorType ) {
+					options.errorType = errorType;
+					_super.call( self, options );
+				} );
+			} else if ( ( options.latitude && options.longitude ) || options.pageTitle ) {
+				// Flush any existing list of pages
+				options.pages = [];
+
+				// Get some new pages
+				this._find( options ).done( function ( options ) {
+					_super.call( self, options );
+				} ).fail( function ( errorType ) {
+					options.errorType = errorType;
+					_super.call( self, options );
+				} );
+			}
+
+			// Run it once for loader etc
+			this._isLoading = true;
 		}
 	} );
 
-	M.define( 'mobile.nearby/Nearby', Nearby ).deprecate( 'modules/nearby/Nearby' );
+	M.define( 'mobile.nearby/Nearby', Nearby );
 
 }( mw.mobileFrontend, jQuery ) );

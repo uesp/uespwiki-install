@@ -41,7 +41,7 @@ Feature: Suggestion API test
     | max         | Max Eisenhardt    |
     | magnetu     | Magneto           |
 
-  Scenario Outline: Search prefers exact match over
+  Scenario Outline: Search prefers exact match over fuzzy match and ascii folded
     When I ask suggestion API for <term>
       Then the API should produce list starting with <suggested>
   Examples:
@@ -49,8 +49,37 @@ Feature: Suggestion API test
     | max         | Max Eisenhardt    |
     | mai         | Main Page         |
     | eis         | Eisenhardt, Max   |
+    | ele         | Elektra           |
+    | éle         | Électricité       |
+
+  Scenario Outline: Search prefers exact db match over partial prefix match
+    When I ask suggestion API at most 2 items for <term>
+      Then the API should produce list starting with <first>
+      And the API should produce list containing <other>
+  Examples:
+    |   term      |   first  | other  |
+    | Ic          |  Iceman  |  Ice   |
+    | Ice         |   Ice    | Iceman |
 
   Scenario: Ordering & limit
     When I ask suggestion API at most 1 item for x-m
       Then the API should produce list starting with X-Men
       And the API should produce list of length 1
+
+  Scenario Outline: Search fallback to prefix search if namespace is provided
+    When I ask suggestion API for <term>
+      Then the API should produce list starting with <suggested>
+  Examples:
+    |   term      |    suggested        |
+    | Special:    | Special:ActiveUsers |
+    | Special:Act | Special:ActiveUsers |
+
+  Scenario Outline: Search prefers main namespace over crossns redirects
+    When I ask suggestion API for <term>
+      Then the API should produce list starting with <suggested>
+  Examples:
+    |   term      |    suggested      |
+    | V           | Venom             |
+    | V:          | V:N               |
+    | Z           | Zam Wilson        |
+    | Z:          | Z:Navigation      |

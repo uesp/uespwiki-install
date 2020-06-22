@@ -1,11 +1,12 @@
 {
 	"@metadata": {
 		"authors": [
-			"Lam-ang"
+			"Lam-ang",
+			"Matma Rex"
 		]
 	},
 	"abusefilter-desc": "Agipakat kadagiti automatiko a panagsolbar iti parikut kadagiti panagurnos",
-	"abusefilter": "Konpigurasion ti sagat ti panagabuso",
+	"abusefilter": "Kompigurasion ti sagat ti panagabuso",
 	"abuselog": "Listaan ti panagabuso",
 	"abusefilter-intro": "Naragsak nga isasangbay ditoy interface ti pangasiwaan ti Sagat ti Panagabuso.\nTi Sagat ti Panagabuso ket automatiko a mekanismo ti sopwer nga agikabil ti automatiko a panagsolbar ti amin a parikut kadagiti amin a tignay.\nDaytoy nga interface ket ipakitana dagiti listaan dagiti naipalawag a sagat, ken mangipalubos kaniada a mabaliwan.",
 	"abusefilter-mustbeeditor": "Para kadagiti rason ti seguridad, dagiti laeng agus-usar nga addaan iti karbengan a mangbaliw kadagiti sagat ti panagabuso ti makausar iti daytoy nga interface.",
@@ -127,6 +128,7 @@
 	"abusefilter-edit-oldwarning": "<strong>Agur-urnoska iti daan a bersion ti sagat.\nDagiti estadistika a naibaga ket ti agdama a bersion ti sagat.\nNo idulinmo dagiti binaliwan, masuratamto manen amin a binaliwam manipud ti rebison nga ur-urnosem.</strong> &bull;\n[[Special:AbuseFilter/history/$2|Agsubli idiay pakasaritaan ti sagat]].",
 	"abusefilter-edit-status-label": "Estadistika:",
 	"abusefilter-edit-status": "Iti naudi a $1 a {{PLURAL:$1|tignay|tigtignay}}, daytoy a sagat ket nakaipada iti $2 ($3%) .",
+	"abusefilter-edit-status-profile": "Iti naudi a $1 a {{PLURAL:$1|tignay|tigtignay}}, daytoy a sagat ket nakaipada iti $2 ($3%) .\nIti pagtengngaan, ti kabayag a panagandarna ket $4 ms, ken mangibus iti $5 a {{PLURAL:$5|kasasaad|kaskasaad}} iti patingga ti kasasaad.",
 	"abusefilter-edit-throttled": "'''Ballaag''': Ti sagat ket automatiko a nabaldado a kas pamay-an ti seguridad.\nNaabotanna ti patingga iti panagipada ti ad-adu ngem $1% kadagiti tignay.",
 	"abusefilter-edit-new": "Baro a sagat",
 	"abusefilter-edit-save": "Idulin ti sagat",

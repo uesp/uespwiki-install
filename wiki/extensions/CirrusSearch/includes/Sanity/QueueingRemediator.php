@@ -1,10 +1,12 @@
 <?php
 
 namespace CirrusSearch\Sanity;
-use \CirrusSearch\Job\DeletePages;
-use \CirrusSearch\Job\LinksUpdate;
-use \JobQueueGroup;
-use \WikiPage;
+
+use CirrusSearch\Job\DeletePages;
+use CirrusSearch\Job\LinksUpdate;
+use JobQueueGroup;
+use Title;
+use WikiPage;
 
 /**
  * Remediator implementation that queues jobs to fix the index.
@@ -26,30 +28,56 @@ use \WikiPage;
  */
 
 class QueueingRemediator implements Remediator {
-	public function redirectInIndex( $page ) {
+	protected $cluster;
+
+	/**
+	 * @param string|null $cluster The name of the cluster to update,
+	 *  or null to update all clusters.
+	 */
+	public function __construct( $cluster ) {
+		$this->cluster = $cluster;
+	}
+	public function redirectInIndex( WikiPage $page ) {
 		$this->pushLinksUpdateJob( $page );
 	}
-	public function pageNotInIndex( $page ) {
-		$this->pushLinksUpdateJob( $page );
-	}
-	public function ghostPageInIndex( $pageId, $title ) {
-		JobQueueGroup::singleton()->push(
-			new DeletePages( $title, array( 'id' => $pageId ) )
-		);
-	}
-	public function pageInWrongIndex( $page, $wrongIndex ) {
-		JobQueueGroup::singleton()->push( new DeletePages( $page->getTitle(), array(
-			'indexType' => $wrongIndex,
-			'id' => $page->getId()
-		) ) );
+	public function pageNotInIndex( WikiPage $page ) {
 		$this->pushLinksUpdateJob( $page );
 	}
 
-	private function pushLinksUpdateJob( $page ) {
+	/**
+	 * @param int $pageId
+	 * @param Title $title
+	 */
+	public function ghostPageInIndex( $pageId, Title $title ) {
+		JobQueueGroup::singleton()->push(
+			new DeletePages( $title, array(
+				'id' => $pageId,
+				'cluster' => $this->cluster,
+			) )
+		);
+	}
+
+	/**
+	 * @param WikiPage $page
+	 * @param string $wrongIndex
+	 */
+	public function pageInWrongIndex( WikiPage $page, $wrongIndex ) {
+		JobQueueGroup::singleton()->push(
+			new DeletePages( $page->getTitle(), array(
+				'indexType' => $wrongIndex,
+				'id' => $page->getId(),
+				'cluster' => $this->cluster,
+			) )
+		);
+		$this->pushLinksUpdateJob( $page );
+	}
+
+	private function pushLinksUpdateJob( WikiPage $page ) {
 		JobQueueGroup::singleton()->push(
 			new LinksUpdate( $page->getTitle(), array(
 				'addedLinks' => array(),
 				'removedLinks' => array(),
+				'cluster' => $this->cluster,
 			) )
 		);
 	}

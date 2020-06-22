@@ -124,7 +124,7 @@ class UespVectorTemplate extends VectorTemplate {
 	function renderPortals( $sidebar ) {
 		parent::renderPortals( $sidebar );
 		?>
-		<div class='portlet' style='margin:0 auto;'>
+		<div class='portlet'>
 			<div id='cdm-zone-07'></div>
 		</div><div class='visualClear'></div></div></div><div style='padding-left:11em; width:300px; height:250px; margin:0 auto;'><div id='cdm-zone-02'></div></div><div><div>
 <?php

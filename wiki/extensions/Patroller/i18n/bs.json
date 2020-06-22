@@ -17,7 +17,7 @@
 	"patrol-reverted-ok": "Izmjena je vraćena.",
 	"patrol-reverted-failed": "Izmjena nije mogla biti vraćena.",
 	"patrol-skipped-ok": "Zanemarujem izmjenu.",
-	"patrol-reasons": "* Jednostavni vandalizam\r\n* Početnička proba\r\n* Vidi stranicu za razgovor",
+	"patrol-reasons": "* Jednostavni vandalizam\n* Početnička proba\n* Vidi stranicu za razgovor",
 	"patrol-another": "Prikaži slijedeću izmjenu, ako je moguće.",
 	"patrol-stopped": "Vi ste odabrali da ne provjeravate još jednu izmjenu. $1",
 	"patrol-resume": "Kliknite ovdje za nastavak.",

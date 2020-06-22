@@ -1,126 +1,161 @@
 <?php
 
 class SpecialCheckUserLog extends SpecialPage {
+	/**
+	 * @var string $target
+	 */
+	protected $target;
+
 	public function __construct() {
 		parent::__construct( 'CheckUserLog', 'checkuser-log' );
 	}
 
-	/**
-	 * @var Title
-	 */
-	public $checkUserFormTitle;
-
-	/**
-	 * @return Title
-	 */
-	function getCheckUserFormTitle() {
-		if ( !isset( $this->checkUserFormTitle ) ) {
-			$this->checkUserFormTitle = SpecialPage::getTitleFor('CheckUser');
-		}
-		return $this->checkUserFormTitle;
-	}
-
-	function execute( $par ) {
+	public function execute( $par ) {
+		$this->setHeaders();
 		$this->checkPermissions();
 
 		$out = $this->getOutput();
 		$request = $this->getRequest();
-		$this->setHeaders();
 
-		$type = $request->getVal( 'cuSearchType' );
-		$target = $request->getVal( 'cuSearch' );
-		$target = trim( $target );
-		$year = $request->getIntOrNull( 'year' );
-		$month = $request->getIntOrNull( 'month' );
-		$error = false;
-		$dbr = wfGetDB( DB_SLAVE );
-		$searchConds = false;
-		if ( $type === null ) {
-			$type = 'target';
-		} elseif ( $type == 'initiator' ) {
-			$user = User::newFromName( $target );
-			if ( !$user || !$user->getID() ) {
-				$error = 'checkuser-user-nonexistent';
-			} else {
-				$searchConds = array( 'cul_user' => $user->getID() );
-			}
-		} else /* target */ {
-			$type = 'target';
-			// Is it an IP?
-			list( $start, $end ) = IP::parseRange( $target );
-			if ( $start !== false ) {
-				if ( $start == $end ) {
-					$searchConds = array( 'cul_target_hex = ' . $dbr->addQuotes( $start ) . ' OR ' .
-						'(cul_range_end >= ' . $dbr->addQuotes( $start ) . ' AND ' .
-						'cul_range_start <= ' . $dbr->addQuotes( $end ) . ')'
-					);
-				} else {
-					$searchConds = array(
-						'(cul_target_hex >= ' . $dbr->addQuotes( $start ) . ' AND ' .
-						'cul_target_hex <= ' . $dbr->addQuotes( $end ) . ') OR ' .
-						'(cul_range_end >= ' . $dbr->addQuotes( $start ) . ' AND ' .
-						'cul_range_start <= ' . $dbr->addQuotes( $end ) . ')'
-					);
-				}
-			} else {
-				// Is it a user?
-				$user = User::newFromName( $target );
-				if ( $user && $user->getID() ) {
-					$searchConds = array(
-						'cul_type' => array( 'userips', 'useredits' ),
-						'cul_target_id' => $user->getID(),
-					);
-				} elseif ( $target ) {
-					$error = 'checkuser-user-nonexistent';
-				}
-			}
+		if ( $this->getUser()->isAllowed( 'checkuser' ) ) {
+			$subtitleLink = Linker::linkKnown(
+				SpecialPage::getTitleFor( 'CheckUser' ),
+				$this->msg( 'checkuser-showmain' )->escaped()
+			);
+			$out->addSubtitle( $subtitleLink );
 		}
 
-		$out->addHTML( Linker::linkKnown(
-				$this->getCheckUserFormTitle(),
-				$this->msg( 'checkuser-log-return' ) ) );
+		$this->target = trim( $request->getVal( 'cuSearch', $par ) );
+		$type = $request->getVal( 'cuSearchType', 'target' );
 
-		// Give grep a chance to find the usages:
-		// checkuser-search-initiator, checkuser-search-target
-		$searchTypes = array( 'initiator', 'target' );
-		$select = "<select name=\"cuSearchType\" style='margin-top:.2em;'>\n";
-		foreach ( $searchTypes as $searchType ) {
-			if ( $type == $searchType ) {
-				$checked = 'selected="selected"';
-			} else {
-				$checked = '';
-			}
-			$caption = $this->msg( 'checkuser-search-' . $searchType )->escaped();
-			$select .= "<option value=\"$searchType\" $checked>$caption</option>\n";
+		$this->displaySearchForm();
+
+		// Default to all log entries - we'll add conditions below if a target was provided
+		$searchConds = array();
+
+		if ( $this->target !== '' ) {
+			$searchConds = ( $type === 'initiator' )
+				? $this->getPerformerSearchConds()
+				: $this->getTargetSearchConds();
 		}
-		$select .= '</select>';
 
-		$encTarget = htmlspecialchars( $target );
-		$msgSearch = $this->msg( 'checkuser-search' )->escaped();
-		$input = "<input type=\"text\" name=\"cuSearch\" value=\"$encTarget\" size=\"40\"/>";
-		$msgSearchForm = $this->msg( 'checkuser-search-form' )->rawParams( $select, $input )->escaped();
-		$formAction = htmlspecialchars( $this->getPageTitle()->getLocalURL() );
-		$msgSearchSubmit = '&#160;&#160;' . $this->msg( 'checkuser-search-submit' )->escaped() . '&#160;&#160;';
-
-		$s = "<form method='get' action=\"$formAction\">\n" .
-			"<fieldset><legend>$msgSearch</legend>\n" .
-			"<p>$msgSearchForm</p>\n" .
-			"<p>" . Xml::dateMenu( $year, $month ) . "&#160;&#160;&#160;\n" .
-			"<input type=\"submit\" name=\"cuSearchSubmit\" value=\"$msgSearchSubmit\"/></p>\n" .
-			"</fieldset></form>\n";
-		$out->addHTML( $s );
-
-		if ( $error !== false ) {
-			$out->wrapWikiMsg( '<div class="errorbox">$1</div>', $error );
+		if ( $searchConds === null ) {
+			// Invalid target was input so show an error message and stop from here
+			$out->wrapWikiMsg( "<div class='errorbox'>\n$1\n</div>", 'checkuser-user-nonexistent' );
 			return;
 		}
 
-		$pager = new CheckUserLogPager( $this, $searchConds, $year, $month );
+		$pager = new CheckUserLogPager(
+			$this->getContext(),
+			array(
+				'queryConds' => $searchConds,
+				'year' => $request->getInt( 'year' ),
+				'month' => $request->getInt( 'month' ),
+			)
+		);
+
 		$out->addHTML(
 			$pager->getNavigationBar() .
 			$pager->getBody() .
 			$pager->getNavigationBar()
 		);
+	}
+
+	/**
+	 * Use an HTMLForm to create and output the search form used on this page.
+	 */
+	protected function displaySearchForm() {
+		$request = $this->getRequest();
+		$fields = array(
+			'target' => array(
+				'type' => 'user',
+				// validation in execute() currently
+				'exists' => false,
+				'ipallowed' => true,
+				'name' => 'cuSearch',
+				'size' => 40,
+				'label-message' => 'checkuser-log-search-target',
+				'default' => $this->target,
+			),
+			'type' => array(
+				'type' => 'radio',
+				'name' => 'cuSearchType',
+				'label-message' => 'checkuser-log-search-type',
+				'options-messages' => array(
+					'checkuser-search-target' => 'target',
+					'checkuser-search-initiator' => 'initiator',
+				),
+				'flatlist' => true,
+				'default' => 'target',
+			),
+			// @todo hack until HTMLFormField has a proper date selector
+			'monthyear' => array(
+				'type' => 'info',
+				'default' => Xml::dateMenu( $request->getInt( 'year' ), $request->getInt( 'month' ) ),
+				'raw' => true,
+			),
+		);
+
+		$form = HTMLForm::factory( 'table', $fields, $this->getContext() );
+		$form->setMethod( 'get' )
+			->setWrapperLegendMsg( 'checkuser-search' )
+			->setSubmitTextMsg( 'checkuser-search-submit' )
+			->prepareForm()
+			->displayForm( false );
+	}
+
+	/**
+	 * Get DB search conditions depending on the CU performer/initiator
+	 * Use this only for searches by 'initiator' type
+	 *
+	 * @return array|null array if valid target, null if invalid
+	 */
+	protected function getPerformerSearchConds() {
+		$initiator = User::newFromName( $this->target );
+		if ( $initiator && $initiator->getId() ) {
+			return array( 'cul_user' => $initiator->getId() );
+		}
+		return null;
+	}
+
+	/**
+	 * Get DB search conditions according to the CU target given.
+	 *
+	 * @return array|null array if valid target, null if invalid target given
+	 */
+	protected function getTargetSearchConds() {
+		list( $start, $end ) = IP::parseRange( $this->target );
+		$conds = null;
+
+		if ( $start !== false ) {
+			$dbr = wfGetDB( DB_SLAVE );
+			if ( $start === $end ) {
+				// Single IP address
+				$conds = array(
+					'cul_target_hex = ' . $dbr->addQuotes( $start ) . ' OR ' .
+					'(cul_range_end >= ' . $dbr->addQuotes( $start ) . ' AND ' .
+					'cul_range_start <= ' . $dbr->addQuotes( $start ) . ')'
+				);
+			} else {
+				// IP range
+				$conds = array(
+					'(cul_target_hex >= ' . $dbr->addQuotes( $start ) . ' AND ' .
+					'cul_target_hex <= ' . $dbr->addQuotes( $end ) . ') OR ' .
+					'(cul_range_end >= ' . $dbr->addQuotes( $start ) . ' AND ' .
+					'cul_range_start <= ' . $dbr->addQuotes( $end ) . ')'
+				);
+			}
+		} else {
+			$user = User::newFromName( $this->target );
+			if ( $user && $user->getId() ) {
+				// Registered user
+				$conds = array(
+					'cul_type' => array( 'userips', 'useredits' ),
+					'cul_target_id' => $user->getId(),
+				);
+			}
+		}
+		return $conds;
 	}
 
 	protected function getGroupName() {

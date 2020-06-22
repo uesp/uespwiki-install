@@ -1,13 +1,19 @@
 ( function ( M, $ ) {
-	var PointerOverlay,
-		Overlay = M.require( 'mobile.overlays/Overlay' );
+	var Overlay = M.require( 'mobile.overlays/Overlay' );
 
 	/**
 	 * Page overlay prompting a user for given action
 	 * @class PointerOverlay
 	 * @extends Overlay
 	 */
-	PointerOverlay = Overlay.extend( {
+	function PointerOverlay( options ) {
+		// FIXME: This should not have a default fallback. This is a non-optional parameter.
+		// Remove when all existing uses in Gather have been updated.
+		this.appendToElement = options.appendToElement || '#mw-mf-page-center';
+		Overlay.apply( this, arguments );
+	}
+
+	OO.mfExtend( PointerOverlay, Overlay, {
 		className: 'overlay pointer-overlay tutorial-overlay',
 		/**
 		 * @inheritdoc
@@ -25,7 +31,6 @@
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
-		 * @cfg {Skin} defaults.skin class
 		 * @cfg {String} defaults.summary Message describing thing being pointed to.
 		 * @cfg {String} defaults.cancelMsg Cancel message.
 		 * @cfg {String} defaults.appendToElement Where pointer overlay should be appended to.
@@ -33,24 +38,14 @@
 		 * @cfg {String} [defaults.alignment] Determines where the pointer should point to. Valid values 'left' or 'center'
 		 * @cfg {String} [defaults.confirmMsg] Label for a confirm message.
 		 */
-		defaults: {
-			skin: undefined,
+		defaults: $.extend( {}, Overlay.prototype.defaults, {
 			summary: undefined,
 			cancelMsg: mw.msg( 'mobile-frontend-pointer-dismiss' ),
 			appendToElement: undefined,
 			target: undefined,
 			alignment: 'center',
 			confirmMsg: undefined
-		},
-		/**
-		 * @inheritdoc
-		 */
-		initialize: function ( options ) {
-			// FIXME: This should not have a default fallback. This is a non-optional parameter.
-			// Remove when all existing uses in Gather have been updated.
-			this.appendToElement = options.appendToElement || '#mw-mf-page-center';
-			Overlay.prototype.initialize.apply( this, arguments );
-		},
+		} ),
 		/**
 		 * @inheritdoc
 		 */
@@ -109,15 +104,18 @@
 				left -= center;
 			}
 
-			this.$pointer = $( '<div class="tutorial-pointer">' ).css( {
+			this.$pointer = $( '<div class="tutorial-pointer"></div>' ).css( {
 				top: -10,
 				left: left
 			} ).appendTo( this.$el );
-			this.options.skin.on( 'changed', $.proxy( this, 'refreshPointerArrow', this.options.target ) );
-			M.on( 'resize', $.proxy( this, 'refreshPointerArrow', this.options.target ) );
+
+			// Since the positioning of this overlay is dependent on the current viewport it makes sense to
+			// use a global window event so that on resizes it is correctly positioned.
+			$( window )
+				.on( 'resize', $.debounce( 100, $.proxy( this, 'refreshPointerArrow', this.options.target ) ) );
 		}
 	} );
 
-	M.define( 'mobile.contentOverlays/PointerOverlay', PointerOverlay ).deprecate( 'modules/tutorials/PageActionOverlay' );
+	M.define( 'mobile.contentOverlays/PointerOverlay', PointerOverlay );
 
 }( mw.mobileFrontend, jQuery ) );

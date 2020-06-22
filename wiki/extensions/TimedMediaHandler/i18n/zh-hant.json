@@ -10,7 +10,7 @@
 			"Cwlin0416"
 		]
 	},
-	"timedmedia-desc": "音訊、影片與字幕處理程式，支援的格式包含 WebM，Ogg Theora、Vorbis，srt",
+	"timedmediahandler-desc": "音訊、影片與字幕處理程式，支援的格式包含 WebM，Ogg Theora、Vorbis，srt",
 	"timedmedia-ogg-short-audio": "Ogg $1 聲音檔案，$2",
 	"timedmedia-ogg-short-video": "Ogg $1 影片檔，$2",
 	"timedmedia-ogg-short-general": "Ogg $1 媒體檔案，$2",
@@ -58,8 +58,10 @@
 	"timedmedia-minutes": "$1 分",
 	"timedmedia-seconds": "$1 秒",
 	"timedmedia-reset": "重設轉碼",
-	"timedmedia-reset-confirm": "重設轉碼會移除所有已存在的檔案，並重新將檔案加入轉碼工作序列。這需要花費一些時間來重新轉碼。<br /><br />\n您確定要繼續嗎？",
+	"timedmedia-reset-button-dismiss": "關閉",
+	"timedmedia-reset-button-reset": "重設",
 	"timedmedia-reset-error": "重設轉碼工作時發生錯誤。",
+	"timedmedia-reset-explanation": "重設轉碼會移除所有已存在的檔案，並重新將檔案加入轉碼工作序列。這需要花費一些時間來重新轉碼。",
 	"timedmedia-mp4": "MP4",
 	"timedmedia-source-file": "$1 來源檔案",
 	"timedmedia-source-file-desc": "$1 原始檔案，$2 × $3 ($4)",

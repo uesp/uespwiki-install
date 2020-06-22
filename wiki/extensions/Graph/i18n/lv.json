@@ -1,8 +1,11 @@
 {
 	"@metadata": {
 		"authors": [
-			"Silraks"
+			"Silraks",
+			"Papuass",
+			"Stryn"
 		]
 	},
-	"graph-ve-dialog-edit-cancel": "Atcelt"
+	"graphsandbox": "Grafiku smilškaste",
+	"graph-tracking-category": "Lapas ar grafu"
 }

@@ -1,8 +1,14 @@
 <?php
-
+/**
+ * @todo This should use FormSpecialPage
+ */
 class SpecialDisableAccount extends SpecialPage {
 	function __construct() {
 		parent::__construct( 'DisableAccount', 'disableaccount' );
+	}
+
+	public function doesWrites() {
+		return true;
 	}
 
 	public function execute( $par ) {
@@ -12,7 +18,7 @@ class SpecialDisableAccount extends SpecialPage {
 		$formFields = array(
 			'account' => array(
 				'type' => 'text',
-				'validation-callback' => array( __CLASS__, 'validateUser' ),
+				'required' => true,
 				'label-message' => 'disableaccount-user',
 			),
 			'confirm' => array(
@@ -29,16 +35,6 @@ class SpecialDisableAccount extends SpecialPage {
 		$htmlForm->show();
 	}
 
-	static function validateUser( $field, $allFields ) {
-		$u = User::newFromName( $field );
-
-		if ( $u && $u->getID() != 0 ) {
-			return true;
-		} else {
-			return wfMessage( 'disableaccount-nosuchuser', array( $field ) )->parse();
-		}
-	}
-
 	static function checkConfirmation( $field, $allFields ) {
 		if ( $field ) {
 			return true;
@@ -49,11 +45,29 @@ class SpecialDisableAccount extends SpecialPage {
 
 	static function submit( $fields ) {
 		global $wgOut, $wgUser;
-		$user = User::newFromName( $fields['account'] );
 
-		$user->setPassword( null );
-		$user->setEmail( null );
-		$user->setToken();
+		// While we're not actually turning the user into a "system" user, it
+		// has the same end result: all passwords and other authentication
+		// credentials removed or set to something invalid, email blanked,
+		// token invalidated, and existing sessions dropped. So let's just use
+		// that if possible instead of duplicating all the code.
+		if ( is_callable( 'User::newSystemUser' ) ) {
+			$user = User::newSystemUser( $fields['account'], [ 'create' => false, 'steal' => true ] );
+			if ( !$user ) {
+				return wfMessage( 'disableaccount-nosuchuser', $fields['account'] )->text();
+			}
+		} else {
+			$user = User::newFromName( $fields['account'] );
+
+			if ( !$user || $user->getId() === 0 ) {
+				return wfMessage( 'disableaccount-nosuchuser', $fields['account'] )->text();
+			}
+
+			$user->setPassword( null );
+			$user->setEmail( null );
+			$user->setToken();
+		}
+
 		$user->addGroup( 'inactive' );
 
 		$user->saveSettings();

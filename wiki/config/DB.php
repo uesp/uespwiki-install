@@ -39,7 +39,7 @@ else
 				'password' => $uespWikiPW,
 				'type' => "mysql",
 				'flag' => DBO_DEFAULT,
-				'load' => 0.1,
+				'load' => 1,
 		),
 		array(          # db2 - Primary Read
 				'host' => $UESP_SERVER_DB2,
@@ -50,27 +50,40 @@ else
 				'flag' => DBO_DEFAULT,
 				'load' => 10,
 				'max lag' => 1000,
-		),
-/* Comment out to prevent issue with slave lag reading
-		array(          # content3 - Backup Read
-				'host' => $UESP_SERVER_CONTENT3,
+		)
+	);
+	
+			/* Don't include by default as backup lag can affect production servers */
+	$uespBackup1Db = 
+		array(          # backup1 - Backup Read
+				'host' => $UESP_SERVER_BACKUP1,
 				'dbname' => $uespWikiDBName,
 				'user' => $uespWikiUser,
 				'password' => $uespWikiPW,
 				'type' => "mysql",
 				'flag' => DBO_DEFAULT,
-				'load' => 0,
-		), */
-	);
+				'load' => 10,
+		);
+		
 }
 
+/* Always use backup1 as the primary read DB on backup1 scripts */
+if ($uespIsBackup1)
+{
+	$wgDBservers[0]['load'] = 0;
+	$wgDBservers[1] = $uespBackup1Db;
+}
+
+
 # Special settings for translation wikis
+$wgSharedDB = $uespWikiDB;
+$wgSharedPrefix = '';
+$wgSharedTables[] = 'ipblocks';
+$wgSharedTables[] = 'interwiki';
+
 if ($uespLanguageSuffix != "")
 {
-	$wgSharedDB = $uespWikiDB;
-	$wgSharedPrefix = '';
-	$wgSharedTables[] = 'ipblocks';
-	$wgSharedTables[] = 'interwiki';
+	$wgLocalDatabases[] = $uespWikiDB;
 }
 
 # $wgMasterWaitTimeout = 6000;

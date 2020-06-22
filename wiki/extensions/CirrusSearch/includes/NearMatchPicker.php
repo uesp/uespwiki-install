@@ -1,7 +1,10 @@
 <?php
 
 namespace CirrusSearch;
+
+use Language;
 use MediaWiki\Logger\LoggerFactory;
+use Title;
 
 /**
  * Picks the best "near match" title.
@@ -31,7 +34,7 @@ class NearMatchPicker {
 	 */
 	private $term;
 	/**
-	 * @var array(Title) potential near matches
+	 * @var array[] Potential near matches
 	 */
 	private $titles;
 
@@ -40,7 +43,7 @@ class NearMatchPicker {
 	 *
 	 * @param Language $language to use during normalization process
 	 * @param string $term the search term
-	 * @param array with optional keys:
+	 * @param array[] $titles Array of arrays, each with optional keys:
 	 *   titleMatch => a title if the title matched
 	 *   redirectMatches => an array of redirect matches, one per matched redirect
 	 */
@@ -107,6 +110,9 @@ class NearMatchPicker {
 
 	/**
 	 * Check a single title's worth of matches.  The big thing here is that titles cannot compete with themselves.
+	 * @param callable $transformer
+	 * @param string $transformedTerm
+	 * @param array $allMatchedTitles
 	 * @return null|Title null if no title matches and the actual title (either of the page or of a redirect to the
 	 *       page) if one did match
 	 */
@@ -125,6 +131,12 @@ class NearMatchPicker {
 		return null;
 	}
 
+	/**
+	 * @param callable $transformer
+	 * @param string $transformedTerm
+	 * @param Title $matchedTitle
+	 * @return bool
+	 */
 	private function checkOneMatch( $transformer, $transformedTerm, $matchedTitle ) {
 		$transformedTitle = call_user_func( $transformer, $matchedTitle->getText() );
 		return $transformedTerm === $transformedTitle;

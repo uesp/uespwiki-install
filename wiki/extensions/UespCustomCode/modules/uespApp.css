@@ -42,3 +42,6 @@ div#content {
 #mf-main-page img[alt="Mainpage-logo.png"] {
     width: 320px !important;
 }
+#footer-info-mobile-switcher {
+	display: none;
+}

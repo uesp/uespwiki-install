@@ -3,12 +3,15 @@
 	"author": [
 		"[http://www.uesp.net/wiki/User:RobinHood70 RobinHood70]"
 	],
-	"version": "1.26",
+	"version": "1.27",
 	"url": "https://www.mediawiki.org/wiki/Skin:Vector",
 	"descriptionmsg": "uespvector-skin-desc",
 	"namemsg": "skinname-uespvector",
 	"license-name": "GPL-2.0+",
 	"type": "skin",
+	"requires": {
+		"MediaWiki": ">= 1.25.0"
+	},
 	"ConfigRegistry": {
 		"vector": "GlobalVarConfig::newInstance",
 		"uespvector": "GlobalVarConfig::newInstance"
@@ -28,12 +31,23 @@
 	},
 	"ResourceModules": {
 		"skins.vector.styles": {
+			"targets": [ "desktop", "mobile" ],
+			"position": "top",
 			"styles": {
 				"../Vector/screen.less": {
 					"media": "screen"
 				},
 				"../Vector/screen-hd.less": {
 					"media": "screen and (min-width: 982px)"
+				}
+			}
+		},
+		"skins.vector.styles.responsive": {
+			"targets": [ "desktop", "mobile" ],
+			"position": "top",
+			"styles": {
+				"../Vector/responsive.less": {
+					"media": "screen and (max-width: 768px)"
 				}
 			}
 		},
@@ -73,10 +87,10 @@
 			"jquery.ui.spinner": "../Vector/skinStyles/jquery.ui/jquery.ui.spinner.css",
 			"jquery.ui.tabs": "../Vector/skinStyles/jquery.ui/jquery.ui.tabs.css",
 			"jquery.ui.tooltips": "../Vector/skinStyles/jquery.ui/jquery.ui.tooltips.css",
-			"mediawiki.notification": "../Vector/skinStyles/mediawiki.notification.less",
-			"+mediawiki.sectionAnchor": "../Vector/skinStyles/mediawiki.sectionAnchor.less",
+			"+mediawiki.notification": "../Vector/skinStyles/mediawiki.notification.less",
+			"+oojs-ui-core.styles": "../Vector/skinStyles/ooui.less",
 			"mediawiki.special": "../Vector/skinStyles/mediawiki.special.less",
-			"mediawiki.special.preferences": "../Vector/skinStyles/mediawiki.special.preferences.less"
+			"+mediawiki.special.preferences.styles": "../Vector/skinStyles/mediawiki.special.preferences.styles.less"
 		}
 	},
 	"config": {

@@ -1,8 +1,8 @@
 ( function ( M, $ ) {
 
-	var Skin,
-		browser = M.require( 'mobile.browser/browser' ),
-		View = M.require( 'mobile.view/View' );
+	var browser = M.require( 'mobile.browser/browser' ),
+		View = M.require( 'mobile.view/View' ),
+		Icon = M.require( 'mobile.startup/Icon' );
 
 	/**
 	 * Representation of the current skin being rendered.
@@ -12,7 +12,48 @@
 	 * @uses Browser
 	 * @uses Page
 	 */
-	Skin = View.extend( {
+	function Skin( options ) {
+		var self = this;
+
+		this.page = options.page;
+		this.name = options.name;
+		this.mainMenu = options.mainMenu;
+		View.call( this, options );
+		// Must be run after merging with defaults as must be defined.
+		this.tabletModules = options.tabletModules;
+
+		/**
+		 * Tests current window size and if suitable loads styles and scripts specific for larger devices
+		 *
+		 * @method
+		 * @ignore
+		 */
+		function loadWideScreenModules() {
+			if ( browser.isWideScreen() ) {
+				// Adjust screen for tablets
+				if ( self.page.inNamespace( '' ) ) {
+					mw.loader.using( self.tabletModules ).always( function () {
+						self.off( '_resize' );
+						self.emit.call( self, 'changed' );
+					} );
+				}
+			}
+		}
+		M.on( 'resize', $.proxy( this, 'emit', '_resize' ) );
+		this.on( '_resize', loadWideScreenModules );
+		this.emit( '_resize' );
+
+		if (
+			!mw.config.get( 'wgImagesDisabled' ) &&
+			mw.config.get( 'wgMFLazyLoadImages' )
+		) {
+			$( function () {
+				self.loadImages();
+			} );
+		}
+	}
+
+	OO.mfExtend( Skin, View, {
 		/**
 		 * @inheritdoc
 		 * Skin contains components that we do not control
@@ -95,40 +136,6 @@
 		/**
 		 * @inheritdoc
 		 */
-		initialize: function ( options ) {
-			var self = this;
-
-			this.page = options.page;
-			this.name = options.name;
-			this.mainMenu = options.mainMenu;
-			View.prototype.initialize.apply( this, arguments );
-			// Must be run after merging with defaults as must be defined.
-			this.tabletModules = options.tabletModules;
-
-			/**
-			 * Tests current window size and if suitable loads styles and scripts specific for larger devices
-			 *
-			 * @method
-			 * @ignore
-			 */
-			function loadWideScreenModules() {
-				if ( browser.isWideScreen() ) {
-					// Adjust screen for tablets
-					if ( self.page.inNamespace( '' ) ) {
-						mw.loader.using( self.tabletModules ).always( function () {
-							self.off( '_resize' );
-							self.emit.call( self, 'changed' );
-						} );
-					}
-				}
-			}
-			M.on( 'resize', $.proxy( this, 'emit', '_resize' ) );
-			this.on( '_resize', loadWideScreenModules );
-			this.emit( '_resize' );
-		},
-		/**
-		 * @inheritdoc
-		 */
 		postRender: function () {
 			var $el = this.$el;
 			if ( browser.supportsAnimations() ) {
@@ -157,6 +164,89 @@
 		 */
 		getMainMenu: function () {
 			return this.mainMenu;
+		},
+
+		/**
+		 * Load images on demand
+		 */
+		loadImages: function () {
+			var self = this,
+				imagePlaceholders = this.$( '#content' ).find( '.lazy-image-placeholder' ).toArray();
+
+			/**
+			 * Load remaining images in viewport
+			 */
+			function _loadImages() {
+
+				imagePlaceholders = $.grep( imagePlaceholders, function ( placeholder ) {
+					var $placeholder = $( placeholder );
+
+					if (
+						mw.viewport.isElementInViewport( placeholder ) &&
+						$placeholder.is( ':visible' )
+					) {
+						self.loadImage( $placeholder );
+						return false;
+					}
+
+					return true;
+				} );
+
+				if ( !imagePlaceholders.length ) {
+					M.off( 'scroll', _loadImages );
+					M.off( 'resize', _loadImages );
+					M.off( 'section-toggled', _loadImages );
+					self.off( 'changed', _loadImages );
+				}
+
+			}
+
+			M.on( 'scroll', _loadImages );
+			M.on( 'resize', _loadImages );
+			M.on( 'section-toggled', _loadImages );
+			this.on( 'changed', _loadImages );
+
+			_loadImages();
+		},
+
+		/**
+		 * Load an image on demand
+		 * @param {jQuery.Object} $placeholder
+		 */
+		loadImage: function ( $placeholder ) {
+			var
+				width = $placeholder.attr( 'data-width' ),
+				height = $placeholder.attr( 'data-height' ),
+				// Grab the image markup from the HTML only fallback
+				// Image will start downloading
+				$downloadingImage = $( '<img/>' );
+
+			if ( width > 80 && height > 80 ) {
+				new Icon( {
+					name: 'spinner',
+					additionalClassNames: 'loading'
+				} ).appendTo( $placeholder );
+			}
+
+			// When the image has loaded
+			$downloadingImage.on( 'load', function () {
+				// Swap the HTML inside the placeholder (to keep the layout and
+				// dimensions the same and not trigger layouts
+				$placeholder.empty().append( $downloadingImage );
+				// Set the loaded class after insertion of the HTML to trigger the
+				// animations.
+				$placeholder.addClass( 'loaded' );
+			} );
+
+			// Trigger image download after binding the load handler
+			$downloadingImage.attr( {
+				'class': $placeholder.attr( 'data-class' ),
+				width: width,
+				height: height,
+				src: $placeholder.attr( 'data-src' ),
+				alt: $placeholder.attr( 'data-alt' ),
+				srcset: $placeholder.attr( 'data-srcset' )
+			} );
 		},
 
 		/**
@@ -191,6 +281,6 @@
 		}
 	} );
 
-	M.define( 'mobile.startup/Skin', Skin ).deprecate( 'Skin' );
+	M.define( 'mobile.startup/Skin', Skin );
 
 }( mw.mobileFrontend, jQuery ) );

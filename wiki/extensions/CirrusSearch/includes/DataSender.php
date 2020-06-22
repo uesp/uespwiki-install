@@ -29,6 +29,12 @@ use WikiPage;
 class DataSender extends ElasticsearchIntermediary {
 	const ALL_INDEXES_FROZEN_NAME = 'freeze_everything';
 
+	/** @var \Psr\Log\LoggerInterface */
+	private $log;
+
+	/** @var \Psr\Log\LoggerInterface */
+	private $failedLog;
+
 	/**
 	 * @var Connection
 	 */
@@ -79,7 +85,7 @@ class DataSender extends ElasticsearchIntermediary {
 			$bulk->send();
 		}
 
-		// Ensure our freeze is immediatly seen (mostly for testing
+		// Ensure our freeze is immediately seen (mostly for testing
 		// purposes)
 		$type->getIndex()->refresh();
 	}
@@ -128,17 +134,15 @@ class DataSender extends ElasticsearchIntermediary {
 		$resp = $this->connection->getFrozenIndexNameType()->search( $ids );
 
 		if ( $resp->count() === 0 ) {
-			$this->log->debug( "Allowed writes to " . implode( ',', $indexes ) );
 			return true;
 		} else {
-			$this->log->debug( "Denied writes to " . implode( ',', $indexes ) );
 			return false;
 		}
 	}
 
 	/**
 	 * @param string $indexType type of index to which to send $data
-	 * @param array(\Elastica\Script or \Elastica\Document) $data documents to send
+	 * @param (\Elastica\Script|\Elastica\Document)[] $data documents to send
 	 * @param null|string $shardTimeout How long should elaticsearch wait for an offline
 	 *   shard.  Defaults to null, meaning don't wait.  Null is more efficient when sending
 	 *   multiple pages because Cirrus will use Elasticsearch's bulk API.  Timeout is in
@@ -157,10 +161,11 @@ class DataSender extends ElasticsearchIntermediary {
 
 		$exception = null;
 		try {
-			$pageType = $this->connection->getPageType( wfWikiId(), $indexType );
+			$pageType = $this->connection->getPageType( wfWikiID(), $indexType );
 			$this->start( "sending {numBulk} documents to the {indexType} index", array(
 				'numBulk' => $documentCount,
 				'indexType' => $indexType,
+				'queryType' => 'send_data_write',
 			) );
 			$bulk = new \Elastica\Bulk( $this->connection->getClient() );
 			if ( $shardTimeout ) {
@@ -170,11 +175,11 @@ class DataSender extends ElasticsearchIntermediary {
 			$bulk->addData( $data, 'update' );
 			$bulk->send();
 		} catch ( ResponseException $e ) {
-			$failedLog = $this->failedLog;
 			$missing = $this->bulkResponseExceptionIsJustDocumentMissing( $e,
-				function( $id ) use ( $failedLog ) {
-					$failedLog->warning( "Updating a page that doesn't "
-						. " yet exist in Elasticsearch: $id"
+				function( $id ) use ( $e ) {
+					$this->log->info(
+						"Updating a page that doesn't yet exist in Elasticsearch: {id}",
+						array( 'id' => $id )
 					);
 				}
 			);
@@ -194,8 +199,8 @@ class DataSender extends ElasticsearchIntermediary {
 				return $d->getId();
 			}, $data );
 			$this->failedLog->warning(
-				'Update for doc ids: ' . implode( ',', $documentIds ) .
-				'; error message was: ' . $exception->getMessage()
+				'Update for doc ids: ' . implode( ',', $documentIds ),
+				array( 'exception' => $exception )
 			);
 			return Status::newFatal( 'cirrussearch-failed-send-data' );
 		}
@@ -204,7 +209,7 @@ class DataSender extends ElasticsearchIntermediary {
 	/**
 	 * Send delete requests to Elasticsearch.
 	 *
-	 * @param array(int) $ids ids to delete from Elasticsearch
+	 * @param int[] $ids ids to delete from Elasticsearch
 	 * @param string|null $indexType index from which to delete.  null means all.
 	 * @return Status
 	 */
@@ -226,15 +231,16 @@ class DataSender extends ElasticsearchIntermediary {
 					$this->start( "deleting {numIds} from {indexType}", array(
 						'numIds' => $idCount,
 						'indexType' => $indexType,
+						'queryType' => 'send_deletes',
 					) );
-					$this->connection->getPageType( wfWikiId(), $indexType )->deleteIds( $ids );
+					$this->connection->getPageType( wfWikiID(), $indexType )->deleteIds( $ids );
 					$this->success();
 				}
 			} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 				$this->failure( $e );
 				$this->failedLog->warning(
-					'Delete for ids: ' . implode( ',', $ids ) .
-					'; error message was: ' . $e->getMessage()
+					'Delete for ids: ' . implode( ',', $ids ),
+					array( 'exception' => $e )
 				);
 				return Status::newFatal( 'cirrussearch-failed-send-deletes' );
 			}
@@ -246,7 +252,7 @@ class DataSender extends ElasticsearchIntermediary {
 	/**
 	 * @param string $localSite The wikiId to add/remove from local_sites_with_dupe
 	 * @param string $indexName The name of the index to perform updates to
-	 * @param aray $otherActions A list of arrays each containing the id within elasticsearch ('id') and the article id within $localSite ('articleId')
+	 * @param array $otherActions A list of arrays each containing the id within elasticsearch ('id') and the article id within $localSite ('articleId')
 	 * @return Status
 	 */
 	public function sendOtherIndexUpdates( $localSite, $indexName, array $otherActions ) {
@@ -258,11 +264,10 @@ class DataSender extends ElasticsearchIntermediary {
 		$status = Status::newGood();
 		foreach ( array_chunk( $otherActions, 30 ) as $updates ) {
 			$bulk = new \Elastica\Bulk( $client );
-			$articleIDs = array();
+			$titles = array();
 			foreach ( $updates as $update ) {
 				$title = Title::makeTitle( $update['ns'], $update['dbKey'] );
 				$action = $this->decideRequiredSetAction( $title );
-				$this->log->debug( "Performing `$action` for {$update['dbKey']} in ns {$update['ns']} on $localSite against id ${update['id']} in $indexName" );
 				$script = new \Elastica\Script(
 					'super_detect_noop',
 					array(
@@ -284,7 +289,8 @@ class DataSender extends ElasticsearchIntermediary {
 			$exception = null;
 			try {
 				$this->start( "updating {numBulk} documents in other indexes", array(
-					'numBulk' => count( $updates )
+					'numBulk' => count( $updates ),
+					'queryType' => 'send_data_other_idx_write',
 				) );
 				$bulk->send();
 			} catch ( \Elastica\Exception\Bulk\ResponseException $e ) {
@@ -297,10 +303,10 @@ class DataSender extends ElasticsearchIntermediary {
 			if ( $exception === null ) {
 				$this->success();
 			} else {
-				$this->failure( $e );
+				$this->failure( $exception );
 				$this->failedLog->warning(
-					"OtherIndex update for articles: "
-					. implode( ',', $titles )
+					"OtherIndex update for articles: " . implode( ',', $titles ),
+					array( 'exception' => $exception )
 				);
 				$status->error( 'cirrussearch-failed-update-otherindex' );
 			}
@@ -332,7 +338,7 @@ class DataSender extends ElasticsearchIntermediary {
 	 * document is missing failures.
 	 *
 	 * @param ResponseException $exception exception to check
-	 * @param callback|null $logCallback Callback in which to do some logging.
+	 * @param callable|null $logCallback Callback in which to do some logging.
 	 *   Callback will be passed the id of the missing document.
 	 * @return bool
 	 */
@@ -349,16 +355,24 @@ class DataSender extends ElasticsearchIntermediary {
 			} elseif ( $logCallback ) {
 				// This is generally not an error but we should
 				// log it to see how many we get
-				$id = $bulkResponse->getAction()->getData()->getId();
+				$action = $bulkResponse->getAction();
+				$id = 'missing';
+				if ( $action instanceof \Elastica\Bulk\Action\AbstractDocument ) {
+					$id = $action->getData()->getId();
+				}
 				call_user_func( $logCallback, $id );
 			}
 		}
 		return $justDocumentMissing;
 	}
 
+	/**
+	 * @param string[] $indexes
+	 * @return string[]
+	 */
 	public function indexesToIndexNames( array $indexes ) {
 		$names = array();
-		$wikiId = wfWikiId();
+		$wikiId = wfWikiID();
 		foreach ( $indexes as $indexType ) {
 			$names[] = $this->connection->getIndexName( $wikiId, $indexType );
 		}

@@ -1,10 +1,10 @@
 ( function ( M, $ ) {
 	var Overlay = M.require( 'mobile.overlays/Overlay' ),
+		PageGateway = M.require( 'mobile.startup/PageGateway' ),
 		browser = M.require( 'mobile.browser/browser' ),
 		Icon = M.require( 'mobile.startup/Icon' ),
 		toast = M.require( 'mobile.toast/toast' ),
-		user = M.require( 'mobile.user/user' ),
-		EditorOverlayBase;
+		user = M.require( 'mobile.user/user' );
 
 	/**
 	 * 'Edit' button
@@ -29,6 +29,12 @@
 	EditVeTool.prototype.onSelect = function () {
 		// will be overridden later
 	};
+	/**
+	 * Toolbar update state handler.
+	 */
+	EditVeTool.prototype.onUpdateState = function () {
+		// do nothing
+	};
 
 	/**
 	 * Base class for EditorOverlay
@@ -37,11 +43,44 @@
 	 * @uses Icon
 	 * @uses user
 	 */
-	EditorOverlayBase = Overlay.extend( {
+	function EditorOverlayBase( options ) {
+		var self = this;
+
+		if ( options.isNewPage ) {
+			options.placeholder = mw.msg( 'mobile-frontend-editor-placeholder-new-page', mw.user );
+		}
+		// change the message to request a summary when not in article namespace
+		if ( mw.config.get( 'wgNamespaceNumber' ) !== 0 ) {
+			options.summaryRequestMsg = mw.msg( 'mobile-frontend-editor-summary' );
+		}
+		this.pageGateway = new PageGateway( options.api );
+		this.editCount = user.getEditCount();
+		this.isNewPage = options.isNewPage;
+		this.isNewEditor = options.isNewEditor;
+		this.sectionId = options.sectionId;
+		this.config = mw.config.get( 'wgMFEditorOptions' );
+		this.sessionId = options.sessionId;
+		this.allowCloseWindow = mw.confirmCloseWindow( {
+			/** Returns true, if content has changed, otherwise false */
+			test: function () {
+				// Check if content has changed
+				return self.hasChanged();
+			},
+
+			/** Message to show the user, if content has changed */
+			message: mw.msg( 'mobile-frontend-editor-cancel-confirm' ),
+			/** Event namespace */
+			namespace: 'editwarning'
+		} );
+
+		Overlay.apply( this, arguments );
+	}
+
+	OO.mfExtend( EditorOverlayBase, Overlay, {
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
-		 * @cfg {PageApi} defaults.pageApi an api module to retrieve pages.
+		 * @cfg {mw.Api} defaults.api to interact with
 		 * @cfg {Boolean} defaults.hasToolbar Whether the editor has a toolbar or not. When
 		 *  disabled a header will be show instead.
 		 * @cfg {String} defaults.continueMsg Caption for the next button on edit form which takes
@@ -64,10 +103,8 @@
 		 * two different editing interfaces.
 		 * @cfg {String} defaults.licenseMsg Text and link of the license, under which this contribution will be
 		 * released to inform the user.
-		 * @cfg {SchemaEdit} defaults.editSchema Schema to log events to.
 		 */
 		defaults: $.extend( {}, Overlay.prototype.defaults, {
-			pageApi: undefined,
 			hasToolbar: false,
 			continueMsg: mw.msg( 'mobile-frontend-editor-continue' ),
 			cancelMsg: mw.msg( 'mobile-frontend-editor-cancel' ),
@@ -108,7 +145,7 @@
 		 * @param {Object} data
 		 */
 		log: function ( data ) {
-			return this.schema.log( $.extend( data, {
+			mw.track( 'mf.schemaEdit', $.extend( data, {
 				editor: this.editor,
 				editingSessionId: this.sessionId
 			} ) );
@@ -138,7 +175,7 @@
 				self = this;
 
 			// FIXME: use generic method for following 3 lines
-			this.options.pageApi.invalidatePage( title );
+			this.pageGateway.invalidatePage( title );
 
 			if ( this.isNewPage ) {
 				msg = 'mobile-frontend-editor-success-new-page';
@@ -153,53 +190,20 @@
 			// Ensure we don't lose this event when logging
 			this.log( {
 				action: 'saveSuccess'
-			} ).always( function () {
-				if ( self.sectionLine ) {
-					title = title + '#' + self.sectionLine;
-				}
-
-				$( window ).off( 'beforeunload.mfeditorwarning' );
-				window.location = mw.util.getUrl( title );
 			} );
+			if ( self.sectionLine ) {
+				title = title + '#' + self.sectionLine;
+			}
+
+			$( window ).off( 'beforeunload.mfeditorwarning' );
 
 			// Set a cookie for 30 days indicating that this user has edited from
 			// the mobile interface.
 			$.cookie( 'mobileEditor', 'true', {
 				expires: 30
 			} );
-		},
-		/** @inheritdoc **/
-		initialize: function ( options ) {
-			var self = this;
 
-			if ( options.isNewPage ) {
-				options.placeholder = mw.msg( 'mobile-frontend-editor-placeholder-new-page', mw.user );
-			}
-			// change the message to request a summary when not in article namespace
-			if ( mw.config.get( 'wgNamespaceNumber' ) !== 0 ) {
-				options.summaryRequestMsg = mw.msg( 'mobile-frontend-editor-summary' );
-			}
-			this.editCount = user.getEditCount();
-			this.isNewPage = options.isNewPage;
-			this.isNewEditor = options.isNewEditor;
-			this.sectionId = options.sectionId;
-			this.schema = options.editSchema;
-			this.config = mw.config.get( 'wgMFEditorOptions' );
-			this.sessionId = options.sessionId;
-			this.allowCloseWindow = mw.confirmCloseWindow( {
-				/** Returns true, if content has changed, otherwise false */
-				test: function () {
-					// Check if content has changed
-					return self.hasChanged();
-				},
-
-				/** Message to show the user, if content has changed */
-				message: mw.msg( 'mobile-frontend-editor-cancel-confirm' ),
-				/** Event namespace */
-				namespace: 'editwarning'
-			} );
-
-			Overlay.prototype.initialize.apply( this, arguments );
+			window.location = mw.util.getUrl( title );
 		},
 		/**
 		 * Report load errors back to the user. Silently record the error using EventLogging.
@@ -207,7 +211,7 @@
 		 * @param {String} text Text of message to display to user
 		 */
 		reportError: function ( text ) {
-			toast.show( text, 'toast error' );
+			toast.show( text, 'error' );
 		},
 		/**
 		 * Prepares the penultimate screen before saving.

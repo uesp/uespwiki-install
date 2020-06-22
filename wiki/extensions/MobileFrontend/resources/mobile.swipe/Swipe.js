@@ -1,12 +1,9 @@
 ( function ( M, $ ) {
-
-	var EventEmitter = M.require( 'mobile.oo/eventemitter' ),
-		Swipe;
-
 	/**
 	 * Class to assist a view in implementing swipe gestures on a specific element
 	 *
 	 * @class Swipe
+	 * @extends OO.EventEmitter
 	 *
 	 * Use this class in a view to help it do things on swipe gestures.
 	 *
@@ -20,9 +17,8 @@
 	 *     @example
 	 *     <code>
 	 *       var Swipe = M.require( 'mobile.swipe/Swipe' ),
-	 *         ImageOverlay = M.require( 'mobile.mediaViewer/ImageOverlay' ),
-	 *         ImageOverlayNew;
-	 *       ImageOverlayNew = ImageOverlay.extend( {
+	 *         ImageOverlay = M.require( 'mobile.mediaViewer/ImageOverlay' );
+	 *       OO.mfExtend( ImageOverlayNew, ImageOverlay, {
 	 *         //...
 	 *         initialize: function ( options ) {
 	 *           var self = this;
@@ -49,14 +45,19 @@
 	 *       } );
 	 *     </code>
 	 */
-	Swipe = EventEmitter.extend( {
+	function Swipe() {
+		Swipe.super.apply( this, arguments );
+		this.initialize.apply( this, arguments );
+	}
+	OO.inheritClass( Swipe, OO.EventEmitter );
+
+	OO.mfExtend( Swipe, {
 		/**
 		 * Constructor.
 		 * @param {Number} minDistance minimal distance in pixel between touchstart and touchend
 		 * to be recognized as a swipe event. Default: 200
 		 */
 		initialize: function ( minDistance ) {
-			EventEmitter.prototype.initialize.apply( this, arguments );
 			this.minDistance = minDistance || 200;
 		},
 		/**
@@ -141,5 +142,5 @@
 		}
 	} );
 
-	M.define( 'mobile.swipe/Swipe', Swipe ).deprecate( 'Swipe' );
+	M.define( 'mobile.swipe/Swipe', Swipe );
 }( mw.mobileFrontend, jQuery ) );

@@ -25,7 +25,6 @@
 
 //Recommended tab width when reading this file: 4. (mainly for multi-line spanning concatenated strings)
 
-
 class Tabs {
 	/**
 	 * Initiate the tags and parser function
@@ -251,7 +250,7 @@ class Tabs {
 		 * This is to allow any scripts to be able to check easily if the user has changed the shown tab at all,
 		 * by checking if this 0th input is checked.
 		 */
-		$labels = "<input type=\"radio\" form=\"tabs-inputform\" id=\"tabs-input-$count-0\" name=\"tabs-$count\" class=\"tabs-input tabs-input-0\" checked />";
+		$labels = "<input type=\"radio\" form=\"tabs-inputform\" id=\"tabs-input-$count-0\" name=\"tabs-$count\" class=\"tabs-input tabs-input-0\" checked/>";
 		$indices = array(); // this is to most accurately count the amount of <tab>s in this <tabs> tag.
 		foreach ($parser->tabsData['labels'] as $i => $n) {
 			$indices[] = $i;

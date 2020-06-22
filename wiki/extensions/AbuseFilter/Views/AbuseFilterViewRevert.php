@@ -124,7 +124,7 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 		$res = $dbr->select( 'abuse_filter_log', '*', $conds, __METHOD__ );
 
 		$results = array();
-		foreach( $res as $row ) {
+		foreach ( $res as $row ) {
 			// Don't revert if there was no action, or the action was global
 			if ( !$row->afl_actions || $row->afl_wiki != null ) {
 				continue;
@@ -191,22 +191,23 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 	 * @throws MWException
 	 */
 	function revertAction( $action, $result ) {
-		switch( $action ) {
+		switch ( $action ) {
 			case 'block':
-				$block = Block::newFromTarget( User::whoIs( $result['userid'] ) );
-				if ( !$block || $block->getBy() != AbuseFilter::getFilterUser()->getId() ) {
-					return false; // Not blocked by abuse filter.
+				$block = Block::newFromTarget( $result['user'] );
+				if ( !( $block && $block->getBy() == AbuseFilter::getFilterUser()->getId() ) ) {
+					// Not blocked by abuse filter
+					return false;
 				}
-
 				$block->delete();
-				$log = new LogPage( 'block' );
-				$log->addEntry(
-					'unblock',
-					Title::makeTitle( NS_USER, $result['user'] ),
+				$logEntry = new ManualLogEntry( 'block', 'unblock' );
+				$logEntry->setTarget( Title::makeTitle( NS_USER, $result['user'] ) );
+				$logEntry->setComment(
 					$this->msg(
 						'abusefilter-revert-reason', $this->mPage->mFilter, $this->mReason
 					)->inContentLanguage()->text()
 				);
+				$logEntry->setPerformer( $this->getUser() );
+				$logEntry->publish( $logEntry->insert() );
 				return true;
 			case 'blockautopromote':
 				ObjectCache::getMainStashInstance()->delete(

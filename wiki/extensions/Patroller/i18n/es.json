@@ -23,7 +23,7 @@
 	"patrol-reverted-ok": "La edición fue revertida.",
 	"patrol-reverted-failed": "La edición no pudo ser revertida.",
 	"patrol-skipped-ok": "Ignorando la edición.",
-	"patrol-reasons": "* Vandalismo simple\r\n* Prueba de usuario novato\r\n* Ver la página de discusión",
+	"patrol-reasons": "* Vandalismo simple\n* Prueba de usuario novato\n* Ver la página de discusión",
 	"patrol-another": "Mostrar otra edición (si está disponible).",
 	"patrol-stopped": "Has optado no marcar otra edición como verificada. $1",
 	"patrol-resume": "Haz click aquí para continuar.",

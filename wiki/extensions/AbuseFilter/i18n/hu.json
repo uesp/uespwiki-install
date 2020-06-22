@@ -10,7 +10,9 @@
 			"Misibacsi",
 			"Tacsipacsi",
 			"Tgr",
-			"Samat"
+			"Samat",
+			"Matma Rex",
+			"Wolf Rex"
 		]
 	},
 	"abusefilter-desc": "Automatikus heurisztikát alkalmaz a szerkesztésekre.",
@@ -134,7 +136,8 @@
 	"abusefilter-edit-subtitle-new": "Szűrő létrehozása",
 	"abusefilter-edit-oldwarning": "<strong>Most a szűrő egyik régebbi változatát szerkeszted. A megjelölt statisztikák a szűrő jelenlegi állapotát tükrözik. Ha elmented a változtatásokat, akkor azzal az összes köztes változatot felülírod.</strong> &bull; [[Special:AbuseFilter/history/$2|Vissza a szűrő laptörténetébe]].",
 	"abusefilter-edit-status-label": "Statisztikák:",
-	"abusefilter-edit-status": "{{PLURAL:$1|A legutolsó művelet esetén|Az utolsó $1 műveletnél}} ez a szűrő $2 ($3%) alkalommal talált egyezést.\nAz átlagos futási ideje $4 ms volt, és {{PLURAL:$5|egy|$5}} feltételt használt fel a feltételhatárból.",
+	"abusefilter-edit-status": "{{PLURAL:$1|A legutolsó művelet esetén|Az utolsó $1 műveletnél}} ez a szűrő $2 ($3%) alkalommal talált egyezést.",
+	"abusefilter-edit-status-profile": "{{PLURAL:$1|A legutolsó művelet esetén|Az utolsó $1 műveletnél}} ez a szűrő $2 ($3%) alkalommal talált egyezést.\nAz átlagos futási ideje $4 ms volt, és {{PLURAL:$5|egy|$5}} feltételt használt fel a feltételhatárból.",
 	"abusefilter-edit-throttled": "'''Figyelem''': Ezt a szűrő biztonsági okokból automatikusan ki lett kapcsolva,\nmert a műveletek több, mint $1%-ánál egyezést talált.",
 	"abusefilter-edit-new": "Új szűrő",
 	"abusefilter-edit-save": "Szűrő mentése",
@@ -398,5 +401,7 @@
 	"abusefilter-import-submit": "Adatok importálása",
 	"abusefilter-group-default": "Alapértelmezett",
 	"abusefilter-http-error": "HTTP hiba történt: $1",
-	"apihelp-abusefiltercheckmatch-description": "vars, rcid vagy logid szükséges, de csak egyet lehet használni."
+	"apihelp-abusefiltercheckmatch-description": "vars, rcid vagy logid szükséges, de csak egyet lehet használni.",
+	"apihelp-query+abusefilters-example-1": "Az engedélyezett nyilvános szűrők listázása.",
+	"apihelp-query+abuselog-example-1": "Friss naplóbejegyzések mutatása"
 }

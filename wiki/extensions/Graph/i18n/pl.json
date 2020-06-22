@@ -1,15 +1,28 @@
 {
 	"@metadata": {
 		"authors": [
-			"Chrumps"
+			"Chrumps",
+			"The Polish",
+			"Michał Sobkowski"
 		]
 	},
+	"graphsandbox": "Brudnopis graficzny",
+	"graph-tracking-category": "Strony z diagramami",
 	"graph-tracking-category-desc": "Strona zawiera znacznik <code><nowiki><graph></nowiki></code>.",
+	"graph-broken-category": "Strony z zepsutymi diagramami",
 	"graph-broken-category-desc": "Strona zawiera nieprawidłowo zastosowany znacznik <code><nowiki><graph></nowiki></code>.",
-	"graph-ve-dialog-edit-apply": "Zastosuj",
-	"graph-ve-dialog-edit-cancel": "Anuluj",
+	"graph-obsolete-category": "Strony z przestarzałymi diagramami Vega 1.0",
+	"graph-obsolete-category-desc": "Strona zawiera znacznik <code><nowiki><graph></nowiki></code>, który powinien zostać zaktualizowany do wersji 2.",
+	"graph-ve-dialog-edit-height": "Wysokość",
 	"graph-ve-dialog-edit-json-invalid": "Nieprawidłowy ciąg znaków JSON",
+	"graph-ve-dialog-edit-padding-auto": "Automatyczne wcięcie",
+	"graph-ve-dialog-edit-padding-fieldset": "Wcięcie",
+	"graph-ve-dialog-edit-padding-table-unit": "Piksele",
 	"graph-ve-dialog-edit-page-data": "Dane",
 	"graph-ve-dialog-edit-page-raw": "Surowe dane",
-	"graph-ve-dialog-edit-table-row-delete": "Usuwanie wiersza"
+	"graph-ve-dialog-edit-size-fieldset": "Rozmiar",
+	"graph-ve-dialog-edit-size-table-unit": "Piksele",
+	"graph-ve-dialog-edit-table-row-delete": "Usuwanie wiersza",
+	"graph-ve-dialog-edit-width": "Szerokość",
+	"graph-ve-empty-graph": "Pusty wykres"
 }

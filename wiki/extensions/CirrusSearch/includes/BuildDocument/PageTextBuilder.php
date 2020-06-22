@@ -2,7 +2,8 @@
 
 namespace CirrusSearch\BuildDocument;
 
-use HtmlFormatter;
+use Content;
+use HtmlFormatter\HtmlFormatter;
 use MediaWiki\Logger\LoggerFactory;
 use ParserOutput;
 use Sanitizer;
@@ -27,18 +28,18 @@ use Sanitizer;
  */
 class PageTextBuilder extends ParseBuilder {
 	/**
-	 * @var array selectors to elements that are excluded entirely from search
+	 * @var string[] selectors to elements that are excluded entirely from search
 	 */
 	private $excludedElementSelectors = array(
 		'audio', 'video',       // "it looks like you don't have javascript enabled..." do not need to index
 		'sup.reference',        // The [1] for references
-		'.mw-cite-backlink',    // The ↑ next to refenences in the references section
+		'.mw-cite-backlink',    // The ↑ next to references in the references section
 		'h1', 'h2', 'h3',       // Headings are already indexed in their own field.
 		'h5', 'h6', 'h4',
 		'.autocollapse',        // Collapsed fields are hidden by default so we don't want them showing up.
 	);
 	/**
-	 * @var array selectors to elements that are considered auxiliary to article text for search
+	 * @var string[] selectors to elements that are considered auxiliary to article text for search
 	 */
 	private $auxiliaryElementSelectors = array(
 		'.thumbcaption',        // Thumbnail captions aren't really part of the text proper
@@ -48,47 +49,43 @@ class PageTextBuilder extends ParseBuilder {
 		'.searchaux',           // New class users can use to mark stuff as auxiliary to searches.
 	);
 
-	public function __construct( $doc, $content, $parserOutput ) {
+	/**
+	 * @param \Elastica\Document $doc
+	 * @param Content $content
+	 * @param ParserOutput $parserOutput
+	 */
+	public function __construct( \Elastica\Document $doc, Content $content, ParserOutput $parserOutput ) {
 		parent::__construct( $doc, null, $content, $parserOutput );
 	}
 
+	/**
+	 * @return \Elastica\Document
+	 */
 	public function build() {
 		list( $text, $opening, $auxiliary ) = $this->buildTextToIndex();
-		$this->doc->add( 'text', $text );
-		$this->doc->add( 'opening_text', $opening );
-		$this->doc->add( 'auxiliary_text', $auxiliary );
-		$this->doc->add( 'text_bytes', $this->content->getSize() );
-		$this->doc->add( 'source_text', $this->buildSourceTextToIndex() );
+		$this->doc->set( 'text', $text );
+		$this->doc->set( 'opening_text', $opening );
+		$this->doc->set( 'auxiliary_text', $auxiliary );
+		$this->doc->set( 'text_bytes', $this->content->getSize() );
+		$this->doc->set( 'source_text', $this->content->getTextForSearchIndex() );
 
 		return $this->doc;
 	}
 
 	/**
 	 * Fetch text to index. If $content is wikitext then render and strip things from it.
-	 * Otherwise delegate to the $content itself. Then trim and sanitize the result.
+	 * Otherwise delegate to the $content itself.
+	 *
+	 * @return array Three tuple of (text, opening, auxiliary). Text is always string. Opening
+	 *  is string or null. Auxiliary is string[].
 	 */
 	private function buildTextToIndex() {
 		switch ( $this->content->getModel() ) {
 			case CONTENT_MODEL_WIKITEXT:
 				return $this->formatWikitext( $this->parserOutput );
 			default:
-				$text = trim( Sanitizer::stripAllTags( $this->content->getTextForSearchIndex() ) );
+				$text = $this->content->getTextForSearchIndex();
 				return array( $text, null, array() );
-		}
-
-		return $text;
-	}
-
-	/**
-	 * Some sorts of content (basically wikitext) have expanded and
-	 * unexpanded forms.
-	 */
-	private function buildSourceTextToIndex() {
-		switch ( $this->content->getModel() ) {
-			case CONTENT_MODEL_WIKITEXT:
-				return $this->content->getTextForSearchIndex();
-			default:
-				return null;
 		}
 	}
 
@@ -110,6 +107,7 @@ class PageTextBuilder extends ParseBuilder {
 		switch ( $wgCirrusSearchBoostOpening ) {
 		case 'first_heading':
 			$opening = $this->extractHeadingBeforeFirstHeading( $text );
+			break;
 		case 'none':
 			break;
 		default:
@@ -126,29 +124,26 @@ class PageTextBuilder extends ParseBuilder {
 
 		// Strip elements from the page that we never want in the search text.
 		$formatter->remove( $this->excludedElementSelectors );
-		$filterResult = $formatter->filterContent();
-		if ( $filterResult === null ) {
-			// We're running against Mediawiki < 1.24wm10 which won't support auxiliary text
-			// because it can't extract it using the HtmlFormatter.  We'll just set text to
-			// all the text.
-			$allText = trim( Sanitizer::stripAllTags( $formatter->getText() ) );
-			$auxiliary = array();
-		} else {
-			// Strip elements from the page that are auxiliary text.  These will still be
-			// searched but matches will be ranked lower and non-auxiliary matches will be
-			// prefered in highlighting.
-			$formatter->remove( $this->auxiliaryElementSelectors );
-			$auxiliaryElements = $formatter->filterContent();
-			$allText = trim( Sanitizer::stripAllTags( $formatter->getText() ) );
-			$auxiliary = array();
-			foreach ( $auxiliaryElements as $auxiliaryElement ) {
-				$auxiliary[] = trim( Sanitizer::stripAllTags( $formatter->getText( $auxiliaryElement ) ) );
-			}
+		$formatter->filterContent();
+
+		// Strip elements from the page that are auxiliary text.  These will still be
+		// searched but matches will be ranked lower and non-auxiliary matches will be
+		// preferred in highlighting.
+		$formatter->remove( $this->auxiliaryElementSelectors );
+		$auxiliaryElements = $formatter->filterContent();
+		$allText = trim( Sanitizer::stripAllTags( $formatter->getText() ) );
+		$auxiliary = array();
+		foreach ( $auxiliaryElements as $auxiliaryElement ) {
+			$auxiliary[] = trim( Sanitizer::stripAllTags( $formatter->getText( $auxiliaryElement ) ) );
 		}
 
 		return array( $allText, $opening, $auxiliary );
 	}
 
+	/**
+	 * @param string $text
+	 * @return string|null
+	 */
 	private function extractHeadingBeforeFirstHeading( $text ) {
 		$matches = array();
 		if ( !preg_match( '/<h[123456]>/', $text, $matches, PREG_OFFSET_CAPTURE ) ) {

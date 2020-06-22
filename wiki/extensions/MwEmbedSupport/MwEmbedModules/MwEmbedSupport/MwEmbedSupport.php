@@ -17,6 +17,7 @@ return array(
 	),
 	"Spinner" => array(
 		'scripts' => 'jquery.loadingSpinner/Spinner.js',
+		'dependencies' => array( 'mediawiki.util' ),
 	),
 	'iScroll' => array(
 		'scripts' => 'iscroll/src/iscroll.js',

@@ -2,8 +2,8 @@
 
 namespace CirrusSearch;
 
+use Config;
 use RequestContext;
-use SiteConfiguration;
 
 /**
  * Configuration class encapsulating Searcher environment.
@@ -13,7 +13,7 @@ use SiteConfiguration;
 class SearchConfig implements \Config {
 	/**
 	 * Override settings
-	 * @var array
+	 * @var Config
 	 */
 	private $source;
 
@@ -30,9 +30,15 @@ class SearchConfig implements \Config {
 	private $interwiki;
 
 	/**
+	 * Wiki id or null for current wiki
+	 * @var string|null
+	 */
+	private $wikiId;
+
+	/**
 	 * Create new search config for current or other wiki.
-	 * @param string $overrideWiki Interwiki link name for wiki
-	 * @param string $overrideName DB name for the wiki
+	 * @param string|null $overrideWiki Interwiki link name for wiki
+	 * @param string|null $overrideName DB name for the wiki
 	 */
 	public function __construct( $overrideWiki = null, $overrideName = null ) {
 		$this->interwiki = $overrideWiki;
@@ -47,7 +53,7 @@ class SearchConfig implements \Config {
 			}
 		}
 		$this->source = new \GlobalVarConfig();
-		$this->wikiId = wfWikiId();
+		$this->wikiId = wfWikiID();
 	}
 
 	/**
@@ -73,10 +79,18 @@ class SearchConfig implements \Config {
 		return $wgConf->getConfig( $wiki, $cirrusVars );
 	}
 
+	/**
+	 * @param string $name
+	 * @return bool
+	 */
 	public function has($name) {
 		return $this->source->has( $this->prefix . $name );
 	}
 
+	/**
+	 * @param string $name
+	 * @return mixed
+	 */
 	public function get($name) {
 		if ( !$this->source->has( $this->prefix . $name ) ) {
 			return null;
@@ -86,7 +100,7 @@ class SearchConfig implements \Config {
 
 	/**
 	 * Produce new configuration from globals
-	 * @return \CirrusSearch\SearchConfig
+	 * @return SearchConfig
 	 */
 	public static function newFromGlobals() {
 		return new self();
@@ -138,5 +152,13 @@ class SearchConfig implements \Config {
 			$data = $data[$el];
 		}
 		return $data;
+	}
+
+	/**
+	 * For Unit tests
+	 * @param Config $source Config override source
+	 */
+	protected function setSource( Config $source ) {
+		$this->source = $source;
 	}
 }

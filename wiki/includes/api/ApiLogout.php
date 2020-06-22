@@ -24,6 +24,8 @@
  * @file
  */
 
+use MediaWiki\Session\BotPasswordSessionProvider;
+
 /**
  * API module to allow users to log out of the wiki. API equivalent of
  * Special:Userlogout.
@@ -33,13 +35,42 @@
 class ApiLogout extends ApiBase {
 
 	public function execute() {
+		$session = MediaWiki\Session\SessionManager::getGlobalSession();
+
+		// Handle bot password logout specially
+		if ( $session->getProvider() instanceof BotPasswordSessionProvider ) {
+			$session->unpersist();
+			return;
+		}
+
+		// Make sure it's possible to log out
+		if ( !$session->canSetUser() ) {
+			$this->dieUsage(
+				'Cannot log out when using ' .
+					$session->getProvider()->describe( Language::factory( 'en' ) ),
+				'cannotlogout'
+			);
+		}
+
 		$user = $this->getUser();
 		$oldName = $user->getName();
 		$user->logout();
 
 		// Give extensions to do something after user logout
 		$injected_html = '';
-		Hooks::run( 'UserLogoutComplete', array( &$user, &$injected_html, $oldName ) );
+		Hooks::run( 'UserLogoutComplete', [ &$user, &$injected_html, $oldName ] );
+	}
+
+	public function mustBePosted() {
+		return true;
+	}
+
+	public function needsToken() {
+		return 'csrf';
+	}
+
+	protected function getWebUITokenSalt( array $params ) {
+		return 'logoutToken';
 	}
 
 	public function isReadMode() {
@@ -47,10 +78,10 @@ class ApiLogout extends ApiBase {
 	}
 
 	protected function getExamplesMessages() {
-		return array(
-			'action=logout'
+		return [
+			'action=logout&token=123ABC'
 				=> 'apihelp-logout-example-logout',
-		);
+		];
 	}
 
 	public function getHelpUrls() {

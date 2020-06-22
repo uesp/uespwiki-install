@@ -11,7 +11,8 @@ class SpecialMobileOptions extends MobileSpecialPage {
 	private $returnToTitle;
 	/** @var boolean $hasDesktopVersion Whether this special page has a desktop version or not */
 	protected $hasDesktopVersion = true;
-	/** @var array $options Array of options */
+	/** @var array $options Used in the execute() function as a map of subpages to
+	 functions that are executed when the request method is defined. */
 	private $options = array(
 		'Language' => array( 'get' => 'chooseLanguage' ),
 	);
@@ -23,6 +24,10 @@ class SpecialMobileOptions extends MobileSpecialPage {
 	 */
 	public function __construct() {
 		parent::__construct( 'MobileOptions' );
+	}
+
+	public function doesWrites() {
+		return true;
 	}
 
 	/**
@@ -42,14 +47,17 @@ class SpecialMobileOptions extends MobileSpecialPage {
 		$this->setHeaders();
 		$context->setForceMobileView( true );
 		$context->setContentTransformations( false );
+		// check, if the subpage has a registered function, that needs to be executed
 		if ( isset( $this->options[$par] ) ) {
 			$option = $this->options[$par];
 
+			// select the correct function for the given request method (post, get)
 			if ( $this->getRequest()->wasPosted() && isset( $option['post'] ) ) {
 				$func = $option['post'];
 			} else {
 				$func = $option['get'];
 			}
+			// run the function
 			$this->$func();
 		} else {
 			if ( $this->getRequest()->wasPosted() ) {
@@ -154,7 +162,7 @@ HTML;
 		$language = $this->getLanguage();
 		foreach ( Interwiki::getAllPrefixes( true ) as $interwiki ) {
 			$code = $interwiki['iw_prefix'];
-			$name = $language->fetchLanguageName( $code );
+			$name = Language::fetchLanguageName( $code, $language->getCode() );
 			if ( !$name ) {
 				continue;
 			}
@@ -187,7 +195,8 @@ HTML;
 	}
 
 	/**
-	 * Render the language selector special page
+	 * Render the language selector special page, callable through Special:MobileOptions/Language
+	 * See the $options member variable of this class.
 	 */
 	private function chooseLanguage() {
 		$out = $this->getOutput();
@@ -201,7 +210,7 @@ HTML;
 	 */
 	private function submitSettingsForm() {
 		$schema = 'MobileOptionsTracking';
-		$schemaRevision = 8101982;
+		$schemaRevision = 14003392;
 		$schemaData = array(
 			'action' => 'success',
 			'images' => "nochange",
@@ -226,6 +235,7 @@ HTML;
 			return;
 		}
 		wfIncrStats( 'mobile.options.saves' );
+
 		if ( $request->getBool( 'enableBeta' ) ) {
 			$group = 'beta';
 			if ( !$context->isBetaGroupMember() ) {
@@ -276,5 +286,9 @@ HTML;
 		} else {
 			return $t->getLocalURL( $params );
 		}
+	}
+
+	public function getSubpagesForPrefixSearch() {
+		return array_keys( $this->options );
 	}
 }

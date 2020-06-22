@@ -3,17 +3,14 @@
 namespace CirrusSearch;
 
 use ApiMain;
-use BetaFeatures;
+use ApiOpenSearch;
 use CirrusSearch;
 use CirrusSearch\Search\FancyTitleResultsType;
-use CirrusSearch\Search\TitleResultsType;
-use ConfigFactory;
 use DeferredUpdates;
 use JobQueueGroup;
 use LinksUpdate;
 use OutputPage;
-use ResourceLoader;
-use Skin;
+use MediaWiki\MediaWikiServices;
 use SpecialSearch;
 use Title;
 use RecursiveDirectoryIterator;
@@ -46,12 +43,19 @@ use Html;
  */
 class Hooks {
 	/**
-	 * @var array(string) Destination of titles being moved (the ->getPrefixedDBkey() form).
+	 * @var string[] Destination of titles being moved (the ->getPrefixedDBkey() form).
 	 */
 	private static $movingTitles = array();
 
 	/**
 	 * Hooked to call initialize after the user is set up.
+	 *
+	 * @param Title $title
+	 * @param \Article $unused
+	 * @param OutputPage $outputPage
+	 * @param User $user
+	 * @param \WebRequest $request
+	 * @param \MediaWiki $mediaWiki
 	 * @return bool
 	 */
 	public static function onBeforeInitialize( $title, $unused, $outputPage, $user, $request, $mediaWiki ) {
@@ -74,7 +78,7 @@ class Hooks {
 	 *
 	 * @param WebRequest $request
 	 */
-	private static function initializeForRequest( $request ) {
+	private static function initializeForRequest( WebRequest $request ) {
 		global $wgSearchType, $wgHooks,
 			$wgCirrusSearchUseExperimentalHighlighter,
 			$wgCirrusSearchPhraseRescoreWindowSize,
@@ -83,6 +87,7 @@ class Hooks {
 			$wgCirrusSearchBoostLinks,
 			$wgCirrusSearchAllFields,
 			$wgCirrusSearchAllFieldsForRescore,
+			$wgCirrusSearchPhraseRescoreBoost,
 			$wgCirrusSearchPhraseSlop,
 			$wgCirrusSearchLogElasticRequests,
 			$wgCirrusSearchLogElasticRequestsSecret,
@@ -91,12 +96,11 @@ class Hooks {
 		// Install our prefix search hook only if we're enabled.
 		if ( $wgSearchType === 'CirrusSearch' ) {
 			$wgHooks[ 'PrefixSearchExtractNamespace' ][] = 'CirrusSearch\Hooks::prefixSearchExtractNamespace';
-			$wgHooks[ 'PrefixSearchBackend' ][] = 'CirrusSearch\Hooks::prefixSearch';
 			$wgHooks[ 'SearchGetNearMatch' ][] = 'CirrusSearch\Hooks::onSearchGetNearMatch';
 		}
 
 		self::overrideMoreLikeThisOptionsFromMessage();
-		self::overridePhraseSuggesterOptionsFromMessage();
+		PhraseSuggesterProfiles::overrideOptionsFromMessage();
 
 		if ( $request ) {
 			// Engage the experimental highlighter if a url parameter requests it
@@ -104,7 +108,8 @@ class Hooks {
 					$request->getVal( 'cirrusHighlighter' ) === 'experimental' ) {
 				$wgCirrusSearchUseExperimentalHighlighter = true;
 			}
-			self::overrideNumeric( $wgCirrusSearchPhraseRescoreWindowSize, $request, 'cirrusPhraseWinwdow', 10000 );
+			self::overrideNumeric( $wgCirrusSearchPhraseRescoreWindowSize, $request, 'cirrusPhraseWindow', 10000 );
+			self::overrideNumeric( $wgCirrusSearchPhraseRescoreBoost, $request, 'cirrusPhraseBoost' );
 			self::overrideNumeric( $wgCirrusSearchPhraseSlop[ 'boost' ], $request, 'cirrusPhraseSlop', 10 );
 			self::overrideNumeric( $wgCirrusSearchFunctionRescoreWindowSize, $request, 'cirrusFunctionWindow', 10000 );
 			self::overrideNumeric( $wgCirrusSearchFragmentSize, $request, 'cirrusFragmentSize', 1000 );
@@ -113,7 +118,9 @@ class Hooks {
 			self::overrideYesNo( $wgCirrusSearchAllFieldsForRescore, $request, 'cirrusUseAllFieldsForRescore' );
 			self::overrideUseExtraPluginForRegex( $request );
 			self::overrideMoreLikeThisOptions( $request );
-			self::overridePhraseSuggesterOptions( $request );
+			PhraseSuggesterProfiles::overrideOptions( $request );
+			CommonTermsQueryProfiles::overrideOptions( $request );
+			RescoreProfiles::overrideOptions( $request );
 			self::overrideSecret( $wgCirrusSearchLogElasticRequests, $wgCirrusSearchLogElasticRequestsSecret, $request, 'cirrusLogElasticRequests', false );
 			self::overrideYesNo( $wgCirrusSearchEnableAltLanguage, $request, 'cirrusAltLanguage' );
 		}
@@ -122,24 +129,27 @@ class Hooks {
 	/**
 	 * Set $dest to the numeric value from $request->getVal( $name ) if it is <= $limit
 	 * or => $limit if upperLimit is false.
+	 *
+	 * @param mixed &$dest
+	 * @param WebRequest $request
+	 * @param string $name
+	 * @param int|null $limit
+	 * @param bool $upperLimit
 	 */
-	private static function overrideNumeric( &$dest, $request, $name, $limit = null, $upperLimit = true ) {
-		$val = $request->getVal( $name );
-		if ( $val !== null && is_numeric( $val ) ) {
-			if ( !isset( $limit ) ) {
-				$dest = $val;
-			} else if ( $upperLimit && $val <= $limit ) {
-				$dest = $val;
-			} else if ( !$upperLimit && $val >= $limit ) {
-				$dest = $val;
-			}
-		}
+	private static function overrideNumeric( &$dest, WebRequest $request, $name, $limit = null, $upperLimit = true ) {
+		Util::overrideNumeric( $dest, $request, $name, $limit, $upperLimit );
 	}
 
 	/**
 	 * Set $dest to $value when $request->getVal( $name ) contains $secret
+	 *
+	 * @param mixed &$dest
+	 * @param string $secret
+	 * @param WebRequest $request
+	 * @param string $name
+	 * @param mixed $value
 	 */
-	private static function overrideSecret( &$dest, $secret, $request, $name, $value = true ) {
+	private static function overrideSecret( &$dest, $secret, WebRequest $request, $name, $value = true ) {
 		if ( $secret && $secret === $request->getVal( $name ) ) {
 			$dest = $value;
 		}
@@ -147,19 +157,19 @@ class Hooks {
 
 	/**
 	 * Set $dest to the true/false from $request->getVal( $name ) if yes/no.
+	 *
+	 * @param mixed &$dest
+	 * @param WebRequest $request
+	 * @param string $name
 	 */
-	private static function overrideYesNo( &$dest, $request, $name ) {
-		$val = $request->getVal( $name );
-		if ( $val !== null ) {
-			if ( $val === 'yes' ) {
-				$dest = true;
-			} elseif( $val = 'no' ) {
-				$dest = false;
-			}
-		}
+	private static function overrideYesNo( &$dest, WebRequest $request, $name ) {
+		Util::overrideYesNo( $dest, $request, $name );
 	}
 
-	private static function overrideUseExtraPluginForRegex( $request ) {
+	/**
+	 * @param WebRequest $request
+	 */
+	private static function overrideUseExtraPluginForRegex( WebRequest $request ) {
 		global $wgCirrusSearchWikimediaExtraPlugin;
 
 		$val = $request->getVal( 'cirrusAccelerateRegex' );
@@ -187,13 +197,23 @@ class Hooks {
 			$wgCirrusSearchMoreLikeThisMaxQueryTermsLimit,
 			$wgCirrusSearchMoreLikeThisFields;
 
-		$source = wfMessage( 'cirrussearch-morelikethis-settings' )->inContentLanguage();
-		if ( $source && $source->isDisabled() ) {
-			return;
-		}
-		$lines = Util::parseSettingsInMessage( $source->plain() );
+		$cache = \ObjectCache::getLocalServerInstance();
+		$lines = $cache->getWithSetCallback(
+			$cache->makeKey( 'cirrussearch-morelikethis-settings' ),
+			600,
+			function () {
+				$source = wfMessage( 'cirrussearch-morelikethis-settings' )->inContentLanguage();
+				if ( $source && $source->isDisabled() ) {
+					return array();
+				}
+				return Util::parseSettingsInMessage( $source->plain() );
+			}
+		);
 
 		foreach ( $lines as $line ) {
+			if ( false === strpos( $line, ':' ) ) {
+				continue;
+			}
 			list( $k, $v ) = explode( ':', $line, 2 );
 			switch( $k ) {
 			case 'min_doc_freq':
@@ -236,8 +256,10 @@ class Hooks {
 
 	/**
 	 * Override more like this settings from request URI parameters
+	 *
+	 * @param WebRequest $request
 	 */
-	private static function overrideMoreLikeThisOptions( $request ) {
+	private static function overrideMoreLikeThisOptions( WebRequest $request ) {
 		global $wgCirrusSearchMoreLikeThisConfig,
 			$wgCirrusSearchMoreLikeThisUseFields,
 			$wgCirrusSearchMoreLikeThisAllowedFields,
@@ -258,208 +280,6 @@ class Hooks {
 			$wgCirrusSearchMoreLikeThisFields = array_intersect(
 				array_map( 'trim', explode( ',', $fields ) ),
 				$wgCirrusSearchMoreLikeThisAllowedFields );
-		}
-	}
-
-	/**
-	 * Override Phrase suggester options ("Did you mean?" suggestions)
-	 */
-	private static function overridePhraseSuggesterOptions( $request ) {
-		global $wgCirrusSearchPhraseSuggestMaxErrors,
-			$wgCirrusSearchPhraseSuggestConfidence,
-			$wgCirrusSearchPhraseSuggestSettings,
-			$wgCirrusSearchPhraseSuggestMaxTermFreqHardLimit,
-			$wgCirrusSearchPhraseSuggestMaxErrorsHardLimit,
-			$wgCirrusSearchPhraseSuggestPrefixLengthHardLimit,
-			$wgCirrusSearchPhraseSuggestAllowedMode,
-			$wgCirrusSearchPhraseSuggestAllowedSmoothingModel;
-
-		self::overrideNumeric( $wgCirrusSearchPhraseSuggestSettings['max_errors'], $request,
-			'cirrusSuggMaxErrors', $wgCirrusSearchPhraseSuggestMaxErrorsHardLimit );
-		self::overrideNumeric( $wgCirrusSearchPhraseSuggestSettings['confidence'], $request,
-			'cirrusSuggConfidence');
-		self::overrideNumeric( $wgCirrusSearchPhraseSuggestSettings['max_term_freq'], $request,
-			'cirrusSuggMaxTermFreq', $wgCirrusSearchPhraseSuggestMaxTermFreqHardLimit );
-		self::overrideNumeric( $wgCirrusSearchPhraseSuggestSettings['min_doc_freq'], $request,
-			'cirrusSuggMinDocFreq' );
-		self::overrideNumeric( $wgCirrusSearchPhraseSuggestSettings['prefix_length'], $request,
-			'cirrusSuggPrefixLength', $wgCirrusSearchPhraseSuggestPrefixLengthHardLimit, false );
-		$mode = $request->getVal( 'cirrusSuggMode' );
-		if( isset ( $mode ) && in_array( $mode, $wgCirrusSearchPhraseSuggestAllowedMode ) ) {
-			$wgCirrusSearchPhraseSuggestSettings['mode'] = $mode;
-		}
-
-		// NOTE: we do not allow collate_minimum_should_match to be customized, it'd be hard to parse.
-		self::overrideYesNo( $wgCirrusSearchPhraseSuggestSettings['collate'], $request, 'cirrusSuggCollate' );
-
-		$smoothing = $request->getVal( 'cirrusSuggSmoothing' );
-		if ( isset ( $smoothing ) && in_array( $smoothing, $wgCirrusSearchPhraseSuggestAllowedSmoothingModel ) ) {
-			// We do not support linear_interpolation customization yet, should be added
-			// later if proven useful.
-			switch ( $smoothing ) {
-			case 'laplace' :
-				$wgCirrusSearchPhraseSuggestSettings['smoothing_model'] = array(
-					'laplace' => array(
-						'alpha' => 0.5
-					)
-				);
-				break;
-			case 'stupid_backoff' :
-				$wgCirrusSearchPhraseSuggestSettings['smoothing_model'] = array(
-					'stupid_backoff' => array(
-						'discount' => 0.4
-					)
-				);
-				break;
-			}
-		}
-
-		// Custom discount for stupid_backoff smoothing model
-		if ( isset ( $wgCirrusSearchPhraseSuggestSettings['smoothing_model']['stupid_backoff'] ) ) {
-			$discount = $request->getVal('cirrusSuggDiscount');
-			if( is_numeric( $discount ) && $discount <= 1 && $discount >= 0 ) {
-				$wgCirrusSearchPhraseSuggestSettings['smoothing_model']['stupid_backoff']['discount'] = floatval( $discount );
-			}
-		}
-
-		// Custom alpha for laplace smoothing model
-		if ( isset ( $wgCirrusSearchPhraseSuggestSettings['smoothing_model']['laplace'] ) ) {
-			$alpha = $request->getVal('cirrusSuggAlpha');
-			if( is_numeric( $alpha ) && $alpha <= 1 && $alpha >= 0 ) {
-				$wgCirrusSearchPhraseSuggestSettings['smoothing_model']['laplace']['alpha'] = floatval( $alpha );
-			}
-		}
-
-		// Support deprecated settings
-		if ( isset ( $wgCirrusSearchPhraseSuggestConfidence ) ) {
-			self::overrideNumeric( $wgCirrusSearchPhraseSuggestConfidence, $request, 'cirrusSuggConfidence' );
-		}
-		if ( isset ( $wgCirrusSearchPhraseSuggestMaxErrors ) ) {
-			self::overrideNumeric( $wgCirrusSearchPhraseSuggestMaxErrors, $request, 'cirrusSuggMaxErrors',
-				$wgCirrusSearchPhraseSuggestMaxErrorsHardLimit );
-		}
-	}
-
-	/**
-	 * Override Phrase suggester options ("Did you mean?" suggestions)
-	 */
-	private static function overridePhraseSuggesterOptionsFromMessage( ) {
-		global $wgCirrusSearchPhraseSuggestMaxErrors,
-			$wgCirrusSearchPhraseSuggestConfidence,
-			$wgCirrusSearchPhraseSuggestSettings,
-			$wgCirrusSearchPhraseSuggestMaxTermFreqHardLimit,
-			$wgCirrusSearchPhraseSuggestMaxErrorsHardLimit,
-			$wgCirrusSearchPhraseSuggestPrefixLengthHardLimit,
-			$wgCirrusSearchPhraseSuggestAllowedMode;
-
-		$source = wfMessage( 'cirrussearch-didyoumean-settings' )->inContentLanguage();
-		if ( !$source || $source->isDisabled() ) {
-			return;
-		}
-		$lines = Util::parseSettingsInMessage( $source->plain() );
-
-		// Keep original alpha or discount settings
-		if ( isset ( $wgCirrusSearchPhraseSuggestSettings['smoothing_model']['laplace']['alpha'] ) ) {
-			$laplaceAlpha = $wgCirrusSearchPhraseSuggestSettings['smoothing_model']['laplace']['alpha'];
-		}
-		if ( isset ( $wgCirrusSearchPhraseSuggestSettings['smoothing_model']['stupid_backoff']['discount'] ) ) {
-			$stupidBackoffDiscount = $wgCirrusSearchPhraseSuggestSettings['smoothing_model']['stupid_backoff']['discount'];
-		}
-
-		foreach ( $lines as $line ) {
-			$linePieces = explode( ':', $line, 2 );
-			if ( count( $linePieces < 2 ) ) {
-				// Skip improperly formatted lines without a key:value
-				continue;
-			}
-			$k = $linePieces[0];
-			$v = $linePieces[1];
-
-			switch( $k ) {
-			case 'max_errors' :
-				if ( is_numeric( $v ) && $v >= 1 && $v <= $wgCirrusSearchPhraseSuggestMaxErrorsHardLimit ) {
-					$wgCirrusSearchPhraseSuggestSettings['max_errors'] = floatval($v);
-					// Support deprecated settings
-					if ( isset ( $wgCirrusSearchPhraseSuggestMaxErrors ) ) {
-						$wgCirrusSearchPhraseSuggestMaxErrors = floatval( $v );
-					}
-				}
-				break;
-			case 'confidence' :
-				if ( is_numeric( $v ) && $v >= 0 ) {
-					$wgCirrusSearchPhraseSuggestSettings['confidence'] = floatval( $v );
-					if ( isset ( $wgCirrusSearchPhraseSuggestConfidence ) ) {
-						$wgCirrusSearchPhraseSuggestConfidence = floatval( $v );
-					}
-				}
-				break;
-			case 'max_term_freq' :
-				if ( is_numeric( $v ) && $v >= 0 && $v <= $wgCirrusSearchPhraseSuggestMaxTermFreqHardLimit ) {
-					$wgCirrusSearchPhraseSuggestSettings['max_term_freq'] = floatval( $v );
-				}
-				break;
-			case 'min_doc_freq' :
-				if ( is_numeric( $v ) && $v >= 0 && $v < 1 ) {
-					$wgCirrusSearchPhraseSuggestSettings['min_doc_freq'] = floatval( $v );
-				}
-				break;
-			case 'prefix_length' :
-				if ( is_numeric( $v ) && $v >= 0 && $v <= $wgCirrusSearchPhraseSuggestPrefixLengthHardLimit ) {
-					$wgCirrusSearchPhraseSuggestSettings['prefix_length'] = intval( $v );
-				}
-				break;
-			case 'suggest_mode' :
-				if ( in_array( $v, $wgCirrusSearchPhraseSuggestAllowedMode ) ) {
-					$wgCirrusSearchPhraseSuggestSettings['mode'] = $v;
-				}
-				break;
-			case 'collate' :
-				if ( $v === 'true' ) {
-					$wgCirrusSearchPhraseSuggestSettings['collate'] = true;
-				} else if ( $v === 'false' ) {
-					$wgCirrusSearchPhraseSuggestSettings['collate'] = false;
-				}
-				break;
-			case 'smoothing' :
-				if ( $v === 'laplace' ) {
-					$wgCirrusSearchPhraseSuggestSettings['smoothing_model'] = array(
-						'laplace' => array(
-							'alpha' => 0.5
-						)
-					);
-				} else if ( $v === 'stupid_backoff' ) {
-					$wgCirrusSearchPhraseSuggestSettings['smoothing_model'] = array(
-						'stupid_backoff' => array(
-							'discount' => 0.4
-						)
-					);
-				}
-				break;
-			case 'laplace_alpha' :
-				if ( is_numeric( $v ) && $v >= 0 && $v <= 1 ) {
-					$laplaceAlpha = floatval($v);
-				}
-				break;
-			case 'stupid_backoff_discount' :
-				if ( is_numeric( $v ) && $v >= 0 && $v <= 1 ) {
-					$stupidBackoffDiscount = floatval($v);
-				}
-				break;
-			}
-		}
-
-		// Apply smoothing model options, if none provided we'll use elasticsearch defaults
-		if ( isset ( $wgCirrusSearchPhraseSuggestSettings['smoothing_model']['laplace'] ) &&
-			isset ( $laplaceAlpha ) ) {
-			$wgCirrusSearchPhraseSuggestSettings['smoothing_model']['laplace'] = array(
-				'alpha' => $laplaceAlpha
-			);
-		}
-		if ( isset ( $wgCirrusSearchPhraseSuggestSettings['smoothing_model']['stupid_backoff'] ) &&
-			isset ( $stupidBackoffDiscount ) ) {
-			$wgCirrusSearchPhraseSuggestSettings['smoothing_model']['stupid_backoff'] = array(
-				'discount' => $stupidBackoffDiscount
-			);
 		}
 	}
 
@@ -519,12 +339,11 @@ class Hooks {
 	public static function onAfterImportPage( $title ) {
 		// The title can be null if the import failed.  Nothing to do in that case.
 		if ( $title === null ) {
-			return;
+			return false;
 		}
 		JobQueueGroup::singleton()->push(
 			Job\MassIndex::build(
 				array( WikiPage::factory( $title ) ),
-				false,
 				Updater::INDEX_EVERYTHING
 			)
 		);
@@ -559,7 +378,7 @@ class Hooks {
 	public static function onSoftwareInfo( &$software ) {
 		$version = new Version( self::getConnection() );
 		$status = $version->get();
-		if ( $status->isOk() ) {
+		if ( $status->isOK() ) {
 			// We've already logged if this isn't ok and there is no need to warn the user on this page.
 			$software[ '[https://www.elastic.co/products/elasticsearch Elasticsearch]' ] = $status->getValue();
 		}
@@ -578,7 +397,7 @@ class Hooks {
 
 		// Prepend our message if needed
 		if ( $wgCirrusSearchShowNowUsing ) {
-			$out->addHtml( Xml::openElement( 'div', array( 'class' => 'cirrussearch-now-using' ) ) .
+			$out->addHTML( Xml::openElement( 'div', array( 'class' => 'cirrussearch-now-using' ) ) .
 				$specialSearch->msg( 'cirrussearch-now-using' )->parse() .
 				Xml::closeElement( 'div' ) );
 		}
@@ -600,14 +419,19 @@ class Hooks {
 		return true;
 	}
 
-	private static function addSearchFeedbackLink( $link, $specialSearch, $out ) {
+	/**
+	 * @param string $link
+	 * @param SpecialSearch $specialSearch
+	 * @param OutputPage $out
+	 */
+	private static function addSearchFeedbackLink( $link, SpecialSearch $specialSearch, OutputPage $out ) {
 		$anchor = Xml::element(
 			'a',
 			array( 'href' => $link ),
 			$specialSearch->msg( 'cirrussearch-give-feedback' )->text()
 		);
 		$block = Html::rawElement( 'div', array(), $anchor );
-		$out->addHtml( $block );
+		$out->addHTML( $block );
 	}
 
 	/**
@@ -667,60 +491,16 @@ class Hooks {
 		return true;
 	}
 
+	/**
+	 * Extract namespaces from query string.
+	 * @param array $namespaces
+	 * @param string $search
+	 * @return boolean
+	 */
 	public static function prefixSearchExtractNamespace( &$namespaces, &$search ) {
-		$user = RequestContext::getMain()->getUser();
-		$searcher = new Searcher( self::getConnection(), 0, 1, null, $namespaces, $user );
+		$searcher = new Searcher( self::getConnection(), 0, 1, null, $namespaces );
 		$searcher->updateNamespacesFromQuery( $search );
 		$namespaces = $searcher->getNamespaces();
-		return false;
-	}
-
-	/**
-	 * Hooked to delegate prefix searching to Searcher.
-	 * @param int[] $namespaces namespace to search
-	 * @param string $search search text
-	 * @param int $limit maximum number of titles to return
-	 * @param array(string) $results outbound variable with string versions of titles
-	 * @param int $offset Number of results to offset
-	 * @return bool always false because we are the authoritative prefix search
-	 */
-	public static function prefixSearch( $namespaces, $search, $limit, &$results, $offset = 0 ) {
-		$user = RequestContext::getMain()->getUser();
-		$searcher = new Searcher( self::getConnection(), $offset, $limit, null, $namespaces, $user );
-		if ( $search ) {
-			$searcher->setResultsType( new FancyTitleResultsType( 'prefix' ) );
-		} else {
-			// Empty searches always find the title.
-			$searcher->setResultsType( new TitleResultsType() );
-		}
-		try {
-			$status = $searcher->prefixSearch( $search );
-		} catch ( UsageException $e ) {
-			if ( defined( 'MW_API' ) ) {
-				throw $e;
-			}
-			return false;
-		}
-		// There is no way to send errors or warnings back to the caller here so we have to make do with
-		// only sending results back if there are results and relying on the logging done at the status
-		// constrution site to log errors.
-		if ( $status->isOK() ) {
-			if ( !$search ) {
-				// No need to unpack the simple title matches from non-fancy TitleResultsType
-				return $status->getValue();
-			}
-			$results = array();
-			foreach ( $status->getValue() as $match ) {
-				if ( isset( $match[ 'titleMatch' ] ) ) {
-					$results[] = $match[ 'titleMatch' ]->getPrefixedText();
-				} else {
-					if ( isset( $match[ 'redirectMatches' ][ 0 ] ) ) {
-						// TODO maybe dig around in the redirect matches and find the best one?
-						$results[] = $match[ 'redirectMatches' ][ 0 ]->getPrefixedText();
-					}
-				}
-			}
-		}
 		return false;
 	}
 
@@ -757,7 +537,7 @@ class Hooks {
 		}
 		// There is no way to send errors or warnings back to the caller here so we have to make do with
 		// only sending results back if there are results and relying on the logging done at the status
-		// constrution site to log errors.
+		// construction site to log errors.
 		if ( !$status->isOK() ) {
 			return true;
 		}
@@ -793,17 +573,21 @@ class Hooks {
 	 * @param int $oldId The page id of the old page.
 	 * @return bool
 	 */
-	public static function onTitleMoveComplete( Title &$title, Title &$newTitle, &$user, $oldId ) {
+	public static function onTitleMoveComplete( Title $title, Title $newTitle, $user, $oldId ) {
 		// When a page is moved the update and delete hooks are good enough to catch
 		// almost everything.  The only thing they miss is if a page moves from one
 		// index to another.  That only happens if it switches namespace.
 		if ( $title->getNamespace() !== $newTitle->getNamespace() ) {
 			$conn = self::getConnection();
 			$oldIndexType = $conn->getIndexSuffixForNamespace( $title->getNamespace() );
-			JobQueueGroup::singleton()->push( new Job\DeletePages( $title, array(
+			$job = new Job\DeletePages( $title, array(
 				'indexType' => $oldIndexType,
 				'id' => $oldId
-			) ) );
+			) );
+			// Push the job after DB commit but cancel on rollback
+			wfGetDB( DB_MASTER )->onTransactionIdle( function() use ( $job ) {
+				JobQueueGroup::singleton()->lazyPush( $job );
+			} );
 		}
 
 		return true;
@@ -812,16 +596,13 @@ class Hooks {
 	/**
 	 * Take a list of titles either linked or unlinked and prepare them for Job\LinksUpdate.
 	 * This includes limiting them to $max titles.
-	 * @param array(Title) $titles titles to prepare
+	 * @param Title[] $titles titles to prepare
 	 * @param int $max maximum number of titles to return
 	 * @return array
 	 */
 	private static function prepareTitlesForLinksUpdate( $titles, $max ) {
 		$titles = self::pickFromArray( $titles, $max );
 		$dBKeys = array();
-		/**
-		 * @var Title $title
-		 */
 		foreach ( $titles as $title ) {
 			$dBKeys[] = $title->getPrefixedDBkey();
 		}
@@ -855,57 +636,6 @@ class Hooks {
 
 
 	/**
-	 * EventLoggingRegisterSchemas hook handler.
-	 *
-	 * Registers our EventLogging schemas so that they can be converted to
-	 * ResourceLoaderSchemaModules by the EventLogging extension.
-	 *
-	 * If the module has already been registered in
-	 * onResourceLoaderRegisterModules, then it is overwritten.
-	 *
-	 * @param array $schemas The schemas currently registered with the EventLogging
-	 *  extension
-	 * @return bool Always true
-	 */
-	public static function onEventLoggingRegisterSchemas( &$schemas ) {
-		// @see https://meta.wikimedia.org/wiki/Schema:Search
-		$schemas['Search'] = 12057910;
-
-		return true;
-	}
-
-	/**
-	 * ResourceLoaderRegisterModules hook handler
-	 *
-	 * Registers the ext.cirrusSearch.loggingSchema module without a dependency on the
-	 * ext.EventLogging module so that calls to the various log functions are
-	 * effectively NOPs.
-	 *
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ResourceLoaderRegisterModules
-	 *
-	 * @param ResourceLoader &$resourceLoader
-	 * @return bool Always true
-	 */
-	public static function onResourceLoaderRegisterModules( ResourceLoader &$resourceLoader ) {
-		global $wgResourceModules;
-
-		if ( isset( $wgResourceModules['ext.eventLogging'] ) ) {
-			$wgResourceModules['ext.cirrusSearch.loggingSchema'] = array(
-				'localBasePath' => dirname( __DIR__ ),
-				'remoteExtPath' => 'CirrusSearch',
-				'scripts' => 'resources/loggingSchema/search.js',
-				'dependencies' => array(
-					'jquery.cookie',
-					'json',
-					'mediawiki.user',
-					'schema.Search',
-				),
-			);
-		}
-		return true;
-	}
-
-	/**
 	 * ResourceLoaderGetConfigVars hook handler
 	 * This should be used for variables which vary with the html
 	 * and for variables this should work cross skin
@@ -915,7 +645,8 @@ class Hooks {
 	 * @return bool
 	 */
 	public static function onResourceLoaderGetConfigVars( &$vars ) {
-		global $wgCirrusSearchEnableSearchLogging, $wgCirrusSearchFeedbackLink;
+		global $wgCirrusSearchEnableSearchLogging,
+			$wgCirrusSearchFeedbackLink;
 
 		$vars += array(
 			'wgCirrusSearchEnableSearchLogging' => $wgCirrusSearchEnableSearchLogging,
@@ -926,24 +657,88 @@ class Hooks {
 	}
 
 	/**
-	 * Load 'ext.cirrusSearch.loggingSchema' if $wgCirrusSearchEnableSearchLogging is True
-	 *
-	 * @param $out
-	 * @param $skin
-	 * @return bool
+	 * @return Connection
 	 */
-	public static function onBeforePageDisplay( OutputPage &$out, Skin &$skin ) {
-		global $wgCirrusSearchEnableSearchLogging;
+	private static function getConnection() {
+		$config = MediaWikiServices::getInstance()
+			->getConfigFactory()
+			->makeConfig( 'CirrusSearch' );
+		return new Connection( $config );
+	}
 
-		if ( $wgCirrusSearchEnableSearchLogging ) {
-			$out->addModules( 'ext.cirrusSearch.loggingSchema' );
+	/**
+	 * Add $wgCirrusSearchInterwikiProv to external results.
+	 * @param Title $title
+	 * @param mixed $text
+	 * @param mixed $result
+	 * @param mixed $terms
+	 * @param mixed $page
+	 * @param array $query
+	 */
+	public static function onShowSearchHitTitle( Title $title, &$text, $result, $terms, $page, &$query = array() ) {
+		global $wgCirrusSearchInterwikiProv;
+		if( $wgCirrusSearchInterwikiProv && $title->isExternal() ) {
+			$query["wprov"] = $wgCirrusSearchInterwikiProv;
+		}
+	}
+
+	/**
+	 * Activate Completion Suggester as a Beta Feature if available
+	 * @param User $user
+	 * @param array &$pref beta feature prefs
+	 * @return boolean
+	 */
+	public static function getBetaFeaturePreferences( User $user, &$pref ) {
+		global $wgCirrusSearchUseCompletionSuggester,
+			$wgExtensionAssetsPath;
+
+		if ( $wgCirrusSearchUseCompletionSuggester !== 'beta' ) {
+			return true;
 		}
 
+		$pref['cirrussearch-completionsuggester'] = array(
+			'label-message' => 'cirrussearch-completionsuggester-pref',
+			'desc-message' => 'cirrussearch-completionsuggester-desc',
+			'info-link' => '//mediawiki.org/wiki/Special:MyLanguage/Extension:CirrusSearch/CompletionSuggester',
+			'discussion-link' => '//mediawiki.org/wiki/Special:MyLanguage/Extension_talk:CirrusSearch/CompletionSuggester',
+			'screenshot' => array(
+				'ltr' => "$wgExtensionAssetsPath/CirrusSearch/resources/images/cirrus-beta-ltr.svg",
+				'rtl' => "$wgExtensionAssetsPath/CirrusSearch/resources/images/cirrus-beta-rtl.svg",
+			)
+		);
 		return true;
 	}
 
-	private static function getConnection() {
-		$config = ConfigFactory::getDefaultInstance()->makeConfig( 'CirrusSearch' );
-		return new Connection( $config );
+	public static function onAPIAfterExecute( $module ) {
+		if ( !( $module instanceof ApiOpenSearch ) ) {
+			return true;
+		}
+		$types = ElasticsearchIntermediary::getQueryTypesUsed();
+		if ( !$types ) {
+			return true;
+		}
+		$response = $module->getContext()->getRequest()->response();
+		$response->header( 'X-OpenSearch-Type: ' . implode( ',', $types ) );
+		return true;
+	}
+
+	/**
+	 * @param string $term
+	 * @param \SearchResultSet &$titleMatches
+	 * @param \SearchResultSet &$textMatches
+	 */
+	public static function onSpecialSearchResults( $term, &$titleMatches, &$textMatches ) {
+		global $wgOut;
+
+		$wgOut->addModules( 'ext.cirrus.serp' );
+		$wgOut->addJsConfigVars( array(
+			'wgCirrusSearchRequestSetToken' => ElasticsearchIntermediary::getRequestSetToken(),
+		) );
+
+		// This ignores interwiki results for now...not sure what do do with those
+		ElasticsearchIntermediary::setResultPages( array(
+			$titleMatches,
+			$textMatches
+		) );
 	}
 }

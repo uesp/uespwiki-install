@@ -1,28 +1,31 @@
 ( function ( M, $ ) {
 
 	var Panel = M.require( 'mobile.startup/Panel' ),
-		Icon = M.require( 'mobile.startup/Icon' ),
-		Drawer;
+		Icon = M.require( 'mobile.startup/Icon' );
 
 	/**
 	 * A {@link View} that pops up from the bottom of the screen.
 	 * @class Drawer
 	 * @extends Panel
 	 */
-	Drawer = Panel.extend( {
+	function Drawer() {
+		Panel.apply( this, arguments );
+	}
+
+	OO.mfExtend( Drawer, Panel, {
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
 		 * @cfg {String} defaults.cancelButton HTML of the button that closes the drawer.
 		 */
-		defaults: {
+		defaults: $.extend( {}, Panel.prototype.defaults, {
 			cancelButton: new Icon( {
 				tagName: 'a',
 				name: 'close-invert',
 				additionalClassNames: 'cancel',
 				label: mw.msg( 'mobile-frontend-overlay-close' )
 			} ).toHtmlString()
-		},
+		} ),
 		className: 'drawer position-fixed',
 		/**
 		 * Defines an element that the Drawer should automatically be appended to.
@@ -83,6 +86,6 @@
 		}
 	} );
 
-	M.define( 'mobile.drawers/Drawer', Drawer ).deprecate( 'Drawer' );
+	M.define( 'mobile.drawers/Drawer', Drawer );
 
 }( mw.mobileFrontend, jQuery ) );

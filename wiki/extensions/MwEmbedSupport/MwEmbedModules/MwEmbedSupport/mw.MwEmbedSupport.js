@@ -43,12 +43,6 @@
 			mediaWiki.config.set( name, value );
 		}
 	};
-	mw.mergeConfig = function( name, value ){
-		if( mediaWiki.config.get( name ) != null ){
-			var value = $.extend( {}, mediaWiki.config.get( name ), value );
-		}
-		return mw.setConfig( name, value );
-	};
 	/**
 	 * Set any pre-mwEmbed embed configuration
 	 */
@@ -89,28 +83,28 @@
 	/**
 	 * Merge in a configuration value:
 	 */
-	mw.mergeConfig = function( name, value ){
-		if( typeof name == 'object' ) {
-			$.each( name, function( inx, val) {
+	mw.mergeConfig = function ( name, value ) {
+		if ( typeof name === 'object' ) {
+			$.each( name, function ( inx, val) {
 				mw.mergeConfig( inx, val );
-			});
-			return ;
+			} );
+			return;
 		}
 		var existingValue = mediaWiki.config.get( name );
-		if( !existingValue || typeof existingValue == 'string'){
+		if ( !existingValue || typeof existingValue !== 'object' ){
 			mw.setConfig( name, value );
 			return ;
 		}
-		if( typeof mediaWiki.config.get( name ) == 'object' ){
-			if( $.isArray( existingValue) && $.isArray( value ) ){
-				for( var i =0; i <  value.length ; i ++ ){
+		if ( typeof existingValue === 'object' ){
+			if( $.isArray( existingValue) && $.isArray( value ) ) {
+				for( var i =0; i <  value.length ; i ++ ) {
 					existingValue.push( value[i] );
 				}
 				mw.setConfig( name, $.uniqueArray( existingValue ) );
 			} else {
-				mw.setConfig( name, $.extend( {}, existingValue, value) );
+				mw.setConfig( name, $.extend( {}, existingValue, value ) );
 			}
-			return ;
+			return;
 		}
 	};
 

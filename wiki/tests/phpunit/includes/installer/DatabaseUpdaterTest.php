@@ -5,14 +5,14 @@ class DatabaseUpdaterTest extends MediaWikiTestCase {
 	public function testSetAppliedUpdates() {
 		$db = new FakeDatabase();
 		$dbu = new FakeDatabaseUpdater( $db );
-		$dbu->setAppliedUpdates( "test", array() );
-		$expected = "updatelist-test-" . time() . "0";
+		$dbu->setAppliedUpdates( "test", [] );
 		$actual = $db->lastInsertData['ul_key'];
-		$this->assertEquals( $expected, $actual, var_export( $db->lastInsertData, true ) );
-		$dbu->setAppliedUpdates( "test", array() );
-		$expected = "updatelist-test-" . time() . "1";
+		$this->assertStringMatchesFormat( 'updatelist-test-%d.%d0',
+			$actual, var_export( $db->lastInsertData, true ) );
+		$dbu->setAppliedUpdates( "test", [] );
 		$actual = $db->lastInsertData['ul_key'];
-		$this->assertEquals( $expected, $actual, var_export( $db->lastInsertData, true ) );
+		$this->assertStringMatchesFormat( 'updatelist-test-%d.%d1',
+			$actual, var_export( $db->lastInsertData, true ) );
 	}
 }
 
@@ -29,7 +29,7 @@ class FakeDatabase extends DatabaseBase {
 	function setFlag( $arg ) {
 	}
 
-	public function insert( $table, $a, $fname = __METHOD__, $options = array() ) {
+	public function insert( $table, $a, $fname = __METHOD__, $options = [] ) {
 		$this->lastInsertTable = $table;
 		$this->lastInsertData = $a;
 	}
@@ -266,14 +266,14 @@ class FakeDatabaseUpdater extends DatabaseUpdater {
 	 * @return array
 	 */
 	protected function getCoreUpdateList() {
-		return array();
+		return [];
 	}
 
 	public function canUseNewUpdatelog() {
 		return true;
 	}
 
-	public function setAppliedUpdates( $version, $updates = array() ) {
+	public function setAppliedUpdates( $version, $updates = [] ) {
 		parent::setAppliedUpdates( $version, $updates );
 	}
 }

@@ -1,15 +1,20 @@
 ( function ( M, $, ve ) {
 	var EditorOverlayBase = M.require( 'mobile.editor.common/EditorOverlayBase' ),
 		settings = M.require( 'mobile.settings/settings' ),
-		overlayManager = M.require( 'mobile.startup/overlayManager' ),
-		VisualEditorOverlay;
+		overlayManager = M.require( 'mobile.startup/overlayManager' );
 
 	/**
 	 * Overlay for VisualEditor view
 	 * @class VisualEditorOverlay
 	 * @extends EditorOverlayBase
 	 */
-	VisualEditorOverlay = EditorOverlayBase.extend( {
+	function VisualEditorOverlay( options ) {
+		this.applyHeaderOptions( options, true );
+		EditorOverlayBase.apply( this, arguments );
+		this.isNewPage = options.isNewPage;
+	}
+
+	OO.mfExtend( VisualEditorOverlay, EditorOverlayBase, {
 		/** @inheritdoc **/
 		isBorderBox: false,
 		/** @inheritdoc **/
@@ -34,12 +39,6 @@
 			options.hasToolbar = isVE;
 			options.isVisualEditor = isVE;
 		},
-		/** @inheritdoc **/
-		initialize: function ( options ) {
-			this.applyHeaderOptions( options, true );
-			EditorOverlayBase.prototype.initialize.apply( this, arguments );
-			this.isNewPage = options.isNewPage;
-		},
 		/**
 		 * Destroy the existing VisualEditor target.
 		 * @method
@@ -63,7 +62,7 @@
 			mw.loader.using( 'ext.visualEditor.targetLoader' )
 				.then( mw.libs.ve.targetLoader.loadModules )
 				.then( function () {
-					overlay.target = new ve.init.mw.MobileFrontendArticleTarget( overlay, {
+					overlay.target = ve.init.mw.targetFactory.create( 'article', overlay, {
 						$element: overlay.$el,
 						// || undefined so that scrolling is not triggered for the lead (0) section
 						// (which has no header to scroll to)
@@ -144,7 +143,6 @@
 		}
 	} );
 
-	M.define( 'mobile.editor.ve/VisualEditorOverlay', VisualEditorOverlay )
-		.deprecate( 'modules/editor/VisualEditorOverlay' );
+	M.define( 'mobile.editor.ve/VisualEditorOverlay', VisualEditorOverlay );
 
 }( mw.mobileFrontend, jQuery, window.ve ) );

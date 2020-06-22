@@ -2,10 +2,12 @@
 	"@metadata": {
 		"authors": [
 			"AnakngAraw",
-			"Sky Harbor"
+			"Sky Harbor",
+			"Leeheonjin",
+			"Jojit fb"
 		]
 	},
-	"timedmedia-desc": "Tagahawak para sa audio, bidyo at inoorasang teksto, na may pagtangkilik ng anyo para sa WebM, Ogg Theora, Vorbis, srt",
+	"timedmediahandler-desc": "Tagahawak para sa audio, bidyo at inoorasang teksto, na may pagtangkilik ng anyo para sa WebM, Ogg Theora, Vorbis, srt",
 	"timedmedia-ogg-short-audio": "$1 na talaksang pangtunog ng Ogg, $2",
 	"timedmedia-ogg-short-video": "$1 talaksang pampalabas (''video'') ng Ogg, $2",
 	"timedmedia-ogg-short-general": "$1 talaksang pangmidya ng Ogg, $2",
@@ -19,7 +21,7 @@
 	"timedmedia-no-player-js": "Paumahin, ang pantingin-tingin mo ay maaaring may hindi gumaganang JavaScript o walang anumang tinatangkilik na pampaandar.<br />\nMaaari kang <a href=\"$1\">magkargang pababa ng kaputol</a> o <a href=\"https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:TimedMediaHandler/Client_download\">magkargang pababa ng isang pampaandar</a> upang mapaandar ang kaputol sa loob ng iyong pantingin-tingin.",
 	"timedmedia-more": "Marami pa…",
 	"timedmedia-dismiss": "Isara",
-	"timedmedia-download": "Ikarga ang talaksan",
+	"timedmedia-download": "I-download ang file",
 	"timedmedia-play-media": "Paandarin ang midya",
 	"timedmedia-desc-link": "Tungkol sa talaksang ito",
 	"timedmedia-oggThumb-version": "Nangangailangan ang OggHandler ng bersyong $1 o mas luma ng oggThumb.",
@@ -43,8 +45,10 @@
 	"timedmedia-minutes": "{{PLURAL:$1|minuto|$1 mga minuto}}",
 	"timedmedia-seconds": "{{PLURAL:$1|segundo|$1 mga segundo}}",
 	"timedmedia-reset": "Itakdang muli ang transkodigo",
-	"timedmedia-reset-confirm": "Ang muling pagtatakda ng transkodigong ito ay magtatanggal ng anumang umiiral na talaksan (kung naroroon), at muling nitong idaragdag ang transkodigo sa pila ng trabaho. Gugugol ito ng ilang panahon upang muling maitranskodigo. <br /><br />\nNakatitiyak ka ba na nais mong magpatuloy?",
+	"timedmedia-reset-button-cancel": "Huwag itakdang-muli (reset)",
+	"timedmedia-reset-button-reset": "Muling itakda",
 	"timedmedia-reset-error": "Kamalian sa gawain ng muling pagtatakda ng transkodigo.",
+	"timedmedia-reset-explanation": "Ang muling pagtatakda ng transkodigong ito ay magtatanggal ng anumang umiiral na talaksan (kung naroroon), at muling nitong idaragdag ang transkodigo sa pila ng trabaho. Gugugol ito ng ilang panahon upang muling maitranskodigo. <br /><br />\nNakatitiyak ka ba na nais mong magpatuloy?",
 	"timedmedia-ogg": "Ogg",
 	"timedmedia-webm": "WebM",
 	"timedmedia-source-file": "$1 pinagkukunan",
@@ -80,5 +84,5 @@
 	"timedmedia-derivative-state-active": "{{PLURAL:$1|$1 tumatakbong transkodigo|$1 tumatakbong mga transkodigo}}",
 	"timedmedia-derivative-state-queued": "{{PLURAL:$1|$1 nakapilang transkodigo|$1 nakapilang mga transkodigo}}",
 	"timedmedia-derivative-state-failed": "{{PLURAL:$1|$1 nabigong transkodigo|$1 nabigong mga transkodigo}}",
-	"timedmedia-file": "Talaksan"
+	"timedmedia-file": "File"
 }

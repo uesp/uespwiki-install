@@ -1,9 +1,10 @@
 <?php
 
 namespace CirrusSearch\Search;
-use \CirrusSearch\Searcher;
-use \LinkBatch;
-use \SearchResultSet;
+
+use CirrusSearch\Searcher;
+use LinkBatch;
+use SearchResultSet;
 
 /**
  * A set of results from Elasticsearch.
@@ -24,18 +25,70 @@ use \SearchResultSet;
  * http://www.gnu.org/copyleft/gpl.html
  */
 class ResultSet extends SearchResultSet {
-	private $result, $hits, $totalHits, $suggestionQuery, $suggestionSnippet;
+	/**
+	 * @var \Elastica\ResultSet
+	 */
+	private $result;
+
+	/**
+	 * @var int
+	 */
+	private $hits;
+
+	/**
+	 * @var int
+	 */
+	private $totalHits;
+
+	/**
+	 * @var string|null
+	 */
+	private $suggestionQuery;
+
+	/**
+	 * @var string
+	 */
+	private $suggestionSnippet;
+
+	/**
+	 * @var bool
+	 */
 	private $searchContainedSyntax;
-	private $interwikiPrefix,$interwikiResults;
+
+	/**
+	 * @var string
+	 */
+	private $interwikiPrefix;
+
+	/**
+	 * @var array
+	 */
+	private $interwikiResults = array();
+
+	/**
+	 * @var string|null
+	 */
 	private $rewrittenQuery;
 
-	public function __construct( $suggestPrefixes, $suggestSuffixes, $res, $searchContainedSyntax, $interwiki = '' ) {
+	/**
+	 * @var string|null
+	 */
+	private $rewrittenQuerySnippet;
+
+	/**
+	 * @param string[] $suggestPrefixes
+	 * @param string[] $suggestSuffixes
+	 * @param \Elastica\ResultSet $res
+	 * @param bool $searchContainedSyntax
+	 * @param string $interwiki
+	 */
+	public function __construct( array $suggestPrefixes, array $suggestSuffixes, \Elastica\ResultSet $res, $searchContainedSyntax, $interwiki = '' ) {
 		$this->result = $res;
 		$this->searchContainedSyntax = $searchContainedSyntax;
 		$this->hits = $res->count();
 		$this->totalHits = $res->getTotalHits();
 		$this->interwikiPrefix = $interwiki;
-		$this->preCacheContainedTitles();
+		$this->preCacheContainedTitles( $this->result );
 		$suggestion = $this->findSuggestion();
 		if ( $suggestion && ! $this->resultContainsFullyHighlightedMatch() ) {
 			$this->suggestionQuery = $suggestion[ 'text' ];
@@ -56,22 +109,26 @@ class ResultSet extends SearchResultSet {
 	}
 
 	/**
+	 * Is rewriting this query OK?
+	 *
+	 * @param int $threshold Minimum number of results to reach before rewriting is not allowed.
 	 * @return bool True when rewriting this query is allowed
 	 */
-	public function isQueryRewriteAllowed() {
-		if ( $this->numRows() > 0 || $this->searchContainedSyntax() ) {
+	public function isQueryRewriteAllowed( $threshold = 1 ) {
+		if ( $this->numRows() >= $threshold || $this->searchContainedSyntax() ) {
 			return false;
 		}
-		if ( $this->interwikiResults !== null ) {
-			foreach ( $this->interwikiResults as $resultSet ) {
-				if ( $resultSet->numRows() > 0 ) {
-					return false;
-				}
+		foreach ( $this->getInterwikiResults( SearchResultSet::SECONDARY_RESULTS ) as $resultSet ) {
+			if ( $resultSet->numRows() >= $threshold ) {
+				return false;
 			}
 		}
 		return true;
 	}
 
+	/**
+	 * @return string|null
+	 */
 	private function findSuggestion() {
 		// TODO some kind of weighting?
 		$suggest = $this->result->getResponse()->getData();
@@ -92,11 +149,12 @@ class ResultSet extends SearchResultSet {
 
 	/**
 	 * Escape a highlighted suggestion coming back from Elasticsearch.
-	 * @param $suggestion string suggestion from elasticsearch
+	 *
+	 * @param string $suggestion suggestion from elasticsearch
 	 * @return string $suggestion with html escaped _except_ highlighting pre and post tags
 	 */
 	private function escapeHighlightedSuggestion( $suggestion ) {
-		static $suggestionHighlightPreEscaped = null, 
+		static $suggestionHighlightPreEscaped = null,
 			$suggestionHighlightPostEscaped = null;
 		if ( $suggestionHighlightPreEscaped === null ) {
 			$suggestionHighlightPreEscaped =
@@ -109,6 +167,9 @@ class ResultSet extends SearchResultSet {
 			htmlspecialchars( $suggestion ) );
 	}
 
+	/**
+	 * @return bool
+	 */
 	private function resultContainsFullyHighlightedMatch() {
 		foreach ( $this->result->getResults() as $result ) {
 			$highlights = $result->getHighlights();
@@ -126,14 +187,16 @@ class ResultSet extends SearchResultSet {
 	 * batch query. By pre-caching this we ensure methods such as
 	 * Result::isMissingRevision() don't trigger a query for each and
 	 * every search result.
+	 *
+	 * @param \Elastica\ResultSet $resultSet Result set from which the titles come
 	 */
-	private function preCacheContainedTitles() {
+	private function preCacheContainedTitles( \Elastica\ResultSet $resultSet ) {
 		// We can only pull in information about the local wiki
-		if ( $this->interwikiPrefix !== '' ) {
-			return;
-		}
+ 		if ( $this->interwikiPrefix !== '' ) {
+ 			return;
+ 		}
 		$lb = new LinkBatch;
-		foreach ( $this->result->getResults() as $result ) {
+		foreach ( $resultSet->getResults() as $result ) {
 			$lb->add( $result->namespace, $result->title );
 		}
 		if ( !$lb->isEmpty() ) {
@@ -142,26 +205,44 @@ class ResultSet extends SearchResultSet {
 		}
 	}
 
+	/**
+	 * @return int
+	 */
 	public function getTotalHits() {
 		return $this->totalHits;
 	}
 
+	/**
+	 * @return int
+	 */
 	public function numRows() {
 		return $this->hits;
 	}
 
+	/**
+	 * @return bool
+	 */
 	public function hasSuggestion() {
 		return $this->suggestionQuery !== null;
 	}
 
+	/**
+	 * @return string
+	 */
 	public function getSuggestionQuery() {
 		return $this->suggestionQuery;
 	}
 
+	/**
+	 * @return string
+	 */
 	public function getSuggestionSnippet() {
 		return $this->suggestionSnippet;
 	}
 
+	/**
+	 * @return Result|false
+	 */
 	public function next() {
 		$current = $this->result->current();
 		if ( $current ) {
@@ -171,31 +252,68 @@ class ResultSet extends SearchResultSet {
 		return false;
 	}
 
-	public function addInterwikiResults( $res ) {
-		$this->interwikiResults[] = $res;
+	public function rewind() {
+		$this->result->rewind();
 	}
 
-	public function getInterwikiResults() {
-		return $this->interwikiResults;
+	/**
+	 * @param ResultSet $res
+	 * @param int $type One of SearchResultSet::* constants
+	 * @param string $interwiki
+	 */
+	public function addInterwikiResults( ResultSet $res, $type, $interwiki ) {
+		$this->interwikiResults[$type][$interwiki] = $res;
 	}
 
+	/**
+	 * @param int $type
+	 * @return SearchResultSet[]
+	 */
+	public function getInterwikiResults( $type = SearchResultSet::SECONDARY_RESULTS ) {
+		return isset($this->interwikiResults[$type]) ? $this->interwikiResults[$type] : array();
+	}
+
+	/**
+	 * @param int $type
+	 * @return bool
+	 */
+	public function hasInterwikiResults( $type = SearchResultSet::SECONDARY_RESULTS ) {
+		return isset($this->interwikiResults[$type]);
+	}
+
+	/**
+	 * @return bool
+	 */
 	public function searchContainedSyntax() {
 		return $this->searchContainedSyntax;
 	}
 
+	/**
+	 * @param string $newQuery
+	 * @param string|null $newQuerySnippet
+	 */
 	public function setRewrittenQuery($newQuery, $newQuerySnippet=null) {
 		$this->rewrittenQuery = $newQuery;
 		$this->rewrittenQuerySnippet = $newQuerySnippet ?: htmlspecialchars( $newQuery );
 	}
 
+	/**
+	 * @return bool
+	 */
 	public function hasRewrittenQuery() {
 		return $this->rewrittenQuery !== null;
 	}
 
+	/**
+	 * @return string
+	 */
 	public function getQueryAfterRewrite() {
 		return $this->rewrittenQuery;
 	}
 
+	/**
+	 * @return string
+	 */
 	public function getQueryAfterRewriteSnippet() {
 		return $this->rewrittenQuerySnippet;
 	}

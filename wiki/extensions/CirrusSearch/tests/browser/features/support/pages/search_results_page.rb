@@ -2,10 +2,10 @@
 class SearchResultsPage
   include PageObject
 
-  page_url URL.url("/w/index.php?search=<%=params[:search]%><%if (params[:prefix]) %>&prefix=<%=params[:prefix]%><% end %>")
+  page_url "/w/index.php?search=<%=params[:search]%><%if (params[:prefix]) %>&prefix=<%=params[:prefix]%><% end %>"
 
-  text_field(:search, css: "#searchText input")
-  h1(:title, id: "firstHeading")
+  text_field(:search, css: "#searchText")
+  h1(:title, class: "firstHeading")
   unordered_list(:search_results, class: "mw-search-results")
   li(:first_result_wrapper) { |page| page.search_results_element.list_item_element(index: 0) }
   link(:first_result) { |page| page.first_result_wrapper_element.div_element(class: "mw-search-result-heading").link_element }
@@ -40,11 +40,11 @@ class SearchResultsPage
   end
 
   def results
-    @browser.divs(class: "mw-search-result-heading")
+    browser.divs(class: "mw-search-result-heading")
   end
 
   def result_data
-    @browser.divs(class: "mw-search-result-data")
+    browser.divs(class: "mw-search-result-data")
   end
 
   def first_result_highlighted_title
@@ -62,9 +62,10 @@ class SearchResultsPage
       get_highlighted_text(first_result_alttitle_wrapper_element)
     end
   end
+
   # Note that this is really only useful if Warnings are being echod to the page.  In testing environments they usually are.
   def warning
-    text = @browser.text
+    text = browser.text
     if text.start_with?("Warning: ")
       return text.slice("Warning: ".length, text.index("\n"))
     else

@@ -19,7 +19,7 @@
 	"patrol-reverted-ok": "העריכה שוחזרה.",
 	"patrol-reverted-failed": "לא ניתן לשחזר את העריכה.",
 	"patrol-skipped-ok": "דילוג על עריכה.",
-	"patrol-reasons": "* השחתה פשוטה\r\n* ניסיון של חדשים\r\n* ראו בדף השיחה",
+	"patrol-reasons": "* השחתה פשוטה\n* ניסיון של חדשים\n* ראו בדף השיחה",
 	"patrol-another": "הצגת עריכה נוספת, אם ניתן.",
 	"patrol-stopped": "בחרתם לא לנטר עוד עריכה. $1",
 	"patrol-resume": "לחצו כאן להמשך.",

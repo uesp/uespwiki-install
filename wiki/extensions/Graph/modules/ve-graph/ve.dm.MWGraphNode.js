@@ -9,6 +9,7 @@
  *
  * @class
  * @extends ve.dm.MWBlockExtensionNode
+ * @mixins ve.dm.ResizableNode
  *
  * @constructor
  * @param {Object} [element]
@@ -18,6 +19,9 @@ ve.dm.MWGraphNode = function VeDmMWGraphNode() {
 
 	// Parent constructor
 	ve.dm.MWGraphNode.super.apply( this, arguments );
+
+	// Mixin constructors
+	ve.dm.ResizableNode.call( this );
 
 	// Properties
 	this.spec = null;
@@ -32,20 +36,114 @@ ve.dm.MWGraphNode = function VeDmMWGraphNode() {
 	mw = this.getAttribute( 'mw' );
 	extsrc = ve.getProp( mw, 'body', 'extsrc' );
 
-	if ( extsrc !== undefined ) {
+	if ( extsrc ) {
 		this.setSpecFromString( extsrc );
+	} else {
+		this.setSpec( ve.dm.MWGraphNode.static.defaultSpec );
 	}
 };
 
 /* Inheritance */
 
 OO.inheritClass( ve.dm.MWGraphNode, ve.dm.MWBlockExtensionNode );
+OO.mixinClass( ve.dm.MWGraphNode, ve.dm.ResizableNode );
 
 /* Static Members */
 
 ve.dm.MWGraphNode.static.name = 'mwGraph';
 
 ve.dm.MWGraphNode.static.extensionName = 'graph';
+
+ve.dm.MWGraphNode.static.defaultSpec = {
+	version: 2,
+	width: 400,
+	height: 200,
+	data: [
+		{
+			name: 'table',
+			values: [
+				{
+					x: 0,
+					y: 1
+				},
+				{
+					x: 1,
+					y: 3
+				},
+				{
+					x: 2,
+					y: 2
+				},
+				{
+					x: 3,
+					y: 4
+				}
+			]
+		}
+	],
+	scales: [
+		{
+			name: 'x',
+			type: 'linear',
+			range: 'width',
+			zero: false,
+			domain: {
+				data: 'table',
+				field: 'x'
+			}
+		},
+		{
+			name: 'y',
+			type: 'linear',
+			range: 'height',
+			nice: true,
+			domain: {
+				data: 'table',
+				field: 'y'
+			}
+		}
+	],
+	axes: [
+		{
+			type: 'x',
+			scale: 'x'
+		},
+		{
+			type: 'y',
+			scale: 'y'
+		}
+	],
+	marks: [
+		{
+			type: 'area',
+			from: {
+				data: 'table'
+			},
+			properties: {
+				enter: {
+					x: {
+						scale: 'x',
+						field: 'x'
+					},
+					y: {
+						scale: 'y',
+						field: 'y'
+					},
+					y2: {
+						scale: 'y',
+						value: 0
+					},
+					fill: {
+						value: 'steelblue'
+					},
+					interpolate: {
+						value: 'monotone'
+					}
+				}
+			}
+		}
+	]
+};
 
 /* Static Methods */
 
@@ -85,6 +183,23 @@ ve.dm.MWGraphNode.static.stringifySpec = function ( spec ) {
 };
 
 /* Methods */
+
+/**
+ * @inheritdoc
+ */
+ve.dm.MWGraphNode.prototype.createScalable = function () {
+	var width = ve.getProp( this.spec, 'width' ),
+		height = ve.getProp( this.spec, 'height' );
+
+	return new ve.dm.Scalable( {
+		currentDimensions: {
+			width: width,
+			height: height
+		},
+		minDimensions: ve.dm.MWGraphModel.static.minDimensions,
+		fixedRatio: false
+	} );
+};
 
 /**
  * Get the specification string
@@ -134,6 +249,15 @@ ve.dm.MWGraphNode.prototype.onAttributeChange = function ( attributeName, from, 
 	if ( attributeName === 'mw' ) {
 		this.setSpecFromString( to.body.extsrc );
 	}
+};
+
+/**
+ * Is this graph using a legacy version of Vega?
+ *
+ * @return {boolean}
+ */
+ve.dm.MWGraphNode.prototype.isGraphLegacy = function () {
+	return !!( this.spec && this.spec.hasOwnProperty( 'version' ) && this.spec.version < 2 );
 };
 
 /* Registration */

@@ -1,8 +1,7 @@
 ( function ( M, $ ) {
 
-	var CategoryAddOverlay,
-		Overlay = M.require( 'mobile.overlays/Overlay' ),
-		CategoryApi = M.require( 'mobile.categories.overlays/CategoryApi' ),
+	var Overlay = M.require( 'mobile.overlays/Overlay' ),
+		CategoryGateway = M.require( 'mobile.categories.overlays/CategoryGateway' ),
 		CategoryLookupInputWidget = M.require( 'mobile.categories.overlays/CategoryLookupInputWidget' ),
 		icons = M.require( 'mobile.startup/icons' ),
 		toast = M.require( 'mobile.toast/toast' );
@@ -11,21 +10,27 @@
 	 * Displays the list of categories for a page
 	 * @class CategoryAddOverlay
 	 * @extends Overlay
-	 * @uses CategoryApi
+	 * @uses CategoryGateway
 	 */
-	CategoryAddOverlay = Overlay.extend( {
+	function CategoryAddOverlay( options ) {
+		options.heading = mw.msg( 'mobile-frontend-categories-add-heading', options.title );
+		Overlay.apply( this, arguments );
+	}
+
+	OO.mfExtend( CategoryAddOverlay, Overlay, {
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
+		 * @cfg {mw.Api} defaults.api to use to construct gateway
 		 * @cfg {String} defaults.waitMsg Text that displays while a page edit is being saved.
 		 * @cfg {String} defaults.waitIcon HTML of the icon that displays while a page edit
 		 * is being saved.
 		 */
-		defaults: {
+		defaults: $.extend( {}, Overlay.prototype.defaults, {
 			headerButtonsListClassName: 'overlay-action',
 			waitMsg: mw.msg( 'mobile-frontend-categories-add-wait' ),
 			waitIcon: icons.spinner().toHtmlString()
-		},
+		} ),
 		/**
 		 * @inheritdoc
 		 */
@@ -44,18 +49,10 @@
 		/**
 		 * @inheritdoc
 		 */
-		templatePartials: {
+		templatePartials: $.extend( {}, Overlay.prototype.templatePartials, {
 			header: mw.template.get( 'mobile.categories.overlays', 'CategoryAddOverlayHeader.hogan' ),
 			saveHeader: mw.template.get( 'mobile.editor.common', 'saveHeader.hogan' )
-		},
-
-		/**
-		 * @inheritdoc
-		 */
-		initialize: function ( options ) {
-			options.heading = mw.msg( 'mobile-frontend-categories-add-heading', options.title );
-			Overlay.prototype.initialize.apply( this, arguments );
-		},
+		} ),
 
 		/**
 		 * @inheritdoc
@@ -70,9 +67,9 @@
 			this.wgCategories = this.options.categories;
 			this.title = this.options.title;
 
-			this.api = new CategoryApi();
+			this.gateway = new CategoryGateway( this.options.api );
 			input = new CategoryLookupInputWidget( {
-				api: this.api,
+				gateway: this.gateway,
 				suggestions: this.$suggestions,
 				categories: this.wgCategories,
 				saveButton: this.$saveButton
@@ -119,10 +116,10 @@
 
 			// if there are no categories added, don't do anything (the user shouldn't see the save button)
 			if ( newCategories.length === 0 ) {
-				toast.show( mw.msg( 'mobile-frontend-categories-nodata' ), 'toast error' );
+				toast.show( mw.msg( 'mobile-frontend-categories-nodata' ), 'error' );
 			} else {
 				// save the new categories
-				this.api.save( this.title, newCategories ).done( function () {
+				this.gateway.save( this.title, newCategories ).done( function () {
 					M.emit( 'category-added' );
 					window.location.hash = '#/categories';
 				} ).fail( function () {
@@ -135,7 +132,6 @@
 		}
 	} );
 
-	M.define( 'mobile.categories.overlays/CategoryAddOverlay', CategoryAddOverlay )
-		.deprecate( 'categories/CategoryAddOverlay' );
+	M.define( 'mobile.categories.overlays/CategoryAddOverlay', CategoryAddOverlay );
 
 }( mw.mobileFrontend, jQuery ) );

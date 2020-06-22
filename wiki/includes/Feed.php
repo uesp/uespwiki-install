@@ -141,7 +141,7 @@ class FeedItem {
 	 */
 	public function getLanguage() {
 		global $wgLanguageCode;
-		return $wgLanguageCode;
+		return wfBCP47( $wgLanguageCode );
 	}
 
 	/**
@@ -232,6 +232,12 @@ abstract class ChannelFeed extends FeedItem {
 		$wgOut->disable();
 		$mimetype = $this->contentType();
 		header( "Content-type: $mimetype; charset=UTF-8" );
+
+		// Set a sane filename
+		$exts = MimeMagic::singleton()->getExtensionsForType( $mimetype );
+		$ext = $exts ? strtok( $exts, ' ' ) : 'xml';
+		header( "Content-Disposition: inline; filename=\"feed.{$ext}\"" );
+
 		if ( $wgVaryOnXFP ) {
 			$wgOut->addVaryHeader( 'X-Forwarded-Proto' );
 		}
@@ -248,12 +254,12 @@ abstract class ChannelFeed extends FeedItem {
 		global $wgRequest;
 
 		$ctype = $wgRequest->getVal( 'ctype', 'application/xml' );
-		$allowedctypes = array(
+		$allowedctypes = [
 			'application/xml',
 			'text/xml',
 			'application/rss+xml',
 			'application/atom+xml'
-		);
+		];
 
 		return ( in_array( $ctype, $allowedctypes ) ? $ctype : 'application/xml' );
 	}

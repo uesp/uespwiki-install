@@ -1,8 +1,9 @@
 <?php
 
 namespace CirrusSearch;
+
 use MediaWiki\Logger\LoggerFactory;
-use \Title;
+use Title;
 
 /**
  * Tracks whether a Title is known on other indexes.
@@ -28,16 +29,18 @@ class OtherIndexes extends Updater {
 
 	/**
 	 * Constructor
+	 * @param Connection $connection
+	 * @param array $flags
 	 * @param string $localSite
 	 */
-	public function __construct( $localSite ) {
-		parent::__construct();
+	public function __construct( Connection $connection, array $flags, $localSite) {
+		parent::__construct( $connection, $flags );
 		$this->localSite = $localSite;
 	}
 
 	/**
 	 * Get the external index identifiers for title.
-	 * @param $title Title
+	 * @param Title $title
 	 * @return string[] array of index identifiers.  empty means none.
 	 */
 	public static function getExternalIndexes( Title $title ) {
@@ -81,15 +84,15 @@ class OtherIndexes extends Updater {
 		$updates = array();
 
 		// Build multisearch to find ids to update
-		$findIdsMultiSearch = new \Elastica\Multi\Search( $this->getConnection()->getClient() );
+		$findIdsMultiSearch = new \Elastica\Multi\Search( $this->connection->getClient() );
 		$findIdsClosures = array();
 		foreach ( $titles as $title ) {
 			foreach ( OtherIndexes::getExternalIndexes( $title ) as $otherIndex ) {
 				if ( $otherIndex === null ) {
 					continue;
 				}
-				$type = $this->getConnection()->getPageType( $otherIndex );
-				$bool = new \Elastica\Filter\Bool();
+				$type = $this->connection->getPageType( $otherIndex );
+				$bool = new \Elastica\Filter\BoolFilter();
 				// Note that we need to use the keyword indexing of title so the analyzer gets out of the way.
 				$bool->addMust( new \Elastica\Filter\Term( array( 'title.keyword' => $title->getText() ) ) );
 				$bool->addMust( new \Elastica\Filter\Term( array( 'namespace' => $title->getNamespace() ) ) );
@@ -117,6 +120,7 @@ class OtherIndexes extends Updater {
 		// Look up the ids and run all closures to build the list of updates
 		$this->start( "searching for {numIds} ids in other indexes", array(
 			'numIds' => $findIdsClosuresCount,
+			'queryType' => 'other_idx_lookup',
 		) );
 		$findIdsMultiSearchResult = $findIdsMultiSearch->search();
 		try {
@@ -146,14 +150,18 @@ class OtherIndexes extends Updater {
 				'clientSideTimeout' => false,
 				'method' => 'sendOtherIndexUpdates',
 				'arguments' => array( $this->localSite, $indexName, $actions ),
+				'cluster' => $this->writeToClusterName,
 			) );
-			$job->setConnection( $this->getConnection() );
 			$job->run();
 		}
 	}
 
+	/**
+	 * @param Title[] $titles
+	 * @param string $reason
+	 */
 	private function logFailure( array $titles, $reason = '' ) {
-		$articleIDs = array_map( function( $title ) {
+		$articleIDs = array_map( function( Title $title ) {
 			return $title->getArticleID();
 		}, $titles );
 		if ( $reason ) {

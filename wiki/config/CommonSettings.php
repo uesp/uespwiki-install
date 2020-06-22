@@ -8,6 +8,9 @@
 
 $wgSitename = "UESPWiki";
 
+$wgEnableCanonicalServerLink = true;
+$wgCanonicalServer = "https://$wgLanguageCode.uesp.net";
+
 $wgScriptPath       = "/w";
 $wgScriptExtension  = ".php";
 $wgStylePath = "$wgScriptPath/skins";
@@ -26,17 +29,20 @@ $wgPasswordSender   = "password@uesp.net";
 $wgCacheDirectory = "/cache" . $uespLanguageSuffix;
 
 $wgEnableUploads = true;
-$wgUseImageMagick = true;
-$wgImageMagickTempDir = "/imagetmp";
-$wgImageMagickConvertCommand = '/usr/bin/convert';
 $wgAllowExternalImages = true;
 $wgUploadPath       = "//images.uesp.net";
 $wgUploadDirectory  = "$IP/images";
 $wgUseInstantCommons = false;
+
+$wgUseImageMagick = true;
+$wgImageMagickTempDir = "/imagetmp";
+$wgImageMagickConvertCommand = '/usr/bin/convert';
+# $wgImageMagickConvertCommand = '/home/uesp/imagemagick/bin/convert';
 $wgSVGConverters['ImageMagick'] = '$path/convert -background "#ffffff00" -thumbnail $widthx$height\! $input PNG:$output';
+# $wgSVGConverters['ImageMagick'] = $wgImageMagickConvertCommand . ' -background "#ffffff00" -thumbnail $widthx$height\! $input PNG:$output';
 
 $wgHashedUploadDirectory = true;
-array_push($wgFileExtensions, 'ogg', 'zip', 'bmp', 'pcx', 'tga', 'svg');
+array_push($wgFileExtensions, 'ogg', 'zip', 'bmp', 'pcx', 'tga', 'svg', 'webm', 'webp');
 $wgThumbnailEpoch = '20090624000000';
 $wgUseSharedUploads = false;
 
@@ -81,7 +87,12 @@ $wgRightsPage = "UESPWiki:Copyright_and_Ownership";
 $wgRightsUrl = "http://creativecommons.org/licenses/by-sa/2.5/";
 $wgRightsText = "Attribution-ShareAlike 2.5 License";
 $wgRightsIcon = "//images.uesp.net/4/4d/Somerights.png";
-$wgCopyrightIcon = "<a href=\"//en.uesp.net/wiki/UESPWiki:Copyright_and_Ownership\"><img src=\"//en.uesp.net/w/images/4/4d/Somerights.png\" style=\"border: none;\" alt=\"[Content is available under Attribution-ShareAlike]\" /></a>";
+//$wgCopyrightIcon = "<a href=\"//en.uesp.net/wiki/UESPWiki:Copyright_and_Ownership\"><img src=\"//en.uesp.net/w/images/4/4d/Somerights.png\" style=\"border: none;\" alt=\"[Content is available under Attribution-ShareAlike]\" /></a>";
+$wgFooterIcons['copyright']['copyright'] = array(
+		"src" => "//en.uesp.net/w/images/4/4d/Somerights.png",
+		"url" => "//en.uesp.net/wiki/UESPWiki:Copyright_and_Ownership",
+		"alt" => "[Content is available under Attribution-ShareAlike]"
+);
 
 $wgDiff3 = "/usr/bin/diff3";
 $wgExternalDiffEngine = "wikidiff2";
@@ -97,10 +108,11 @@ $wgBlockAllowsUTEdit = true;
 $wgCookieDomain = ".uesp.net";
 $wgCookiePrefix = "uesp_net_wiki5"; # Don't change as it affects the session name used
 $wgDisableCounters = true;
+$wgShowIPinHeader = false;
 $wgExpensiveParserFunctionLimit = 1000;
 $wgFavicon = '/favicon.ico';
 $wgJobRunRate = 0;
-$wgLocaltimezone = "GMT";
+$wgLocaltimezone = "UTC";
 $wgMaxArticleSize = 8192;
 $wgMaxShellMemory = 1310720;
 $wgMaxShellFileSize = 1310720;
@@ -111,8 +123,8 @@ $wgResourceLoaderMaxage = array(
 				'client' => 30 * 24 * 60 * 60,
 		),
 		'unversioned' => array(
-				'server' => 3600,
-				'client' => 3600,
+				'server' => 300,
+				'client' => 300,
 		),
 );
 $wgTmpDirectory = "/imagetmp";

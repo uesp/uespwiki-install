@@ -17,7 +17,7 @@
 	"patrol-reverted-ok": "Urejanje je bilo vrnjeno.",
 	"patrol-reverted-failed": "Urejanja ni bilo mogoče vrniti.",
 	"patrol-skipped-ok": "Preziranje urejanja.",
-	"patrol-reasons": "* Preprost vandalizem\r\n* Preizkus novinca\r\n* Glej pogovorno stran",
+	"patrol-reasons": "* Preprost vandalizem\n* Preizkus novinca\n* Glej pogovorno stran",
 	"patrol-another": "Prikaži drugo urejanje, če je na voljo.",
 	"patrol-stopped": "Odločili ste se za prenehanje nadziranja urejanj. $1",
 	"patrol-resume": "Kliknite tukaj za nadaljevanje.",

@@ -37,7 +37,7 @@ class MonoBookTemplate extends BaseTemplate {
 	 *
 	 * @access private
 	 */
-	function execute() {
+	public function execute() {
 		// Suppress warnings to prevent notices about missing indexes in $this->data
 		wfSuppressWarnings();
 
@@ -119,7 +119,25 @@ class MonoBookTemplate extends BaseTemplate {
 
 				<div class="pBody">
 					<ul<?php $this->html( 'userlangattributes' ) ?>>
-						<?php foreach ( $this->getPersonalTools() as $key => $item ) { ?>
+						<?php
+
+						$personalTools = $this->getPersonalTools();
+
+						if ( array_key_exists( 'uls', $personalTools ) ) {
+							echo $this->makeListItem( 'uls', $personalTools[ 'uls' ] );
+							unset( $personalTools[ 'uls' ] );
+						}
+
+						if ( !$this->getSkin()->getUser()->isLoggedIn() &&
+							User::groupHasPermission( '*', 'edit' ) ) {
+
+							echo Html::rawElement( 'li', array(
+								'id' => 'pt-anonuserpage'
+							), $this->getMsg( 'notloggedin' )->escaped() );
+
+						}
+
+						foreach ( $personalTools as $key => $item ) { ?>
 							<?php echo $this->makeListItem( $key, $item ); ?>
 
 						<?php
@@ -307,8 +325,11 @@ class MonoBookTemplate extends BaseTemplate {
 
 					<?php
 					}
-					Hooks::run( 'MonoBookTemplateToolboxEnd', array( &$this ) );
-					Hooks::run( 'SkinTemplateToolboxEnd', array( &$this, true ) );
+
+					// Avoid PHP 7.1 warnings
+					$skin = $this;
+					Hooks::run( 'MonoBookTemplateToolboxEnd', [ &$skin ] );
+					Hooks::run( 'SkinTemplateToolboxEnd', [ &$skin, true ] );
 					?>
 				</ul>
 				<?php $this->renderAfterPortlet( 'tb' ); ?>

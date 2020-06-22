@@ -5,9 +5,28 @@ class CheckUserHooks {
 	 * Saves user data into the cu_changes table
 	 * Note that other extensions (like AbuseFilter) may call this function directly
 	 * if they want to send data to CU without creating a recentchanges entry
+	 * @param RecentChange $rc
+	 * @return bool
 	 */
 	public static function updateCheckUserData( RecentChange $rc ) {
 		global $wgRequest;
+
+		/**
+		 * RC_CATEGORIZE recent changes are generally triggered by other edits.
+		 * Thus there is no reason to store checkuser data about them.
+		 * @see https://phabricator.wikimedia.org/T125209
+		 */
+		if ( defined( 'RC_CATEGORIZE' ) && $rc->getAttribute( 'rc_type' ) == RC_CATEGORIZE ) {
+			return true;
+		}
+		/**
+		 * RC_EXTERNAL recent changes are not triggered by actions on the local wiki.
+		 * Thus there is no reason to store checkuser data about them.
+		 * @see https://phabricator.wikimedia.org/T125664
+		 */
+		if ( defined( 'RC_EXTERNAL' ) && $rc->getAttribute( 'rc_type' ) == RC_EXTERNAL ) {
+			return true;
+		}
 
 		$attribs = $rc->getAttributes();
 		// Get IP
@@ -67,6 +86,11 @@ class CheckUserHooks {
 	/**
 	 * Hook function to store password reset
 	 * Saves user data into the cu_changes table
+	 *
+	 * @param User $user Sender
+	 * @param string $ip
+	 * @param User $account Receiver
+	 * @return bool
 	 */
 	public static function updateCUPasswordResetData( User $user, $ip, $account ) {
 		global $wgRequest;
@@ -85,7 +109,8 @@ class CheckUserHooks {
 			'cuc_minor'      => 0,
 			'cuc_user'       => $user->getId(),
 			'cuc_user_text'  => $user->getName(),
-			'cuc_actiontext' => wfMessage( 'checkuser-reset-action', $account->getName() )->inContentLanguage()->text(),
+			'cuc_actiontext' => wfMessage( 'checkuser-reset-action', $account->getName() )
+				->inContentLanguage()->text(),
 			'cuc_comment'    => '',
 			'cuc_this_oldid' => 0,
 			'cuc_last_oldid' => 0,
@@ -105,6 +130,11 @@ class CheckUserHooks {
 	/**
 	 * Hook function to store email data
 	 * Saves user data into the cu_changes table
+	 * @param MailAddress $to
+	 * @param MailAddress $from
+	 * @param string $subject
+	 * @param string $text
+	 * @return bool
 	 */
 	public static function updateCUEmailData( $to, $from, $subject, $text ) {
 		global $wgSecretKey, $wgRequest, $wgCUPublicKey;
@@ -130,7 +160,8 @@ class CheckUserHooks {
 			'cuc_minor'      => 0,
 			'cuc_user'       => $userFrom->getId(),
 			'cuc_user_text'  => $userFrom->getName(),
-			'cuc_actiontext' => wfMessage( 'checkuser-email-action', $hash )->inContentLanguage()->text(),
+			'cuc_actiontext' =>
+				wfMessage( 'checkuser-email-action', $hash )->inContentLanguage()->text(),
 			'cuc_comment'    => '',
 			'cuc_this_oldid' => 0,
 			'cuc_last_oldid' => 0,
@@ -145,7 +176,7 @@ class CheckUserHooks {
 		if ( trim( $wgCUPublicKey ) != '' ) {
 			$privateData = $userTo->getEmail() . ":" . $userTo->getId();
 			$encryptedData = new CheckUserEncryptedData( $privateData, $wgCUPublicKey );
-			$rcRow = array_merge($rcRow, array( 'cuc_private' => serialize( $encryptedData ) ) );
+			$rcRow = array_merge( $rcRow, array( 'cuc_private' => serialize( $encryptedData ) ) );
 		}
 
 		$dbw->insert( 'cu_changes', $rcRow, __METHOD__ );
@@ -154,27 +185,18 @@ class CheckUserHooks {
 	}
 
 	/**
-	 * Hook function to store autocreation data from the auth plugin
+	 * Hook function to store registration and autocreation data
 	 * Saves user data into the cu_changes table
 	 *
-	 * @param $user User
-	 *
+	 * @param User $user
+	 * @param boolean $autocreated
 	 * @return true
 	 */
-	public static function onAuthPluginAutoCreate( User $user ) {
-		return self::logUserAccountCreation( $user, 'checkuser-autocreate-action' );
-	}
-
-	/**
-	 * Hook function to store registration data
-	 * Saves user data into the cu_changes table
-	 *
-	 * @param $user User
-	 * @param $byEmail bool
-	 * @return bool
-	 */
-	public static function onAddNewAccount( User $user, $byEmail ) {
-		return self::logUserAccountCreation( $user, 'checkuser-create-action' );
+	public static function onLocalUserCreated( User $user, $autocreated ) {
+		return self::logUserAccountCreation(
+			$user,
+			$autocreated ? 'checkuser-autocreate-action' : 'checkuser-create-action'
+		);
 	}
 
 	/**
@@ -240,7 +262,6 @@ class CheckUserHooks {
 
 				if ( $ids ) {
 					$dbw->delete( 'cu_changes', array( 'cuc_id' => $ids ), $fname );
-					$dbw->commit( 'flush' );
 				}
 			} );
 		}
@@ -316,18 +337,20 @@ class CheckUserHooks {
 				'cuc_ip_hex_time', "$base/archives/patch-cu_changes_indexes.sql", true ) );
 			$updater->addExtensionUpdate( array( 'addIndex', 'cu_changes',
 				'cuc_user_ip_time', "$base/archives/patch-cu_changes_indexes2.sql", true ) );
-			$updater->addExtensionField( 'cu_changes', 'cuc_private', "$base/archives/patch-cu_changes_privatedata.sql" );
+			$updater->addExtensionField(
+				'cu_changes', 'cuc_private', "$base/archives/patch-cu_changes_privatedata.sql" );
 		} elseif ( $updater->getDB()->getType() == 'postgres' ) {
-			$updater->addExtensionUpdate( array( 'addPgField', 'cu_changes', 'cuc_private', 'BYTEA' ) );
+			$updater->addExtensionUpdate(
+				array( 'addPgField', 'cu_changes', 'cuc_private', 'BYTEA' ) );
 		}
 
 		return true;
 	}
 
-	public static function checkUserCreateTables( $updater ) {
+	public static function checkUserCreateTables( DatabaseUpdater $updater ) {
 		$base = dirname( __FILE__ );
 
-        $db = $updater->getDB();
+		$db = $updater->getDB();
 		if ( $db->tableExists( 'cu_changes' ) ) {
 			$updater->output( "...cu_changes table already exists.\n" );
 		} else {
@@ -346,6 +369,8 @@ class CheckUserHooks {
 	/**
 	 * Tell the parser test engine to create a stub cu_changes table,
 	 * or temporary pages won't save correctly during the test run.
+	 * @param array $tables
+	 * @return bool
 	 */
 	public static function checkUserParserTestTables( &$tables ) {
 		$tables[] = 'cu_changes';
@@ -358,7 +383,7 @@ class CheckUserHooks {
 	 * privileged users.
 	 * @param $id Integer: user ID
 	 * @param $nt Title: user page title
-	 * @param $links Array: tool links
+	 * @param $links array: tool links
 	 * @return true
 	 */
 	public static function checkUserContributionsLinks( $id, $nt, &$links ) {
@@ -390,7 +415,8 @@ class CheckUserHooks {
 	 * blocked by this Block.
 	 *
 	 * @param Block $block
-	 * @param Array &$blockIds
+	 * @param array &$blockIds
+	 * @return bool
 	 */
 	public static function doRetroactiveAutoblock( Block $block, array &$blockIds ) {
 		$dbr = wfGetDB( DB_SLAVE );
@@ -428,4 +454,19 @@ class CheckUserHooks {
 
 		return true;
 	}
+
+	/**
+	 * For integration with the Renameuser extension.
+	 *
+	 * @param RenameuserSQL $renameUserSQL
+	 * @return bool
+	 */
+	public static function onRenameUserSQL( RenameuserSQL $renameUserSQL ) {
+		$renameUserSQL->tables['cu_changes'] = array( 'cuc_user_text', 'cuc_user' );
+		$renameUserSQL->tables['cu_log'] = array( 'cul_user_text', 'cul_user' );
+
+		return true;
+	}
+
+
 }

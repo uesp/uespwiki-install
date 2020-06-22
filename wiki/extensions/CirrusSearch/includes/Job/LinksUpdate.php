@@ -1,9 +1,9 @@
 <?php
 
 namespace CirrusSearch\Job;
-use \CirrusSearch\Updater;
-use \JobQueueGroup;
-use \Title;
+
+use JobQueueGroup;
+use Title;
 
 /**
  * Performs the appropriate updates to Elasticsearch after a LinksUpdate is
@@ -45,7 +45,7 @@ class LinksUpdate extends Job {
 	protected function doJob() {
 		global $wgCirrusSearchRefreshInterval;
 
-		$updater = new Updater( $this->connection );
+		$updater = $this->createUpdater();
 		$res = $updater->updateFromTitle( $this->title );
 		if ( $res === false ) {
 			// Couldn't update. Bail early and retry rather than adding an
@@ -57,11 +57,13 @@ class LinksUpdate extends Job {
 		$titleKeys = array_merge( $this->params[ 'addedLinks' ],
 			$this->params[ 'removedLinks' ] );
 		foreach ( $titleKeys as $titleKey ) {
-			$title = Title::newFromDBKey( $titleKey );
+			$title = Title::newFromDBkey( $titleKey );
 			if ( !$title ) {
 				continue;
 			}
-			$linkCount = new IncomingLinkCount( $title, array() );
+			$linkCount = new IncomingLinkCount( $title, array(
+				'cluster' => $this->params['cluster'],
+			) );
 			// If possible, delay the job execution by a few seconds so Elasticsearch
 			// can refresh to contain what we just sent it.  The delay should be long
 			// enough for Elasticsearch to complete the refresh cycle, which normally
@@ -76,7 +78,7 @@ class LinksUpdate extends Job {
 	}
 
 	/**
-	 * @return is this job prioritized?
+	 * @return bool Is this job prioritized?
 	 */
 	public function isPrioritized() {
 		return isset( $this->params[ 'prioritize' ] ) && $this->params[ 'prioritize' ];

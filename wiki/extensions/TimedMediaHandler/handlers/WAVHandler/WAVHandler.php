@@ -23,11 +23,12 @@ class WAVHandler extends ID3Handler {
 	function verifyUpload( $filename ) {
 		$metadata = $this->getID3( $filename );
 
-		if(
+		if (
 			isset( $metadata['audio'] )
 			&& $metadata['audio']['dataformat'] == 'wav'
-			&& ( $metadata['audio']['codec'] == 'Pulse Code Modulation (PCM)' || $metadata['audio']['codec'] == 'IEEE Float' )
-		){
+			&& ( $metadata['audio']['codec'] == 'Pulse Code Modulation (PCM)' ||
+				$metadata['audio']['codec'] == 'IEEE Float' )
+		) {
 			return Status::newGood();
 		}
 
@@ -38,14 +39,14 @@ class WAVHandler extends ID3Handler {
 	 * @return array|bool
 	 */
 	function getStreamTypes( $file ) {
-		$streamTypes = array();
+		$streamTypes = [];
 		$metadata = $this->unpackMetadata( $file->getMetadata() );
 
 		if ( !$metadata || isset( $metadata['error'] ) ) {
 			return false;
 		}
 
-		if( isset( $metadata['audio'] ) && $metadata['audio']['dataformat'] == 'wav' ){
+		if ( isset( $metadata['audio'] ) && $metadata['audio']['dataformat'] == 'wav' ) {
 			$streamTypes[] =  'WAV';
 		}
 
@@ -77,8 +78,8 @@ class WAVHandler extends ID3Handler {
 		if ( !$streamTypes ) {
 			return parent::getLongDesc( $file );
 		}
-		return wfMessage('timedmedia-wav-long-audio',
-			$wgLang->formatTimePeriod( $this->getLength($file) ),
+		return wfMessage( 'timedmedia-wav-long-audio',
+			$wgLang->formatTimePeriod( $this->getLength( $file ) ),
 			$wgLang->formatBitrate( $this->getBitRate( $file ) )
 		)->text();
 

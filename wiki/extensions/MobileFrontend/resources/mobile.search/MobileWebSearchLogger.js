@@ -1,29 +1,16 @@
 ( function ( M, mw, $ ) {
-
-	var Class = M.require( 'mobile.oo/Class' ),
-		SchemaMobileWebSearch = M.require( 'mobile.loggingSchemas/SchemaMobileWebSearch' ),
-		MobileWebSearchLogger;
-
 	/**
 	 * Coordinates the logging of MobileWebSchema events.
 	 * Implements schema defined at https://meta.wikimedia.org/wiki/Schema:MobileWebSearch
 	 *
 	 * @class
 	 */
-	MobileWebSearchLogger = Class.extend( {
+	function MobileWebSearchLogger() {
+		this.userSessionToken = null;
+		this.searchSessionToken = null;
+	}
 
-		/**
-		 * @constructor
-		 *
-		 * @param {SchemaMobileWebSearch} schema An instance of the
-		 *  SchemaMobileWebSearch class
-		 */
-		initialize: function ( schema ) {
-			this.schema = schema;
-			this.userSessionToken = null;
-			this.searchSessionToken = null;
-		},
-
+	MobileWebSearchLogger.prototype = {
 		/**
 		 * Sets the internal state required to deal with logging user session
 		 * data.
@@ -57,8 +44,7 @@
 		 */
 		onSearchStart: function () {
 			this._newSearchSession();
-
-			this.schema.log( {
+			mw.track( 'mf.schemaMobileWebSearch', {
 				action: 'session-start',
 				userSessionToken: this.userSessionToken,
 				searchSessionToken: this.searchSessionToken,
@@ -75,17 +61,15 @@
 			var timeOffsetSinceStart =
 				new Date().getTime() - this.searchSessionCreatedAt;
 
-			this.schema.log( {
+			mw.track( 'mf.schemaMobileWebSearch', {
 				action: 'impression-results',
 				resultSetType: 'prefix',
 				numberOfResults: event.results.length,
 				userSessionToken: this.userSessionToken,
 				searchSessionToken: this.searchSessionToken,
-
 				// FIXME: Unless I'm mistaken, the timeToDisplayResults
 				// property isn't necessary.
 				timeToDisplayResults: timeOffsetSinceStart,
-
 				timeOffsetSinceStart: timeOffsetSinceStart
 			} );
 		},
@@ -100,18 +84,16 @@
 			var timeOffsetSinceStart =
 				new Date().getTime() - this.searchSessionCreatedAt;
 
-			this.schema.logBeacon( {
+			mw.track( 'mf.schemaMobileWebSearch', {
 				action: 'click-result',
-
 				// NOTE: clickIndex is 1-based.
 				clickIndex: event.resultIndex + 1,
-
 				userSessionToken: this.userSessionToken,
 				searchSessionToken: this.searchSessionToken,
 				timeOffsetSinceStart: timeOffsetSinceStart
 			} );
 		}
-	} );
+	};
 
 	/**
 	 * Convenience function that wires up an instance of the
@@ -119,9 +101,7 @@
 	 * search overlay.
 	 */
 	MobileWebSearchLogger.register = function () {
-		var logger = new MobileWebSearchLogger(
-			new SchemaMobileWebSearch()
-		);
+		var logger = new MobileWebSearchLogger();
 
 		$.each( {
 			'search-show': logger.onSearchShow,
@@ -133,7 +113,6 @@
 		} );
 	};
 
-	M.define( 'mobile.search/MobileWebSearchLogger', MobileWebSearchLogger )
-		.deprecate( 'modules/search/MobileWebSearchLogger' );
+	M.define( 'mobile.search/MobileWebSearchLogger', MobileWebSearchLogger );
 
 }( mw.mobileFrontend, mw, jQuery ) );

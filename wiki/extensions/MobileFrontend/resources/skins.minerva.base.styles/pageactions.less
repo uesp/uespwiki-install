@@ -3,14 +3,15 @@
 
 @borderBottomColor: #CACACA;
 
-@titleSectionSpacingTop: 20px;
-@titleSectionSpacingBottom: 25px;
-
 // hide menu items when not possible to use
 .client-nojs #ca-watch,
 .client-nojs #ca-edit,
 #ca-talk.selected {
 	display: none;
+}
+
+#page-actions .nojs-edit {
+	display: inline-block;
 }
 
 .heading-holder {
@@ -22,8 +23,8 @@
 
 	.tagline {
 		color: @colorGray5;
-		font-size: 0.8em;
-		margin: 10px 0;
+		font-size: .85em;
+		margin: 7px 0 10px 0;
 
 		&:first-letter {
 			text-transform: capitalize;

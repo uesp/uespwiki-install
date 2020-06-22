@@ -43,7 +43,33 @@ $wgSpecialPages['EsoSkills'] = 'SpecialEsoSkills';
 $wgSpecialPages['EsoCps'] = 'SpecialEsoCps';
 
 $wgHooks['ParserFirstCallInit'][] = 'UespEsoSkillsParserInit';
-//$wgHooks['BeforePageDisplay'][] = 'uespEsoSkills_beforePageDisplay';
+
+
+$wgResourceModules['ext.EsoSkills.baseStyles'] = array(
+	'position' => 'top',
+	'skinStyles' => array(
+		'default' => array(
+			'resources/lib/jquery.ui/themes/smoothness/jquery.ui.core.css',
+			'resources/lib/jquery.ui/themes/smoothness/jquery.ui.theme.css',
+		),
+	),
+	'targets' => array( 'desktop', 'mobile' ),
+);
+
+
+$wgResourceModules['ext.EsoSkills.baseScripts'] = array(
+	'position' => 'top',
+	'scripts' => array(
+						'resources/lib/jquery.ui/jquery.ui.core.js',
+						'resources/lib/jquery.ui/jquery.ui.widget.js',
+						'resources/lib/jquery.ui/jquery.ui.mouse.js',
+						'resources/lib/jquery.ui/jquery.ui.draggable.js',
+						'resources/lib/jquery.ui/jquery.ui.droppable.js',
+						'extensions/MwEmbedSupport/MwEmbedModules/MwEmbedSupport/jquery/jquery.ui.touchPunch.js',
+					  ),
+	'dependencies' => array ('ext.EsoSkills.styles'),
+	'targets' => array( 'desktop', 'mobile' ),
+);
 
 $wgResourceModules['ext.EsoSkills.styles'] = array(
 	'position' => 'top',
@@ -55,10 +81,13 @@ $wgResourceModules['ext.EsoSkills.styles'] = array(
 
 $wgResourceModules['ext.EsoSkills.scripts'] = array(
 	'position' => 'top',
-	'scripts' => array( 'jquery-ui.min.js', 'jquery.ui.touch-punch.min.js', 'esoskills.js', 'esocp_simple.js' ),
+	//'scripts' => array( 'jquery-ui.min.js', 'jquery.ui.touch-punch.min.js', 'esoskills.js', 'esocp_simple.js' ),
+	'scripts' => array( 'esoskills.js', 'esocp_simple.js' ),
 	'localBasePath' => '/home/uesp/esolog.static/resources/',
 	'remoteBasePath' => '//esolog-static.uesp.net/resources/',
 	'targets' => array( 'desktop', 'mobile' ),
+	//'dependencies' => array ('jquery.ui.core', 'jquery.ui.mouse', 'jquery.ui.draggable', 'jquery.ui.touchPunch', 'jquery.ui.droppable'),
+	'dependencies' => array ('ext.EsoSkills.baseScripts'),
 );
 
 $wgResourceModules['ext.EsoSkills.styles2'] = array(
@@ -75,34 +104,16 @@ $wgResourceModules['ext.EsoSkills.scripts2'] = array(
 	'localBasePath' => __DIR__,
 	'remoteBasePath' => "$wgScriptPath/extensions/UespEsoSkills/",
 	'targets' => array( 'desktop', 'mobile' ),
+	'dependencies' => array ('ext.EsoSkills.scripts'),
 );
-
-
-function uespEsoSkills_beforePageDisplay(&$out) {
-	global $wgScriptPath;
-	
-	$out->addHeadItem("uesp-jqueryui1-js", "<script src='//esolog-static.uesp.net/resources/jquery-ui.min.js?version=2May2018'></script>");
-	$out->addHeadItem("uesp-jqueryui2-js", "<script src='//esolog-static.uesp.net/resources/jquery.ui.touch-punch.min.js?version=2May2018'></script>");
-	
-	$out->addHeadItem("uesp-esoskills-css", "<link rel='stylesheet' href='$wgScriptPath/extensions/UespEsoSkills/uespesoskills.css?2May2018' />");
-	$out->addHeadItem("uesp-esoskills-js", "<script src='$wgScriptPath/extensions/UespEsoSkills/uespesoskills.js?12Aug2018'></script>");
-	
-	$out->addHeadItem("uesp-esoskillsbrowser-css", "<link rel='stylesheet' href='//esolog-static.uesp.net/resources/esoskills_embed.css?2May2018' />");
-	$out->addHeadItem("uesp-esoskillsbrowser-js", "<script src='//esolog-static.uesp.net/resources/esoskills.js?12Aug2018'></script>");
-	
-	$out->addHeadItem("uesp-esocpsbrowser-css", "<link rel='stylesheet' href='//esolog-static.uesp.net/resources/esocp_simple_embed.css?2May2018' />");
-	$out->addHeadItem("uesp-esocpsbrowser-js", "<script src='//esolog-static.uesp.net/resources/esocp_simple.js?2May2018'></script>");
-	
-	return true;
-}
 
 
 function UespEsoSkillsParserInit(Parser $parser)
 {
 	global $wgOut;
 	
-	$wgOut->addModules( array( 'ext.EsoSkills.scripts', 'ext.EsoSkills.scripts2' ) );
-	$wgOut->addModuleStyles( array( 'ext.EsoSkills.styles', 'ext.EsoSkills.styles2' ) );
+	$wgOut->addModules( array( 'ext.EsoSkills.scripts', 'ext.EsoSkills.scripts2', 'ext.EsoSkills.baseScripts' ) );
+	$wgOut->addModuleStyles( array( 'ext.EsoSkills.styles', 'ext.EsoSkills.styles2', 'ext.EsoSkills.baseStyles' ) );
 			
 	$parser->setHook('esoskill', 'uespRenderEsoSkillTooltip');
 	return true;

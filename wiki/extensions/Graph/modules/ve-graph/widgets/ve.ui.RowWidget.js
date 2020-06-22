@@ -6,7 +6,7 @@
  *
  * @class
  * @extends OO.ui.Widget
- * @mixins OO.ui.GroupElement
+ * @mixins OO.ui.mixin.GroupElement
  *
  * @constructor
  * @param {Object} [config] Configuration options
@@ -29,7 +29,7 @@ ve.ui.RowWidget = function VeUiRowWidget( config ) {
 	ve.ui.RowWidget.super.call( this, config );
 
 	// Mixin constructor
-	OO.ui.GroupElement.call( this, config );
+	OO.ui.mixin.GroupElement.call( this, config );
 
 	// Properties
 	// TODO: The key should be stored in data to leverage getItemFromData in TableWidget
@@ -64,7 +64,8 @@ ve.ui.RowWidget = function VeUiRowWidget( config ) {
 
 	this.connect( this, {
 		cellChange: 'onCellChange',
-		labelUpdate: 'onLabelUpdate'
+		labelUpdate: 'onLabelUpdate',
+		disable: 'onDisable'
 	} );
 
 	if ( config.deletable ) {
@@ -95,7 +96,7 @@ ve.ui.RowWidget = function VeUiRowWidget( config ) {
 /* Inheritance */
 
 OO.inheritClass( ve.ui.RowWidget, OO.ui.Widget );
-OO.mixinClass( ve.ui.RowWidget, OO.ui.GroupElement );
+OO.mixinClass( ve.ui.RowWidget, OO.ui.mixin.GroupElement );
 
 /* Events */
 
@@ -208,9 +209,9 @@ ve.ui.RowWidget.prototype.setValue = function ( field, value ) {
 };
 
 /**
- * Reset the field values
+ * Clear the field values
  */
-ve.ui.RowWidget.prototype.reset = function () {
+ve.ui.RowWidget.prototype.clear = function () {
 	var i, len,
 		cells = this.getItems();
 
@@ -237,10 +238,8 @@ ve.ui.RowWidget.prototype.onCellChange = function ( input, value ) {
 	// don't get passed through.
 	var self = this;
 
-	input.isValid().done( function ( isValid ) {
-		if ( isValid ) {
-			self.emit( 'change', input, value );
-		}
+	input.getValidity().done( function () {
+		self.emit( 'change', input, value );
 	} );
 };
 
@@ -267,4 +266,18 @@ ve.ui.RowWidget.prototype.onLabelUpdate = function () {
 	}
 
 	this.labelCell.setLabel( newLabel );
+};
+
+/**
+ * Handle disabled state changes
+ *
+ * @param  {boolean} disabled The new disabled state
+ */
+ve.ui.RowWidget.prototype.onDisable = function ( disabled ) {
+	var i,
+		cells = this.getItems();
+
+	for ( i = 0; i < cells.length; i++ ) {
+		cells[ i ].setDisabled( disabled );
+	}
 };

@@ -1,8 +1,7 @@
 // FIXME: Merge this code with OverlayManager
 ( function ( M, $ ) {
 
-	var key, router,
-		EventEmitter = M.require( 'mobile.oo/eventemitter' );
+	var router;
 
 	/**
 	 * Does hash match entry.path?
@@ -25,11 +24,11 @@
 	/**
 	 * Provides navigation routing and location information
 	 * @class Router
-	 * @uses EventEmitter
+	 * @mixins OO.EventEmitter
 	 */
 	function Router() {
 		var self = this;
-		EventEmitter.prototype.initialize.apply( this, arguments );
+		OO.EventEmitter.call( this );
 		// use an object instead of an array for routes so that we don't
 		// duplicate entries that already exist
 		this.routes = {};
@@ -41,6 +40,10 @@
 		} );
 
 		$( window ).on( 'hashchange', function () {
+			self.emit( 'hashchange' );
+		} );
+
+		this.on( 'hashchange', function () {
 			// ev.originalEvent.newURL is undefined on Android 2.x
 			var routeEv;
 
@@ -56,7 +59,7 @@
 					// if route was prevented, ignore the next hash change and revert the
 					// hash to its old value
 					self._enabled = false;
-					window.location.hash = self._oldHash;
+					self.navigate( self._oldHash );
 				}
 			} else {
 				self._enabled = true;
@@ -65,12 +68,7 @@
 			self._oldHash = self.getPath();
 		} );
 	}
-
-	for ( key in EventEmitter.prototype ) {
-		if ( EventEmitter.prototype.hasOwnProperty( key ) ) {
-			Router.prototype[ key ] = EventEmitter.prototype[ key ];
-		}
-	}
+	OO.mixinClass( Router, OO.EventEmitter );
 
 	/**
 	 * Check the current route and run appropriate callback if it matches.
@@ -117,6 +115,13 @@
 	};
 
 	/**
+	 * Triggers back on the window
+	 */
+	Router.prototype.goBack = function () {
+		window.history.back();
+	};
+
+	/**
 	 * Navigate to the previous route. This is a wrapper for window.history.back
 	 * @method
 	 * @return {jQuery.Deferred}
@@ -131,7 +136,7 @@
 			deferredRequest.resolve();
 		} );
 
-		window.history.back();
+		this.goBack();
 
 		// If for some reason (old browser, bug in IE/windows 8.1, etc) popstate doesn't fire,
 		// resolve manually. Since we don't know for sure which browsers besides IE10/11 have
@@ -168,7 +173,7 @@
 
 	router = new Router();
 
-	M.define( 'mobile.startup/Router', Router ).deprecate( 'Router' );
-	M.define( 'mobile.startup/router', router ).deprecate( 'router' );
+	M.define( 'mobile.startup/Router', Router );
+	M.define( 'mobile.startup/router', router );
 
 }( mw.mobileFrontend, jQuery ) );

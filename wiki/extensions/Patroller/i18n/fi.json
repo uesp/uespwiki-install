@@ -20,7 +20,7 @@
 	"patrol-reverted-ok": "Muokkaus kumottiin.",
 	"patrol-reverted-failed": "Muokkausta ei voitu palauttaa.",
 	"patrol-skipped-ok": "Ohitetaan muokkaus.",
-	"patrol-reasons": "* Selvää vandalismia\r\n* Tulokkaan kokeilu\r\n* Katso keskustelusivu",
+	"patrol-reasons": "* Selvää vandalismia\n* Tulokkaan kokeilu\n* Katso keskustelusivu",
 	"patrol-another": "Näytä toinen muokkaus, jos saatavilla.",
 	"patrol-stopped": "Olet valinnut olla tarkastamatta lisää muokkauksia. $1",
 	"patrol-resume": "Napsauta jatkaaksesi.",

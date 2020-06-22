@@ -17,7 +17,7 @@
 	"patrol-reverted-ok": "Ibinalik sa dati ang pagbabago.",
 	"patrol-reverted-failed": "Hindi maibalik sa dati ang pagbabago.",
 	"patrol-skipped-ok": "Hindi pinapansin ang pagbabago.",
-	"patrol-reasons": "* Payak na pambababoy/bandalismo\r\n* Pagsubok ng baguhan\r\n* Tingnan ang pahina ng usapan",
+	"patrol-reasons": "* Payak na pambababoy/bandalismo\n* Pagsubok ng baguhan\n* Tingnan ang pahina ng usapan",
 	"patrol-another": "Magpakita ng iba pang pagbabago, kung may makukuha.",
 	"patrol-stopped": "Pinili mong huwag magpatrolya ng iba pang pagbabago. $1",
 	"patrol-resume": "Pindutin dito upang magpatuloy.",

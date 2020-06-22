@@ -17,7 +17,7 @@
 	"patrol-reverted-ok": "Le modification ha essite revertite.",
 	"patrol-reverted-failed": "Le modification non poteva esser revertite.",
 	"patrol-skipped-ok": "Le modification es ignorate.",
-	"patrol-reasons": "* Vandalismo simple\r\n* Test de un novicio\r\n* Vide pagina de discussion",
+	"patrol-reasons": "* Vandalismo simple\n* Test de un novicio\n* Vide pagina de discussion",
 	"patrol-another": "Monstrar un altere modification, si possibile.",
 	"patrol-stopped": "Tu ha optate pro non patruliar on altere modification. $1",
 	"patrol-resume": "Clicca hic pro reprender.",

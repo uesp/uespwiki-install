@@ -70,6 +70,7 @@ $wgGroupPermissions['sysop']['abusefilter-revert'] = true;
 $wgGroupPermissions['sysop']['checkuser'] = true;
 $wgGroupPermissions['sysop']['checkuser-log'] = true;
 $wgGroupPermissions['sysop']['deleterevision'] = true;
+$wgGroupPermissions['sysop']['editcontentmodel'] = true; // Defaults to true in 1.27 and above and can be removed.
 $wgGroupPermissions['sysop']['patroller'] = true;
 $wgGroupPermissions['sysop']['renameuser'] = true;
 $wgGroupPermissions['sysop']['skipcaptcha'] = true;

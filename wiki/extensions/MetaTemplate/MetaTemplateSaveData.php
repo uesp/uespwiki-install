@@ -93,7 +93,9 @@ class MetaTemplateSaveData {
 		// to be safe: I don't want these deletes to be run after I insert any new data
 		// (although might not be necessary now that I'm not clearing and rewriting data)
 		// also needs to be done before next round of deletes
-		$dbw->commit();
+		// With this extra commit image deletion causes an DBUnexpectedError from line 2661 of /home/uesp/www/w/includes/db/Database.php:
+		// starting in MW 1.27. Commenting this line out fixes the issue.
+		//$dbw->commit();
 		
 		// if I didn't clear the title out completely, now check to make sure that no
 		// subset names are duplicated (could happen with simultaneous DB updates for same page)
@@ -297,9 +299,9 @@ class MetaTemplateSaveData {
 	}
 	
 	static public function OnDelete( &$article ) {
-
-	        if ( wfReadOnly() ) return true;
-
+		
+		if ( wfReadOnly() ) return true;
+		
 		$title = $article->getTitle();
 		self::cleardata( $title );
 		return true;

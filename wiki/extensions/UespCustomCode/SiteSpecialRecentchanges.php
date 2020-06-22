@@ -139,7 +139,7 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 	}
 			
 	// couldn't see any easy way around copying the whole function just to add a couple tweaked lines...
-	function optionsPanel( $defaults, $nondefaults ) {
+	function optionsPanel( $defaults, $nondefaults, $numRows ) {
 		global $wgLang, $wgUser, $wgRCLinkLimits, $wgRCLinkDaysi, $wgOut;
 		
 		$options = $nondefaults + $defaults;

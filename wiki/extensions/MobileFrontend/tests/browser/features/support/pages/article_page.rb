@@ -9,7 +9,8 @@ class ArticlePage
 
   # pre-content
   h1(:first_heading, id: 'section_0')
-  a(:edit_history_link, css: '#mw-mf-last-modified a')
+  # standalone history link
+  a(:standalone_edit_history_link, css: '#mw-mf-last-modified a')
 
   # left nav
   nav(:navigation, css: 'nav')
@@ -18,6 +19,8 @@ class ArticlePage
 
   # last modified bar
   a(:last_modified_bar_history_link, href: /Special:History/)
+  a(:last_modified_bar_history_userpage_link, href: /User:/)
+
   # page actions
   ## edit
   li(:edit_button_holder, id: 'ca-edit')
@@ -68,6 +71,9 @@ class ArticlePage
   end
   a(:search_result) do |page|
     page.search_overlay_page_list_element.element.a
+  end
+  h3(:search_result_heading) do |page|
+    page.search_overlay_page_list_element.element.h3
   end
 
   a(:notifications_button, id: 'secondary-button', class: 'user-button')
@@ -126,7 +132,7 @@ class ArticlePage
   div(:spinner_loading, class: 'spinner loading')
 
   # toast
-  div(:toast, class: 'toast')
+  div(:toast, class: 'mw-notification')
 
   # loader
   div(:content_wrapper, id: 'content')
@@ -134,9 +140,13 @@ class ArticlePage
 
   # secondary menu
   ## languages
-  a(:language_button, css: '.languageSelector')
+  a(:language_button, css: '#page-secondary-actions #language-switcher')
+  a(:alternative_language_button, css: '#page-actions #language-switcher')
+  a(:disabled_alternative_language_button, css: '#page-actions #language-switcher.disabled')
   # Can't use generic overlay class as this will match with the LoadingOverlay that shows before loading the language overlay
   div(:overlay_languages, css: '.language-overlay')
+  a(:non_preferred_language_link, css: '.all-languages a', index: 0)
+  a(:preferred_language_link, css: '.preferred-languages a', index: 0)
 
   # footer
   a(:desktop_link, text: 'Desktop')
@@ -149,6 +159,7 @@ class ArticlePage
 
   # references
   a(:reference, css: 'sup.reference a')
+  a(:nested_reference, css: '.drawer.references sup.reference a')
   a(:reference_drawer, css: '.drawer.references')
 
   # sections

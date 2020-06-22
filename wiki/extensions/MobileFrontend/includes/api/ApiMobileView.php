@@ -75,7 +75,10 @@ class ApiMobileView extends ApiBase {
 		}
 
 		$title = $this->makeTitle( $params['page'] );
-		$this->addXAnalyticsItem( 'ns', (string)$title->getNamespace() );
+
+		$namespace = $title->getNamespace();
+		$this->addXAnalyticsItem( 'ns', (string)$namespace );
+
 		// See whether the actual page (or if enabled, the redirect target) is the main page
 		$this->mainPage = $this->isMainPage( $title );
 		if ( $this->mainPage && $this->noHeadings ) {
@@ -87,7 +90,13 @@ class ApiMobileView extends ApiBase {
 				array( 'normalizedtitle' => $title->getPageLanguage()->convert( $title->getPrefixedText() ) )
 			);
 		}
-		$data = $this->getData( $title, $params['noimages'] );
+
+		if ( isset( $prop['namespace'] ) ) {
+			$resultObj->addValue( null, $moduleName, array(
+				'ns' => $namespace,
+			) );
+		}
+		$data = $this->getData( $title, $params['noimages'], $params['revision'] );
 		$plainData = array( 'lastmodified', 'lastmodifiedby', 'revision',
 			'languagecount', 'hasvariants', 'displaytitle', 'id', 'contentmodel' );
 		foreach ( $plainData as $name ) {
@@ -401,18 +410,17 @@ class ApiMobileView extends ApiBase {
 	 * Performs a page parse
 	 * @param WikiPage $wp
 	 * @param ParserOptions $parserOptions
-	 * @return ParserOutput
+	 * @param null|int [$oldid] Revision ID to get the text from, passing null or 0 will
+	 *   get the current revision (default value)
+	 * @return ParserOutput|null
 	 */
-	protected function getParserOutput( WikiPage $wp, ParserOptions $parserOptions ) {
+	protected function getParserOutput( WikiPage $wp, ParserOptions $parserOptions, $oldid = null ) {
 		$time = microtime( true );
-		$parserOutput = $wp->getParserOutput( $parserOptions );
+		$parserOutput = $wp->getParserOutput( $parserOptions, $oldid );
 		$time = microtime( true ) - $time;
-		if ( !$parserOutput ) {
-			wfDebugLog( 'mobile', "Empty parser output on '{$wp->getTitle()->getPrefixedText()}'" .
-				": rev {$wp->getId()}, time $time" );
-			throw new Exception( __METHOD__ . ": PoolCounter didn't return parser output" );
+		if ( $parserOutput ) {
+			$parserOutput->setTOCEnabled( false );
 		}
-		$parserOutput->setTOCEnabled( false );
 
 		return $parserOutput;
 	}
@@ -439,9 +447,11 @@ class ApiMobileView extends ApiBase {
 	 * Get data of requested article.
 	 * @param Title $title
 	 * @param boolean $noImages
+	 * @param null|int [$oldid] Revision ID to get the text from, passing null or 0 will
+	 *   get the current revision (default value)
 	 * @return array
 	 */
-	private function getData( Title $title, $noImages ) {
+	private function getData( Title $title, $noImages, $oldid = null ) {
 		$mfConfig = MobileContext::singleton()->getMFConfig();
 		$useTidy = $this->getConfig()->get( 'UseTidy' );
 		$mfTidyMobileViewSections = $mfConfig->get( 'MFTidyMobileViewSections' );
@@ -473,9 +483,12 @@ class ApiMobileView extends ApiBase {
 			}
 		}
 		$latest = $wp->getLatest();
+		// Use page_touched so template updates invalidate cache
+		$touched = $wp->getTouched();
+		$revId = $oldid ? $oldid : $title->getLatestRevID();
 		if ( $this->file ) {
 			$key = wfMemcKey( 'mf', 'mobileview', self::CACHE_VERSION, $noImages,
-				$latest, $this->noTransform, $this->file->getSha1(), $this->variant );
+				$touched, $this->noTransform, $this->file->getSha1(), $this->variant );
 			$cacheExpiry = 3600;
 		} else {
 			if ( !$latest ) {
@@ -490,7 +503,8 @@ class ApiMobileView extends ApiBase {
 				'mobileview',
 				self::CACHE_VERSION,
 				$noImages,
-				$latest,
+				$touched,
+				$revId,
 				$this->noTransform,
 				$parserCacheKey
 			);
@@ -504,7 +518,14 @@ class ApiMobileView extends ApiBase {
 		if ( $this->file ) {
 			$html = $this->getFilePage( $title );
 		} else {
-			$parserOutput = $this->getParserOutput( $wp, $parserOptions );
+			$parserOutput = $this->getParserOutput( $wp, $parserOptions, $oldid );
+			if ( $parserOutput === false ) {
+				$this->dieUsage(
+					"Bad revision id/title combination",
+					'invalidparams'
+				);
+				return;
+			}
 			$html = $parserOutput->getText();
 			$cacheExpiry = $parserOutput->getCacheExpiry();
 		}
@@ -512,8 +533,8 @@ class ApiMobileView extends ApiBase {
 		if ( !$this->noTransform ) {
 			$mf = new MobileFormatter( MobileFormatter::wrapHTML( $html ), $title );
 			$mf->setRemoveMedia( $noImages );
-			$mf->filterContent();
 			$mf->setIsMainPage( $this->mainPage && $mfSpecialCaseMainPage );
+			$mf->filterContent();
 			$html = $mf->getText();
 		}
 
@@ -574,7 +595,7 @@ class ApiMobileView extends ApiBase {
 		} else {
 			$data['lastmodifiedby'] = null;
 		}
-		$data['revision'] = $title->getLatestRevID();
+		$data['revision'] = $revId;
 
 		if ( isset( $parserOutput ) ) {
 			$languages = $parserOutput->getLanguageLinks();
@@ -584,7 +605,7 @@ class ApiMobileView extends ApiBase {
 			$data['pageprops'] = $parserOutput->getProperties();
 		} else {
 			$data['languagecount'] = 0;
-			$data['displaytitle'] = $title->getPrefixedText();
+			$data['displaytitle'] = htmlspecialchars( $title->getPrefixedText() );
 			$data['pageprops'] = array();
 		}
 
@@ -609,13 +630,23 @@ class ApiMobileView extends ApiBase {
 	 * @return string
 	 */
 	private function getFilePage( Title $title ) {
-		//HACK: HACK: HACK:
+		// HACK: HACK: HACK:
 		$context = new DerivativeContext( $this->getContext() );
 		$context->setTitle( $title );
 		$context->setOutput( new OutputPage( $context ) );
+
 		$page = new ImagePage( $title );
 		$page->setContext( $context );
+
+		// T123821: Without setting the wiki page on the derivative context,
+		// DerivativeContext#getWikiPage will (eventually) fall back to
+		// RequestContext#getWikiPage. Here, the request context is distinct from the
+		// derivative context and deliberately constructed with a bad title in the prelude
+		// of api.php.
+		$context->setWikiPage( $page->getPage() );
+
 		$page->view();
+
 		$html = $context->getOutput()->getHTML();
 
 		return $html;
@@ -747,6 +778,7 @@ class ApiMobileView extends ApiBase {
 					'pageprops',
 					'description',
 					'contentmodel',
+					'namespace',
 				)
 			),
 			'sectionprop' => array(
@@ -780,6 +812,11 @@ class ApiMobileView extends ApiBase {
 				ApiBase::PARAM_DFLT => 0,
 			),
 			'maxlen' => array(
+				ApiBase::PARAM_TYPE => 'integer',
+				ApiBase::PARAM_MIN => 0,
+				ApiBase::PARAM_DFLT => 0,
+			),
+			'revision' => array(
 				ApiBase::PARAM_TYPE => 'integer',
 				ApiBase::PARAM_MIN => 0,
 				ApiBase::PARAM_DFLT => 0,
@@ -827,10 +864,11 @@ class ApiMobileView extends ApiBase {
 					. 'all factors for logged-in users but not blocked status for anons.',
 				' languagecount   - number of languages that the page is available in',
 				' hasvariants     - whether or not the page is available in other language variants',
-				' displaytitle    - the rendered title of the page, with {{DISPLAYTITLE}} and such applied',
+				' displaytitle    - HTML of the page title for display, with {{DISPLAYTITLE}} and such applied',
 				' pageprops       - page properties',
 				' description     - page description from Wikidata',
-				'contentmodel     - page contentmodel'
+				' contentmodel    - page contentmodel',
+				' namespace       - the namespace of the page',
 			),
 			'sectionprop' => 'What information about sections to get',
 			'pageprops' => 'What page properties to return, a pipe (|) separated list or * for'

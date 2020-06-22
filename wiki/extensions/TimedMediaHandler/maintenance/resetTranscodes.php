@@ -5,9 +5,9 @@
  */
 $IP = getenv( 'MW_INSTALL_PATH' );
 if ( $IP === false ) {
-	$IP = dirname( __FILE__ ) . '/../../..';
+	$IP = __DIR__ . '/../../..';
 }
-require_once( "$IP/maintenance/Maintenance.php" );
+require_once "$IP/maintenance/Maintenance.php";
 
 class ResetTranscodes extends Maintenance {
 
@@ -16,11 +16,10 @@ class ResetTranscodes extends Maintenance {
 		$this->mDescription = "Reset stalled transcodes, that are no longer in the job queue.";
 	}
 	public function execute() {
-		global $wgEnabledTranscodeSet;
-		$where = array(
-			"transcode_time_startwork" => NULL,
-			"transcode_time_error" => NULL
-		);
+		$where = [
+			"transcode_time_startwork" => null,
+			"transcode_time_error" => null
+		];
 		$dbr = wfGetDB( DB_SLAVE );
 		$res = $dbr->select( 'transcode', '*', $where, __METHOD__ );
 		foreach ( $res as $row ) {
@@ -28,14 +27,14 @@ class ResetTranscodes extends Maintenance {
 			// re-insert WebVideoTranscodeJob,
 			// will only be added if not in queue
 			// due to deduplication
-			$job = new WebVideoTranscodeJob( $title, array(
+			$job = new WebVideoTranscodeJob( $title, [
 				'transcodeMode' => 'derivative',
 				'transcodeKey' => $row->transcode_key,
-			) );
+			] );
 			$job->insert();
 		}
 	}
 }
 
 $maintClass = 'ResetTranscodes'; // Tells it to run the class
-require_once( RUN_MAINTENANCE_IF_MAIN );
+require_once ( RUN_MAINTENANCE_IF_MAIN );

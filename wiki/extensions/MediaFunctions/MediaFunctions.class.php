@@ -175,6 +175,6 @@ class MediaFunctions {
 	 * @return string
 	 */
 	private static function error( $error, $name ) {
-		return '<span class="error">' . htmlspecialchars( wfMsgForContent( $error, $name ) ) . '</span>';
+		return '<span class="error">' . wfMessage( $error, $name )->inContentLanguage()->escaped() . '</span>';
 	}
 }

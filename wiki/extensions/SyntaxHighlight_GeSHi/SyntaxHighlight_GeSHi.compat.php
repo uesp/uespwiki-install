@@ -17,14 +17,30 @@
  */
 
 /**
- * Stub object for maintaining backward-compatibility with extensions
- * that have not been updated for version 2.0 of SyntaxHighlight_GeSHi
- * and for supporting GeSHi lexer names whenever they map naturally to
- * a Pygments lexer.
+ * Stub class for maintaining backward-compatibility with extensions
+ * that have not been updated for version 2.0 of SyntaxHighlight_GeSHi.
  */
 class GeSHi {
+	public function __construct( $html ) {
+		$this->html = $html;
+	}
+
+	public function error() {
+	}
+
+	public function set_language( $language ) {
+	}
+
+	public function parse_code() {
+		global $wgOut;
+		$wgOut->addModuleStyles( 'ext.pygments' );
+		return $this->html;
+	}
+}
+
+class SyntaxHighlightGeSHiCompat {
 	/** @var array A mapping of GeSHi lexer names to compatible Pygments lexers. */
-	public static $compatibleLexers = array(
+	private static $compatibleLexers = array(
 		// Assembler
 		'arm'       => 'asm',
 		'6502acme'  => 'asm',
@@ -80,7 +96,6 @@ class GeSHi {
 
 		// Miscellaneous
 		'cadlisp'   => 'lisp',
-		'j'         => 'objj',
 		'java5'     => 'java',
 		'php-brief' => 'php',
 		'povray'    => 'pov',
@@ -88,7 +103,6 @@ class GeSHi {
 		'rails'     => 'ruby',
 		'rpmspec'   => 'spec',
 		'rsplus'    => 'splus',
-		'bnf'       => 'ebnf',
 		'gettext'   => 'pot',
 
 		// ML
@@ -115,21 +129,19 @@ class GeSHi {
 
 		// bibtex is basically LaTeX
 		'bibtex' => 'latex',
+
+		// 'emacs-lisp' was an alias for the Emacs Lisp lexer.
+		// It got dropped in Pygments commit 811926b, probably by accident.
+		// Declare it here until it is restored upstream.
+		// Upstream bug:
+		//   https://bitbucket.org/birkenfeld/pygments-main/issues/1207
+		'emacs-lisp' => 'elisp',
+
+		// apt
+		'apt_sources' => 'debsources',
 	);
 
-	public function __construct( $html ) {
-		$this->html = $html;
-	}
-
-	public function error() {
-	}
-
-	public function set_language( $language ) {
-	}
-
-	public function parse_code() {
-		global $wgOut;
-		$wgOut->addModuleStyles( 'ext.pygments' );
-		return $this->html;
+	public static function getGeSHiToPygmentsMap() {
+		return self::$compatibleLexers;
 	}
 }

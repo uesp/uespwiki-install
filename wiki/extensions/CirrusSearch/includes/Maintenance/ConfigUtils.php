@@ -3,9 +3,6 @@
 namespace CirrusSearch\Maintenance;
 
 use Elastica\Client;
-use Elastica\Index;
-use Elastica\Query;
-use Elastica\Type;
 
 /**
  * This program is free software; you can redistribute it and/or modify
@@ -62,6 +59,7 @@ class ConfigUtils {
 
 	/**
 	 * Pick the index identifier from the provided command line option.
+	 *
 	 * @param string $option command line option
 	 *          'now'        => current time
 	 *          'current'    => if there is just one index for this type then use its identifier
@@ -76,13 +74,8 @@ class ConfigUtils {
 			return $identifier;
 		}
 		if ( $option === 'current' ) {
-			$this->outputIndented( 'Infering index identifier...' );
-			$found = array();
-			foreach ( $this->client->getStatus()->getIndexNames() as $name ) {
-				if ( substr( $name, 0, strlen( $typeName ) ) === $typeName ) {
-					$found[] = $name;
-				}
-			}
+			$this->outputIndented( 'Inferring index identifier...' );
+			$found = $this->getAllIndicesByType( $typeName );
 			if ( count( $found ) > 1 ) {
 				$this->output( "error\n" );
 				$this->error( "Looks like the index has more than one identifier. You should delete all\n" .
@@ -105,8 +98,25 @@ class ConfigUtils {
 	}
 
 	/**
-	 * @param array $bannedPlugins
-	 * @return array
+	 * Scan the indices and return the ones that match the
+	 * type $typeName
+	 *
+	 * @param string $typeName the type to filter with
+	 * @return string[] the list of indices
+	 */
+	public function getAllIndicesByType( $typeName ) {
+		$found = array();
+		foreach ( $this->client->getStatus()->getIndexNames() as $name ) {
+			if ( substr( $name, 0, strlen( $typeName ) ) === $typeName ) {
+				$found[] = $name;
+			}
+		}
+		return $found;
+	}
+
+	/**
+	 * @param string[] $bannedPlugins
+	 * @return string[]
 	 */
 	public function scanAvailablePlugins( array $bannedPlugins = array() ) {
 		$this->outputIndented( "Scanning available plugins..." );
@@ -178,5 +188,46 @@ class ConfigUtils {
 		if ( $die > 0 ) {
 			die( $die );
 		}
+	}
+
+	/**
+	 * Get index health
+	 *
+	 * @param string $indexName
+	 * @return array the index health status
+	 */
+	public function getIndexHealth( $indexName ) {
+		$path = "_cluster/health/$indexName";
+		$response = $this->client->request( $path );
+		if ( $response->hasError() ) {
+			throw new \Exception( "Error while fetching index health status: ". $response->getError() );
+		}
+		return $response->getData();
+	}
+
+	/**
+	 * Wait for the index to go green
+	 *
+	 * @param string $indexName
+	 * @param int $timeout
+	 * @return boolean true if the index is green false otherwise.
+	 */
+	public function waitForGreen( $indexName, $timeout ) {
+		$startTime = time();
+		while( ( $startTime + $timeout ) > time() ) {
+			try {
+				$response = $this->getIndexHealth( $indexName );
+				$status = isset ( $response['status'] ) ? $response['status'] : 'unknown';
+				if ( $status == 'green' ) {
+					$this->outputIndented( "\tGreen!\n" );
+					return true;
+				}
+				$this->outputIndented( "\tIndex is $status retrying...\n" );
+				sleep( 5 );
+			} catch( \Exception $e ) {
+				$this->output( "Error while waiting for green ({$e->getMessage()}), retrying...\n" );
+			}
+		}
+		return false;
 	}
 }

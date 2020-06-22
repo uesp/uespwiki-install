@@ -9,7 +9,8 @@
 			"Theklan",
 			"Unai Fdz. de Betoño",
 			"Xabier Armendaritz",
-			"පසිඳු කාවින්ද"
+			"පසිඳු කාවින්ද",
+			"Sator"
 		]
 	},
 	"abusefilter-desc": "Edizioei heuristika automatikoa aplikatzen die",
@@ -24,7 +25,7 @@
 	"abusefilter-log": "Gehiegikeria iragazki loga",
 	"abusefilter-log-search": "Bilatu gehiegikeria loga",
 	"abusefilter-log-search-user": "Lankide:",
-	"abusefilter-log-search-filter": "ID iragazkia:",
+	"abusefilter-log-search-filter": "ID iragazkia (barra bertikalekin banatu):",
 	"abusefilter-log-search-title": "Izenburua:",
 	"abusefilter-log-search-submit": "Bilatu",
 	"abusefilter-log-detailslink": "zehaztapenak",
@@ -138,6 +139,7 @@
 	"abusefilter-edit-builder-vars-user-name": "Lankide kontuaren izena",
 	"abusefilter-edit-builder-vars-user-groups": "Lankidearen taldeak (inplizituak barne)",
 	"abusefilter-edit-builder-vars-user-emailconfirm": "E-posta egiaztatu zenetik igarotako denbora",
+	"abusefilter-edit-builder-vars-file-width": "Fitxategiaren zabalera pixeletan",
 	"abusefilter-history-hidden": "ezkutatua",
 	"abusefilter-history-enabled": "Gaitua",
 	"abusefilter-history-global": "Globala",

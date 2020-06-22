@@ -1,4 +1,4 @@
-@chrome @en.m.wikipedia.beta.wmflabs.org @firefox @test2.m.wikipedia.org @vagrant
+@chrome @en.m.wikipedia.beta.wmflabs.org @firefox @skip @test2.m.wikipedia.org @vagrant
 Feature: Search
 
   Background:
@@ -38,6 +38,15 @@ Feature: Search
     When I click a search result
     When I click the browser back button
     Then I should not see '#/search' in URL
+
+  @integration
+  Scenario: Search doesn't break after one search result
+    When I type into search box "Selenium search tes"
+    And I click a search result
+    And the text of the first heading should be "Selenium search test"
+    And I click the placeholder search box
+    And I type into search box "Main Page"
+    Then search results should contain "Main Page"
 
   Scenario: Clicking on a watchstar toggles the watchstar
     Given I am logged into the mobile website

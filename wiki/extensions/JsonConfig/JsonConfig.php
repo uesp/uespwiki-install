@@ -21,14 +21,17 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 $wgExtensionCredits['other'][] = array(
 	'path' => __FILE__,
 	'name' => 'JsonConfig',
-	'version' => '0.1.0',
+	'version' => '1.0.0',
 	'author' => array( 'Yuri Astrakhan' ),
 	'descriptionmsg' => 'jsonconfig-desc',
 	'url' => 'https://www.mediawiki.org/wiki/Extension:JsonConfig',
+	'license-name' => 'GPL-2.0+',
 );
 
 define( 'NS_CONFIG', 482 );
 define( 'NS_CONFIG_TALK', 483 );
+define( 'NS_DATA', 486 );
+define( 'NS_DATA_TALK', 487 );
 
 $cwd = __DIR__ . DIRECTORY_SEPARATOR;
 $wgMessagesDirs['JsonConfig'] = $cwd . 'i18n';
@@ -43,10 +46,13 @@ foreach ( array(
 			'JCContent',
 			'JCContentHandler',
 			'JCContentView',
+			'JCDataContent',
 			'JCDefaultContentView',
 			'JCDefaultObjContentView',
 			'JCObjContent',
 			'JCSingleton',
+			'JCTabularContent',
+			'JCTabularContentView',
 			'JCUtils',
 			'JCValidators',
 			'JCValue',
@@ -91,7 +97,7 @@ function jsonConfigIsStorage() {
 		global $wgJsonConfigs;
 		$isStorage = false;
 		foreach ( $wgJsonConfigs as $jc ) {
-			if ( ( array_key_exists( 'isLocal', $jc ) && $jc['isLocal'] ) ||
+			if ( ( !array_key_exists( 'isLocal', $jc ) || $jc['isLocal'] ) ||
 			     ( array_key_exists( 'store', $jc ) )
 			) {
 				$isStorage = true;

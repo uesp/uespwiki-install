@@ -1,7 +1,8 @@
 <?php
+
 namespace CirrusSearch\Maintenance;
+
 use CirrusSearch\Connection;
-use CirrusSearch\DataSender;
 use CirrusSearch\ElasticsearchIntermediary;
 use CirrusSearch\Util;
 use Elastica\Document;
@@ -30,20 +31,28 @@ use MediaWiki\Logger\LoggerFactory;
  * http://www.gnu.org/copyleft/gpl.html
  */
 class Reindexer {
+	/*** "From" portion ***/
+	/**
+	 * @var Index
+	 */
+	private $oldIndex;
+
+	/**
+	 * @var Connection
+	 */
+	private $oldConnection;
+
+	/*** "To" portion ***/
+
 	/**
 	 * @var Index
 	 */
 	private $index;
 
 	/**
-	 * @var \Elastica\Client
+	 * @var Connection
 	 */
-	private $client;
-
-	/**
-	 * @var string
-	 */
-	private $specificIndexName;
+	private $connection;
 
 	/**
 	 * @var Type[]
@@ -81,18 +90,13 @@ class Reindexer {
 	private $mappingConfig;
 
 	/**
-	 * @var \ElasticaConnection
-	 */
-	private $connection;
-
-	/**
 	 * @var Maintenance
 	 */
 	private $out;
 
 	/**
-	 * @param Index $index
-	 * @param \ElasticaConnection $connection
+	 * @param Connection $source
+	 * @param Connection $target
 	 * @param Type[] $types
 	 * @param Type[] $oldTypes
 	 * @param int $shardCount
@@ -101,13 +105,12 @@ class Reindexer {
 	 * @param array $mergeSettings
 	 * @param array $mappingConfig
 	 * @param Maintenance $out
+	 * @throws \Exception
 	 */
-	public function __construct( Index $index, \ElasticaConnection $connection, array $types, array $oldTypes, $shardCount, $replicaCount, $connectionTimeout, array $mergeSettings, array $mappingConfig, Maintenance $out = null ) {
+	public function __construct( Connection $source, Connection $target, array $types, array $oldTypes, $shardCount, $replicaCount, $connectionTimeout, array $mergeSettings, array $mappingConfig, Maintenance $out = null ) {
 		// @todo: this constructor has too many arguments - refactor!
-		$this->index = $index;
-		$this->client = $this->index->getClient();
-		$this->specificIndexName = $this->index->getName();
-		$this->connection = $connection;
+		$this->oldConnection = $source;
+		$this->connection = $target;
 		$this->types = $types;
 		$this->oldTypes = $oldTypes;
 		$this->shardCount = $shardCount;
@@ -116,6 +119,12 @@ class Reindexer {
 		$this->mergeSettings = $mergeSettings;
 		$this->mappingConfig = $mappingConfig;
 		$this->out = $out;
+
+		if ( empty($types) || empty($oldTypes) ) {
+			throw new \Exception( "Types list should be non-empty" );
+		}
+		$this->index = $types[0]->getIndex();
+		$this->oldIndex = $oldTypes[0]->getIndex();
 	}
 
 	/**
@@ -134,6 +143,7 @@ class Reindexer {
 		// optimize after this to consolidate down to a proper number of shards but that is
 		// is worth the price.  total_shards_per_node will help to make sure that each shard
 		// has as few neighbors as possible.
+		$this->setConnectionTimeout();
 		$settings = $this->index->getSettings();
 		$maxShardsPerNode = $this->decideMaxShardsPerNodeForReindex();
 		$settings->set( array(
@@ -143,9 +153,6 @@ class Reindexer {
 			'routing.allocation.total_shards_per_node' => $maxShardsPerNode,
 		) );
 
-		$sender = new DataSender( $this->connection );
-		$frozenIndexes = $conn->indexToIndexTypes( $this->types );
-		$sender->freezeIndexes( $frozenIndexes );
 		if ( $processes > 1 ) {
 			if ( !isset( $wgCirrusSearchWikimediaExtraPlugin[ 'id_hash_mod_filter' ] ) ||
 					!$wgCirrusSearchWikimediaExtraPlugin[ 'id_hash_mod_filter' ] ) {
@@ -155,9 +162,7 @@ class Reindexer {
 			$fork = new ForkController( $processes );
 			$forkResult = $fork->start();
 			// we don't want to share sockets between forks, so destroy the client.
-			$this->connection->destroyClient();
-			// destroying the client resets the timeout so we have to reinstate it.
-			$this->setConnectionTimeout();
+			$this->destroyClients();
 
 			switch ( $forkResult ) {
 				case 'child':
@@ -201,7 +206,6 @@ class Reindexer {
 			'refresh_interval' => $refreshInterval . 's',
 			'merge.policy' => $this->mergeSettings,
 		) );
-		$sender->thawIndexes( $frozenIndexes );
 	}
 
 	public function optimize() {
@@ -217,8 +221,7 @@ class Reindexer {
 			if ( $e->getMessage() === 'Operation timed out' ) {
 				$this->output( "Timed out...Continuing any way\n" );
 				// To continue without blowing up we need to reset the connection.
-				$this->destroySingleton();
-				$this->setConnectionTimeout();
+				$this->destroyClients();
 			} else {
 				throw $e;
 			}
@@ -226,6 +229,10 @@ class Reindexer {
 	}
 
 	public function waitForShards() {
+		if( !$this->replicaCount || $this->replicaCount === "false" ) {
+			$this->outputIndented( "\tNo replicas, skipping.\n" );
+			return;
+		}
 		$this->outputIndented( "\tWaiting for all shards to start...\n" );
 		list( $lower, $upper ) = explode( '-', $this->replicaCount );
 		$each = 0;
@@ -258,6 +265,14 @@ class Reindexer {
 		}
 	}
 
+	/**
+	 * @param Type $type
+	 * @param Type $oldType
+	 * @param int $children
+	 * @param int $childNumber
+	 * @param int|string $chunkSize
+	 * @param int $retryAttempts
+	 */
 	private function reindexInternal( Type $type, Type $oldType, $children, $childNumber, $chunkSize, $retryAttempts ) {
 		$filter = null;
 		$messagePrefix = "";
@@ -292,25 +307,24 @@ class Reindexer {
 			$this->outputIndented( $messagePrefix . "About to reindex $totalDocsToReindex documents\n" );
 			$operationStartTime = microtime( true );
 			$completed = 0;
-			$self = $this;
-			Util::iterateOverScroll( $this->index, $result->getResponse()->getScrollId(), '1h',
-				function( $results ) use ( $properties, $retryAttempts, $messagePrefix, $self, $type,
+			Util::iterateOverScroll( $this->oldIndex, $result->getResponse()->getScrollId(), '1h',
+				function( $results ) use ( $properties, $retryAttempts, $messagePrefix, $type,
 						&$completed, $totalDocsToReindex, $operationStartTime ) {
 					$documents = array();
 					foreach( $results as $result ) {
-						$documents[] = $self->buildNewDocument( $result, $properties );
+						$documents[] = $this->buildNewDocument( $result, $properties );
 					}
-					$self->withRetry( $retryAttempts, $messagePrefix, 'retrying as singles',
-						function() use ( $self, $type, $messagePrefix, $documents ) {
-							$self->sendDocuments( $type, $messagePrefix, $documents );
+					$this->withRetry( $retryAttempts, $messagePrefix, 'retrying as singles',
+						function() use ( $type, $messagePrefix, $documents ) {
+							$this->sendDocuments( $type, $messagePrefix, $documents );
 						} );
 					$completed += sizeof( $results );
 					$rate = round( $completed / ( microtime( true ) - $operationStartTime ) );
 					$this->outputIndented( $messagePrefix .
 						"Reindexed $completed/$totalDocsToReindex documents at $rate/second\n");
 				}, 0, $retryAttempts,
-				function( $e, $errors ) use ( $self, $messagePrefix ) {
-					$self->sleepOnRetry( $e, $errors, $messagePrefix, 'fetching documents to reindex' );
+				function( $e, $errors ) use ( $messagePrefix ) {
+					$this->sleepOnRetry( $e, $errors, $messagePrefix, 'fetching documents to reindex' );
 				} );
 
 			$this->outputIndented( $messagePrefix . "All done\n" );
@@ -329,11 +343,12 @@ class Reindexer {
 	/**
 	 * Build the new document to just contain keys which have a mapping in the new properties.  To clean
 	 * out any old fields that we no longer use.
-	 * @param array() $result original document retrieved from a search
-	 * @param array() $properties mapping properties
+	 *
+	 * @param \Elastica\Result $result original document retrieved from a search
+	 * @param array $properties mapping properties
 	 * @return Document
 	 */
-	public function buildNewDocument( $result, $properties ) {
+	private function buildNewDocument( \Elastica\Result $result, array $properties ) {
 		// Build the new document to just contain keys which have a mapping in the new properties.  To clean
 		// out any old fields that we no longer use.
 		$data = Util::cleanUnusedFields( $result->getSource(), $properties );
@@ -345,11 +360,16 @@ class Reindexer {
 		return new Document( $result->getId(), $data );
 	}
 
+	/**
+	 * Get health information about the index
+	 *
+	 * @return array Response data array
+	 */
 	private function getHealth() {
 		while ( true ) {
-			$indexName = $this->specificIndexName;
+			$indexName = $this->index->getName();
 			$path = "_cluster/health/$indexName";
-			$response = $this->client->request( $path );
+			$response = $this->index->getClient()->request( $path );
 			if ( $response->hasError() ) {
 				$this->error( 'Error fetching index health but going to retry.  Message: ' . $response->getError() );
 				sleep( 1 );
@@ -359,16 +379,22 @@ class Reindexer {
 		}
 	}
 
+	/**
+	 * @return int
+	 */
 	private function decideMaxShardsPerNodeForReindex() {
 		$health = $this->getHealth();
 		$totalNodes = $health[ 'number_of_nodes' ];
 		$totalShards = $this->shardCount * ( $this->getMaxReplicaCount() + 1 );
-		return ceil( 1.0 * $totalShards / $totalNodes );
+		return (int) ceil( 1.0 * $totalShards / $totalNodes );
 	}
 
+	/**
+	 * @return int
+	 */
 	private function getMaxReplicaCount() {
 		$replica = explode( '-', $this->replicaCount );
-		return $replica[ count( $replica ) - 1 ];
+		return (int) $replica[ count( $replica ) - 1 ];
 	}
 
 	/**
@@ -378,22 +404,20 @@ class Reindexer {
 	 * @param callable $func
 	 * @return mixed
 	 */
-	public function withRetry( $attempts, $messagePrefix, $description, $func) {
-		$self = $this;
+	private function withRetry( $attempts, $messagePrefix, $description, $func) {
 		return Util::withRetry ( $attempts, $func,
-			function( $e, $errors ) use ( $self, $messagePrefix, $description ) {
-				$self->sleepOnRetry( $e, $errors, $messagePrefix, $description );
+			function( $e, $errors ) use ( $messagePrefix, $description ) {
+				$this->sleepOnRetry( $e, $errors, $messagePrefix, $description );
 			} );
 	}
 
 	/**
-	 * @param \Exception $e exception caught
+	 * @param ExceptionInterface $e exception caught
 	 * @param int $errors number of errors
-	 * @param Maintenance $out
 	 * @param string $messagePrefix
 	 * @param string $description
 	 */
-	public function sleepOnRetry(\Exception $e, $errors, $messagePrefix, $description ) {
+	private function sleepOnRetry( ExceptionInterface $e, $errors, $messagePrefix, $description ) {
 		$type = get_class( $e );
 		$seconds = Util::backoffDelay( $errors );
 		$message = ElasticsearchIntermediary::extractMessage( $e );
@@ -403,9 +427,13 @@ class Reindexer {
 	}
 
 	/**
-	 * This is really private.
+	 * Send documents to type with retry.
+	 *
+	 * @param Type $type
+	 * @param string $messagePrefix
+	 * @param Elastica\Document[]
 	 */
-	public function sendDocuments( Type $type, $messagePrefix, $documents ) {
+	private function sendDocuments( Type $type, $messagePrefix, array $documents ) {
 		try {
 			$type->addDocuments( $documents );
 		} catch ( ExceptionInterface $e ) {
@@ -419,12 +447,22 @@ class Reindexer {
 		}
 	}
 
+	/**
+	 * Reset connection timeouts
+	 */
 	private function setConnectionTimeout() {
 		$this->connection->setTimeout( $this->connectionTimeout );
+		$this->oldConnection->setTimeout( $this->connectionTimeout );
 	}
 
-	private function destroySingleton() {
+	/**
+	 * Destroy client connections
+	 */
+	private function destroyClients() {
 		$this->connection->destroyClient();
+		$this->oldConnection->destroyClient();
+		// Destroying connections resets timeouts, so we have to reinstate them
+		$this->setConnectionTimeout();
 	}
 
 	/**
@@ -440,7 +478,7 @@ class Reindexer {
 	/**
 	 * @param string $message
 	 */
-	protected function outputIndented( $message ) {
+	private function outputIndented( $message ) {
 		if ( $this->out ) {
 			$this->out->outputIndented( $message );
 		}

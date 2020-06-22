@@ -28,31 +28,30 @@ class AbuseFilterViewExamine extends AbuseFilterView {
 	}
 
 	function showSearch() {
-		// Add selector
-		$selector = '';
-
-		$selectFields = array(); # Same fields as in Test
-		$selectFields['abusefilter-test-user'] = Xml::input( 'wpSearchUser', 45, $this->mSearchUser );
-		$selectFields['abusefilter-test-period-start'] =
-			Xml::input( 'wpSearchPeriodStart', 45, $this->mSearchPeriodStart );
-		$selectFields['abusefilter-test-period-end'] =
-			Xml::input( 'wpSearchPeriodEnd', 45, $this->mSearchPeriodEnd );
-
-		$selector .= Xml::buildForm( $selectFields, 'abusefilter-examine-submit' );
-		$selector .= Html::hidden( 'submit', 1 );
-		$selector .= Html::hidden( 'title', $this->getTitle( 'examine' )->getPrefixedDBkey() );
-		$selector = Xml::tags( 'form',
-			array(
-				'action' => $this->getTitle( 'examine' )->getLocalURL(),
-				'method' => 'get'
+		$formDescriptor = array(
+			'SearchUser' => array(
+				'label-message' => 'abusefilter-test-user',
+				'type' => 'user',
+				'default' => $this->mSearchUser,
 			),
-			$selector
+			'SearchPeriodStart' => array(
+				'label-message' => 'abusefilter-test-period-start',
+				'type' => 'text',
+				'default' => $this->mSearchPeriodStart,
+			),
+			'SearchPeriodEnd' => array(
+				'label-message' => 'abusefilter-test-period-end',
+				'type' => 'text',
+				'default' => $this->mSearchPeriodEnd,
+			),
 		);
-		$selector = Xml::fieldset(
-			$this->msg( 'abusefilter-examine-legend' )->text(),
-			$selector
-		);
-		$this->getOutput()->addHTML( $selector );
+		$htmlForm = HTMLForm::factory( 'table', $formDescriptor, $this->getContext() );
+		$htmlForm->setWrapperLegendMsg( 'abusefilter-examine-legend' )
+			->addHiddenField( 'submit', 1 )
+			->setSubmitTextMsg( 'abusefilter-examine-submit' )
+			->setMethod( 'get' )
+			->prepareForm()
+			->displayForm( false );
 
 		if ( $this->mSubmit ) {
 			$this->showResults();
@@ -82,6 +81,16 @@ class AbuseFilterViewExamine extends AbuseFilterView {
 		$out = $this->getOutput();
 		if ( !$row ) {
 			$out->addWikiMsg( 'abusefilter-examine-notfound' );
+			return;
+		}
+
+		$bitfield = 0;
+		$bitfield |= Revision::DELETED_TEXT;
+		$bitfield |= Revision::DELETED_COMMENT;
+		$bitfield |= Revision::DELETED_USER;
+		$bitfield |= Revision::DELETED_RESTRICTED;
+		if ( !ChangesList::userCan( RecentChange::newFromRow( $row ), $bitfield ) ) {
+			$out->addWikiMsg( 'abusefilter-log-details-hidden-implicit' );
 			return;
 		}
 
@@ -117,6 +126,18 @@ class AbuseFilterViewExamine extends AbuseFilterView {
 			return;
 		}
 
+		$bitfield = 0;
+		$bitfield |= Revision::DELETED_TEXT;
+		$bitfield |= Revision::DELETED_COMMENT;
+		$bitfield |= Revision::DELETED_USER;
+		$bitfield |= Revision::DELETED_RESTRICTED;
+		if ( SpecialAbuseLog::isHidden( $row ) === 'implicit' ) {
+			$rev = Revision::newFromId( $row->afl_rev_id );
+			if ( !$rev->userCan( $bitfield, $this->getUser() ) ) {
+				$out->addWikiMsg( 'abusefilter-log-details-hidden-implicit' );
+				return;
+			}
+		}
 		$vars = AbuseFilter::loadVarDump( $row->afl_var_dump );
 		$out->addJsConfigVars( 'wgAbuseFilterVariables', $vars->dumpAllVars( true ) );
 		$this->showExaminer( $vars );
@@ -258,7 +279,6 @@ class AbuseFilterExaminePager extends ReverseChronologicalPager {
 	}
 
 	function formatRow( $row ) {
-		# Incompatible stuff.
 		$rc = RecentChange::newFromRow( $row );
 		$rc->counter = $this->mPage->mCounter++;
 		return $this->mChangesList->recentChangesLine( $rc, false );

@@ -14,12 +14,6 @@ body {
 	border-top: 1px solid @grayLight;
 }
 
-// FIXME: remove when cache clears
-.stable .last-modified-bar.pre-content {
-	padding: 0 !important;
-	margin: 0 auto;
-}
-
 .last-modified-bar {
 	background-color: transparent;
 	display: block;
@@ -124,6 +118,11 @@ body {
 			padding: .5em .1em;
 		}
 	}
+
+	.content h2 {
+		border-bottom: solid 1px @sectionBorderColor;
+	}
+
 }
 
 input.search {
@@ -168,13 +167,24 @@ input.search {
 	}
 
 	.edit-page {
-		display: none;
+		display: inline-block;
+		visibility: hidden;
 	}
 
 	.open-block {
 		// Restrict to child so that child section edit links do not get revealed.
 		.edit-page {
-			display: inline-block;
+			visibility: visible;
+		}
+	}
+
+	.section-heading {
+		width: 100%;
+		border-bottom: solid 1px @sectionBorderColor;
+		margin-bottom: @headingMargin;
+
+		.indicator {
+			font-size: @indicatorFontSize;
 		}
 	}
 
@@ -185,15 +195,24 @@ input.search {
 		.mw-headline {
 			width: 100%;
 		}
-		span {
+		> span {
 			display: table-cell;
 			vertical-align: middle;
 		}
 	}
 }
 
+// Toggling indicators are unusable without JavaScript
+.client-nojs {
+	.section-heading .indicator {
+		display: none;
+	}
+}
+
 .stable {
 	// Remove when/if page-secondary-actions are promoted to stable
+	#language-switcher,
+	// FIXME: remove .languageSelector when cache clears
 	.languageSelector {
 		margin-top: 1em;
 	}
@@ -304,3 +323,7 @@ input.search {
 	visibility: hidden;
 }
 
+.content .nojs-edit {
+	display: inline-block;
+	float: right;
+}

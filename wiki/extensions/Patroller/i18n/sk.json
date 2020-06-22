@@ -18,7 +18,7 @@
 	"patrol-reverted-ok": "Úprava bola vrátená.",
 	"patrol-reverted-failed": "Úpravu nebolo možné vrátiť.",
 	"patrol-skipped-ok": "Ignorujem úpravu.",
-	"patrol-reasons": "* Jednoduchý vandalizmus\r\n* Testy nováčika\r\n* Pozri diskusiu",
+	"patrol-reasons": "* Jednoduchý vandalizmus\n* Testy nováčika\n* Pozri diskusiu",
 	"patrol-another": "Zobraz ďalšiu úpravu, ak existuje.",
 	"patrol-stopped": "Zvolili ste nestrážiť ďalšiu úpravu. $1",
 	"patrol-resume": "Kliknutím sem pokračujte.",

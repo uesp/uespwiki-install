@@ -8,16 +8,18 @@
 $wgMainCacheType = CACHE_MEMCACHED;
 $wgSessionsInObjectCache = true;
 $wgObjectCacheSessionExpiry = 100000;
-$wgMemCachedServers = array("10.7.143.70:11000");
+$wgMemCachedServers = array($UESP_SERVER_MEMCACHED . ":11000");
 
 if ($uespIsDev)
 {
 	$wgCacheDirectory = "/home/uesp/cache/dev";
+	$wgMemCachedServers = array($UESP_SERVER_BACKUP1 . ":11000");
 }
 else
 {
 	$wgCacheDirectory = "/home/uesp/cache/" . $uespLanguageSuffix;
-	$wgSquidMaxage = 2678400;
-	$wgSquidServers = array("10.7.143.40");
+	$wgSquidMaxage = 86400;
+	$wgSquidServers = array($UESP_SERVER_SQUID1);
 	$wgUseSquid = true;
+	$wgUsePrivateIPs = true;
 }

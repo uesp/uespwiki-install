@@ -4,21 +4,43 @@
 		"Ævar Arnfjörð Bjarmason",
 		"Andrew Garrett",
 		"Brion Vibber",
+		"Ed Sanders",
 		"Marius Hoch",
-		"Steve Sanbeg"
+		"Steve Sanbeg",
+		"Trevor Parscal",
+		"..."
 	],
 	"url": "https://www.mediawiki.org/wiki/Extension:Cite",
 	"descriptionmsg": "cite-desc",
 	"license-name": "GPL-2.0+",
 	"type": "parserhook",
 	"MessagesDirs": {
-		"Cite": [
-			"i18n"
-		]
+		"cite": "i18n",
+		"ve-cite": "modules/ve-cite/i18n"
+	},
+	"APIPropModules": {
+		"references": {
+			"class": "ApiQueryReferences"
+		}
 	},
 	"Hooks": {
 		"ParserFirstCallInit": [
 			"Cite::setHooks"
+		],
+		"ContentHandlerDefaultModelFor": [
+			"CiteHooks::onContentHandlerDefaultModelFor"
+		],
+		"ResourceLoaderTestModules": [
+			"CiteHooks::onResourceLoaderTestModules"
+		],
+		"ResourceLoaderRegisterModules": [
+			"CiteHooks::onResourceLoaderRegisterModules"
+		],
+		"LinksUpdate": [
+			"CiteHooks::onLinksUpdate"
+		],
+		"LinksUpdateComplete": [
+			"CiteHooks::onLinksUpdateComplete"
 		]
 	},
 	"ResourceModules": {
@@ -54,16 +76,30 @@
 		"localBasePath": "modules",
 		"remoteExtPath": "Cite/modules"
 	},
+	"VisualEditorPluginModules": [
+		"ext.cite.visualEditor"
+	],
+	"ConfigRegistry": {
+		"cite": "GlobalVarConfig::newInstance"
+	},
 	"config": {
 		"AllowCiteGroups": true,
-		"CiteCacheReferences": false
+		"CiteCacheReferences": false,
+		"CiteStoreReferencesData": false,
+		"CiteCacheReferencesDataOnParse": false
 	},
 	"AutoloadClasses": {
+		"ApiQueryReferences": "ApiQueryReferences.php",
 		"Cite": "Cite_body.php",
+		"CiteHooks": "CiteHooks.php",
+		"CiteDataModule": "CiteDataModule.php",
 		"CiteCSSFileModule": "CiteCSSFileModule.php"
 	},
 	"ParserTestFiles": [
 		"citeParserTests.txt"
+	],
+	"TrackingCategories": [
+		"cite-tracking-category-cite-error"
 	],
 	"manifest_version": 1
 }

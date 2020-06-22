@@ -7,11 +7,6 @@
  * on the image page.
  */
 
-if ( !defined( 'MEDIAWIKI' ) ) {
-	// Eclipse helper - will be ignored in production
-	require_once( "ApiBase.php" );
-}
-
 class ApiTranscodeStatus extends ApiQueryBase {
 	public function execute() {
 		$pageIds = $this->getPageSet()->getAllTitlesByNamespace();
@@ -27,15 +22,17 @@ class ApiTranscodeStatus extends ApiQueryBase {
 			 */
 			foreach ( $images as $img ) {
 				// if its a "transcode" add the transcode status table output
-				if( TimedMediaHandlerHooks::isTranscodableTitle( $img->getTitle() ) ){
+				if ( TimedMediaHandlerHooks::isTranscodableTitle( $img->getTitle() ) ) {
 					$transcodeStatus = WebVideoTranscode::getTranscodeState( $img );
 					// remove useless properties
-					foreach($transcodeStatus as $key=>&$val ){
+					foreach ( $transcodeStatus as $key=>&$val ) {
 						unset( $val['id'] );
-						unset( $val['image_name']);
+						unset( $val['image_name'] );
 						unset( $val['key'] );
 					}
-					$result->addValue( array( 'query', 'pages', $img->getTitle()->getArticleID() ), 'transcodestatus', $transcodeStatus );
+					$result->addValue( [
+						'query', 'pages', $img->getTitle()->getArticleID() ], 'transcodestatus', $transcodeStatus
+					);
 				}
 			}
 		}
@@ -46,34 +43,34 @@ class ApiTranscodeStatus extends ApiQueryBase {
 	}
 
 	public function getAllowedParams() {
-		return array();
+		return [];
 	}
 
 	/**
 	 * @deprecated since MediaWiki core 1.25
 	 */
 	public function getDescription() {
-		return array(
+		return [
 			'Get transcode status for a given file page'
-		);
+		];
 	}
 
 	/**
 	 * @deprecated since MediaWiki core 1.25
 	 */
 	protected function getExamples() {
-		return array (
+		return [
 			'api.php?action=query&prop=transcodestatus&titles=File:Clip.webm',
-		);
+		];
 	}
 
 	/**
 	 * @see ApiBase::getExamplesMessages()
 	 */
 	protected function getExamplesMessages() {
-		return array(
+		return [
 			'action=query&prop=transcodestatus&titles=File:Clip.webm'
 				=> 'apihelp-query+transcodestatus-example-1',
-		);
+		];
 	}
 }

@@ -31,20 +31,34 @@ require_once( "$IP/maintenance/Maintenance.php" );
 require_once( __DIR__ . '/../includes/Maintenance/Maintenance.php' );
 
 class CheckIndexes extends Maintenance {
+	/**
+	 * @var array[] Nested array of arrays containing error strings. Individual
+	 *  errors are nested based on the keys in self::$path at the time the error
+	 *  occurred.
+	 */
 	private $errors = array();
+	/**
+	 * @var string[] Represents each step of current indentation level
+	 */
 	private $path;
+	/**
+	 * @var array Result of querying elasticsearch _cluster/state api endpoint
+	 */
 	private $clusterState;
+	/**
+	 * @var array Version info stored in elasticsearch /mw_cirrus_versions/version
+	 */
 	private $cirrusInfo;
 
 	public function __construct() {
 		parent::__construct();
-		$this->mDescription = "Check that all Cirrus indexes report OK.";
+		$this->mDescription = "Check that all Cirrus indexes report OK. This always operates on a single cluster.";
 		$this->addOption( 'nagios', 'Output in nagios format' );
 	}
 
 	public function execute() {
 		if ( $this->hasOption( 'nagios' ) ) {
-			// Force silent running mode so we can match Nagio's expected output.
+			// Force silent running mode so we can match Nagios expected output.
 			$this->mQuiet = true;
 		}
 		$this->ensureClusterStateFetched();
@@ -79,15 +93,19 @@ class CheckIndexes extends Maintenance {
 		}
 	}
 
+	/**
+	 * @param string $indexName
+	 * @param int
+	 */
 	private function checkIndex( $indexName, $expectedShardCount ) {
 		$this->path = array();
-		$metdata = $this->getIndexMetadata( $indexName );
+		$metadata = $this->getIndexMetadata( $indexName );
 		$this->in( $indexName );
-		if ( $metdata === null ) {
+		if ( $metadata === null ) {
 			$this->err( "does not exist" );
 			return;
 		}
-		$this->check( 'state', 'open', $metdata[ 'state' ] );
+		$this->check( 'state', 'open', $metadata[ 'state' ] );
 		// TODO check aliases
 
 		$routingTable = $this->getIndexRoutingTable( $indexName );
@@ -104,14 +122,24 @@ class CheckIndexes extends Maintenance {
 		$this->out();
 	}
 
+	/**
+	 * @param string $header
+	 */
 	private function in( $header ) {
 		$this->path[] = $header;
 		$this->output( str_repeat( "\t", count( $this->path ) - 1 ) );
 		$this->output( "$header...\n" );
 	}
+
 	private function out() {
 		array_pop( $this->path );
 	}
+
+	/**
+	 * @param string $name
+	 * @param mixed $expected
+	 * @param mixed $actual
+	 */
 	private function check( $name, $expected, $actual ) {
 		$this->output( str_repeat( "\t", count( $this->path ) ) );
 		$this->output( "$name...");
@@ -132,6 +160,10 @@ class CheckIndexes extends Maintenance {
 			}
 		}
 	}
+
+	/**
+	 * @param string $explanation
+	 */
 	private function err( $explanation ) {
 		$err = $this->path;
 		$err[] = $explanation;
@@ -141,7 +173,12 @@ class CheckIndexes extends Maintenance {
 		}
 		$e[] = $explanation;
 	}
-	private function printErrorRecursive( $indent, $array ) {
+
+	/**
+	 * @param string $indent Prefix to attach before each line of output
+	 * @param array $array
+	 */
+	private function printErrorRecursive( $indent, array $array ) {
 		foreach ( $array as $key => $value ) {
 			$line = $indent;
 			if ( !is_numeric( $key ) ) {
@@ -161,6 +198,10 @@ class CheckIndexes extends Maintenance {
 		}
 	}
 
+	/**
+	 * @param string $indexName fully qualified name of elasticsearch index
+	 * @return array|null Index metadata from elasticsearch cluster state
+	 */
 	private function getIndexMetadata( $indexName ) {
 		if ( isset( $this->clusterState[ 'metadata' ][ 'indices' ][ $indexName ] ) ) {
 			return $this->clusterState[ 'metadata' ][ 'indices' ][ $indexName ];
@@ -168,6 +209,10 @@ class CheckIndexes extends Maintenance {
 		return null;
 	}
 
+	/**
+	 * @param string $indexName fully qualified name of elasticsearch index
+	 * @return array
+	 */
 	private function getIndexRoutingTable( $indexName ) {
 		return $this->clusterState[ 'routing_table' ][ 'indices' ][ $indexName ];
 	}
@@ -178,6 +223,7 @@ class CheckIndexes extends Maintenance {
 				->request( '_cluster/state' )->getData();
 		}
 	}
+
 	private function ensureCirrusInfoFetched() {
 		if ( $this->cirrusInfo === null ) {
 			$query = new \Elastica\Query();

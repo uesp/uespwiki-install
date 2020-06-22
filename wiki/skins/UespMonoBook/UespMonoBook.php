@@ -22,6 +22,7 @@ $wgValidSkinNames['uespmonobook'] = 'UespMonoBook';
 $wgAutoloadClasses['SkinUespMonoBook'] = dirname(__FILE__).'/UespMonoBook.skin.php';
 //$wgExtensionMessagesFiles['MySkin'] = dirname(__FILE__).'/MySkin.i18n.php';
 
+error_log("UespMonoBook Skin");
  
 $wgResourceModules['skins.uespmonobook'] = array(
 	'styles' => array(

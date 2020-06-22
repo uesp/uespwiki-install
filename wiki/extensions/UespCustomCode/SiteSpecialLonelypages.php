@@ -11,7 +11,7 @@ class SiteLonelyPagesPage extends LonelyPagesPage {
 	private function getDisambigSet() {
 		$dbr = wfGetDB( DB_SLAVE );
 		
-		$dMsgText = wfMsgForContent('disambiguationspage');
+		$dMsgText = wfMessage('disambiguationspage');
 		
 		$linkBatch = new LinkBatch;
 		

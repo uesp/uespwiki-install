@@ -43,7 +43,7 @@ class ChangeTagsLogItem extends RevisionItemBase {
 	}
 
 	public function canView() {
-		return LogEventsList::userCan( $this->row, Revision::DELETED_RESTRICTED, $this->list->getUser() );
+		return LogEventsList::userCan( $this->row, Revision::SUPPRESSED_ALL, $this->list->getUser() );
 	}
 
 	public function canViewContent() {
@@ -73,8 +73,8 @@ class ChangeTagsLogItem extends RevisionItemBase {
 		$loglink = Linker::link(
 			SpecialPage::getTitleFor( 'Log' ),
 			$this->list->msg( 'log' )->escaped(),
-			array(),
-			array( 'page' => $title->getPrefixedText() )
+			[],
+			[ 'page' => $title->getPrefixedText() ]
 		);
 		$loglink = $this->list->msg( 'parentheses' )->rawParams( $loglink )->escaped();
 		// User links and action text
@@ -88,10 +88,14 @@ class ChangeTagsLogItem extends RevisionItemBase {
 		}
 
 		$content = "$loglink $date $action $comment";
-		$attribs = array();
+		$attribs = [];
 		$tags = $this->getTags();
 		if ( $tags ) {
-			list( $tagSummary, $classes ) = ChangeTags::formatSummaryRow( $tags, 'edittags' );
+			list( $tagSummary, $classes ) = ChangeTags::formatSummaryRow(
+				$tags,
+				'edittags',
+				$this->list->getContext()
+			);
 			$content .= " $tagSummary";
 			$attribs['class'] = implode( ' ', $classes );
 		}

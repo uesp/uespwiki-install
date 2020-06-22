@@ -1,6 +1,5 @@
 ( function ( M, $ ) {
-	var MainMenu,
-		browser = M.require( 'mobile.browser/browser' ),
+	var browser = M.require( 'mobile.browser/browser' ),
 		View = M.require( 'mobile.view/View' );
 
 	/**
@@ -9,7 +8,12 @@
 	 * @class MainMenu
 	 * @extends View
 	 */
-	MainMenu = View.extend( {
+	function MainMenu( options ) {
+		this.activator = options.activator;
+		View.call( this, options );
+	}
+
+	OO.mfExtend( MainMenu, View, {
 		/** @inheritdoc */
 		isTemplateMode: true,
 		/** @inheritdoc */
@@ -19,19 +23,18 @@
 		 * @cfg {Object} defaults Default options hash.
 		 * @cfg {String} defaults.activator selector for element that when clicked can open or close the menu
 		 */
-		defaults: $.extend( mw.config.get( 'wgMFMenuData' ), {
+		defaults: {
 			activator: undefined
-		} ),
+		},
 
 		/**
 		 * Advertise a new feature in the main menu.
 		 * @param {String} selector to an element inside the main menu
 		 * @param {String} msg a message to show in the pointer
-		 * @param {Skin} skin that the feature lives in, will allow pointer to update when skin gets redrawn.
 		 * @returns {jQuery.Deferred} with the PointerOverlay as the only argument.
 		 * @throws exception when you try to advertise more than one feature.
 		 */
-		advertiseNewFeature: function ( selector, msg, skin ) {
+		advertiseNewFeature: function ( selector, msg ) {
 			var d = $.Deferred(),
 				self = this;
 			if ( this._hasNewFeature ) {
@@ -50,7 +53,6 @@
 						po = new PointerOverlay( {
 							appendToElement: self.$el.parent(),
 							alignment: 'left',
-							skin: skin,
 							summary: msg,
 							target: self.$( selector )
 						} );
@@ -63,24 +65,19 @@
 			return d;
 		},
 
-		/** @inheritdoc **/
-		initialize: function ( options ) {
-
-			this.activator = options.activator;
-			View.prototype.initialize.call( this, options );
-		},
-
 		/**
 		 * Turn on event logging on the existing main menu by reading `event-name` data
 		 * attributes on elements.
-		 * @param {SchemaMobileWebClickTracking} schema to use
 		 */
-		enableLogging: function ( schema ) {
-			this.$( 'a' ).each( function () {
+		enableLogging: function () {
+			this.$( 'a' ).on( 'click', function () {
 				var $link = $( this ),
 					eventName = $link.data( 'event-name' );
 				if ( eventName ) {
-					schema.hijackLink( $link, eventName );
+					mw.track( 'mf.schemaMobileWebMainMenuClickTracking', {
+						name: eventName,
+						destination: $link.attr( 'href' )
+					} );
 				}
 			} );
 		},
@@ -155,6 +152,6 @@
 		}
 	} );
 
-	M.define( 'mobile.mainMenu/MainMenu', MainMenu ).deprecate( 'MainMenu' );
+	M.define( 'mobile.mainMenu/MainMenu', MainMenu );
 
 }( mw.mobileFrontend, jQuery ) );

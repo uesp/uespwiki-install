@@ -99,18 +99,18 @@ class SpecialRedirect extends FormSpecialPage {
 			return null;
 		}
 		// Default behavior: Use the direct link to the file.
-		$url = $file->getURL();
+		$url = $file->getUrl();
 		$request = $this->getRequest();
 		$width = $request->getInt( 'width', -1 );
 		$height = $request->getInt( 'height', -1 );
 
 		// If a width is requested...
 		if ( $width != -1 ) {
-			$mto = $file->transform( array( 'width' => $width, 'height' => $height ) );
+			$mto = $file->transform( [ 'width' => $width, 'height' => $height ] );
 			// ... and we can
 			if ( $mto && !$mto->isError() ) {
 				// ... change the URL to point to a thumbnail.
-				$url = $mto->getURL();
+				$url = $mto->getUrl();
 			}
 		}
 
@@ -133,9 +133,9 @@ class SpecialRedirect extends FormSpecialPage {
 			return null;
 		}
 
-		return wfAppendQuery( wfScript( 'index' ), array(
+		return wfAppendQuery( wfScript( 'index' ), [
 			'oldid' => $oldid
-		) );
+		] );
 	}
 
 	/**
@@ -153,9 +153,30 @@ class SpecialRedirect extends FormSpecialPage {
 			return null;
 		}
 
-		return wfAppendQuery( wfScript( 'index' ), array(
+		return wfAppendQuery( wfScript( 'index' ), [
 			'curid' => $curid
-		) );
+		] );
+	}
+
+	/**
+	 * Handle Special:Redirect/logid/xxx
+	 * (by redirecting to index.php?title=Special:Log&logid=xxx)
+	 *
+	 * @since 1.27
+	 * @return string|null Url to redirect to, or null if $mValue is invalid.
+	 */
+	function dispatchLog() {
+		$logid = $this->mValue;
+		if ( !ctype_digit( $logid ) ) {
+			return null;
+		}
+		$logid = (int)$logid;
+		if ( $logid === 0 ) {
+			return null;
+		}
+
+		$query = [ 'title' => 'Special:Log', 'logid' => $logid ];
+		return wfAppendQuery( wfScript( 'index' ), $query );
 	}
 
 	/**
@@ -181,8 +202,10 @@ class SpecialRedirect extends FormSpecialPage {
 			case 'page':
 				$url = $this->dispatchPage();
 				break;
+			case 'logid':
+				$url = $this->dispatchLog();
+				break;
 			default:
-				$this->getOutput()->setStatusCode( 404 );
 				$url = null;
 				break;
 		}
@@ -204,30 +227,31 @@ class SpecialRedirect extends FormSpecialPage {
 
 	protected function getFormFields() {
 		$mp = $this->getMessagePrefix();
-		$ns = array(
+		$ns = [
 			// subpage => message
 			// Messages: redirect-user, redirect-page, redirect-revision,
-			// redirect-file
+			// redirect-file, redirect-logid
 			'user' => $mp . '-user',
 			'page' => $mp . '-page',
 			'revision' => $mp . '-revision',
 			'file' => $mp . '-file',
-		);
-		$a = array();
-		$a['type'] = array(
+			'logid' => $mp . '-logid',
+		];
+		$a = [];
+		$a['type'] = [
 			'type' => 'select',
 			'label-message' => $mp . '-lookup', // Message: redirect-lookup
-			'options' => array(),
+			'options' => [],
 			'default' => current( array_keys( $ns ) ),
-		);
+		];
 		foreach ( $ns as $n => $m ) {
 			$m = $this->msg( $m )->text();
 			$a['type']['options'][$m] = $n;
 		}
-		$a['value'] = array(
+		$a['value'] = [
 			'type' => 'text',
 			'label-message' => $mp . '-value' // Message: redirect-value
-		);
+		];
 		// set the defaults according to the parsed subpage path
 		if ( !empty( $this->mType ) ) {
 			$a['type']['default'] = $this->mType;
@@ -262,18 +286,37 @@ class SpecialRedirect extends FormSpecialPage {
 		$form->setMethod( 'get' );
 	}
 
+	protected function getDisplayFormat() {
+		return 'ooui';
+	}
+
 	/**
 	 * Return an array of subpages that this special page will accept.
 	 *
 	 * @return string[] subpages
 	 */
 	protected function getSubpagesForPrefixSearch() {
-		return array(
-			"file",
-			"page",
-			"revision",
-			"user",
-		);
+		return [
+			'file',
+			'page',
+			'revision',
+			'user',
+			'logid',
+		];
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function requiresWrite() {
+		return false;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function requiresUnblock() {
+		return false;
 	}
 
 	protected function getGroupName() {

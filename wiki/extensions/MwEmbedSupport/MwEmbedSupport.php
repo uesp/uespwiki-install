@@ -12,7 +12,8 @@
  */
 
 if ( !defined( 'MEDIAWIKI' ) ) {
-	echo "This is the TimedMediaHandler extension. Please see the README file for installation instructions.\n";
+	echo "This is the TimedMediaHandler extension.
+		Please see the README file for installation instructions.\n";
 	exit( 1 );
 }
 
@@ -31,15 +32,14 @@ $wgExtensionCredits['other'][] = array(
 	'version' => '0.3.0',
 	'url' => 'https://www.mediawiki.org/wiki/Extension:MwEmbed',
 	'descriptionmsg' => 'mwembed-desc',
+	'license-name' => 'GPL-2.0+',
 );
 
 $wgAutoloadClasses['MwEmbedResourceManager'] = __DIR__ . '/MwEmbedResourceManager.php';
 
 // Include module messages:
 $wgMessagesDirs['MwEmbedSupport'] = __DIR__ . '/i18n';
-$wgExtensionMessagesFiles['MwEmbedSupport'] = __DIR__  ."/MwEmbedSupport.i18n.php";
 $wgMessagesDirs['MwEmbed.MwEmbedSupport'] = __DIR__ . '/MwEmbedModules/MwEmbedSupport/i18n';
-$wgExtensionMessagesFiles['MwEmbed.MwEmbedSupport'] = __DIR__  ."/MwEmbedModules/MwEmbedSupport/MwEmbedSupport.i18n.php";
 
 // Add Global MwEmbed Registration hook
 $wgHooks['ResourceLoaderRegisterModules'][] = 'MwEmbedResourceManager::registerModules';

@@ -109,7 +109,7 @@
 		 * @return {Boolean}
 		 */
 		isWideScreen: function () {
-			var val = mw.config.get( 'wgMFDeviceWidthTablet' );
+			var val = parseInt( mw.config.get( 'wgMFDeviceWidthTablet' ), 10 );
 			// Check portrait and landscape mode to be consistent
 			return window.innerWidth >= val || window.innerHeight >= val;
 		},
@@ -222,6 +222,6 @@
 	};
 
 	browser = new Browser( window.navigator.userAgent, $( 'html' ) );
-	M.define( 'mobile.browser/Browser', Browser ).deprecate( 'Browser' );
-	M.define( 'mobile.browser/browser', browser ).deprecate( 'browser' );
+	M.define( 'mobile.browser/Browser', Browser );
+	M.define( 'mobile.browser/browser', browser );
 }( mw.mobileFrontend, jQuery ) );

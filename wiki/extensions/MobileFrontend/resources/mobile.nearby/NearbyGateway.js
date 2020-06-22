@@ -123,18 +123,15 @@
 				self = this;
 
 			requestParams = {
-				action: 'query',
 				colimit: 'max',
-				prop: 'pageimages|coordinates',
-				pithumbsize: mw.config.get( 'wgMFThumbnailSizes' ).small,
-				pilimit: limit,
+				prop: [ 'coordinates' ].concat( mw.config.get( 'wgMFQueryPropModules' ) ),
 				generator: 'geosearch',
 				ggsradius: range,
 				ggsnamespace: ns,
 				ggslimit: limit,
 				formatversion: 2
 			};
-			$.extend( requestParams, params );
+			$.extend( requestParams, params, mw.config.get( 'wgMFSearchAPIParams' ) );
 
 			this.api.ajax( requestParams ).then( function ( resp ) {
 				var pages;
@@ -167,9 +164,7 @@
 
 				pages = $.map( pages, function ( page, i ) {
 					var coords, lngLat, p;
-					// FIXME: API returns pageid rather than id, should we rename Page option ?
-					page.id = page.pageid;
-					p = new Page( page );
+					p = Page.newFromJSON( page );
 					p.anchor = 'item_' + i;
 					if ( page.coordinates && loc ) { // FIXME: protect against bug 47133 (remove when resolved)
 						coords = page.coordinates[0];
@@ -194,6 +189,12 @@
 					return a.dist > b.dist ? 1 : -1;
 				} );
 				d.resolve( pages );
+			}, function ( error, details ) {
+				if ( details && details.error && details.error.info ) {
+					d.reject( error, details.error.info );
+				} else {
+					d.reject( error, '' );
+				}
 			} );
 
 			return d;

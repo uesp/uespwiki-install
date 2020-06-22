@@ -7,10 +7,10 @@
  */
 ( function ( M, $ ) {
 	var currentPage, skin,
-		PageApi = M.require( 'mobile.startup/PageApi' ),
-		pageApi = new PageApi(),
+		PageGateway = M.require( 'mobile.startup/PageGateway' ),
+		gateway = new PageGateway( new mw.Api() ),
 		Page = M.require( 'mobile.startup/Page' ),
-		mainMenu = M.require( 'mobile.head/mainMenu' ),
+		mainMenu = M.require( 'skins.minerva.scripts.top/mainMenu' ),
 		Skin = M.require( 'mobile.startup/Skin' );
 
 	skin = new Skin( {
@@ -19,7 +19,7 @@
 		page: getCurrentPage(),
 		mainMenu: mainMenu
 	} );
-	M.define( 'mobile.startup/skin', skin ).deprecate( 'skin' );
+	M.define( 'skins.minerva.scripts/skin', skin ).deprecate( 'mobile.startup/skin' );
 
 	$( window )
 		.on( 'resize', $.debounce( 100, $.proxy( M, 'emit', 'resize' ) ) )
@@ -58,9 +58,10 @@
 			protection: {
 				edit: permissions
 			},
+			revId: mw.config.get( 'wgRevisionId' ),
 			isMainPage: mw.config.get( 'wgIsMainPage' ),
 			isWatched: $( '#ca-watch' ).hasClass( 'watched' ),
-			sections: pageApi.getSectionsFromHTML( $content ),
+			sections: gateway.getSectionsFromHTML( $content ),
 			id: mw.config.get( 'wgArticleId' ),
 			namespaceNumber: mw.config.get( 'wgNamespaceNumber' )
 		} );
@@ -71,16 +72,9 @@
 		getCurrentPage: getCurrentPage
 	} );
 
-	M.define( 'mobile.startup/pageApi', pageApi ).deprecate( 'pageApi' );
-
 	// Recruit volunteers through the console (note console.log may not be a function so check via apply)
 	if ( window.console && window.console.log && window.console.log.apply &&
 			mw.config.get( 'wgMFEnableJSConsoleRecruitment' ) ) {
 		console.log( mw.msg( 'mobile-frontend-console-recruit' ) );
 	}
-
-	mw.loader.using( 'mobile.loggingSchemas' ).done( function () {
-		M.require( 'mobile.startup/Schema' ).flushBeacon();
-	} );
-
 }( mw.mobileFrontend, jQuery ) );

@@ -1,9 +1,7 @@
 ( function ( M, $ ) {
 
-	var
-		Class = M.require( 'mobile.oo/Class' ),
-		router = M.require( 'mobile.startup/router' ),
-		OverlayManager, overlayManager;
+	var overlayManager,
+		router = M.require( 'mobile.startup/router' );
 
 	/**
 	 * Manages opening and closing overlays when the URL hash changes to one
@@ -13,21 +11,20 @@
 	 * and refresh behavior.
 	 *
 	 * @class OverlayManager
-	 * @extends Class
+	 * @param {Router} router
 	 */
-	OverlayManager = Class.extend( {
-		/** @inheritdoc */
-		initialize: function ( router ) {
-			router.on( 'route', $.proxy( this, '_checkRoute' ) );
-			this.router = router;
-			// use an object instead of an array for entries so that we don't
-			// duplicate entries that already exist
-			this.entries = {};
-			// stack of all the open overlays, stack[0] is the latest one
-			this.stack = [];
-			this.hideCurrent = true;
-		},
+	function OverlayManager( router ) {
+		router.on( 'route', $.proxy( this, '_checkRoute' ) );
+		this.router = router;
+		// use an object instead of an array for entries so that we don't
+		// duplicate entries that already exist
+		this.entries = {};
+		// stack of all the open overlays, stack[0] is the latest one
+		this.stack = [];
+		this.hideCurrent = true;
+	}
 
+	OO.mfExtend( OverlayManager, {
 		/**
 		 * Don't try to hide the active overlay on a route change event triggered
 		 * by hiding another overlay.
@@ -251,9 +248,7 @@
 
 	overlayManager = new OverlayManager( router );
 
-	M.define( 'mobile.startup/OverlayManager', OverlayManager )
-		.deprecate( 'OverlayManager' );
-	M.define( 'mobile.startup/overlayManager', overlayManager )
-		.deprecate( 'overlayManager' );
+	M.define( 'mobile.startup/OverlayManager', OverlayManager );
+	M.define( 'mobile.startup/overlayManager', overlayManager );
 
 }( mw.mobileFrontend, jQuery ) );

@@ -21,7 +21,7 @@
 	"patrol-reverted-ok": "編輯被回退。",
 	"patrol-reverted-failed": "編輯無法回退。",
 	"patrol-skipped-ok": "忽略編輯。",
-	"patrol-reasons": "* 純粹破壞\r\n* 新人測試\r\n* 參見討論頁",
+	"patrol-reasons": "* 純粹破壞\n* 新人測試\n* 參見討論頁",
 	"patrol-another": "列出其他存在的編輯。",
 	"patrol-stopped": "你選擇不複查其他編輯。$1",
 	"patrol-resume": "點擊這裡繼續。",

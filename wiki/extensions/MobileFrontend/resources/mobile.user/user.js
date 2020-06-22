@@ -1,10 +1,12 @@
 ( function ( M, $ ) {
+	var user, requestedClear;
+
 	/**
 	 * Utility library for looking up details on the current user
 	 * @class user
 	 * @singleton
 	 */
-	var user = {
+	user = {
 		/* @see mediaWiki.user */
 		tokens: mw.user.tokens,
 		/* @see mediaWiki.user */
@@ -31,43 +33,20 @@
 			return $.Deferred().resolve( mw.config.get( 'wgUserGroups' ) );
 		},
 		/**
-		* Retrieve and, if not present, generate a random session ID
-		* (32 alphanumeric characters).
+		* Wrapper for mw.user.sessionId().
 		*
 		* @method
 		* @return {String}
 		*/
 		getSessionId: function () {
-			var sessionId = mw.storage.get( 'sessionId' );
-			// No support (see documentation)
-			if ( sessionId === false ) {
-				return '';
-			} else if ( !sessionId ) {
-				sessionId = mw.user.generateRandomSessionId();
-				mw.storage.set( 'sessionId', sessionId );
+			// FIXME: Remove this when we're confident enough old IDs have been removed.
+			if ( !requestedClear ) {
+				requestedClear = true;
+				mw.requestIdleCallback( function () {
+					mw.storage.remove( 'sessionId' );
+				} );
 			}
-			return sessionId;
-		},
-
-		/**
-		 * Returns false, if the user isn't logged in or is blocked,
-		 * otherwise true.
-		 * @return {Boolean}
-		 */
-		isBlocked: function () {
-			return this.getBlockInfo() !== false;
-		},
-
-		/**
-		 * Returns information about the block of this user, otherwise false.
-		 * Always returns false for not-logged-in users!
-		 * @return {Boolean|Object}
-		 */
-		getBlockInfo: function () {
-			if ( mw.user.isAnon() || !mw.config.get( 'wgMFUserBlockInfo' ) ) {
-				return false;
-			}
-			return mw.config.get( 'wgMFUserBlockInfo' );
+			return mw.user.sessionId();
 		},
 
 		/**
@@ -80,6 +59,6 @@
 		}
 
 	};
-	M.define( 'mobile.user/user', user ).deprecate( 'user' );
+	M.define( 'mobile.user/user', user );
 
 }( mw.mobileFrontend, jQuery ) );

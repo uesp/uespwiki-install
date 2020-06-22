@@ -392,11 +392,16 @@ class SiteMiscFunctions {
 	static function addCanonicalToHeader(&$out, $parserout) {
 		// wgTitle contains post-redirect article title, not URL title
 		// global $wgTitle;
+		global $wgLanguageCode;
 		// $url = $wgTitle->getLocalURL();
-                if (!$_SERVER['QUERY_STRING']) {
+		if (!$_SERVER['QUERY_STRING']) {
 			$url = $_SERVER['PHP_SELF'];
-                	$out->addHeadItem('canonical', "\t\t<link rel=\"canonical\" href=\"http://www.uesp.net{$url}\" />\n");
-                }
+			
+				// Note that this is no longer used and is handled by $wgCanonicalServer.
+			//$out->addHeadItem('canonical', "\t\t<link rel=\"canonical\" href=\"https://{$wgLanguageCode}.uesp.net{$url}\" />\n");
+			
+			$out->addHeadItem('canonical-alternate', "\t\t<link rel=\"alternate\" media=\"only screen and (max-width: 640px)\"  href=\"https://{$wgLanguageCode}.m.uesp.net{$url}\" />\n");
+		}
 		return true;
 	}
 

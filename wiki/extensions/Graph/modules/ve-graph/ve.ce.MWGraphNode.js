@@ -9,21 +9,37 @@
  *
  * @class
  * @extends ve.ce.MWBlockExtensionNode
+ * @mixins ve.ce.MWResizableNode
  *
  * @constructor
  * @param {ve.dm.MWGraphNode} model Model to observe
  * @param {Object} [config] Configuration options
  */
-ve.ce.MWGraphNode = function VeCeMWGraphNode() {
+ve.ce.MWGraphNode = function VeCeMWGraphNode( model, config ) {
+	this.$graph = $( '<div>' ).addClass( 'mw-graph' );
+	this.$plot = $( '<div>' ).addClass( 've-ce-mwGraphNode-plot' );
+
 	// Parent constructor
 	ve.ce.MWGraphNode.super.apply( this, arguments );
 
-	this.$element.addClass( 'mw-wiki-graph-container' );
+	// Mixin constructors
+	ve.ce.MWResizableNode.call( this, this.$plot, config );
+
+	this.$element
+		.addClass( 'mw-graph-container' )
+		.append( this.$graph );
+
+	this.showHandles( [ 'se' ] );
 };
 
 /* Inheritance */
 
 OO.inheritClass( ve.ce.MWGraphNode, ve.ce.MWBlockExtensionNode );
+
+// Need to mix in the base class as well
+OO.mixinClass( ve.ce.MWGraphNode, ve.ce.ResizableNode );
+
+OO.mixinClass( ve.ce.MWGraphNode, ve.ce.MWResizableNode );
 
 /* Static Properties */
 
@@ -46,13 +62,17 @@ ve.ce.MWGraphNode.static.tagName = 'div';
 ve.ce.MWGraphNode.static.vegaParseSpec = function ( spec, element ) {
 	var deferred = $.Deferred(),
 		node = this,
-		canvasNode;
+		canvasNode, view;
 
 	// Check if the spec is currently valid
-	if ( spec ) {
+	if ( ve.isEmptyObject( spec ) ) {
+		deferred.reject( 'graph-ve-no-spec' );
+	} else if ( !ve.dm.MWGraphModel.static.specHasData( spec ) ) {
+		deferred.reject( 'graph-ve-empty-graph' );
+	} else {
 		vg.parse.spec( spec, function ( chart ) {
 			try {
-				chart( { el: element } ).update();
+				view = chart( { el: element } ).update();
 
 				// HACK: If canvas is blank, this means Vega didn't render properly.
 				// Once Vega allows for proper rendering validation, this should be
@@ -61,15 +81,13 @@ ve.ce.MWGraphNode.static.vegaParseSpec = function ( spec, element ) {
 				if ( node.isCanvasBlank( canvasNode ) ) {
 					deferred.reject( 'graph-ve-vega-error-no-render' );
 				} else {
-					deferred.resolve();
+					deferred.resolve( view );
 				}
 
 			} catch ( err ) {
 				deferred.reject( 'graph-ve-vega-error' );
 			}
 		} );
-	} else {
-		deferred.reject( 'graph-ve-no-spec' );
 	}
 
 	return deferred.promise();
@@ -100,25 +118,47 @@ ve.ce.MWGraphNode.prototype.update = function () {
 	var node = this;
 
 	// Clear element
-	this.$element.empty();
+	this.$graph.empty();
 
-	if ( this.live ) {
-		this.emit( 'teardown' );
-	}
+	this.$element.toggleClass( 'mw-graph-vega1', this.getModel().isGraphLegacy() );
 
-	this.constructor.static.vegaParseSpec( this.getModel().getSpec(), this.$element[ 0 ] ).then(
-		function () {
-			node.$focusable = node.$element.find( 'canvas' );
-		},
-		function ( failMessageKey ) {
-			node.$element.text( ve.msg( failMessageKey ) );
-			node.$focusable = node.$element;
-		}
-	).always( function () {
-		if ( node.live ) {
-			node.emit( 'setup' );
-		}
+	mw.loader.using( 'ext.graph.vega2' ).done( function () {
+		node.$plot.detach();
+
+		node.constructor.static.vegaParseSpec( node.getModel().getSpec(), node.$graph[ 0 ] ).then(
+			function ( view ) {
+				// HACK: We need to know which padding values Vega computes in case
+				// of automatic padding, but it isn't properly exposed in the view
+				node.$graph.append( node.$plot );
+				node.$plot.css( view._padding ); // jscs:ignore disallowDanglingUnderscores
+			},
+			function ( failMessageKey ) {
+				node.$graph.text( ve.msg( failMessageKey ) );
+			}
+		);
 	} );
+};
+
+/**
+ * @inheritdoc
+ */
+ve.ce.MWGraphNode.prototype.getAttributeChanges = function ( width, height ) {
+	var attrChanges = {},
+		newSpec = ve.dm.MWGraphModel.static.updateSpec( this.getModel().getSpec(), {
+			width: width,
+			height: height
+		} );
+
+	ve.setProp( attrChanges, 'mw', 'body', 'extsrc', JSON.stringify( newSpec ) );
+
+	return attrChanges;
+};
+
+/**
+ * @inheritdoc
+ */
+ve.ce.MWGraphNode.prototype.getFocusableElement = function () {
+	return this.$graph;
 };
 
 /* Registration */

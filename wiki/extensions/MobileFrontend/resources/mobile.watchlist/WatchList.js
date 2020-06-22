@@ -1,6 +1,5 @@
 ( function ( M, $ ) {
-	var WatchList,
-		WatchstarPageList = M.require( 'mobile.pagelist.scripts/WatchstarPageList' ),
+	var WatchstarPageList = M.require( 'mobile.pagelist.scripts/WatchstarPageList' ),
 		InfiniteScroll = M.require( 'mobile.infiniteScroll/InfiniteScroll' ),
 		WatchListGateway = M.require( 'mobile.watchlist/WatchListGateway' );
 
@@ -10,25 +9,23 @@
 	 * @class WatchList
 	 * @uses InfiniteScroll
 	 */
-	WatchList = WatchstarPageList.extend( {
-		events: {
-			'mousedown a.title': 'onTitleClick'
-		},
-		/** @inheritdoc */
-		initialize: function ( options ) {
-			var lastTitle;
+	function WatchList( options ) {
+		var lastTitle;
 
-			// Set up infinite scroll helper and listen to events
-			this.infiniteScroll = new InfiniteScroll();
-			this.infiniteScroll.on( 'load', $.proxy( this, '_loadPages' ) );
+		// Set up infinite scroll helper and listen to events
+		this.infiniteScroll = new InfiniteScroll();
+		this.infiniteScroll.on( 'load', $.proxy( this, '_loadPages' ) );
 
-			if ( options.el ) {
-				lastTitle = this.getLastTitle( options.el );
-			}
-			this.gateway = new WatchListGateway( options.api, lastTitle );
+		if ( options.el ) {
+			lastTitle = this.getLastTitle( options.el );
+		}
+		this.gateway = new WatchListGateway( options.api, lastTitle );
 
-			WatchstarPageList.prototype.initialize.apply( this, arguments );
-		},
+		WatchstarPageList.apply( this, arguments );
+	}
+
+	OO.mfExtend( WatchList, WatchstarPageList, {
+		isBorderBox: false,
 		/** @inheritdoc */
 		preRender: function () {
 			this.infiniteScroll.disable();
@@ -42,7 +39,7 @@
 		 * @return {jQuery.Deferred}
 		 */
 		getPages: function ( ids ) {
-			return this.api.load( ids, true );
+			return this.wsGateway.loadWatchStatus( ids, true );
 		},
 		/**
 		 * Also sets a watch uploads funnel.
@@ -53,21 +50,12 @@
 			this.infiniteScroll.enable();
 		},
 		/**
-		 * Save title clicks
-		 */
-		onTitleClick: function () {
-			// name funnel for watchlists to catch subsequent uploads
-			$.cookie( 'mwUploadsFunnel', 'watchlist', {
-				expires: new Date( new Date().getTime() + 60000 )
-			} );
-		},
-		/**
 		 * Loads pages from the api and triggers render.
 		 * Infinite scroll is re-enabled in postRender.
 		 */
 		_loadPages: function () {
 			var self = this;
-			this.gateway.load().done( function ( pages ) {
+			this.gateway.loadWatchlist().done( function ( pages ) {
 				$.each( pages, function ( i, page ) {
 					self.appendPage( page );
 				} );
@@ -94,7 +82,6 @@
 
 	} );
 
-	M.define( 'mobile.watchlist/WatchList', WatchList )
-		.deprecate( 'modules/watchlist/WatchList' );
+	M.define( 'mobile.watchlist/WatchList', WatchList );
 
 }( mw.mobileFrontend, jQuery ) );

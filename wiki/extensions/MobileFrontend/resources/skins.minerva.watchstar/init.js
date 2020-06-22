@@ -1,7 +1,6 @@
 ( function ( M, $ ) {
 
 	var Watchstar = M.require( 'mobile.watchstar/Watchstar' ),
-		skin = M.require( 'mobile.startup/skin' ),
 		user = M.require( 'mobile.user/user' );
 
 	/**
@@ -14,13 +13,13 @@
 		var $container = $( '#ca-watch' );
 		if ( !page.inNamespace( 'special' ) ) {
 			new Watchstar( {
+				api: new mw.Api(),
 				el: $container,
 				isWatched: page.isWatched(),
 				page: page,
 				funnel: 'page',
 				isAnon: user.isAnon()
 			} );
-			skin.emit( 'changed' );
 		}
 	}
 	init( M.getCurrentPage() );

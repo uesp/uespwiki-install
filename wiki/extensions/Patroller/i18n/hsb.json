@@ -17,7 +17,7 @@
 	"patrol-reverted-ok": "Změna bu cofnjena.",
 	"patrol-reverted-failed": "Změna njeda so cofnyć",
 	"patrol-skipped-ok": "Změna so ignoruje.",
-	"patrol-reasons": "* Jednory wandalizm\r\n* Test nowačka\r\n* Hlej diskusijna strona",
+	"patrol-reasons": "* Jednory wandalizm\n* Test nowačka\n* Hlej diskusijna strona",
 	"patrol-another": "Dalšu změnu pokazać, jeli k dispoziciji stejaca.",
 	"patrol-stopped": "Sy rozsudźił, zo njeby žane dalše změny dohladował. $1",
 	"patrol-resume": "Klikń sem, zo by pokročował.",

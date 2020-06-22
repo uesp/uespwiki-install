@@ -1,6 +1,27 @@
 <?php
 
+use MediaWiki\Auth\AuthManager;
+
 class AntiSpoofHooks {
+	/**
+	 * Called after global variables have been set up
+	 */
+	public static function onRegistration() {
+		global $wgDisableAuthManager, $wgAuthManagerAutoConfig;
+
+		if ( class_exists( AuthManager::class ) && !$wgDisableAuthManager ) {
+			$wgAuthManagerAutoConfig['preauth'][AntiSpoofPreAuthenticationProvider::class] =
+				[ 'class' => AntiSpoofPreAuthenticationProvider::class ];
+			Hooks::register( 'LocalUserCreated', 'AntiSpoofHooks::asLocalUserCreated' );
+		} else {
+			Hooks::register( 'AbortNewAccount', 'AntiSpoofHooks::asAbortNewAccountHook' );
+			Hooks::register( 'UserCreateForm', 'AntiSpoofHooks::asUserCreateFormHook' );
+			Hooks::register( 'AddNewAccount', 'AntiSpoofHooks::asAddNewAccountHook' );
+			Hooks::register( 'APIGetAllowedParams', 'AntiSpoofHooks::onAPIGetAllowedParams' );
+			Hooks::register( 'AddNewAccountApiForm', 'AntiSpoofHooks::addNewAccountApiForm' );
+		}
+	}
+
 	/**
 	 * @param $updater DatabaseUpdater
 	 * @return bool
@@ -45,12 +66,12 @@ class AntiSpoofHooks {
 				if ( $active ) {
 					$numConflicts = count( $conflicts );
 					$message = wfMessage( 'antispoof-conflict-top', $name )
-						->numParams( $numConflicts )->escaped();
+						->numParams( $numConflicts )->parse();
 					$message .= '<ul>';
 					foreach ( $conflicts as $simUser ) {
 						$message .= '<li>' . wfMessage( 'antispoof-conflict-item', $simUser )->escaped() . '</li>';
 					}
-					$message .= '</ul>' . wfMessage( 'antispoof-conflict-bottom' )->escaped();
+					$message .= '</ul>' . wfMessage( 'antispoof-conflict-bottom' )->parse();
 					return false;
 				}
 			}
@@ -91,6 +112,19 @@ class AntiSpoofHooks {
 	 * @return bool
 	 */
 	public static function asAddNewAccountHook( $user ) {
+		$spoof = new SpoofUser( $user->getName() );
+		$spoof->record();
+		return true;
+	}
+
+	/**
+	 * On new account creation, record the username's thing-bob.
+	 * Replaces AddNewAccountHook for more modern MediaWiki versions-
+	 *
+	 * @param $user User
+	 * @return bool
+	 */
+	public static function asLocalUserCreated( $user ) {
 		$spoof = new SpoofUser( $user->getName() );
 		$spoof->record();
 		return true;

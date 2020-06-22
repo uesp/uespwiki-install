@@ -2,7 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Mr.Ajedrez",
-			"Xuacu"
+			"Xuacu",
+			"Matma Rex"
 		]
 	},
 	"abusefilter-desc": "Aplica heurística automática a les ediciones.",
@@ -128,6 +129,7 @@
 	"abusefilter-edit-oldwarning": "<strong>Ta editando una versión antigua d'esti filtru.\nLes estadístiques citaes son de la versión más nueva del filtru.\nSi guarda los cambios, escribirá enriba de tolos cambios dende la revisión que ta editando.</strong> &bull;\n[[Special:AbuseFilter/history/$2|Volver al historial d'esti filtru]].",
 	"abusefilter-edit-status-label": "Estadístiques:",
 	"abusefilter-edit-status": "De {{PLURAL:$1|la última aición|les $1 últimes aiciones}}, esti filtru coincidió con $2 ($3%).",
+	"abusefilter-edit-status-profile": "De {{PLURAL:$1|la última aición|les $1 últimes aiciones}}, esti filtru coincidió con $2 ($3%).\nDe media, el so tiempu d'execución ye de $4ms, y consume {{PLURAL:$5|una condición|$5 condiciones}} de la llende de condiciones.",
 	"abusefilter-edit-throttled": "'''Avisu:''' Esti filtru desactivóse automaticamente como midía de seguridá.\nAlcanzó la llende de coincidir con más del $1% de les aiciones.",
 	"abusefilter-edit-new": "Filtru nuevu",
 	"abusefilter-edit-save": "Guardar el filtru",
@@ -170,7 +172,7 @@
 	"abusefilter-edit-done-subtitle": "Filtru editáu",
 	"abusefilter-edit-done": "Guardáronse [[Special:AbuseFilter/history/$1/diff/prev/$2|los sos cambios]] nel [[Special:AbuseFilter/$1|filtru $3]].",
 	"abusefilter-edit-badsyntax": "Hai un error de sintaxis nel filtru qu'especificó.\nLa salida del analizador foi: <pre>$1</pre>",
-	"abusefilter-edit-restricted": "Nun pue editar esti filtru, porque contién una o más aiciones restrinxíes.\nPor favor pida a un usuariu con permisu p'amestar aiciones restrinxíes que faiga el cambiu.",
+	"abusefilter-edit-restricted": "Nun puedes editar esti filtru, porque contien una o más aiciones restrinxíes.\nPor favor pide a un usuariu con permisu p'amestar aiciones restrinxíes que faiga el cambiu.",
 	"abusefilter-edit-viewhistory": "Ver l'historial d'esti filtru",
 	"abusefilter-edit-history": "Historial:",
 	"abusefilter-edit-check": "Comprobar la sintaxis",
@@ -285,6 +287,11 @@
 	"abusefilter-edit-builder-vars-minor-edit": "Si la edición ta marcada como menor o non",
 	"abusefilter-edit-builder-vars-file-sha1": "Hash SHA1 del conteníu del ficheru",
 	"abusefilter-edit-builder-vars-file-size": "Tamañu del ficheru en bytes",
+	"abusefilter-edit-builder-vars-file-mime": "Tipu MIME del ficheru",
+	"abusefilter-edit-builder-vars-file-mediatype": "Tipu de multimedia del ficheru",
+	"abusefilter-edit-builder-vars-file-width": "Anchor del ficheru en pixels",
+	"abusefilter-edit-builder-vars-file-height": "Altor del ficheru en pixels",
+	"abusefilter-edit-builder-vars-file-bits-per-channel": "Bits per canal de color del ficheru",
 	"abusefilter-filter-log": "Cambios de recién nos filtros",
 	"abusefilter-history": "Historial de cambios de la peñera d'abusos #$1",
 	"abusefilter-history-foruser": "Cambios de $1",

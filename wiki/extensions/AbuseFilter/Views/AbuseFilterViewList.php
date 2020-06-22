@@ -163,13 +163,14 @@ class AbuseFilterViewList extends AbuseFilterView {
 	}
 
 	function showStatus() {
-		global $wgMemc, $wgAbuseFilterConditionLimit, $wgAbuseFilterValidGroups;
+		global $wgAbuseFilterConditionLimit, $wgAbuseFilterValidGroups;
 
-		$overflow_count = (int)$wgMemc->get( AbuseFilter::filterLimitReachedKey() );
-		$match_count = (int) $wgMemc->get( AbuseFilter::filterMatchesKey() );
+		$stash = ObjectCache::getMainStashInstance();
+		$overflow_count = (int)$stash->get( AbuseFilter::filterLimitReachedKey() );
+		$match_count = (int)$stash->get( AbuseFilter::filterMatchesKey() );
 		$total_count = 0;
 		foreach ( $wgAbuseFilterValidGroups as $group ) {
-			$total_count += (int)$wgMemc->get( AbuseFilter::filterUsedKey( $group ) );
+			$total_count += (int)$stash->get( AbuseFilter::filterUsedKey( $group ) );
 		}
 
 		if ( $total_count > 0 ) {
@@ -242,7 +243,7 @@ class AbuseFilterPager extends TablePager {
 		);
 
 		global $wgAbuseFilterValidGroups;
-		if ( count($wgAbuseFilterValidGroups) > 1 ) {
+		if ( count( $wgAbuseFilterValidGroups ) > 1 ) {
 			$headers['af_group'] = 'abusefilter-list-group';
 		}
 
@@ -257,10 +258,12 @@ class AbuseFilterPager extends TablePager {
 		$lang = $this->getLanguage();
 		$row = $this->mCurrentRow;
 
-		switch( $name ) {
+		switch ( $name ) {
 			case 'af_id':
 				return Linker::link(
-					SpecialPage::getTitleFor( 'AbuseFilter', intval( $value ) ), $lang->formatNum( intval( $value ) ) );
+					SpecialPage::getTitleFor( 'AbuseFilter', intval( $value ) ),
+					$lang->formatNum( intval( $value ) )
+				);
 			case 'af_public_comments':
 				return Linker::link(
 					SpecialPage::getTitleFor( 'AbuseFilter', intval( $row->af_id ) ),
@@ -372,9 +375,9 @@ class GlobalAbuseFilterPager extends AbuseFilterPager {
 		$lang = $this->getLanguage();
 		$row = $this->mCurrentRow;
 
-		switch( $name ) {
+		switch ( $name ) {
 			case 'af_id':
-				return $lang->formatNum( intval( $value )  );
+				return $lang->formatNum( intval( $value ) );
 			case 'af_public_comments':
 				return $this->getOutput()->parseInline( $value );
 			case 'af_actions':

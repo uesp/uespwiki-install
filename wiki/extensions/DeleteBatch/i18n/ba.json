@@ -1,7 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"Assele"
+			"Assele",
+			"Мухамадеева",
+			"Айбикә"
 		]
 	},
 	"deletebatch": "Биттәр йыйынтығын юйыу.",
@@ -15,7 +17,7 @@
 	"deletebatch-or": "<strong>йәки</strong>",
 	"deletebatch-delete": "Юйырға",
 	"deletebatch-page": "Юйыла торған биттәр:",
-	"deletebatch-processing-from-file": "файлдағы исемлектән биттәрҙе юйыу",
+	"deletebatch-processing-from-file": "файлда һалған биттәрҙе юйыу",
 	"deletebatch-processing-from-form": "форманан биттәрҙе юйыу",
 	"deletebatch-omitting-nonexistent": "$1 булмаған битен ҡалдырыу.",
 	"deletebatch-omitting-invalid": "$1 дөрөҫ булмаған битен ҡалдырыу.",
@@ -24,5 +26,6 @@
 	"deletebatch-select-script": "Биттәрҙе юйыу скрипты",
 	"deletebatch-select-yourself": "Һеҙ",
 	"deletebatch-no-page": "Зинһар, юйыр өсөн кәмендә бер бит йәки биттәр исемлеге менән файл һайлағыҙ.",
-	"right-deletebatch": "Биттәр йыйынтығын юйыу"
+	"right-deletebatch": "Биттәр йыйынтығын юйыу",
+	"deletebatch-deleting-file-only": "$1 файлының һүрәтләү бите юҡ; файлдың үҙен юя алаһығыҙ. Был эшмәкәрлек журналда сағылмаясаҡ."
 }

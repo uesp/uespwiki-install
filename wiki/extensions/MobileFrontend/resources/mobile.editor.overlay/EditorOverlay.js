@@ -1,8 +1,7 @@
 ( function ( M, $ ) {
-	var EditorOverlay,
-		EditorOverlayBase = M.require( 'mobile.editor.common/EditorOverlayBase' ),
+	var EditorOverlayBase = M.require( 'mobile.editor.common/EditorOverlayBase' ),
 		Section = M.require( 'mobile.startup/Section' ),
-		EditorApi = M.require( 'mobile.editor.api/EditorApi' ),
+		EditorGateway = M.require( 'mobile.editor.api/EditorGateway' ),
 		AbuseFilterPanel = M.require( 'mobile.abusefilter/AbuseFilterPanel' ),
 		settings = M.require( 'mobile.settings/settings' ),
 		Button = M.require( 'mobile.startup/Button' ),
@@ -15,11 +14,39 @@
 	 * @class EditorOverlay
 	 * @uses Section
 	 * @uses AbuseFilterPanel
-	 * @uses EditorApi
+	 * @uses EditorGateway
 	 * @uses VisualEditorOverlay
 	 * @extends EditorOverlayBase
 	 */
-	EditorOverlay = EditorOverlayBase.extend( {
+	function EditorOverlay( options ) {
+		this.gateway = new EditorGateway( {
+			api: options.api,
+			title: options.title,
+			sectionId: options.sectionId,
+			oldId: options.oldId,
+			isNewPage: options.isNewPage
+		} );
+		this.readOnly = options.oldId ? true : false; // If old revision, readOnly mode
+		if ( this.isVisualEditorEnabled() ) {
+			options.editSwitcher = true;
+		}
+		if ( this.readOnly ) {
+			options.readOnly = true;
+			options.editingMsg = mw.msg( 'mobile-frontend-editor-viewing-source-page', options.title );
+		} else {
+			options.editingMsg = mw.msg( 'mobile-frontend-editor-editing-page', options.title );
+		}
+		if ( options.isAnon ) {
+			// add required data for anonymous editing warning
+			options = this._prepareAnonWarning( options );
+		}
+		// be explicit here. This may have been initialized from VE.
+		options.isVisualEditor = false;
+		options.previewingMsg = mw.msg( 'mobile-frontend-editor-previewing-page', options.title );
+		EditorOverlayBase.call( this, options );
+	}
+
+	OO.mfExtend( EditorOverlay, EditorOverlayBase, {
 		/** @inheritdoc **/
 		isBorderBox: false,
 		/** @inheritdoc **/
@@ -35,6 +62,7 @@
 		 * @cfg {Object} defaults.signupButton options to render a sign up button
 		 * @cfg {Object} defaults.anonButton options to render an edit anonymously button
 		 * @cfg {Object} defaults.warningOptions options for a MessageBox to display anonymous message warning
+		 * @cfg {mw.Api} defaults.api an api module to retrieve pages
 		 */
 		defaults: $.extend( {}, EditorOverlayBase.prototype.defaults, {
 			loginButton: new Button( {
@@ -70,34 +98,6 @@
 				mw.config.get( 'wgTranslatePageTranslation' ) !== 'translation' &&
 				mw.config.get( 'wgPageContentModel' ) === 'wikitext';
 		},
-
-		/** @inheritdoc **/
-		initialize: function ( options ) {
-			this.api = new EditorApi( {
-				title: options.title,
-				sectionId: options.sectionId,
-				oldId: options.oldId,
-				isNewPage: options.isNewPage
-			} );
-			this.readOnly = options.oldId ? true : false; // If old revision, readOnly mode
-			if ( this.isVisualEditorEnabled() ) {
-				options.editSwitcher = true;
-			}
-			if ( this.readOnly ) {
-				options.readOnly = true;
-				options.editingMsg = mw.msg( 'mobile-frontend-editor-viewing-source-page', options.title );
-			} else {
-				options.editingMsg = mw.msg( 'mobile-frontend-editor-editing-page', options.title );
-			}
-			if ( options.isAnon ) {
-				// add required data for anonymous editing warning
-				options = this._prepareAnonWarning( options );
-			}
-			// be explicit here. This may have been initialized from VE.
-			options.isVisualEditor = false;
-			options.previewingMsg = mw.msg( 'mobile-frontend-editor-previewing-page', options.title );
-			EditorOverlayBase.prototype.initialize.call( this, options );
-		},
 		events: $.extend( {}, EditorOverlayBase.prototype.events, {
 			'input .wikitext-editor': 'onInputWikitextEditor'
 		} ),
@@ -105,7 +105,7 @@
 		 * Wikitext Editor input handler
 		 */
 		onInputWikitextEditor: function () {
-			this.api.setContent( this.$( '.wikitext-editor' ).val() );
+			this.gateway.setContent( this.$( '.wikitext-editor' ).val() );
 			this.$( '.continue, .submit' ).prop( 'disabled', false );
 		},
 		/**
@@ -138,7 +138,7 @@
 				this.switcherToolbar.tools.editVe.onSelect = function () {
 					// If the user tries to switch to the VisualEditor, check if any changes have
 					// been made, and if so, tell the user they have to save first.
-					if ( !self.api.hasChanged ) {
+					if ( !self.gateway.hasChanged ) {
 						self._switchToVisualEditor( self.options );
 					} else {
 						if ( window.confirm( mw.msg( 'mobile-frontend-editor-switch-confirm' ) ) ) {
@@ -236,7 +236,7 @@
 			if ( mw.config.get( 'wgIsMainPage' ) ) {
 				params.mainpage = 1; // Setting it to 0 will have the same effect
 			}
-			this.api.getPreview( params ).done( function ( parsedText, parsedSectionLine ) {
+			this.gateway.getPreview( params ).done( function ( parsedText, parsedSectionLine ) {
 				// On desktop edit summaries strip tags. Mimic this behavior on mobile devices
 				self.sectionLine = $( '<div/>' ).html( parsedSectionLine ).text();
 				new Section( {
@@ -261,7 +261,7 @@
 		 * @private
 		 */
 		_hidePreview: function () {
-			this.api.abort();
+			this.gateway.abortPreview();
 			this.clearSpinner();
 			this.$preview.removeClass( 'error' ).hide();
 			this.$content.show();
@@ -300,7 +300,7 @@
 			this.$content.hide();
 			this.showSpinner();
 
-			this.api.getContent()
+			this.gateway.getContent()
 				.done( function ( content, userinfo ) {
 					var parser, ast, parsedBlockReason;
 
@@ -403,7 +403,7 @@
 
 			this.showHidden( '.saving-header' );
 
-			this.api.save( options )
+			this.gateway.save( options )
 				.done( function () {
 					var title = self.options.title;
 					// Special case behaviour of main page
@@ -424,12 +424,12 @@
 							'blocked',
 							'autoblocked'
 						],
-						key = response.error.code,
+						key = response && response.error && response.error.code,
 						typeMap = {
 							editconflict: 'editConflict',
 							wasdeleted: 'editPageDeleted',
 							'abusefilter-disallowed': 'extensionAbuseFilter',
-							captcha: 'extensionConfirmEdit',
+							captcha: 'extensionCaptcha',
 							spamprotectiontext: 'extensionSpamBlacklist',
 							'titleblacklist-forbidden-edit': 'extensionTitleBlacklist'
 						};
@@ -441,12 +441,9 @@
 					} else if ( data.type === 'abusefilter' ) {
 						self._showAbuseFilter( data.details.type, data.details.message );
 					} else {
-						if ( data.details === 'editconflict' ) {
+						if ( key === 'editconflict' ) {
 							msg = mw.msg( 'mobile-frontend-editor-error-conflict' );
-						} else if (
-							response.error &&
-							$.inArray( response.error.code, whitelistedErrorInfo ) > -1
-						) {
+						} else if ( $.inArray( key, whitelistedErrorInfo ) > -1 ) {
 							msg = response.error.info;
 						} else {
 							msg = mw.msg( 'mobile-frontend-editor-error' );
@@ -470,10 +467,9 @@
 		 * @return {Boolean}
 		 */
 		hasChanged: function () {
-			return this.api.hasChanged;
+			return this.gateway.hasChanged;
 		}
 	} );
 
-	M.define( 'mobile.editor.overlay/EditorOverlay', EditorOverlay )
-		.deprecate( 'modules/editor/EditorOverlay' );
+	M.define( 'mobile.editor.overlay/EditorOverlay', EditorOverlay );
 }( mw.mobileFrontend, jQuery ) );

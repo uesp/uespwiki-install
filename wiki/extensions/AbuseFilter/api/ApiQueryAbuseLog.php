@@ -49,7 +49,6 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 		$fld_ids = isset( $prop['ids'] );
 		$fld_filter = isset( $prop['filter'] );
 		$fld_user = isset( $prop['user'] );
-		$fld_ip = isset( $prop['ip'] );
 		$fld_title = isset( $prop['title'] );
 		$fld_action = isset( $prop['action'] );
 		$fld_details = isset( $prop['details'] );
@@ -58,21 +57,26 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 		$fld_hidden = isset( $prop['hidden'] );
 		$fld_revid = isset( $prop['revid'] );
 
-		if ( $fld_ip && !$user->isAllowed( 'abusefilter-private' ) ) {
-			$this->dieUsage( 'You don\'t have permission to view IP addresses', 'permissiondenied' );
-		}
 		if ( $fld_details && !$user->isAllowed( 'abusefilter-log-detail' ) ) {
-			$this->dieUsage( 'You don\'t have permission to view detailed abuse log entries', 'permissiondenied' );
+			$this->dieUsage(
+				'You don\'t have permission to view detailed abuse log entries',
+				'permissiondenied'
+			);
 		}
 		// Match permissions for viewing events on private filters to SpecialAbuseLog (bug 42814)
-		if ( $params['filter'] && !( AbuseFilterView::canViewPrivate() || $user->isAllowed( 'abusefilter-log-private' ) ) ) {
+		if ( $params['filter'] &&
+			!( AbuseFilterView::canViewPrivate() || $user->isAllowed( 'abusefilter-log-private' ) )
+		) {
 			// A specific filter parameter is set but the user isn't allowed to view all filters
 			if ( !is_array( $params['filter'] ) ) {
 				$params['filter'] = array( $params['filter'] );
 			}
-			foreach( $params['filter'] as $filter ) {
+			foreach ( $params['filter'] as $filter ) {
 				if ( AbuseFilter::filterHidden( $filter ) ) {
-					$this->dieUsage( 'You don\'t have permission to view log entries for private filters', 'permissiondenied' );
+					$this->dieUsage(
+						'You don\'t have permission to view log entries for private filters',
+						'permissiondenied'
+					);
 				}
 			}
 		}
@@ -86,8 +90,7 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 		$this->addFields( 'afl_filter' );
 		$this->addFieldsIf( 'afl_id', $fld_ids );
 		$this->addFieldsIf( 'afl_user_text', $fld_user );
-		$this->addFieldsIf( 'afl_ip', $fld_ip );
-		$this->addFieldsIf( array( 'afl_namespace', 'afl_title' ), $fld_title );
+		$this->addFieldsIf( [ 'afl_namespace', 'afl_title' ], $fld_title );
 		$this->addFieldsIf( 'afl_action', $fld_action );
 		$this->addFieldsIf( 'afl_var_dump', $fld_details );
 		$this->addFieldsIf( 'afl_actions', $fld_result );
@@ -119,7 +122,8 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 			}
 
 			if ( isset( $userId ) ) {
-				// Only add the WHERE for user in case it's either a valid user (but not necessary an existing one) or an IP
+				// Only add the WHERE for user in case it's either a valid user
+				// (but not necessary an existing one) or an IP.
 				$this->addWhere(
 					array(
 						'afl_user' => $userId,
@@ -151,10 +155,19 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 				$this->setContinueEnumParameter( 'start', $ts->getTimestamp( TS_ISO_8601 ) );
 				break;
 			}
-			if ( SpecialAbuseLog::isHidden( $row ) &&
-				!SpecialAbuseLog::canSeeHidden( $user )
-			) {
+			$hidden = SpecialAbuseLog::isHidden( $row );
+			if ( $hidden === true && !SpecialAbuseLog::canSeeHidden() ) {
 				continue;
+			} elseif ( $hidden === 'implicit' ) {
+				$rev = Revision::newFromId( $row->afl_rev_id );
+				$bitfield = 0;
+				$bitfield |= Revision::DELETED_TEXT;
+				$bitfield |= Revision::DELETED_COMMENT;
+				$bitfield |= Revision::DELETED_USER;
+				$bitfield |= Revision::DELETED_RESTRICTED;
+				if ( !$rev->userCan( $bitfield, $user ) ) {
+					continue;
+				}
 			}
 			$canSeeDetails = SpecialAbuseLog::canSeeDetails( $row->afl_filter );
 
@@ -171,9 +184,6 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 			}
 			if ( $fld_user ) {
 				$entry['user'] = $row->afl_user_text;
-			}
-			if ( $fld_ip ) {
-				$entry['ip'] = $row->afl_ip;
 			}
 			if ( $fld_title ) {
 				$title = Title::makeTitle( $row->afl_namespace, $row->afl_title );
@@ -207,11 +217,8 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 				}
 			}
 
-			if ( $fld_hidden ) {
-				$val = SpecialAbuseLog::isHidden( $row );
-				if ( $val ) {
-					$entry['hidden'] = $val;
-				}
+			if ( $fld_hidden && $hidden ) {
+				$entry['hidden'] = $hidden;
 			}
 
 			if ( $entry ) {
@@ -244,7 +251,9 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 					'older'
 				),
 				ApiBase::PARAM_DFLT => 'older',
-				/** @todo Once support for MediaWiki < 1.25 is dropped, just use ApiBase::PARAM_HELP_MSG directly */
+				/** @todo Once support for MediaWiki < 1.25 is dropped,
+				 *  just use ApiBase::PARAM_HELP_MSG directly
+				 */
 				constant( 'ApiBase::PARAM_HELP_MSG' ) ?: '' => 'api-help-param-direction',
 			),
 			'user' => null,
@@ -265,7 +274,6 @@ class ApiQueryAbuseLog extends ApiQueryBase {
 					'ids',
 					'filter',
 					'user',
-					'ip',
 					'title',
 					'action',
 					'details',

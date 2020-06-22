@@ -1,15 +1,18 @@
 ( function ( M ) {
-	var PhotoItem,
-		View = M.require( 'mobile.view/View' );
+	var View = M.require( 'mobile.view/View' );
 
 	/**
 	 * Single photo item in gallery
 	 * @class PhotoItem
 	 * @extends View
 	 */
-	PhotoItem = View.extend( {
+	function PhotoItem() {
+		View.apply( this, arguments );
+	}
+
+	OO.mfExtend( PhotoItem, View, {
 		template: mw.template.get( 'mobile.gallery', 'PhotoItem.hogan' ),
 		tagName: 'li'
 	} );
-	M.define( 'mobile.gallery/PhotoItem', PhotoItem ).deprecate( 'modules/gallery/PhotoItem' );
+	M.define( 'mobile.gallery/PhotoItem', PhotoItem );
 }( mw.mobileFrontend ) );

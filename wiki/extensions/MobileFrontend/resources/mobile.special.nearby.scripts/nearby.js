@@ -41,22 +41,30 @@
 		 * Initialize or instantiate Nearby with options
 		 * @method
 		 * @ignore
-		 * @param {Object} options
+		 * @param {Object} opt
 		 */
-		function refresh( options ) {
-			if ( nearby ) {
-				nearby.initialize( options );
-			} else {
+		function refresh( opt ) {
+			// check, if the api object (options.api) is already created and set
+			if ( options.api === undefined ) {
+				// decide, what api module to use to retrieve the pages
 				if ( endpoint ) {
 					mw.loader.using( 'mobile.foreignApi' ).done( function () {
 						var JSONPForeignApi = M.require( 'mobile.foreignApi/JSONPForeignApi' );
 						options.api = new JSONPForeignApi( endpoint );
-						nearby = new Nearby( options );
 					} );
 				} else {
 					options.api = new mw.Api();
-					nearby = new Nearby( options );
 				}
+			}
+			// make sure, that the api object (if created above) is added to the options object used
+			// in the Nearby module
+			opt = $.extend( {}, opt, options );
+
+			// if Nearby is already created, use the existing one
+			if ( nearby ) {
+				nearby.refresh( opt );
+			} else {
+				nearby = new Nearby( opt );
 			}
 		}
 
@@ -80,7 +88,7 @@
 		router.route( /^\/page\/(.+)$/, function ( pageTitle ) {
 			$icon.hide();
 			refresh( $.extend( {}, options, {
-				pageTitle: pageTitle
+				pageTitle: mw.Uri.decode( pageTitle )
 			} ) );
 		} );
 

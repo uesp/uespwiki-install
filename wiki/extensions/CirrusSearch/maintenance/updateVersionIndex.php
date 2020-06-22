@@ -31,7 +31,7 @@ require_once( __DIR__ . '/../includes/Maintenance/Maintenance.php' );
 class UpdateVersionIndex extends Maintenance {
 	public function __construct() {
 		parent::__construct();
-		$this->mDescription = "Update and check the CirrusSearch version index.";
+		$this->mDescription = "Update and check the CirrusSearch version index. Always operates on a single cluster.";
 		$this->addOption( 'show-all', 'Show all known versions' );
 		$this->addOption( 'update', 'Update the version index for this wiki' );
 		$this->addOption( 'baseName', 'What basename to use for all indexes, ' .
@@ -39,7 +39,7 @@ class UpdateVersionIndex extends Maintenance {
 	}
 
 	public function execute() {
-		$baseName = $this->getOption( 'baseName', wfWikiId() );
+		$baseName = $this->getOption( 'baseName', wfWikiID() );
 		if( $this->hasOption( 'show-all' ) ) {
 			$this->show();
 		} elseif ( $this->hasOption( 'update' ) ) {
@@ -55,6 +55,9 @@ class UpdateVersionIndex extends Maintenance {
 		}
 	}
 
+	/**
+	 * @param array|\Elastica\Filter\AbstractFilter|null $filter
+	 */
 	private function show( $filter = null ) {
 		$query = new \Elastica\Query();
 		if ( $filter ) {
@@ -72,13 +75,16 @@ class UpdateVersionIndex extends Maintenance {
 		}
 	}
 
+	/**
+	 * @param string $baseName
+	 */
 	private function update( $baseName ) {
-		global $wgCirrusSearchShardCount;
 		$versionType = $this->getType();
 		$this->outputIndented( "Updating tracking indexes..." );
 		$docs = array();
 		list( $aMaj, $aMin ) = explode( '.', \CirrusSearch\Maintenance\AnalysisConfigBuilder::VERSION );
 		list( $mMaj, $mMin ) = explode( '.', \CirrusSearch\Maintenance\MappingConfigBuilder::VERSION );
+		$connSettings = $this->getConnection()->getSettings();
 		foreach( $this->getConnection()->getAllIndexTypes() as $type ) {
 			$docs[] = new \Elastica\Document(
 				$this->getConnection()->getIndexName( $baseName, $type ),
@@ -87,7 +93,7 @@ class UpdateVersionIndex extends Maintenance {
 					'analysis_min' => $aMin,
 					'mapping_maj' => $mMaj,
 					'mapping_min' => $mMin,
-					'shard_count' => $wgCirrusSearchShardCount[ $type ],
+					'shard_count' => $connSettings->getShardCount( $type ),
 				)
 			);
 		}
@@ -95,6 +101,9 @@ class UpdateVersionIndex extends Maintenance {
 		$this->output( "done\n" );
 	}
 
+	/**
+	 * @return \Elastica\Type
+	 */
 	private function getType() {
 		$index = $this->getConnection()->getIndex( 'mw_cirrus_versions' );
 		if ( !$index->exists() ) {

@@ -3,14 +3,14 @@
 namespace CirrusSearch;
 
 /**
- * Handles decisions arround if the current request is a member of any
+ * Handles decisions around if the current request is a member of any
  * test currently being run. This initial implementation is per-request
  * but could be extended to keep the same user in the same test/bucket
  * over multiple requests.
  *
  * $wgCirrusSearchUserTesting = array(
  *     'someTest' => array(
- *         'sampleRate' => 100, // sample 1 in 100 occurances
+ *         'sampleRate' => 100, // sample 1 in 100 occurrences
  *         'buckets' => array(
  *             'a' => array(
  *                 // control bucket, retain defaults
@@ -57,7 +57,7 @@ class UserTesting {
 	private static $instance;
 
 	/**
-	 * @var array Map from test name to the bucket the request is in.
+	 * @var string[] Map from test name to the bucket the request is in.
 	 */
 	protected $tests = array();
 
@@ -65,7 +65,7 @@ class UserTesting {
 	 * Returns a stable instance based on $wgCirrusSearchUserTesting
 	 * global configuration.
 	 *
-	 * @var callable|null $callback
+	 * @param callable|null $callback
 	 * @return self
 	 */
 	public static function getInstance( $callback = null ) {
@@ -77,8 +77,15 @@ class UserTesting {
 	}
 
 	/**
-	 * @var array $config
-	 * @var callable|null $callback
+	 * Unit test only
+	 */
+	public static function resetInstance() {
+		self::$instance = null;
+	}
+
+	/**
+	 * @param array $config
+	 * @param callable|null $callback
 	 */
 	public function __construct( array $config, $callback = null ) {
 		if ( $callback === null ) {
@@ -96,7 +103,7 @@ class UserTesting {
 	}
 
 	/**
-	 * @var string $testName Name of a test being run
+	 * @param string $testName Name of a test being run
 	 * @return bool True when the request is participating in the named test
 	 */
 	public function isParticipatingIn( $testName ) {
@@ -104,7 +111,7 @@ class UserTesting {
 	}
 
 	/**
-	 * @var string $testName Name of a test being run
+	 * @param string $testName Name of a test being run
 	 * @return string The bucket the request has been placed in for the named
 	 *  test. If the request is not participating in the test the bucket will
 	 *  be the empty string.
@@ -121,9 +128,20 @@ class UserTesting {
 	}
 
 	/**
-	 * @var string $testName Name of the test to activate.
-	 * @var float $bucketProbability Number between 0 and 1 for determining bucket.
-	 * @var array $testConfig Configuration of the test to activate.
+	 * @return string[]
+	 */
+	public function getActiveTestNamesWithBucket() {
+		$result = array();
+		foreach ( $this->tests as $test => $bucket ) {
+			$result[] = "$test:$bucket";
+		}
+		return $result;
+	}
+
+	/**
+	 * @param string $testName Name of the test to activate.
+	 * @param float $bucketProbability Number between 0 and 1 for determining bucket.
+	 * @param array $testConfig Configuration of the test to activate.
 	 */
 	protected function activateTest( $testName, $bucketProbability, array $testConfig ) {
 		$this->tests[$testName] = '';
@@ -145,8 +163,8 @@ class UserTesting {
 	}
 
 	/**
-	 * @var float $probability A number between 0 and 1
-	 * @var string[] $buckets List of buckets to choose from.
+	 * @param float $probability A number between 0 and 1
+	 * @param string[] $buckets List of buckets to choose from.
 	 * @return string The chosen bucket.
 	 */
 	static public function chooseBucket( $probability, $buckets ) {
@@ -187,10 +205,11 @@ class UserTesting {
 	}
 
 	/**
-	 * @var integer $sampleRate
+	 * @param string $testName
+	 * @param int $sampleRate
 	 * @return float for 1 in $sampleRate calls to this method
 	 *  returns a stable probability between 0 and 1. for all other
-	 *  requests returns 0.
+	 * requests returns 0.
 	 */
 	static public function oneIn( $testName, $sampleRate ) {
 		$hash = ElasticsearchIntermediary::generateIdentToken( $testName );

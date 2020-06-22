@@ -18,7 +18,8 @@
 			"Nivit",
 			"Ricordisamoa",
 			"Macofe",
-			"Alexmar983"
+			"Alexmar983",
+			"Matma Rex"
 		]
 	},
 	"abusefilter-desc": "Applica un'euristica automatica alle modifiche.",
@@ -144,6 +145,7 @@
 	"abusefilter-edit-oldwarning": "<strong>Si sta modificando una versione obsoleta di questo filtro.\nLe statistiche citate si riferiscono alla versione più recente del filtro.\nSalvando le modifiche verranno annullati tutti i cambiamenti apportati da questa versione in poi.</strong> &bull;\n[[Special:AbuseFilter/history/$2|Ritorna alla cronologia del filtro]].",
 	"abusefilter-edit-status-label": "Statistiche:",
 	"abusefilter-edit-status": "Rispetto {{PLURAL:$1|all'azione più recente|alle $1 azioni più recenti}}, questo filtro ha trovato $2 {{PLURAL:$2|corrispondenza|corrispondenze}} ($3 %).",
+	"abusefilter-edit-status-profile": "Rispetto {{PLURAL:$1|all'azione più recente|alle $1 azioni più recenti}}, questo filtro ha trovato $2 {{PLURAL:$2|corrispondenza|corrispondenze}} ($3 %).\nIl suo tempo medio di esecuzione è di $4 ms, e impiega $5 {{PLURAL:$5|condizione|condizioni}} del limite di condizioni.",
 	"abusefilter-edit-throttled": "'''Attenzione''': Questo filtro è stato disattivato automaticamente come misura precauzionale.\nÈ stato raggiunto il limite massimo di corrispondenze, pari al $1% delle azioni.",
 	"abusefilter-edit-new": "Nuovo filtro",
 	"abusefilter-edit-save": "Salva filtro",
@@ -302,6 +304,11 @@
 	"abusefilter-edit-builder-vars-minor-edit": "Indica se la modifica è minore o meno",
 	"abusefilter-edit-builder-vars-file-sha1": "Hash SHA1 del contenuto del file",
 	"abusefilter-edit-builder-vars-file-size": "Dimensione del file in byte",
+	"abusefilter-edit-builder-vars-file-mime": "Tipo MIME del file",
+	"abusefilter-edit-builder-vars-file-mediatype": "Tipo del file multimediale",
+	"abusefilter-edit-builder-vars-file-width": "Larghezza del file in pixel",
+	"abusefilter-edit-builder-vars-file-height": "Altezza del file in pixel",
+	"abusefilter-edit-builder-vars-file-bits-per-channel": "Bit per canale di colore del file",
 	"abusefilter-filter-log": "Ultime modifiche ai filtri",
 	"abusefilter-history": "Cronologia delle modifiche al filtro anti abusi n. $1",
 	"abusefilter-history-foruser": "Modifiche apportate da $1",
@@ -413,11 +420,16 @@
 	"abusefilter-import-submit": "Importa dati",
 	"abusefilter-group-default": "Predefinito",
 	"abusefilter-http-error": "Si è verificato un errore HTTP: $1.",
+	"apihelp-abusefilterchecksyntax-example-1": "Controlla la sintassi di un filtro valido",
+	"apihelp-abusefilterchecksyntax-example-2": "Controlla la sintassi di un filtro non valido",
+	"apihelp-abusefilterevalexpression-description": "Valuta un'espressione AbuseFilter.",
 	"apihelp-abusefilterevalexpression-param-expression": "L'espressione da valutare.",
 	"apihelp-abusefilterevalexpression-example-1": "Calcolare una semplice espressione",
+	"apihelp-abusefilterunblockautopromote-param-user": "Nome utente dell'utente che vuoi sbloccare.",
 	"apihelp-query+abusefilters-param-show": "Mostra solo i filtri che soddisfano questi criteri.",
 	"apihelp-query+abusefilters-param-limit": "Il numero massimo di filtri da elencare.",
 	"apihelp-query+abusefilters-param-prop": "Quali proprietà ottenere.",
 	"apihelp-query+abusefilters-example-1": "Elenca i filtri pubblici abilitati",
-	"apihelp-query+abusefilters-example-2": "Mostra alcuni dettagli sui filtri"
+	"apihelp-query+abusefilters-example-2": "Mostra alcuni dettagli sui filtri",
+	"apihelp-query+abuselog-param-prop": "Quali proprietà ottenere."
 }

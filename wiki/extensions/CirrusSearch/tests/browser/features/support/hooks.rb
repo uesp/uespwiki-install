@@ -29,6 +29,16 @@ Before("@setup_main, @filters, @prefix, @bad_syntax, @wildcard, @exact_quotes, @
   end
 end
 
+clean = false
+Before("@clean") do
+  unless clean
+    steps %(
+      Given I delete DeleteMeRedirect
+    )
+    clean = true
+  end
+end
+
 redirect_loop = false
 Before("@redirect_loop") do
   unless redirect_loop
@@ -58,9 +68,15 @@ commons = false
 Before("@setup_main, @commons") do
   unless commons
     steps %(
-      Given a file named File:OnCommons.svg exists on commons with contents OnCommons.svg and description File stored on commons for test purposes
+
+      Given I delete on commons File:OnCommons.svg
+      And I delete on commons File:DuplicatedLocally.svg
+      And I delete File:DuplicatedLocally.svg
+      And a file named File:OnCommons.svg exists on commons with contents OnCommons.svg and description File stored on commons for test purposes
       And a file named File:DuplicatedLocally.svg exists on commons with contents DuplicatedLocally.svg and description File stored on commons and duplicated locally
+      And I wait 2 seconds
       And a file named File:DuplicatedLocally.svg exists with contents DuplicatedLocally.svg and description Locally stored file duplicated on commons
+      And I wait 2 seconds
         )
     commons = true
   end
@@ -466,7 +482,7 @@ relevancy = false
 Before("@relevancy") do
   unless relevancy
     steps %(
-      Given a page named Relevancytest exists with contents not relevant
+      Given a page named Relevancytest exists with contents it is not relevant
       And a page named Relevancytestviaredirect exists with contents not relevant
       And a page named Relevancytest Redirect exists with contents #REDIRECT [[Relevancytestviaredirect]]
       And a page named Relevancytestviacategory exists with contents Some opening text. [[Category:Relevancytest]]
@@ -482,8 +498,8 @@ Before("@relevancy") do
       And a page named Relevancytestphraseviaopening exists with contents @Relevancytestphraseviaopening.txt
       And a page named Relevancytestphraseviatext exists with contents [[Relevancytestphrase phrase]]
       And a page named Relevancytestphraseviaauxtext exists with contents @Relevancytestphraseviaauxtext.txt
-      And a page named Relevancytwo Wordtest exists
-      And a page named Wordtest Relevancytwo exists
+      And a page named Relevancytwo Wordtest exists with contents relevance is bliss
+      And a page named Wordtest Relevancytwo exists with contents relevance is cool
       And a page named Relevancynamespacetest exists
       And a page named Talk:Relevancynamespacetest exists
       And a page named File:Relevancynamespacetest exists
@@ -497,6 +513,8 @@ Before("@relevancy") do
       And a page named Relevancyclosetest Foô exists
       And a page named Relevancyclosetest Foo exists
       And a page named Foo Relevancyclosetest exists
+      And a page named William Shakespeare exists
+      And a page named William Shakespeare Works exists with contents To be or not to be is a famous quote from Hamlet
         )
   end
   relevancy = true
@@ -621,14 +639,21 @@ Before("@suggest") do
         And a page named Max Eisenhardt exists with contents #REDIRECT [[Magneto]]
         And a page named Eisenhardt, Max exists with contents #REDIRECT [[Magneto]]
         And a page named Magnetu exists with contents #REDIRECT [[Magneto]]
+        And a page named Ice exists with contents It's cold.
+        And a page named Iceman exists with contents Iceman (Robert "Bobby" Drake) is a fictional superhero appearing in American comic books published by Marvel Comics and is...
+        And a page named Ice Man (Marvel Comics) exists with contents #REDIRECT [[Iceman]]
+        And a page named Ice-Man (comics books) exists with contents #REDIRECT [[Iceman]]
+        And a page named Ultimate Iceman exists with contents #REDIRECT [[Iceman]]
+        And a page named Électricité exists with contents This is electicity in french.
+        And a page named Elektra exists with contents Elektra is a fictional character appearing in American comic books published by Marvel Comics.
+        And a page named Help:Navigation exists with contents When viewing any page on MediaWiki...
+        And a page named V:N exists with contents #REDIRECT [[Help:Navigation]]
+        And a page named Z:Navigation exists with contents #REDIRECT [[Help:Navigation]]
+        And a page named Venom exists with contents Venom, or the Venom Symbiote, is a fictional supervillain appearing in American comic books published by Marvel Comics
+        And a page named Sam Wilson exists with contents Warren Kenneth Worthington III, originally known as Angel and later as Archangel, is a fictional superhero appearing in American comic books published by Marvel Comics like [[Venom]].
+        And a page named Zam Wilson exists with contents #REDIRECT [[Sam Wilson]]
         And I reindex suggestions
     )
     suggest = true
   end
-end
-
-# Prevents api tests from generating fail screenshots.  Must come after all the above hooks
-# because some of them use the browser to set the preconditions necessary for api tests.
-Before("@api") do
-  @browser = false
 end

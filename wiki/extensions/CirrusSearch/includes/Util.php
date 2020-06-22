@@ -2,6 +2,7 @@
 
 namespace CirrusSearch;
 
+use Exception;
 use GenderCache;
 use IP;
 use MediaWiki\Logger\LoggerFactory;
@@ -11,6 +12,7 @@ use RequestContext;
 use Status;
 use Title;
 use User;
+use WebRequest;
 
 /**
  * Random utility functions that don't have a better home
@@ -31,6 +33,13 @@ use User;
  * http://www.gnu.org/copyleft/gpl.html
  */
 class Util {
+	/**
+	 * Cache getDefaultBoostTemplates()
+	 *
+	 * @var array|null boost templates
+	 */
+	private static $defaultBoostTemplates = null;
+
 	/**
 	 * Get the textual representation of a namespace with underscores stripped, varying
 	 * by gender if need be.
@@ -63,9 +72,10 @@ class Util {
 	/**
 	 * Check if too arrays are recursively the same.  Values are compared with != and arrays
 	 * are descended into.
+	 *
 	 * @param array $lhs one array
 	 * @param array $rhs the other array
-	 * @return are they equal
+	 * @return bool are they equal
 	 */
 	public static function recursiveSame( $lhs, $rhs ) {
 		if ( array_keys( $lhs ) != array_keys( $rhs ) ) {
@@ -92,15 +102,49 @@ class Util {
 	}
 
 	/**
+	 * @param string $type The pool counter type, such as CirrusSearch-Search
+	 * @param bool $isSuccess If the pool counter gave a success, or failed the request
+	 * @return string The key used for collecting timing stats about this pool counter request
+	 */
+	private static function getPoolStatsKey( $type, $isSuccess ) {
+		$pos = strpos( $type, '-' );
+		if ( $pos !== false ) {
+			$type = substr( $type, $pos + 1 );
+		}
+		$postfix = $isSuccess ? 'successMs' : 'failureMs';
+		return "CirrusSearch.poolCounter.$type.$postfix";
+	}
+
+	/**
+	 * @param float $startPoolWork The time this pool request started, from microtime( true )
+	 * @param string $type The pool counter type, such as CirrusSearch-Search
+	 * @param bool $isSuccess If the pool counter gave a success, or failed the request
+	 * @param callable $callback The function to wrap
+	 * @return callable The original callback wrapped to collect pool counter stats
+	 */
+	private static function wrapWithPoolStats( $startPoolWork, $type, $isSuccess, $callback ) {
+		return function () use ( $type, $isSuccess, $callback, $startPoolWork ) {
+			RequestContext::getMain()->getStats()->timing(
+				self::getPoolStatsKey( $type, $isSuccess ),
+				intval( 1000 * (microtime( true ) - $startPoolWork) )
+			);
+
+			return call_user_func_array( $callback, func_get_args() );
+		};
+	}
+
+	/**
 	 * Wraps the complex pool counter interface to force the single call pattern
 	 * that Cirrus always uses.
-	 * @param $type same as type parameter on PoolCounter::factory
-	 * @param $user the user
-	 * @param $workCallback callback when pool counter is aquired.  Called with
-	 *   no parameters.
-	 * @param $errorCallback optional callback called on errors.  Called with
-	 *   the error string and the key as parameters.  If left undefined defaults
-	 *   to a function that returns a fatal status and logs an warning.
+	 *
+	 * @param string $type same as type parameter on PoolCounter::factory
+	 * @param \User $user the user
+	 * @param callable $workCallback callback when pool counter is acquired.  Called with
+	 *  no parameters.
+	 * @param callable $errorCallback optional callback called on errors.  Called with
+	 *  the error string and the key as parameters.  If left undefined defaults
+	 *  to a function that returns a fatal status and logs an warning.
+	 * @return mixed
 	 */
 	public static function doPoolCounterWork( $type, $user, $workCallback, $errorCallback = null ) {
 		global $wgCirrusSearchPoolCounterKey;
@@ -126,8 +170,13 @@ class Util {
 				return Status::newFatal( 'cirrussearch-backend-error' );
 			};
 		}
+		// wrap some stats collection on the success/failure handlers
+		$startPoolWork = microtime( true );
+		$workCallback = self::wrapWithPoolStats( $startPoolWork, $type, true, $workCallback );
+		$errorCallback = self::wrapWithPoolStats( $startPoolWork, $type, false, $errorCallback );
+
 		$errorHandler = function( $key ) use ( $errorCallback, $user ) {
-			return function( $status ) use ( $errorCallback, $key, $user ) {
+			return function( Status $status ) use ( $errorCallback, $key, $user ) {
 				$status = $status->getErrorsArray();
 				// anon usernames are needed within the logs to determine if
 				// specific ips (such as large #'s of users behind a proxy)
@@ -161,6 +210,9 @@ class Util {
 		return $work->execute();
 	}
 
+	/**
+	 * @return bool
+	 */
 	public static function isUserPoolCounterActive() {
 		global $wgCirrusSearchBypassPerUserFailure,
 			$wgCirrusSearchForcePerUserPoolCounter;
@@ -177,12 +229,12 @@ class Util {
 
 	/**
 	 * @param string $str
-	 * @return number
+	 * @return float
 	 */
 	public static function parsePotentialPercent( $str ) {
 		$result = floatval( $str );
 		if ( strpos( $str, '%' ) === false ) {
-			return $result;
+			return (float) $result;
 		}
 		return $result / 100;
 	}
@@ -216,10 +268,10 @@ class Util {
 
 		foreach ( $data as $key => $value ) {
 			if ( is_array( $value ) ) {
-				foreach ( $value as $i => $value ) {
-					if ( is_array( $value ) && isset( $properties[$key]['properties'] ) ) {
+				foreach ( $value as $i => $innerValue ) {
+					if ( is_array( $innerValue ) && isset( $properties[$key]['properties'] ) ) {
 						// go recursive to intersect multidimensional values
-						$data[$key][$i] = static::cleanUnusedFields( $value, $properties[$key]['properties'] );
+						$data[$key][$i] = static::cleanUnusedFields( $innerValue, $properties[$key]['properties'] );
 					}
 
 				}
@@ -231,6 +283,7 @@ class Util {
 
 	/**
 	 * Iterate over a scroll.
+	 *
 	 * @param \Elastica\Index $index
 	 * @param string $scrollId the initial $scrollId
 	 * @param string $scrollTime the scroll timeout
@@ -239,12 +292,12 @@ class Util {
 	 * @param int $retryAttempts the number of times we retry
 	 * @param callable $retryErrorCallback function called before each retries
 	 */
-	public static function iterateOverScroll( \Elastica\Index $index, $scrollId, $scrollTime, $consumer, $limit = 0, $retryAttemps = 0, $retryErrorCallback = null ) {
+	public static function iterateOverScroll( \Elastica\Index $index, $scrollId, $scrollTime, $consumer, $limit = 0, $retryAttempts = 0, $retryErrorCallback = null ) {
 		$clearScroll = true;
 		$fetched = 0;
 
 		while( true ) {
-			$result = static::withRetry( $retryAttemps,
+			$result = static::withRetry( $retryAttempts,
 				function() use ( $index, $scrollId, $scrollTime ) {
 					return $index->search ( array(), array(
 						'scroll_id' => $scrollId,
@@ -300,7 +353,7 @@ class Util {
 			if ( $errors < $attempts ) {
 				try {
 					return $func();
-				} catch ( \Exception $e ) {
+				} catch ( Exception $e ) {
 					$errors += 1;
 					if( $beforeRetry ) {
 						$beforeRetry( $e, $errors );
@@ -318,18 +371,20 @@ class Util {
 	/**
 	 * Backoff with lowest possible upper bound as 16 seconds.
 	 * With the default maximum number of errors (5) this maxes out at 256 seconds.
+	 *
 	 * @param int $errorCount
 	 * @return int
 	 */
 	public static function backoffDelay( $errorCount ) {
-		return rand( 1, pow( 2, 3 + $errorCount ) );
+		return rand( 1, (int) pow( 2, 3 + $errorCount ) );
 	}
 
 	/**
 	 * Parse a message content into an array. This function is generally used to
 	 * parse settings stored as i18n messages (see cirrussearch-boost-templates).
+	 *
 	 * @param string $message
-	 * @return array of string
+	 * @return string[]
 	 */
 	public static function parseSettingsInMessage( $message ) {
 		$lines = explode( "\n", $message );
@@ -342,8 +397,9 @@ class Util {
 	/**
 	 * Tries to identify the best redirect by finding the link with the
 	 * smallest edit distance between the title and the user query.
-	 * @param $userQuery string the user query
-	 * @param $redirects array the list of redirects
+	 *
+	 * @param string $userQuery the user query
+	 * @param array $redirects the list of redirects
 	 * @return string the best redirect text
 	 */
 	public static function chooseBestRedirect( $userQuery, $redirects ) {
@@ -368,5 +424,104 @@ class Util {
 			}
 		}
 		return $best;
+	}
+
+	/**
+	 * Test if $string ends with $suffix
+	 *
+	 * @param string $string string to test
+	 * @param string $suffix the suffix
+	 * @return boolean true if $string ends with $suffix
+	 */
+	public static function endsWith( $string, $suffix ) {
+		$strlen = strlen( $string );
+		$suffixlen = strlen( $suffix );
+		if ( $suffixlen > $strlen ) {
+			return false;
+		}
+		return substr_compare( $string, $suffix, $strlen - $suffixlen, $suffixlen ) === 0;
+	}
+
+	/**
+	 * Set $dest to the true/false from $request->getVal( $name ) if yes/no.
+	 *
+	 * @param mixed &$dest
+	 * @param WebRequest $request
+	 * @param string $name
+	 */
+	public static function overrideYesNo( &$dest, $request, $name ) {
+		$val = $request->getVal( $name );
+		if ( $val !== null ) {
+			if ( $val === 'yes' ) {
+				$dest = true;
+			} elseif( $val = 'no' ) {
+				$dest = false;
+			}
+		}
+	}
+
+	/**
+	 * Set $dest to the numeric value from $request->getVal( $name ) if it is <= $limit
+	 * or => $limit if upperLimit is false.
+	 *
+	 * @param mixed &$dest
+	 * @param WebRequest $request
+	 * @param string $name
+	 * @param int|null $limit
+	 * @param bool $upperLimit
+	 */
+	public static function overrideNumeric( &$dest, $request, $name, $limit = null, $upperLimit = true ) {
+		$val = $request->getVal( $name );
+		if ( $val !== null && is_numeric( $val ) ) {
+			if ( !isset( $limit ) ) {
+				$dest = $val;
+			} else if ( $upperLimit && $val <= $limit ) {
+				$dest = $val;
+			} else if ( !$upperLimit && $val >= $limit ) {
+				$dest = $val;
+			}
+		}
+	}
+
+	/**
+	 * Parse boosted templates.  Parse failures silently return no boosted templates.
+	 *
+	 * @param string $text text representation of boosted templates
+	 * @return float[] map of boosted templates (key is the template, value is a float).
+	 */
+	public static function parseBoostTemplates( $text ) {
+		$boostTemplates = array();
+		$templateMatches = array();
+		if ( preg_match_all( '/([^|]+)\|(\d+)% ?/', $text, $templateMatches, PREG_SET_ORDER ) ) {
+			foreach ( $templateMatches as $templateMatch ) {
+				// templates field is populated with Title::getPrefixedText
+				// which will replace _ to ' '. We should do the same here.
+				$template = strtr( $templateMatch[ 1 ], '_', ' ' );
+				$boostTemplates[ $template ] = floatval( $templateMatch[ 2 ] ) / 100;
+			}
+		}
+		return $boostTemplates;
+	}
+
+	/**
+	 * @return float[]
+	 */
+	public static function getDefaultBoostTemplates() {
+		if ( self::$defaultBoostTemplates === null ) {
+			$cache = \ObjectCache::getLocalServerInstance();
+			self::$defaultBoostTemplates = $cache->getWithSetCallback(
+				$cache->makeKey( 'cirrussearch-boost-templates' ),
+				600,
+				function() {
+					$source = wfMessage( 'cirrussearch-boost-templates' )->inContentLanguage();
+					if( !$source->isDisabled() ) {
+						$lines = Util::parseSettingsInMessage( $source->plain() );
+						return Util::parseBoostTemplates( implode( ' ', $lines ) );                  // Now parse the templates
+					}
+					return array();
+				}
+			);
+		}
+		return self::$defaultBoostTemplates;
 	}
 }

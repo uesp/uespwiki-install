@@ -22,8 +22,7 @@ module.exports = function ( grunt ) {
 			},
 			all: [
 				'*.js',
-				'js/*.js',
-				'modules/ve-graph/**/*.js'
+				'modules/**/*.js'
 			]
 		},
 		jscs: {
@@ -43,9 +42,6 @@ module.exports = function ( grunt ) {
 			tasks: 'lint'
 		},
 		banana: {
-			options: {
-				disallowDuplicateTranslations: false
-			},
 			all: conf.MessagesDirs.Graph
 		},
 		jsonlint: {

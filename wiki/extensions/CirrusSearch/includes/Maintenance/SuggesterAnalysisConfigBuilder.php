@@ -2,9 +2,7 @@
 
 namespace CirrusSearch\Maintenance;
 
-use \CirrusSearch\Searcher;
-use \Hooks;
-use \Language;
+use CirrusSearch\SearchConfig;
 
 /**
  * Builds elasticsearch analysis config arrays for the completion suggester
@@ -27,21 +25,29 @@ use \Language;
  */
 
 class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
-	const VERSION = "0.1";
+	const VERSION = "1.1";
 
 	/**
-	 * Constructor
 	 * @param string $langCode The language code to build config for
-	 * @param array(string) $plugins list of plugins installed in Elasticsearch
+	 * @param string[] $plugins list of plugins installed in Elasticsearch
+	 * @param SearchConfig|null $config
 	 */
-	public function __construct( $langCode, $plugins ) {
-		parent::__construct( $langCode, $plugins );
+	public function __construct( $langCode, array $plugins, SearchConfig $config = null ) {
+		parent::__construct( $langCode, $plugins, $config );
 	}
 
 	/**
-	 * Build and analysis config with sane defaults
+	 * Build an analysis config with sane defaults
+	 *
+	 * @return array
 	 */
 	protected function defaults() {
+		// Use the default Lucene ASCII filter
+		$folding_type = 'asciifolding';
+		if ( $this->isIcuAvailable() && $this->config->get( 'CirrusSearchUseIcuFolding' ) === true ) {
+			// Use ICU Folding if the plugin is available and activated in the config
+			$folding_type = 'icu_folding';
+		}
 		$defaults = array(
 			'char_filter' => array(
 				'word_break_helper' => array(
@@ -60,8 +66,12 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 						// but annoying to search for "(C)"
 						// ')=>\u0020',
 						// '(=>\u0020',
+						// Ignoring : can be misleading for expert users
+						// Because we will return unrelated pages when the user
+						// search for "magic keywords" like WP:WP which are sometimes
+						// pages in the main namespace that redirect to other namespace
+						// ':=>\u0020',
 						// Others are the ones ignored by common search engines
-						':=>\u0020',
 						';=>\u0020',
 						'\\[=>\u0020',
 						'\\]=>\u0020',
@@ -77,9 +87,8 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 					"stopwords" => "_none_",
 					"remove_trailing" => "true"
 				),
-				"asciifolding_preserve" => array(
-					"type" => "asciifolding",
-					"preserve_original" => "false",
+				"asciifolding" => array(
+					"type" => $folding_type,
 				),
 				"icu_normalizer" => array(
 					"type" => "icu_normalizer",
@@ -97,7 +106,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 						"standard",
 						"lowercase",
 						"stop_filter",
-						"asciifolding_preserve",
+						"asciifolding",
 						"token_limit"
 					),
 					"tokenizer" => "standard"
@@ -110,7 +119,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 					"filter" => array(
 						"standard",
 						"lowercase",
-						"asciifolding_preserve",
+						"asciifolding",
 						"token_limit"
 					),
 					"tokenizer" => "standard"
@@ -138,7 +147,11 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 		return $defaults;
 	}
 
-	private function customize( $config ) {
+	/**
+	 * @param array $config
+	 * @return array
+	 */
+	private function customize( array $config ) {
 		$defaultStopSet = $this->getDefaultStopSet( $this->getLanguage() );
 		$config['filter']['stop_filter']['stopwords'] = $defaultStopSet;
 		if ( $this->isIcuAvailable() ) {
@@ -162,6 +175,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 
 	/**
 	 * Build the analysis config.
+	 *
 	 * @return array the analysis config
 	 */
 	public function buildConfig() {
@@ -169,6 +183,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 		return $config;
 	}
 
+	/** @var string[] */
 	private static $stopwords = array(
 		'ar' => '_arabic_',
 		'hy' =>  '_armenian_',
@@ -207,11 +222,19 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 		'tr' => '_turkish_'
 	);
 
+	/**
+	 * @param string $lang
+	 * @return string
+	 */
 	private function getDefaultStopSet( $lang ) {
 		return isset( self::$stopwords[$lang] ) ? self::$stopwords[$lang] : '_none_';
 	}
 
+	/**
+	 * @param string $lang
+	 * @return bool
+	 */
 	public static function hasStopWords( $lang ) {
-		return isset (self::$stopwords[$lang] );
+		return isset( self::$stopwords[$lang] );
 	}
 }

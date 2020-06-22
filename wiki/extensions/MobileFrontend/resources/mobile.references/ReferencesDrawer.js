@@ -1,9 +1,7 @@
 ( function ( M, $ ) {
-	var ReferencesDrawer,
-		Drawer = M.require( 'mobile.drawers/Drawer' ),
-		Icon = M.require( 'mobile.startup/Icon' ),
-		SchemaMobileWebClickTracking = M.require( 'mobile.loggingSchemas/SchemaMobileWebClickTracking' ),
-		uiSchema = new SchemaMobileWebClickTracking( {}, 'MobileWebUIClickTracking' );
+	var Drawer = M.require( 'mobile.drawers/Drawer' ),
+		icons = M.require( 'mobile.startup/icons' ),
+		Icon = M.require( 'mobile.startup/Icon' );
 
 	/**
 	 * Drawer for references
@@ -11,12 +9,18 @@
 	 * @extends Drawer
 	 * @uses Icon
 	 */
-	ReferencesDrawer = Drawer.extend( {
+	function ReferencesDrawer() {
+		Drawer.apply( this, arguments );
+	}
+
+	OO.mfExtend( ReferencesDrawer, Drawer, {
 		/**
 		 * @cfg {Object} defaults Default options hash.
 		 * @cfg {String} defaults.cancelButton HTML of the button that closes the drawer.
+		 * @cfg {Boolean} defaults.error whether an error message is being shown
 		 */
 		defaults: $.extend( {}, Drawer.prototype.defaults, {
+			spinner: icons.spinner().toHtmlString(),
 			cancelButton: new Icon( {
 				name: 'close-gray',
 				additionalClassNames: 'cancel',
@@ -29,11 +33,11 @@
 				label: mw.msg( 'mobile-frontend-references-citation' )
 			} ).toHtmlString()
 		} ),
+		events: {
+			'click sup a': 'showNestedReference'
+		},
 		/** @inheritdoc */
 		show: function () {
-			uiSchema.log( {
-				name: 'reference'
-			} );
 			return Drawer.prototype.show.apply( this, arguments );
 		},
 		className: 'drawer position-fixed text references',
@@ -69,9 +73,43 @@
 		 */
 		onHide: function () {
 			$( 'body' ).removeClass( 'drawer-enabled' );
+		},
+		/**
+		 * Fetch and render nested reference upon click
+		 * @param {String} id of the reference to be retrieved
+		 * @param {Page} page to locate reference for
+		 * @param {String} refNumber the number it identifies as in the page
+		 */
+		showReference: function ( id, page, refNumber ) {
+			var drawer = this;
+
+			// Save the page in case we have to show a nested reference.
+			this.options.page = page;
+			this.options.gateway.getReference( id, page ).done( function ( reference ) {
+				drawer.render( {
+					title: refNumber,
+					text: reference.text
+				} );
+			} ).fail( function () {
+				drawer.render( {
+					error: true,
+					title: refNumber,
+					text: mw.msg( 'mobile-frontend-references-citation-error' )
+				} );
+			} );
+		},
+		/**
+		 * Fetch and render nested reference upon click
+		 * @param {jQuery.Event} ev
+		 */
+		showNestedReference: function ( ev ) {
+			var $dest = $( ev.target );
+
+			this.showReference( $dest.attr( 'href' ), this.options.page, $dest.text() );
+			// Don't hide the already shown drawer via propagation and stop default scroll behaviour.
+			return false;
 		}
 	} );
 
-	M.define( 'mobile.references/ReferencesDrawer', ReferencesDrawer )
-		.deprecate( 'modules/references/ReferencesDrawer' );
+	M.define( 'mobile.references/ReferencesDrawer', ReferencesDrawer );
 }( mw.mobileFrontend, jQuery ) );

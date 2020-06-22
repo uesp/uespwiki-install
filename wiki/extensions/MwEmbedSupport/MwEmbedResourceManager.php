@@ -16,33 +16,46 @@ class MwEmbedResourceManager {
 	 *
 	 * Adds modules to ResourceLoader
 	 * @param $mwEmbedResourcePath string
-	 * @throws MWException
+	 * @throws Exception
 	 */
 	public static function register( $mwEmbedResourcePath ) {
-		global $IP, $wgExtensionMessagesFiles;
+		// @codingStandardsIgnoreStart
+		global $IP;
+		// @codingStandardsIgnoreEnd
 		$localResourcePath = $IP . '/' . $mwEmbedResourcePath;
 		// Get the module name from the end of the path:
 		$modulePathParts = explode( '/', $mwEmbedResourcePath );
 		$moduleName = array_pop( $modulePathParts );
 		if ( !is_dir( $localResourcePath ) ) {
-			throw new MWException( __METHOD__ . " not given readable path: " . htmlspecialchars( $localResourcePath ) );
+			throw new Exception(
+				__METHOD__ . " not given readable path: " . htmlspecialchars( $localResourcePath )
+			);
 		}
 
 		if ( substr( $mwEmbedResourcePath, -1 ) == '/' ) {
-			throw new MWException( __METHOD__ . " path has trailing slash: " . htmlspecialchars( $localResourcePath ) );
+			throw new Exception(
+				__METHOD__ . " path has trailing slash: " . htmlspecialchars( $localResourcePath )
+			);
 		}
 
 		// Check that resource file is present:
 		$resourceListFilePath = $localResourcePath . '/' . $moduleName . '.php';
 		if ( !is_file( $resourceListFilePath ) ) {
-			throw new MWException( __METHOD__ . " mwEmbed Module is missing resource list: " . htmlspecialchars( $resourceListFilePath ) );
+			throw new Exception(
+				__METHOD__ . " mwEmbed Module is missing resource list: " . htmlspecialchars(
+					$resourceListFilePath
+				)
+			);
 		}
 		// Get the mwEmbed module resource registration:
 		$resourceList = include $resourceListFilePath;
 
 		// Look for special 'messages' => 'moduleFile' key and load all modules file messages:
 		foreach ( $resourceList as $name => $resources ) {
-			if ( isset( $resources['messageFile'] ) && is_file( $localResourcePath . '/' . $resources['messageFile'] ) ) {
+			if (
+				isset( $resources['messageFile'] ) &&
+				is_file( $localResourcePath . '/' . $resources['messageFile'] )
+			) {
 				$resourceList[$name]['messages'] = array();
 				include $localResourcePath . '/' . $resources['messageFile'];
 				foreach ( $messages['en'] as $msgKey => $na ) {
@@ -58,8 +71,9 @@ class MwEmbedResourceManager {
 
 		// Check for module loader:
 		if ( is_file( $localResourcePath . '/' . $moduleName . '.loader.js' ) ) {
-			$resourceList[$moduleName . '.loader'] = array(
-				'loaderScripts' => $moduleName . '.loader.js'
+			$resourceList['mw.' . $moduleName . '.loader'] = array(
+				'scripts' => $moduleName . '.loader.js',
+				'position' => 'top',
 			);
 		}
 
@@ -98,10 +112,13 @@ class MwEmbedResourceManager {
 	 * @return bool
 	 */
 	public static function registerModules( &$resourceLoader ) {
-		global $IP, $wgMwEmbedResourceLoaderFileModule, $wgScriptPath;
+		// @codingStandardsIgnoreStart
+		global $IP;
+		// @codingStandardsIgnoreEnd
+		global $wgMwEmbedResourceLoaderFileModule, $wgScriptPath;
 		// Register all the resources with the resource loader
 		foreach ( self::$moduleSet as $path => $modules ) {
-			//remove 'extension' prefix from path
+			// remove 'extension' prefix from path
 			$remoteExtPath = explode( '/', $path );
 			array_shift( $remoteExtPath );
 			$remoteExtPath = implode( '/', $remoteExtPath );
@@ -133,30 +150,22 @@ class MwEmbedResourceManager {
 	 * This is copied and adapted of LocalisationCache::readJSONFile().
 	 *
 	 * @param string $fileName Name of file to read
-	 * @throws MWException if there is a syntax error in the JSON file
+	 * @throws Exception if there is a syntax error in the JSON file
 	 * @return array with a 'messages' key, or empty array if the file doesn't exist
 	 */
 	public static function readJSONFileMessageKeys( $fileName ) {
-		wfProfileIn( __METHOD__ );
-
 		if ( !is_readable( $fileName ) ) {
-			wfProfileOut( __METHOD__ );
-
 			return array();
 		}
 
 		$json = file_get_contents( $fileName );
 		if ( $json === false ) {
-			wfProfileOut( __METHOD__ );
-
 			return array();
 		}
 
 		$data = FormatJson::decode( $json, true );
 		if ( $data === null ) {
-			wfProfileOut( __METHOD__ );
-
-			throw new MWException( __METHOD__ . ": Invalid JSON file: $fileName" );
+			throw new Exception( __METHOD__ . ": Invalid JSON file: $fileName" );
 		}
 
 		// Remove keys starting with '@', they're reserved for metadata and non-message data
@@ -165,8 +174,6 @@ class MwEmbedResourceManager {
 				unset( $data[$key] );
 			}
 		}
-
-		wfProfileOut( __METHOD__ );
 
 		// Only array (message) keys needed.
 		return array_keys( $data );

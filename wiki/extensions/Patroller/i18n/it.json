@@ -19,7 +19,7 @@
 	"patrol-reverted-ok": "La modifica è stata annullata.",
 	"patrol-reverted-failed": "Impossibile annullare la modifica.",
 	"patrol-skipped-ok": "Modifica ignorata.",
-	"patrol-reasons": "* Vandalismo semplice\r\n* Prova di nuovo utente\r\n* Vedi pagina di discussione",
+	"patrol-reasons": "* Vandalismo semplice\n* Prova di nuovo utente\n* Vedi pagina di discussione",
 	"patrol-another": "Mostra un'altra modifica, se disponibile.",
 	"patrol-stopped": "Si è scelto di non verificare altre modifiche. $1",
 	"patrol-resume": "Fare clic qui per riprendere.",

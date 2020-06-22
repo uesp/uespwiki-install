@@ -25,7 +25,7 @@ class SettingsDump extends ApiBase {
 		$conn = $this->getCirrusConnection();
 		foreach( $conn->getAllIndexTypes() as $index ) {
 			$this->getResult()->addValue( array( $index, 'page' ), 'index',
-				$conn->getIndex( wfWikiId(), $index )->getSettings()->get() );
+				$conn->getIndex( wfWikiID(), $index )->getSettings()->get() );
 		}
 	}
 
@@ -37,6 +37,17 @@ class SettingsDump extends ApiBase {
 	 * @deprecated since MediaWiki core 1.25
 	 */
 	public function getDescription() {
-		return 'Dump of CirrusSearch mapping for this wiki.';
+		return 'Dump of CirrusSearch settings for this wiki.';
 	}
+
+	/**
+	 * @see ApiBase::getExamplesMessages
+	 */
+	protected function getExamplesMessages() {
+		return array(
+			'action=cirrus-settings-dump' =>
+				'apihelp-cirrus-settings-dump-example'
+		);
+	}
+
 }

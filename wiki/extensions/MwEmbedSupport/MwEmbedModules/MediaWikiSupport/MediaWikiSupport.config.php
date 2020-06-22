@@ -14,8 +14,21 @@ return array(
 		)
 	),
 
-	"MediaWiki.ApiPostActions" => array( 'login', 'purge', 'rollback', 'delete', 'undelete',
-		'protect', 'block', 'unblock', 'move', 'edit', 'upload', 'emailuser',
-		'import', 'userrights' ),
+	"MediaWiki.ApiPostActions" => array(
+		'login',
+		'purge',
+		'rollback',
+		'delete',
+		'undelete',
+		'protect',
+		'block',
+		'unblock',
+		'move',
+		'edit',
+		'upload',
+		'emailuser',
+		'import',
+		'userrights'
+	),
 
 );

@@ -17,7 +17,7 @@
 	"patrol-reverted-ok": "L’edicion es estada anullada.",
 	"patrol-reverted-failed": "L’edicion a pas pogut èsser anullada.",
 	"patrol-skipped-ok": "Ignorar l’edicion.",
-	"patrol-reasons": "* Simple vandalisme\r\n* Tèst de debutant\r\n* Vejatz pagina de discussion",
+	"patrol-reasons": "* Simple vandalisme\n* Tèst de debutant\n* Vejatz pagina de discussion",
 	"patrol-another": "Veire una edicion novèla, se es disponibla.",
 	"patrol-stopped": "Avètz causit per verificar pas mai una autra edicion. $1",
 	"patrol-resume": "Clicar aicí per reprener.",

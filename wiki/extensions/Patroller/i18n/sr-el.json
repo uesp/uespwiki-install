@@ -15,7 +15,7 @@
 	"patrol-reverted-ok": "Izmena je vraćena.",
 	"patrol-reverted-failed": "Izmena nije mogla biti vraćena.",
 	"patrol-skipped-ok": "Ignorisanje izmene.",
-	"patrol-reasons": "* Običan vandalizam\r\n* Test početnika\r\n* Vidi stranu za razgovor",
+	"patrol-reasons": "* Običan vandalizam\n* Test početnika\n* Vidi stranu za razgovor",
 	"patrol-another": "Pokaži neku drugu izmenu, ako je dostupna.",
 	"patrol-resume": "Kliknite ovde da se vratite.",
 	"group-patroller": "Patroleri",

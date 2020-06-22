@@ -8,15 +8,19 @@ class MobileFrontendHooksTest extends MediaWikiTestCase {
 	 * Test headers and alternate/canonical links to be set or not
 	 *
 	 * @dataProvider onBeforePageDisplayDataProvider
+	 * @covers MobileFrontendHooks::OnBeforePageDisplay
 	 */
 	public function testOnBeforePageDisplay( $mobileUrlTemplate, $mfNoindexPages,
-		$mfEnableXAnalyticsLogging, $mfXAnalyticsItems, $isAlternateCanonical, $isXAnalytics
+		$mfEnableXAnalyticsLogging, $mfAutoDetectMobileView, $mfVaryOnUA, $mfXAnalyticsItems,
+		$isAlternateCanonical, $isXAnalytics, $mfVaryHeaderSet
 	) {
 		// set globals
 		$this->setMwGlobals( array(
 			'wgMobileUrlTemplate' => $mobileUrlTemplate,
 			'wgMFNoindexPages' => $mfNoindexPages,
 			'wgMFEnableXAnalyticsLogging' => $mfEnableXAnalyticsLogging,
+			'wgMFAutodetectMobileView' => $mfAutoDetectMobileView,
+			'wgMFVaryOnUA' => $mfVaryOnUA,
 		) );
 
 		// test with forced mobile view
@@ -29,16 +33,22 @@ class MobileFrontendHooksTest extends MediaWikiTestCase {
 
 		// test, if alternate or canonical link is added, but not both
 		$links = $out->getLinkTags();
-		$this->assertEquals( $isAlternateCanonical, count( $links ) );
+		$this->assertEquals( $isAlternateCanonical, count( $links ),
+			'test, if alternate or canonical link is added, but not both' );
 		// if there should be an alternate or canonical link, check, if it's the correct one
 		if ( $isAlternateCanonical ) {
 			// should be canonical link, not alternate in mobile view
-			$this->assertEquals( 'canonical', $links[0]['rel'] );
+			$this->assertEquals( 'canonical', $links[0]['rel'],
+				'should be canonical link, not alternate in mobile view' );
 		}
+		$varyHeader = $out->getVaryHeader();
+		$this->assertEquals( $mfVaryHeaderSet, strpos( $varyHeader, 'User-Agent' ) !== false,
+			'check the status of the User-Agent vary header when wgMFVaryOnUA is enabled' );
 
 		// check, if XAnalytics is set, if it should be
 		$resp = $param['context']->getRequest()->response();
-		$this->assertEquals( $isXAnalytics, (bool)$resp->getHeader( 'X-Analytics' ) );
+		$this->assertEquals( $isXAnalytics, (bool)$resp->getHeader( 'X-Analytics' ),
+			'check, if XAnalytics is set, if it should be' );
 
 		// test with forced desktop view
 		$param = $this->getContextSetup( 'desktop', $mfXAnalyticsItems );
@@ -49,15 +59,22 @@ class MobileFrontendHooksTest extends MediaWikiTestCase {
 		MobileFrontendHooks::onBeforePageDisplay( $out, $sk );
 		// test, if alternate or canonical link is added, but not both
 		$links = $out->getLinkTags();
-		$this->assertEquals( $isAlternateCanonical, count( $links ) );
+		$this->assertEquals( $isAlternateCanonical, count( $links ),
+			'test, if alternate or canonical link is added, but not both' );
 		// if there should be an alternate or canonical link, check, if it's the correct one
 		if ( $isAlternateCanonical ) {
 			// should be alternate link, not canonical in desktop view
-			$this->assertEquals( 'alternate', $links[0]['rel'] );
+			$this->assertEquals( 'alternate', $links[0]['rel'],
+				'should be alternate link, not canonical in desktop view' );
 		}
+		$varyHeader = $out->getVaryHeader();
+		// check, if the vary header is set in desktop mode
+		$this->assertEquals( $mfVaryHeaderSet, strpos( $varyHeader, 'User-Agent' ) !== false,
+			'check, if the vary header is set in desktop mode' );
 		// there should never be an XAnalytics header in desktop mode
 		$resp = $param['context']->getRequest()->response();
-		$this->assertEquals( false, (bool)$resp->getHeader( 'X-Analytics' ) );
+		$this->assertEquals( false, (bool)$resp->getHeader( 'X-Analytics' ),
+			'there should never be an XAnalytics header in desktop mode' );
 	}
 
 	/**
@@ -116,16 +133,45 @@ class MobileFrontendHooksTest extends MediaWikiTestCase {
 	 */
 	public function onBeforePageDisplayDataProvider() {
 		return array(
-			// wgMobileUrlTemplate, wgMFNoindexPages, wgMFEnableXAnalyticsLogging,
-			// XanalyticsItems, alternate & canonical link, XAnalytics
-			array( true, true, true, array( 'mf-m' => 'a', 'zero' => '502-13' ), 1, true ),
-			array( true, false, true, array( 'mf-m' => 'a', 'zero' => '502-13' ), 0, true ),
-			array( false, true, true, array( 'mf-m' => 'a', 'zero' => '502-13' ), 0, true ),
-			array( false, false, true, array( 'mf-m' => 'a', 'zero' => '502-13' ), 0, true ),
-			array( true, true, false, array(), 1, false ),
-			array( true, false, false, array(), 0, false ),
-			array( false, true, false, array(), 0, false ),
-			array( false, false, false, array(), 0, false ),
+			// wgMobileUrlTemplate, wgMFNoindexPages, wgMFEnableXAnalyticsLogging, wgMFAutodetectMobileView,
+			// wgMFVaryOnUA, XanalyticsItems, alternate & canonical link, XAnalytics, Vary header User-Agent
+			array( true, true, true, true, true,
+				array( 'mf-m' => 'a', 'zero' => '502-13' ), 1, true, false, ),
+			array( true, false, true, false, false,
+				array( 'mf-m' => 'a', 'zero' => '502-13' ), 0, true, false, ),
+			array( false, true, true, true, true,
+				array( 'mf-m' => 'a', 'zero' => '502-13' ), 0, true, true, ),
+			array( false, false, true, false, false,
+				array( 'mf-m' => 'a', 'zero' => '502-13' ), 0, true, false, ),
+			array( true, true, false, true, true, array(), 1, false, false, ),
+			array( true, false, false, false, false, array(), 0, false, false, ),
+			array( false, true, false, true, true, array(), 0, false, true, ),
+			array( false, false, false, false, false, array(), 0, false, false, ),
+			array( false, false, false, false, true, array(), 0, false, false, ),
 		);
+	}
+
+	public function testOnTitleSquidURLs() {
+		$this->setMwGlobals( array(
+			'wgMobileUrlTemplate' => '%h0.m.%h1.%h2',
+			'wgServer' => 'http://en.wikipedia.org',
+			'wgArticlePath' => '/wiki/$1',
+			'wgScriptPath' => '/w',
+			'wgScript' => '/w/index.php',
+		) );
+		MobileContext::setInstance( null );
+
+		$title = Title::newFromText( 'PurgeTest' );
+
+		$urls = $title->getCdnUrls();
+
+		$expected = array(
+			'http://en.wikipedia.org/wiki/PurgeTest',
+			'http://en.wikipedia.org/w/index.php?title=PurgeTest&action=history',
+			'http://en.m.wikipedia.org/w/index.php?title=PurgeTest&action=history',
+			'http://en.m.wikipedia.org/wiki/PurgeTest',
+		);
+
+		$this->assertArrayEquals( $expected, $urls );
 	}
 }

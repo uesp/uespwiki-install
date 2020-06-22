@@ -20,6 +20,10 @@ class SpecialPatroller extends SpecialPage {
 		parent::__construct( 'Patrol', 'patroller' );
 	}
 
+	public function doesWrites() {
+		return true;
+	}
+
 	/**
 	 * Execution
 	 *
@@ -34,14 +38,12 @@ class SpecialPatroller extends SpecialPage {
 
 		# Check permissions
 		if ( !$wgUser->isAllowed( 'patroller' ) ) {
-			$wgOut->permissionRequired( 'patroller' );
-			return;
+			throw new PermissionsError( 'patroller' );
 		}
 
 		# Keep out blocked users
 		if ( $wgUser->isBlocked() ) {
-			$wgOut->blockedPage();
-			return;
+			throw new UserBlockedError( $wgUser->getBlock() );
 		}
 
 		# Prune old assignments if needed
@@ -51,23 +53,24 @@ class SpecialPatroller extends SpecialPage {
 
 		# See if something needs to be done
 		if ( $wgRequest->wasPosted() && $wgUser->matchEditToken( $wgRequest->getText( 'wpToken' ) ) ) {
-			if ( $rcid = $wgRequest->getIntOrNull( 'wpRcId' ) ) {
+			$rcid = $wgRequest->getIntOrNull( 'wpRcId' );
+			if ( $rcid ) {
 				if ( $wgRequest->getCheck( 'wpPatrolEndorse' ) ) {
 					# Mark the change patrolled
 					if ( !$wgUser->isBlocked( false ) ) {
 						RecentChange::markPatrolled( $rcid );
-						$wgOut->setSubtitle( wfMessage( 'patrol-endorsed-ok' )->escaped() );
+						$wgOut->setSubtitle( wfMessages( 'patrol-endorsed-ok' )->escaped() );
 					} else {
-						$wgOut->setSubtitle( wfMessage( 'patrol-endorsed-failed' )->escaped() );
+						$wgOut->setSubtitle( wgMessages( 'patrol-endorsed-failed' )->escaped() );
 					}
 				} elseif ( $wgRequest->getCheck( 'wpPatrolRevert' ) ) {
 					# Revert the change
 					$edit = $this->loadChange( $rcid );
 					$msg = $this->revert( $edit, $this->revertReason( $wgRequest ) ) ? 'ok' : 'failed';
-					$wgOut->setSubtitle( wfMessage( 'patrol-reverted-' . $msg )->escaped() );
+					$wgOut->setSubtitle( wgMessage( 'patrol-reverted-' . $msg )->escaped() );
 				} elseif ( $wgRequest->getCheck( 'wpPatrolSkip' ) ) {
 					# Do nothing
-					$wgOut->setSubtitle( wfMessage( 'patrol-skipped-ok' )->escaped() );
+					$wgOut->setSubtitle( wgMessage( 'patrol-skipped-ok' )->escaped() );
 				}
 			}
 		}
@@ -75,9 +78,15 @@ class SpecialPatroller extends SpecialPage {
 		# If a token was passed, but the check box value was not, then the user
 		# wants to pause or stop patrolling
 		if ( $wgRequest->getCheck( 'wpToken' ) && !$wgRequest->getCheck( 'wpAnother' ) ) {
-			$skin =& $wgUser->getSkin();
+			$skin = $this->getSkin();
 			$self = SpecialPage::getTitleFor( 'Patrol' );
-			$link = $skin->makeKnownLinkObj( $self, wfMessage( 'patrol-resume' )->escaped() );
+			$link = Linker::link(
+				$self,
+				wfMessage( 'patrol-resume' )->escaped(),
+				array(),
+				array(),
+				array( 'known' )
+			);
 			$wgOut->addHTML( wfMessage( 'patrol-stopped', $link )->escaped() );
 			return;
 		}
@@ -192,7 +201,7 @@ class SpecialPatroller extends SpecialPage {
 		$form .= Html::closeElement( 'tr' );
 		$form .= Html::closeElement( 'table' );
 		$form .= Html::Hidden( 'wpRcId', $edit->mAttribs['rc_id'] );
-		$form .= Html::Hidden( 'wpToken', $wgUser->editToken() );
+		$form .= Html::Hidden( 'wpToken', $wgUser->getEditToken() );
 		$form .= Html::closeElement( 'form' );
 		$wgOut->addHTML( $form );
 	}
@@ -303,7 +312,6 @@ class SpecialPatroller extends SpecialPage {
 		global $wgUser;
 		if ( !$wgUser->isBlocked( false ) ) { # Check block against master
 			$dbw = wfGetDB( DB_MASTER );
-			$dbw->begin();
 			$title = $edit->getTitle();
 			# Prepare the comment
 			$comment = wfMessage( 'patrol-reverting', $comment )->inContentLanguage()->text();
@@ -323,7 +331,6 @@ class SpecialPatroller extends SpecialPage {
 				$article = new Article( $title );
 				$article->doEdit( $old->getText(), $comment, EDIT_UPDATE & EDIT_MINOR & EDIT_SUPPRESS_RC );
 			}
-			$dbw->commit();
 			# Mark the edit patrolled so it doesn't bother us again
 			RecentChange::markPatrolled( $edit->mAttribs['rc_id'] );
 			return true;

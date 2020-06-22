@@ -64,6 +64,7 @@ function uespRenderEsoItemLink($input, array $args, Parser $parser, PPFrame $fra
 	$color = "";
 	$trait = "";
 	$attributes = "";
+	$antiquityId = "";
 	
 	foreach ($args as $name => $value)
 	{
@@ -85,6 +86,8 @@ function uespRenderEsoItemLink($input, array $args, Parser $parser, PPFrame $fra
 			$itemIntLevel = $value;
 		elseif ($name == "questid")
 			$questId = $value;
+		elseif ($name == "antiquityid")
+			$antiquityId = $value;
 		elseif ($name == "collectid")
 			$collectId = $value;
 		elseif ($name == "enchantfactor")
@@ -98,6 +101,7 @@ function uespRenderEsoItemLink($input, array $args, Parser $parser, PPFrame $fra
 	}
 	
 	$itemURL = "//esoitem.uesp.net/itemLink.php?";
+	if ($antiquityId != "") $itemURL .= "&antiquityid=$antiquityId";
 	if ($questId != "") $itemURL .= "&questid=$questId";
 	if ($collectId != "") $itemURL .= "&collectid=$collectId";
 	if ($itemId != "") $itemURL .= "&itemid=$itemId";
@@ -121,6 +125,7 @@ function uespRenderEsoItemLink($input, array $args, Parser $parser, PPFrame $fra
 		$qualityClass = "eso_item_link_q" . $itemQuality;
 	}
 	
+	if ($antiquityId != "") $attributes = "antiquityid='$antiquityId' ";
 	if ($questId != "") $attributes .= "questid='$questId' ";
 	if ($collectId != "") $attributes .= "collectid='$collectId' ";
 	if ($itemId != "") $attributes = "itemid='$itemId' ";

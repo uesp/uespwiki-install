@@ -49,21 +49,23 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 			);
 		}
 
-		// Add filtering of changes et al.
-		$fields['abusefilter-history-select-user'] = Xml::input( 'user', 45, $user );
-
-		$filterForm = Xml::buildForm( $fields, 'abusefilter-history-select-submit' );
-		$filterForm .= "\n" . Html::hidden( 'title', $this->getTitle( "history/$filter" )->getPrefixedDBkey() );
-		$filterForm = Xml::tags( 'form',
-			array(
-				'action' => $this->getTitle( "history/$filter" )->getLocalURL(),
-				'method' => 'get'
-			),
-			$filterForm
+		$formDescriptor = array(
+			'user' => array(
+				'type' => 'user',
+				'name' => 'user',
+				'default' => $user,
+				'size' => '45',
+				'label-message' => 'abusefilter-history-select-user'
+			)
 		);
-		$filterForm = Xml::fieldset( $this->msg( 'abusefilter-history-select-legend' )
-			->text(), $filterForm );
-		$out->addHTML( $filterForm );
+
+		$htmlForm = HTMLForm::factory( 'table', $formDescriptor, $this->getContext() );
+		$htmlForm->setSubmitTextMsg( 'abusefilter-history-select-submit' )
+			->setWrapperLegendMsg( 'abusefilter-history-select-legend' )
+			->setAction( $this->getTitle( "history/$filter" )->getLocalURL() )
+			->setMethod( 'get' )
+			->prepareForm()
+			->displayForm( false );
 
 		$pager = new AbuseFilterHistoryPager( $filter, $this, $user );
 		$table = $pager->getBody();
@@ -120,10 +122,12 @@ class AbuseFilterHistoryPager extends TablePager {
 
 		$row = $this->mCurrentRow;
 
-		switch( $name ) {
+		switch ( $name ) {
 			case 'afh_filter':
 				$formatted = Linker::link(
-					SpecialPage::getTitleFor( 'AbuseFilter', intval( $row->afh_filter ) ), $lang->formatNum ( $row->afh_filter ) );
+					SpecialPage::getTitleFor( 'AbuseFilter', intval( $row->afh_filter ) ),
+					$lang->formatNum( $row->afh_filter )
+				);
 				break;
 			case 'afh_timestamp':
 				$title = SpecialPage::getTitleFor( 'AbuseFilter',

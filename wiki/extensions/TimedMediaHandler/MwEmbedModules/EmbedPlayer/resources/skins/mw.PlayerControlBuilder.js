@@ -370,7 +370,6 @@ mw.PlayerControlBuilder.prototype = {
 	getPlayButtonPosition: function() {
 		var _this = this;
 		return {
-			'position' : 'absolute',
 			'left' : '50%',
 			'top' : '50%',
 			'margin-left' : - .5 * this.getComponentWidth( 'playButtonLarge' ),
@@ -535,7 +534,7 @@ mw.PlayerControlBuilder.prototype = {
 		if( ! $doc.find('meta[name="viewport"]').length ){
 			$doc.find('head').append( $( '<meta />' ).attr('name', 'viewport') );
 		}
-		$doc.find('meta[name="viewport"]').attr('content', 'initial-scale=1; maximum-scale=1; minimum-scale=1;' );
+		$doc.find('meta[name="viewport"]').attr('content', 'initial-scale=1, maximum-scale=1, minimum-scale=1' );
 
 		// iPad 5 supports fixed position in a bad way, use absolute pos for iOS
 		var playerCssPosition = ( mw.isIOS() ) ? 'absolute': 'fixed';
@@ -612,7 +611,7 @@ mw.PlayerControlBuilder.prototype = {
 			// Restore user zoom: ( NOTE, there does not appear to be a way to know the
 			// initial scale, so we just restore to 1 in the absence of explicit viewport tag )
 			// In order to restore zoom, we must set maximum-scale to a valid value
-			$doc.find('meta[name="viewport"]').attr('content', 'initial-scale=1; maximum-scale=8; minimum-scale=1;' );
+			$doc.find('meta[name="viewport"]').attr('content', 'initial-scale=1, maximum-scale=8, minimum-scale=1' );
 		}
 		if( this.orginalTargetElementLayout ) {
 			$target[0].style.cssText = this.orginalTargetElementLayout.style;

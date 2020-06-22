@@ -20,6 +20,8 @@ ve.dm.MWGraphModel = function VeDmMWGraphModel( spec ) {
 	// Properties
 	this.spec = spec || {};
 	this.originalSpec = ve.copy( this.spec );
+
+	this.cachedPadding = ve.copy( this.spec.padding ) || this.getDefaultPaddingObject();
 };
 
 /* Inheritance */
@@ -27,6 +29,13 @@ ve.dm.MWGraphModel = function VeDmMWGraphModel( spec ) {
 OO.mixinClass( ve.dm.MWGraphModel, OO.EventEmitter );
 
 /* Static Members */
+
+ve.dm.MWGraphModel.static.defaultPadding = 30;
+
+ve.dm.MWGraphModel.static.minDimensions = {
+	width: 60,
+	height: 60
+};
 
 ve.dm.MWGraphModel.static.graphConfigs = {
 	area: {
@@ -45,7 +54,11 @@ ve.dm.MWGraphModel.static.graphConfigs = {
 		scale: {
 			name: 'x',
 			type: 'linear'
-		}
+		},
+		fields: [
+			'x',
+			'y'
+		]
 	},
 
 	bar: {
@@ -57,14 +70,20 @@ ve.dm.MWGraphModel.static.graphConfigs = {
 					interpolate: undefined,
 					stroke: undefined,
 					strokeWidth: undefined,
-					width: { scale: 'x', band: true, offset: -1 }
+					// HACK: Boolean values set to true need to be wrapped
+					// in strings until T118883 is resolved
+					width: { scale: 'x', band: 'true', offset: -1 }
 				}
 			}
 		},
 		scale: {
 			name: 'x',
 			type: 'ordinal'
-		}
+		},
+		fields: [
+			'x',
+			'y'
+		]
 	},
 
 	line: {
@@ -83,7 +102,11 @@ ve.dm.MWGraphModel.static.graphConfigs = {
 		scale: {
 			name: 'x',
 			type: 'linear'
-		}
+		},
+		fields: [
+			'x',
+			'y'
+		]
 	}
 };
 
@@ -180,6 +203,17 @@ ve.dm.MWGraphModel.static.removeProperty = function ( obj, prop ) {
 	}
 };
 
+/**
+ * Check if a spec currently has something in its dataset
+ *
+ * @param {Object} spec The spec
+ * @return {boolean} The spec has some data in its dataset
+ */
+ve.dm.MWGraphModel.static.specHasData = function ( spec ) {
+	// FIXME: Support multiple pipelines
+	return !!spec.data[ 0 ].values.length;
+};
+
 /* Methods */
 
 /**
@@ -217,6 +251,7 @@ ve.dm.MWGraphModel.prototype.applyChanges = function ( node, surfaceModel ) {
 			{ mw: mwData }
 		)
 	);
+	surfaceModel.applyStaging();
 };
 
 /**
@@ -300,13 +335,117 @@ ve.dm.MWGraphModel.prototype.getGraphType = function () {
 };
 
 /**
+ * Get graph size
+ *
+ * @return {Object} The graph width and height
+ */
+ve.dm.MWGraphModel.prototype.getSize = function () {
+	return {
+		width: this.spec.width,
+		height: this.spec.height
+	};
+};
+
+/**
+ * Set the graph width
+ *
+ * @param {number} value The new width
+ * @fires specChange
+ */
+ve.dm.MWGraphModel.prototype.setWidth = function ( value ) {
+	this.spec.width = value;
+
+	this.emit( 'specChange', this.spec );
+};
+
+/**
+ * Set the graph height
+ *
+ * @param {number} value The new height
+ * @fires specChange
+ */
+ve.dm.MWGraphModel.prototype.setHeight = function ( value ) {
+	this.spec.height = value;
+
+	this.emit( 'specChange', this.spec );
+};
+
+/**
+ * Get the padding values of the graph
+ *
+ * @return {Object} The paddings
+ */
+ve.dm.MWGraphModel.prototype.getPaddingObject = function () {
+	return this.spec.padding;
+};
+
+/**
+ * Return the default padding
+ *
+ * @return {Object} The default padding values
+ */
+ve.dm.MWGraphModel.prototype.getDefaultPaddingObject = function () {
+	var i,
+		indexes = [ 'top', 'bottom', 'left', 'right' ],
+		paddingObj = {};
+
+	for ( i = 0; i < indexes.length; i++ ) {
+		paddingObj[ indexes[ i ] ] = ve.dm.MWGraphModel.static.defaultPadding;
+	}
+
+	return paddingObj;
+};
+
+/**
+ * Set a padding value
+ *
+ * @param {string} index The index to change. Can be either top, right, bottom or right
+ * @param {number} value The new value
+ * @fires specChange
+ */
+ve.dm.MWGraphModel.prototype.setPadding = function ( index, value ) {
+	if ( this.isPaddingAutomatic() ) {
+		this.spec.padding = this.getDefaultPaddingObject();
+	}
+
+	this.spec.padding[ index ] = value;
+
+	this.emit( 'specChange', this.spec );
+};
+
+/**
+ * Toggles automatic and manual padding modes
+ *
+ * @param {boolean} auto Padding is now automatic
+ * @fires specChange
+ */
+ve.dm.MWGraphModel.prototype.setPaddingAuto = function ( auto ) {
+	if ( auto ) {
+		this.cachedPadding = ve.copy( this.spec.padding ) || this.getDefaultPaddingObject();
+		ve.dm.MWGraphModel.static.removeProperty( this.spec, [ 'padding' ] );
+	} else {
+		this.spec.padding = ve.copy( this.cachedPadding );
+	}
+
+	this.emit( 'specChange', this.spec );
+};
+
+/**
  * Get the fields for a data pipeline
  *
  * @param {number} [id] The pipeline's id
  * @return {string[]} The fields for the pipeline
  */
 ve.dm.MWGraphModel.prototype.getPipelineFields = function ( id ) {
-	return Object.keys( this.spec.data[ id ].values[ 0 ] );
+	var firstEntry = ve.getProp( this.spec, 'data', id, 'values', 0 );
+
+	// Get the fields directly from the pipeline data if the pipeline exists and
+	// has data, otherwise default back on the fields intended for this graph type
+	if ( firstEntry ) {
+		return Object.keys( firstEntry );
+	} else {
+		return ve.dm.MWGraphModel.static.graphConfigs[ this.getGraphType() ].fields;
+	}
 };
 
 /**
@@ -375,4 +514,13 @@ ve.dm.MWGraphModel.prototype.removeEntry = function ( index ) {
  */
 ve.dm.MWGraphModel.prototype.hasBeenChanged = function () {
 	return !OO.compare( this.spec, this.originalSpec );
+};
+
+/**
+ * Returns whether the padding is set to be automatic or not
+ *
+ * @return {boolean} The padding is automatic
+ */
+ve.dm.MWGraphModel.prototype.isPaddingAutomatic = function () {
+	return OO.compare( this.spec.padding, undefined );
 };

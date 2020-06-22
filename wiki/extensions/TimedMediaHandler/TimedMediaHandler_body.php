@@ -1,7 +1,6 @@
 <?php
 
 class TimedMediaHandler extends MediaHandler {
-	static $magicDone = false;
 
 	/**
 	 * @return bool
@@ -28,13 +27,13 @@ class TimedMediaHandler extends MediaHandler {
 	 * @return array
 	 */
 	function getParamMap() {
-		return array(
+		return [
 			'img_width' => 'width',
 			'timedmedia_thumbtime' => 'thumbtime',
 			'timedmedia_starttime' => 'start',
 			'timedmedia_endtime' => 'end',
 			'timedmedia_disablecontrols' => 'disablecontrols',
-		);
+		];
 	}
 
 	/**
@@ -50,13 +49,13 @@ class TimedMediaHandler extends MediaHandler {
 				return false;
 			}
 		} elseif ( $name == 'disablecontrols' ) {
-			$values = explode( ',', $value);
-			foreach($values as $v) {
-				if ( !in_array( $v, array( 'options', 'timedText', 'fullscreen' ) ) ) {
+			$values = explode( ',', $value );
+			foreach ( $values as $v ) {
+				if ( !in_array( $v, [ 'options', 'timedText', 'fullscreen' ] ) ) {
 					return false;
 				}
 			}
-		} elseif( $name === 'width' || $name === 'height' ) {
+		} elseif ( $name === 'width' || $name === 'height' ) {
 			return $value > 0;
 		}
 		return true;
@@ -92,7 +91,7 @@ class TimedMediaHandler extends MediaHandler {
 		if ( !$paramString ) {
 			$paramString = 'mid';
 		}
-		return $paramString ;
+		return $paramString;
 	}
 
 	/**
@@ -102,7 +101,7 @@ class TimedMediaHandler extends MediaHandler {
 	 * @return array|bool Array of thumbnail parameters, or false if string cannot be parsed
 	 */
 	function parseParamString( $str ) {
-		$params = array();
+		$params = [];
 		if ( preg_match( '/^(mid|(\d*)px-)*(seek=([\d.]+))*$/', $str, $matches ) ) {
 			$size = $thumbtime = null;
 			if ( isset( $matches[2] ) ) {
@@ -131,9 +130,9 @@ class TimedMediaHandler extends MediaHandler {
 	 * @return bool
 	 */
 	function normaliseParams( $image, &$params ) {
-		$timeParam = array( 'thumbtime', 'start', 'end' );
+		$timeParam = [ 'thumbtime', 'start', 'end' ];
 		// Parse time values if endtime or thumbtime can't be more than length -1
-		foreach($timeParam as $pn){
+		foreach ( $timeParam as $pn ) {
 			if ( isset( $params[$pn] ) && $params[$pn] !== false ) {
 				$length = $this->getLength( $image );
 				$time = $this->parseTimeString( $params[$pn] );
@@ -149,23 +148,25 @@ class TimedMediaHandler extends MediaHandler {
 
 		if ( $this->isAudio( $image ) ) {
 			// Assume a default for audio files
-			$size = array(
+			$size = [
 				'width' => 220,
 				'height' => 23,
-			);
+			];
 		} else {
-			$size = array(
+			$size = [
 				'width' => $image->getWidth(),
 				'height' => $image->getHeight(),
-			);
+			];
 		}
 		// Make sure we don't try and up-scale the asset:
-		if( isset( $params['width'] ) && (int)$params['width'] > $size['width'] ){
+		if ( !$this->isAudio( $image ) && isset( $params['width'] )
+			&& (int)$params['width'] > $size['width']
+		) {
 			$params['width'] = $size['width'];
 		}
 
 		if ( isset( $params['height'] ) && $params['height'] != -1 ) {
-			if( $params['width'] * $size['height'] > $params['height'] * $size['width'] ) {
+			if ( $params['width'] * $size['height'] > $params['height'] * $size['width'] ) {
 				$params['width'] = self::fitBoxWidth( $size['width'], $size['height'], $params['height'] );
 			}
 		}
@@ -174,8 +175,8 @@ class TimedMediaHandler extends MediaHandler {
 		}
 
 		// Make sure start time is not > than end time
-		if( isset($params['start'])
-			&& isset($params['end'] )
+		if ( isset( $params['start'] )
+			&& isset( $params['end'] )
 			&& $params['start'] !== false
 			&& $params['end'] !== false
 		) {
@@ -188,35 +189,32 @@ class TimedMediaHandler extends MediaHandler {
 	}
 
 	/**
+	 * Parser output hook only adds the required modules
+	 *
+	 * The core embedPlayer module lazy loaded by the loader modules
+	 *
 	 * @param $parser Parser
 	 * @param $file File
 	 */
 	function parserTransformHook( $parser, $file ) {
+		global $wgTmhWebPlayer;
+
 		$parserOutput = $parser->getOutput();
 		if ( isset( $parserOutput->hasTimedMediaTransform ) ) {
-			return ;
+			return;
 		}
 		$parserOutput->hasTimedMediaTransform = true;
-		$parserOutput->addOutputHook( 'TimedMediaHandler' );
-	}
-
-	/**
-	 * Parser output hook only adds the PopUpMediaTransform
-	 *
-	 * The core embedPlayer module is part of a "loaderScript" so it does not need to
-	 * be registered here.
-	 *
-	 * TODO move core loader to on-page script as to not include it on all pages.
-	 *
-	 * @param $outputPage OutputPage
-	 * @param $parserOutput
-	 * @param $data
-	 */
-	static function outputHook( $outputPage, $parserOutput, $data ) {
-		// Add the PopUpMediaTransform code
-		$outputPage->addModuleScripts( 'mw.PopUpMediaTransform' );
-		$outputPage->addModuleStyles( 'mw.PopUpMediaTransform.styles' );
-		$outputPage->addModules( 'mw.TMHGalleryHook.js' );
+		if ( $wgTmhWebPlayer == 'mwembed' ) {
+			$parserOutput->addModuleStyles( 'ext.tmh.thumbnail.styles' );
+			$parserOutput->addModules( [
+				'mw.MediaWikiPlayer.loader',
+				'mw.PopUpMediaTransform',
+				'mw.TMHGalleryHook.js',
+			] );
+		} elseif ( $wgTmhWebPlayer === 'videojs' ) {
+			$parserOutput->addModuleStyles( 'ext.tmh.player.styles' );
+			$parserOutput->addModules( 'ext.tmh.player' );
+		}
 		if ( $parserOutput ) {
 			// Not present when run from outputpage hooks, like File/Category etc...
 			$parserOutput->setExtensionData( 'mw_ext_TMH_hasTimedMediaTransform', true );
@@ -232,15 +230,16 @@ class TimedMediaHandler extends MediaHandler {
 	public static function parseTimeString( $timeString, $length = false ) {
 		$parts = explode( ':', $timeString );
 		$time = 0;
+		$partsCount = count( $parts );
 		// Check for extra :s
-		if( count( $parts ) > 3 ){
+		if ( $partsCount > 3 ) {
 			return false;
 		}
-		for ( $i = 0; $i < count( $parts ); $i++ ) {
+		for ( $i = 0; $i < $partsCount; $i++ ) {
 			if ( !is_numeric( $parts[$i] ) ) {
 				return false;
 			}
-			$time += floatval( $parts[$i] ) * pow( 60, count( $parts ) - $i - 1 );
+			$time += floatval( $parts[$i] ) * pow( 60, $partsCount - $i - 1 );
 		}
 
 		if ( $time < 0 ) {
@@ -258,15 +257,15 @@ class TimedMediaHandler extends MediaHandler {
 	 * @param $timePassed
 	 * @return string
 	 */
-	public static function getTimePassedMsg( $timePassed ){
-		$t = array();
-		$t['days'] = floor($timePassed/60/60/24);
-		$t['hours'] = floor($timePassed/60/60)%24;
-		$t['minutes'] = floor($timePassed/60)%60;
+	public static function getTimePassedMsg( $timePassed ) {
+		$t = [];
+		$t['days'] = floor( $timePassed/60/60/24 );
+		$t['hours'] = floor( $timePassed/60/60 )%24;
+		$t['minutes'] = floor( $timePassed/60 )%60;
 		$t['seconds'] = $timePassed%60;
 
-		foreach( $t as $k => $v ){
-			if($v == 0 ){
+		foreach ( $t as $k => $v ) {
+			if ( $v == 0 ) {
 				unset( $t[$k] );
 			} else {
 				// Give grep a chance to find the usages:
@@ -274,8 +273,8 @@ class TimedMediaHandler extends MediaHandler {
 				$t[$k] = wfMessage( 'timedmedia-' . $k, $v )->text();
 			}
 		}
-		if( count( $t ) == 0 ){
-			$t = array( wfMessage( 'timedmedia-seconds', 0 )->text() ) ;
+		if ( count( $t ) == 0 ) {
+			$t = [ wfMessage( 'timedmedia-seconds', 0 )->text() ];
 		}
 
 		global $wgLang;
@@ -290,24 +289,25 @@ class TimedMediaHandler extends MediaHandler {
 	 * @param $time Number Seconds to be converted to npt time format
 	 * @return bool|string
 	 */
-	public static function seconds2npt( $time ){
+	public static function seconds2npt( $time ) {
 		if ( !is_numeric( $time ) ) {
-			wfDebug( __METHOD__.": trying to get npt time on NaN:" + $time);
+			wfDebug( __METHOD__.": trying to get npt time on NaN:" + $time );
 			return false;
 		}
-		if( $time < 0 ){
-			wfDebug( __METHOD__.": trying to time on negative value:" + $time);
+		if ( $time < 0 ) {
+			wfDebug( __METHOD__.": trying to time on negative value:" + $time );
 			return false;
 		}
 		$hours = floor( $time / 3600 );
 		$min = floor( ( $time / 60 ) % 60 );
-		$sec = ($time % 60 );
-		$ms = ( $time - round( $time, 3) != 0 ) ? '.' .( $time - round( $time, 3) ) : '';
+		$sec = floor( $time % 60 );
+		$ms = floor( $time * 1000 % 1000 );
+		$ms = ( $ms != 0 ) ? sprintf( '.%03d', $ms ) : '';
 
-		return "{$hours}:{$min}:{$sec}{$ms}";
+		return sprintf( '%02d:%02d:%02d%s', $hours, $min, $sec, $ms );
 	}
 
- 	/**
+	/**
 	 * @param $metadata
 	 * @return bool|mixed
 	 */
@@ -338,7 +338,7 @@ class TimedMediaHandler extends MediaHandler {
 	 * @return array
 	 */
 	function getThumbType( $ext, $mime, $params = null ) {
-		return array( 'jpg', 'image/jpeg' );
+		return [ 'jpg', 'image/jpeg' ];
 	}
 
 	/**
@@ -346,7 +346,7 @@ class TimedMediaHandler extends MediaHandler {
 	 * @param $file File
 	 * @return bool
 	 */
-	function isAudio( $file ){
+	function isAudio( $file ) {
 		return ( $file->getWidth() == 0 && $file->getHeight() == 0 );
 	}
 
@@ -367,37 +367,33 @@ class TimedMediaHandler extends MediaHandler {
 		$srcWidth = $file->getWidth();
 		$srcHeight = $file->getHeight();
 
-		// Audio should not be transformed by size, give it a default width and height
-		if( $this->isAudio( $file ) ){
-			$srcWidth = 220;
-			$srcHeight = 23;
-		}
-
 		$params['width'] = isset( $params['width'] ) ? $params['width'] : $srcWidth;
 
 		// if height overtakes width use height as max:
 		$targetWidth = $params['width'];
 		$targetHeight = $srcWidth == 0 ? $srcHeight : round( $params['width'] * $srcHeight / $srcWidth );
-		if( isset( $params['height'] ) && $targetHeight > $params['height'] ){
+		if ( isset( $params['height'] ) && $targetHeight > $params['height'] ) {
 			$targetHeight = $params['height'];
 			$targetWidth = round( $params['height'] * $srcWidth / $srcHeight );
 		}
-		$options = array(
+		$options = [
 			'file' => $file,
 			'length' => $this->getLength( $file ),
 			'offset' => $this->getOffset( $file ),
 			'width' => $targetWidth,
 			'height' =>  $targetHeight,
 			'isVideo' => !$this->isAudio( $file ),
-			'thumbtime' => isset( $params['thumbtime'] ) ? $params['thumbtime'] : intval( $file->getLength() / 2 ),
+			'thumbtime' => isset(
+				$params['thumbtime']
+			) ? $params['thumbtime'] : intval( $file->getLength() / 2 ),
 			'start' => isset( $params['start'] ) ? $params['start'] : false,
 			'end' => isset( $params['end'] ) ? $params['end'] : false,
 			'fillwindow' => isset( $params['fillwindow'] ) ? $params['fillwindow'] : false,
 			'disablecontrols' => isset ( $params['disablecontrols'] ) ? $params['disablecontrols'] : false
-		);
+		];
 
 		// No thumbs for audio
-		if( !$options['isVideo'] ){
+		if ( !$options['isVideo'] ) {
 			return new TimedMediaTransformOutput( $options );
 		}
 
@@ -408,12 +404,12 @@ class TimedMediaHandler extends MediaHandler {
 
 		// Check if transform is deferred:
 		if ( $flags & self::TRANSFORM_LATER ) {
-			return new TimedMediaTransformOutput($options);
+			return new TimedMediaTransformOutput( $options );
 		}
 
 		// Generate thumb:
 		$thumbStatus = TimedMediaThumbnail::get( $options );
-		if( $thumbStatus !== true ){
+		if ( $thumbStatus !== true ) {
 			return $thumbStatus;
 		}
 
@@ -424,20 +420,24 @@ class TimedMediaHandler extends MediaHandler {
 	 * @param $file
 	 * @return bool
 	 */
-	function canRender( $file ) { return true; }
+	function canRender( $file ) {
+		return true;
+	}
 
 	/**
 	 * @param $file
 	 * @return bool
 	 */
-	function mustRender( $file ) { return true; }
+	function mustRender( $file ) {
+		return true;
+	}
 
 	/**
 	 * Get a stream offset time
 	 * @param $file
 	 * @return int
 	 */
-	function getOffset( $file ){
+	function getOffset( $file ) {
 		return 0;
 	}
 
@@ -446,7 +446,7 @@ class TimedMediaHandler extends MediaHandler {
 	 * @param $file
 	 * @return int
 	 */
-	function getLength( $file ){
+	function getLength( $file ) {
 		return $file->getLength();
 	}
 
@@ -468,13 +468,13 @@ class TimedMediaHandler extends MediaHandler {
 	public function filterThumbnailPurgeList( &$files, $options ) {
 		global $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet;
 
-		$transcodeSet = array_merge($wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet);
+		$transcodeSet = array_merge( $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet );
 
-		//dont remove derivatives on normal purge
-		foreach(array_slice($files, 1) as $key => $file) {
-			foreach( $transcodeSet as $transcodeKey ) {
-				if ( preg_match('/' . preg_quote($transcodeKey) . '$/', $file) ) {
-					unset($files[$key]);
+		// dont remove derivatives on normal purge
+		foreach ( array_slice( $files, 1 ) as $key => $file ) {
+			foreach ( $transcodeSet as $transcodeKey ) {
+				if ( preg_match( '/' . preg_quote( $transcodeKey ) . '$/', $file ) ) {
+					unset( $files[$key] );
 					break;
 				}
 			}

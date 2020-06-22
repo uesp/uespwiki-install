@@ -1,7 +1,10 @@
 <?php
 
 namespace CirrusSearch;
+
 use CirrusSearch\Search\InterwikiResultsType;
+use CirrusSearch\Search\ResultSet;
+use ObjectCache;
 use User;
 
 /**
@@ -35,62 +38,63 @@ class InterwikiSearcher extends Searcher {
 
 	/**
 	 * Constructor
+	 * @param Connection $connection
 	 * @param int[] $namespaces Namespace numbers to search
 	 * @param User|null $user
 	 * @param string $index Base name for index to search from, defaults to wfWikiId()
 	 * @param string $interwiki Interwiki prefix we're searching
 	 */
-	public function __construct( array $namespaces, User $user = null, $index, $interwiki ) {
-		parent::__construct( 0, self::MAX_RESULTS, null, $namespaces, $user, $index );
-		$this->interwiki = $interwiki;
+	public function __construct( Connection $connection, array $namespaces, User $user = null, $index, $interwiki ) {
 		// Only allow core namespaces. We can't be sure any others exist
-		if ( $this->namespaces !== null ) {
-			$this->namespaces = array_filter( $namespaces, function( $namespace ) {
+		if ( $namespaces !== null ) {
+			$namespaces = array_filter( $namespaces, function( $namespace ) {
 				return $namespace <= 15;
 			} );
 		}
+		parent::__construct( $connection, 0, self::MAX_RESULTS, null, $namespaces, $user, $index );
+		$this->interwiki = $interwiki;
 	}
 
 	/**
 	 * Fetch search results, from caches, if there's any
 	 * @param string $term Search term to look for
-	 * @return Result
+	 * @return ResultSet|null
 	 */
 	public function getInterwikiResults( $term ) {
-		global $wgMemc, $wgCirrusSearchInterwikiCacheTime;
 
 		// Return early if we can
 		if ( !$term ) {
-			return;
+			return null;
 		}
 
-		$namespaceKey = $this->namespaces !== null ?
-			implode( ',', $this->namespaces ) : '';
+		$namespaceKey = $this->getNamespaces() !== null ?
+			implode( ',', $this->getNamespaces() ) : '';
 
-		$results = array();
-		$key = wfMemcKey(
+		$cache = ObjectCache::getLocalClusterInstance();
+		$key = $cache->makeKey(
 			'cirrus',
 			'interwiki',
 			$this->interwiki,
 			$namespaceKey,
 			md5( $term )
 		);
+		$ttl = $this->config->get( 'CirrusSearchInterwikiCacheTime' );
 
-		$res = $wgMemc->get( $key );
-		if ( !$res ) {
+		return $cache->getWithSetCallback( $key, $ttl, function () use ( $term ) {
 			$this->setResultsType( new InterwikiResultsType( $this->interwiki ) );
 			$results = $this->searchText( $term, false );
-			if ( $results->isOk() ) {
-				$res = $results->getValue();
-				$wgMemc->set( $key, $res, $this->config->get( 'CirrusSearchInterwikiCacheTime' ) );
+			if ( $results->isOK() ) {
+				return $results->getValue();
+			} else {
+				return false;
 			}
-		}
-		return $res;
+		} );
 	}
 
 	/**
 	 * Get the index basename for a given interwiki prefix, if one is defined.
-	 * @return string
+	 * @param string $interwiki
+	 * @return string|null
 	 */
 	public static function getIndexForInterwiki( $interwiki ) {
 		// These settings should be common for all wikis, so globals
@@ -109,10 +113,10 @@ class InterwikiSearcher extends Searcher {
 	}
 
 	/**
-	 * We don't support extra indicies when we're doing interwiki searches
+	 * We don't support extra indices when we're doing interwiki searches
 	 *
 	 * @see Searcher::getAndFilterExtraIndexes()
-	 * @return array()
+	 * @return array
 	 */
 	protected function getAndFilterExtraIndexes() {
 		return array();

@@ -1,23 +1,23 @@
 <?php
 
 class CheckUserLogPager extends ReverseChronologicalPager {
-	public $searchConds, $specialPage, $y, $m;
+	/**
+	 * @var array $searchConds
+	 */
+	protected $searchConds;
 
-	function __construct( $specialPage, $searchConds, $y, $m ) {
-		parent::__construct();
-
-		$this->getDateCond( $y, $m );
-		$this->searchConds = $searchConds ? $searchConds : array();
-		$this->specialPage = $specialPage;
+	/**
+	 * @param IContextSource $context
+	 * @param array $opts Should include 'queryConds', 'year', and 'month' keys
+	 */
+	public function __construct( IContextSource $context, array $conds ) {
+		parent::__construct( $context );
+		$this->searchConds = $conds['queryConds'];
+		// getDateCond() actually *sets* the timestamp offset..
+		$this->getDateCond( $conds['year'], $conds['month'] );
 	}
 
 	function formatRow( $row ) {
-		if ( $row->cul_reason === '' ) {
-			$comment = '';
-		} else {
-			$comment = Linker::commentBlock( $row->cul_reason );
-		}
-
 		$user = Linker::userLink( $row->cul_user, $row->user_name );
 
 		if ( $row->cul_type == 'userips' || $row->cul_type == 'useredits' ) {
@@ -28,17 +28,17 @@ class CheckUserLogPager extends ReverseChronologicalPager {
 		}
 
 		// Give grep a chance to find the usages:
-		// checkuser-log-userips, checkuser-log-ipedits, checkuser-log-ipusers,
-		// checkuser-log-ipedits-xff, checkuser-log-ipusers-xff, checkuser-log-useredits
+		// checkuser-log-entry-userips, checkuser-log-entry-ipedits,
+		// checkuser-log-entry-ipusers, checkuser-log-entry-ipedits-xff
+		// checkuser-log-entry-ipusers-xff, checkuser-log-entry-useredits
 		return '<li>' .
-			$this->getLanguage()->timeanddate( wfTimestamp( TS_MW, $row->cul_timestamp ), true ) .
-			$this->msg( 'comma-separator' )->text() .
 			$this->msg(
-				'checkuser-log-' . $row->cul_type,
+				'checkuser-log-entry-' . $row->cul_type,
 				$user,
-				$target
+				$target,
+				$this->getLanguage()->timeanddate( wfTimestamp( TS_MW, $row->cul_timestamp ), true )
 			)->text() .
-			$comment .
+			Linker::commentBlock( $row->cul_reason ) .
 			'</li>';
 	}
 
@@ -72,11 +72,10 @@ class CheckUserLogPager extends ReverseChronologicalPager {
 	}
 
 	function getQueryInfo() {
-		$this->searchConds[] = 'user_id = cul_user';
 		return array(
 			'tables' => array( 'cu_log', 'user' ),
 			'fields' => $this->selectFields(),
-			'conds'  => $this->searchConds
+			'conds' => array_merge( $this->searchConds, array( 'user_id = cul_user' ) )
 		);
 	}
 
@@ -89,5 +88,28 @@ class CheckUserLogPager extends ReverseChronologicalPager {
 			'cul_id', 'cul_timestamp', 'cul_user', 'cul_reason', 'cul_type',
 			'cul_target_id', 'cul_target_text', 'user_name'
 		);
+	}
+
+	/**
+	 * Do a batch query for links' existence and add it to LinkCache
+	 *
+	 * @param ResultWrapper $result
+	 */
+	protected function preprocessResults( $result ) {
+		if ( $this->getNumRows() === 0 ) {
+			return;
+		}
+
+		$lb = new LinkBatch;
+		$lb->setCaller( __METHOD__ );
+		foreach ( $result as $row ) {
+			$lb->add( NS_USER, $row->user_name ); // Performer
+			if ( $row->cul_type == 'userips' || $row->cul_type == 'useredits' ) {
+				$lb->add( NS_USER, $row->cul_target_text );
+				$lb->add( NS_USER_TALK, $row->cul_target_text );
+			}
+		}
+		$lb->execute();
+		$result->seek( 0 );
 	}
 }

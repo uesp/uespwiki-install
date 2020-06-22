@@ -2,8 +2,7 @@
 	var Drawer = M.require( 'mobile.drawers/Drawer' ),
 		Icon = M.require( 'mobile.startup/Icon' ),
 		Button = M.require( 'mobile.startup/Button' ),
-		Anchor = M.require( 'mobile.startup/Anchor' ),
-		CtaDrawer;
+		Anchor = M.require( 'mobile.startup/Anchor' );
 
 	/**
 	 * This creates the drawer at the bottom of the screen that appears when an anonymous
@@ -15,14 +14,18 @@
 	 * @uses Icon
 	 * @uses Anchor
 	 */
-	CtaDrawer = Drawer.extend( {
+	function CtaDrawer() {
+		Drawer.apply( this, arguments );
+	}
+
+	OO.mfExtend( CtaDrawer, Drawer, {
 		/**
 		 * @cfg {Object} defaults Default options hash.
 		 * @cfg {Object} defaults.collapseIcon options for Icon for collapsing the drawer
 		 * @cfg {Object} defaults.progressiveButton options for Button element for signing in
 		 * @cfg {Object} defaults.actionAnchor options for Anchor element for signing up
 		 */
-		defaults: {
+		defaults: $.extend( {}, Drawer.prototype.defaults, {
 			progressiveButton: new Button( {
 				progressive: true,
 				label: mw.msg( 'mobile-frontend-watchlist-cta-button-login' )
@@ -32,15 +35,15 @@
 				label: mw.msg( 'mobile-frontend-watchlist-cta-button-signup' )
 			} ).options,
 			collapseIcon: new Icon( {
-				name: 'arrow-down',
+				name: 'arrow',
 				additionalClassNames: 'cancel'
 			} ).options
-		},
-		templatePartials: {
+		} ),
+		templatePartials: $.extend( {}, Drawer.prototype.templatePartials, {
 			icon: Icon.prototype.template,
 			button: Button.prototype.template,
 			anchor: Anchor.prototype.template
-		},
+		} ),
 		template: mw.template.get( 'mobile.drawers', 'Cta.hogan' ),
 		/**
 		 * @inheritdoc
@@ -69,6 +72,6 @@
 		}
 	} );
 
-	M.define( 'mobile.drawers/CtaDrawer', CtaDrawer ).deprecate( 'CtaDrawer' );
+	M.define( 'mobile.drawers/CtaDrawer', CtaDrawer );
 
 }( mw.mobileFrontend, jQuery ) );

@@ -1,7 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Purodha"
+			"Purodha",
+			"Matma Rex"
 		]
 	},
 	"abusefilter-desc": "Dä Meßbruchsfelter deit Änderunge aan Sigge met Heurestikke pröfe.",
@@ -96,7 +97,7 @@
 	"abusefilter-deleted": "Fottjeschmeße",
 	"abusefilter-disabled": "Ußjeschalldt",
 	"abusefilter-hitcount": "{{PLURAL:$1|Eine Treffer|$1 Treffer|-nix-}}",
-	"abusefilter-new": "Neu Felter-Räjel aanlääje",
+	"abusefilter-new": "En neuje Felter-Rääjel aanlähje",
 	"abusefilter-return": "Jangk retuhr noh dem Meßbruchsfelter singe Ennschtällonge",
 	"abusefilter-status-global": "jemeinsam",
 	"abusefilter-list-options": "Ennschtällonge",
@@ -126,7 +127,8 @@
 	"abusefilter-edit-subtitle-new": "Ben ene Felter aam aanlääje",
 	"abusefilter-edit-oldwarning": "<strong>Do bes hee en äldere Väsjohn vun däm Felter aam ändere.\nDe aanjejovve Schtatistike sin ävver för de neuste Väsjohn fun däm Felter.\nWann De Ding Änderonge afschpeishere deihß, dann sin all de Änderonge\nun Äjänzonge fott, di schpääder derbei jekumme sen.</strong> &bull;\n[[Special:AbuseFilter/history/$2|Jangk zeröck op däm Felter sing Väsjohne]].",
 	"abusefilter-edit-status-label": "Zahle un Schtatistike:",
-	"abusefilter-edit-status": "{{PLURAL:$1|De letzte Akßjuhn woodt|Unger de letzte $1 Akßjuhne {{PLURAL:$2|woor_er ein, die|wooren_er $2, die|wood kein}}|Kein Akßjuhn woodt}} vun dämm Felter hee opjejreff{{PLURAL:$1|e|{{PLURAL:$2|e wood|e woode|e}}|e}}. Dat sinn_er $3% jewääse.\nEm Schnett deiht hä {{PLURAL:$4|ein Millisekund|$4 Millisekunde|kein Millisekund}} bruche, un {{PLURAL:$5|ein Bedengung|$5 Bedengunge|kei Bedengunge}} vun de zohjelohße hühßte Zahl.",
+	"abusefilter-edit-status": "{{PLURAL:$1|De letzte Akßjuhn woodt|Unger de letzte $1 Akßjuhne {{PLURAL:$2|woor_er ein, die|wooren_er $2, die|wood kein}}|Kein Akßjuhn woodt}} vun dämm Felter hee opjejreff{{PLURAL:$1|e|{{PLURAL:$2|e wood|e woode|e}}|e}}. Dat sinn_er $3% jewääse.",
+	"abusefilter-edit-status-profile": "{{PLURAL:$1|De letzte Akßjuhn woodt|Unger de letzte $1 Akßjuhne {{PLURAL:$2|woor_er ein, die|wooren_er $2, die|wood kein}}|Kein Akßjuhn woodt}} vun dämm Felter hee opjejreff{{PLURAL:$1|e|{{PLURAL:$2|e wood|e woode|e}}|e}}. Dat sinn_er $3% jewääse.\nEm Schnett deiht hä {{PLURAL:$4|ein Millisekund|$4 Millisekunde|kein Millisekund}} bruche, un {{PLURAL:$5|ein Bedengung|$5 Bedengunge|kei Bedengunge}} vun de zohjelohße hühßte Zahl.",
 	"abusefilter-edit-throttled": "'''Opjepaß:''' Dä Felter hee es automattesch ußjeschalldt woode. Zor Sescherheit.\nDä hät sing Jrenß övverschredde, un bei mieh wie $1% vun alle Oproofe jejreffe.",
 	"abusefilter-edit-new": "Neu Felter-Räjel",
 	"abusefilter-edit-save": "Faßhallde",
@@ -284,6 +286,11 @@
 	"abusefilter-edit-builder-vars-minor-edit": "Ov dat als en Mini-Änderong makkehrd es udder nit",
 	"abusefilter-edit-builder-vars-file-sha1": "De <code lang=\"en\">SHA1</code> Prööfsumm vum Enhalt vun dä Dattei",
 	"abusefilter-edit-builder-vars-file-size": "De Aanzahl <i lang=\"en\" xml:lang=\"en\">Bytes</i> en dä Dattei.",
+	"abusefilter-edit-builder-vars-file-mime": "De <i lang=\"en\" xml:lang=\"en\" dir=\"ltr\" title=\"Multi-Purpose Internet Mail Extensions\">MIME</i>-Zoot fun dä Dattei.",
+	"abusefilter-edit-builder-vars-file-mediatype": "Mehije-Zoot  vun dä Dattei",
+	"abusefilter-edit-builder-vars-file-width": "De Wigde en Pixelle",
+	"abusefilter-edit-builder-vars-file-height": "De Hühde en Pixelle",
+	"abusefilter-edit-builder-vars-file-bits-per-channel": "De Bits pro Klöhre-Kannahl",
 	"abusefilter-filter-log": "Neuste Änderonge aan Meßbruchsfeltere",
 	"abusefilter-history": "De Versione bes hück, för de Felter-Räjel met dä Nommer $1",
 	"abusefilter-history-foruser": "Änderunge {{GENDER:$1|vum|vum|Vun däm Metmaacher|vum|vun der}} $1",
@@ -407,9 +414,9 @@
 	"apihelp-abusefilterevalexpression-description": "Deihd ene Ußdrogg vum Meßbruchsfelter ußrääschne.",
 	"apihelp-abusefilterevalexpression-param-expression": "Dä Ußdrok zom ußwääte.",
 	"apihelp-abusefilterevalexpression-example-1": "Donn ene eijfache Ußdrok ußwääte.",
-	"apihelp-abusefilterunblockautopromote-description": "Donn di Schpär ophävve för emen Metmaacher sing  receiving autopromotions due to an abusefilter consequence.<!--  https://translatewiki.net/wiki/Thread:Support/About_MediaWiki:Apihelp-abusefilterunblockautopromote-example-1/ksh -->",
+	"apihelp-abusefilterunblockautopromote-description": "Donn di Schpär ophävve för emen Metmaacher sing automattesche Rääschtzohdeijlong övver der Meßbruchsfellter.",
 	"apihelp-abusefilterunblockautopromote-param-user": "Däm Metmaacher singe Nahme, dä De nit mih jeschpächt han wells.",
-	"apihelp-abusefilterunblockautopromote-example-1": "Donn di Schpär ophävve för em Metmaacher „<code lang=\"en\" xml:lang=\"en\" dir=\"ltr\">[[User:Example]]</code>“ sing  autopromotion <!-- https://translatewiki.net/wiki/Thread:Support/About_MediaWiki:Apihelp-abusefilterunblockautopromote-example-1/ksh -->",
+	"apihelp-abusefilterunblockautopromote-example-1": "Donn di Schpär ophävve för dem Metmaacher „<code lang=\"en\" xml:lang=\"en\" dir=\"ltr\">[[User:Example]]</code>“ sing automattesche Rääschtzohdeijlong.",
 	"apihelp-query+abusefilters-description": "Zeijsch Einzelheijte vun dä Meßbruchsfelter aan.",
 	"apihelp-query+abusefilters-param-startid": "De Kännong vun däm Felter, vun woh aan opzälle.",
 	"apihelp-query+abusefilters-param-endid": "De Kännong vun däm Felter, bes woh hen opzälle.",

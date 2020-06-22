@@ -36,7 +36,7 @@ require_once __DIR__ . '/Maintenance.php';
 class UpdateMediaWiki extends Maintenance {
 	function __construct() {
 		parent::__construct();
-		$this->mDescription = "MediaWiki database updater";
+		$this->addDescription( 'MediaWiki database updater' );
 		$this->addOption( 'skip-compat-checks', 'Skips compatibility checks, mostly for developers' );
 		$this->addOption( 'quick', 'Skip 5 second countdown before starting' );
 		$this->addOption( 'doshared', 'Also update shared tables' );
@@ -83,6 +83,13 @@ class UpdateMediaWiki extends Maintenance {
 				"ABORTING (see https://bugs.php.net/bug.php?id=45996).\n",
 				true );
 		}
+
+		if ( !function_exists( 'mb_strlen' ) ) {
+			$this->error(
+				"MediaWiki now requires the mbstring PHP extension, your system doesn't have it.\n"
+				. "ABORTING.\n",
+				true );
+		}
 	}
 
 	function execute() {
@@ -112,7 +119,10 @@ class UpdateMediaWiki extends Maintenance {
 			}
 		}
 
-		$wgLang = Language::factory( 'en' );
+		$lang = Language::factory( 'en' );
+		// Set global language to ensure localised errors are in English (bug 20633)
+		RequestContext::getMain()->setLanguage( $lang );
+		$wgLang = $lang; // BackCompat
 
 		define( 'MW_UPDATER', true );
 
@@ -124,7 +134,7 @@ class UpdateMediaWiki extends Maintenance {
 			$this->compatChecks();
 		} else {
 			$this->output( "Skipping compatibility checks, proceed at your own risk (Ctrl+C to abort)\n" );
-			wfCountdown( 5 );
+			wfCountDown( 5 );
 		}
 
 		// Check external dependencies are up to date
@@ -139,7 +149,7 @@ class UpdateMediaWiki extends Maintenance {
 
 		# Attempt to connect to the database as a privileged user
 		# This will vomit up an error if there are permissions problems
-		$db = wfGetDB( DB_MASTER );
+		$db = $this->getDB( DB_MASTER );
 
 		$this->output( "Going to run database updates for " . wfWikiID() . "\n" );
 		if ( $db->getType() === 'sqlite' ) {
@@ -155,9 +165,29 @@ class UpdateMediaWiki extends Maintenance {
 
 		$time1 = microtime( true );
 
+		$badPhpUnit = dirname( __DIR__ ) . '/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php';
+		if ( file_exists( $badPhpUnit ) ) {
+			// @codingStandardsIgnoreStart Generic.Files.LineLength.TooLong
+			// Bad versions of the file are:
+			// https://raw.githubusercontent.com/sebastianbergmann/phpunit/c820f915bfae34e5a836f94967a2a5ea5ef34f21/src/Util/PHP/eval-stdin.php
+			// https://raw.githubusercontent.com/sebastianbergmann/phpunit/3aaddb1c5bd9b9b8d070b4cf120e71c36fd08412/src/Util/PHP/eval-stdin.php
+			// @codingStandardsIgnoreEnd
+			$md5 = md5_file( $badPhpUnit );
+			if ( $md5 === '120ac49800671dc383b6f3709c25c099'
+				|| $md5 === '28af792cb38fc9a1b236b91c1aad2876'
+			) {
+				$success = unlink( $badPhpUnit );
+				if ( $success ) {
+					$this->output( "Removed PHPUnit eval-stdin.php to protect against CVE-2017-9841\n" );
+				} else {
+					$this->error( "Unable to remove $badPhpUnit, you should manually. See CVE-2017-9841" );
+				}
+			}
+		}
+
 		$shared = $this->hasOption( 'doshared' );
 
-		$updates = array( 'core', 'extensions' );
+		$updates = [ 'core', 'extensions' ];
 		if ( !$this->hasOption( 'schema' ) ) {
 			if ( $this->hasOption( 'noschema' ) ) {
 				$updates[] = 'noschema';
@@ -165,7 +195,7 @@ class UpdateMediaWiki extends Maintenance {
 			$updates[] = 'stats';
 		}
 
-		$updater = DatabaseUpdater::newForDb( $db, $shared, $this );
+		$updater = DatabaseUpdater::newForDB( $db, $shared, $this );
 		$updater->doUpdates( $updates );
 
 		foreach ( $updater->getPostDatabaseUpdateMaintenance() as $maint ) {
@@ -191,7 +221,7 @@ class UpdateMediaWiki extends Maintenance {
 
 		$time2 = microtime( true );
 
-		$timeDiff = $wgLang->formatTimePeriod( $time2 - $time1 );
+		$timeDiff = $lang->formatTimePeriod( $time2 - $time1 );
 		$this->output( "\nDone in $timeDiff.\n" );
 	}
 
@@ -201,12 +231,12 @@ class UpdateMediaWiki extends Maintenance {
 		# Don't try to access the database
 		# This needs to be disabled early since extensions will try to use the l10n
 		# cache from $wgExtensionFunctions (bug 20471)
-		$wgLocalisationCacheConf = array(
+		$wgLocalisationCacheConf = [
 			'class' => 'LocalisationCache',
 			'storeClass' => 'LCStoreNull',
 			'storeDirectory' => false,
 			'manualRecache' => false,
-		);
+		];
 	}
 }
 

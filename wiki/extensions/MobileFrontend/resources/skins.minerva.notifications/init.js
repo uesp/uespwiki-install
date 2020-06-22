@@ -3,9 +3,7 @@
  * with the Toast notifications defined by common/toast.js.
  */
 ( function ( M, $, mw ) {
-	var MobileWebClickTracking = M.require( 'mobile.loggingSchemas/SchemaMobileWebClickTracking' ),
-		uiSchema = new MobileWebClickTracking( {}, 'MobileWebUIClickTracking' ),
-		mainMenu = M.require( 'mobile.startup/skin' ).getMainMenu(),
+	var mainMenu = M.require( 'skins.minerva.scripts/skin' ).getMainMenu(),
 		$btn = $( '#secondary-button.user-button' ).parent(),
 		router = M.require( 'mobile.startup/router' ),
 		overlayManager = M.require( 'mobile.startup/overlayManager' ),
@@ -38,9 +36,6 @@
 	// than linking to Special:Notifications.
 	$( function () {
 		$btn.on( 'click', function () {
-			uiSchema.log( {
-				name: 'notifications'
-			} );
 			router.navigate( '#/notifications' );
 			// Important that we also prevent propagation to avoid interference with events that may be
 			// binded on #mw-mf-page-center that close overlay

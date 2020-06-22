@@ -3,24 +3,25 @@
 namespace CirrusSearch;
 
 use Elastica;
-use Category;
 use CirrusSearch;
 use CirrusSearch\Extra\Filter\SourceRegex;
 use CirrusSearch\Search\Escaper;
 use CirrusSearch\Search\Filters;
 use CirrusSearch\Search\FullTextResultsType;
 use CirrusSearch\Search\ResultsType;
-use ConfigFactory;
+use CirrusSearch\Search\RescoreBuilder;
+use CirrusSearch\Search\SearchContext;
 use Language;
 use MediaWiki\Logger\LoggerFactory;
+use MediaWiki\MediaWikiServices;
 use MWNamespace;
+use ObjectCache;
 use SearchResultSet;
 use Status;
 use Title;
 use UsageException;
+use RequestContext;
 use User;
-use Elastica\Request;
-use Elastica\Exception\ResponseException;
 
 /**
  * Performs searches using Elasticsearch.  Note that each instance of this class
@@ -79,11 +80,6 @@ class Searcher extends ElasticsearchIntermediary {
 	private $limit;
 
 	/**
-	 * @var int[]|null array of namespaces in which to search
-	 */
-	protected $namespaces;
-
-	/**
 	 * @var Language language of the wiki
 	 */
 	private $language;
@@ -108,7 +104,7 @@ class Searcher extends ElasticsearchIntermediary {
 	private $suggestSuffixes = array();
 
 
-	// These fields are filled in by the particule search methods
+	// These fields are filled in by the particular search methods
 	/**
 	 * @var string term to search.
 	 */
@@ -131,26 +127,6 @@ class Searcher extends ElasticsearchIntermediary {
 	 */
 	private $rescore = array();
 	/**
-	 * @var float portion of article's score which decays with time.  Defaults to 0 meaning don't decay the score
-	 * with time since the last update.
-	 */
-	private $preferRecentDecayPortion = 0;
-	/**
-	 * @var float number of days it takes an the portion of an article score that will decay with time
-	 * since last update to decay half way.  Defaults to 0 meaning don't decay the score with time.
-	 */
-	private $preferRecentHalfLife = 0;
-	/**
-	 * @var boolean should the query results boost pages with more incoming links.  Default to false.
-	 */
-	private $boostLinks = false;
-	/**
-	 * @var float[] template name to boost multiplier for having a template.  Defaults to none but initialized by
-	 * queries that use it to self::getDefaultBoostTemplates() if they need it.  That is too expensive to do by
-	 * default though.
-	 */
-	private $boostTemplates = array();
-	/**
 	 * @var string index base name to use
 	 */
 	private $indexBaseName;
@@ -160,11 +136,7 @@ class Searcher extends ElasticsearchIntermediary {
 	 */
 	private $fuzzyQuery = false;
 	/**
-	 * @var boolean did this search contain any special search syntax?
-	 */
-	private $searchContainedSyntax = false;
-	/**
-	 * @var null|\Elastica\AbstractQuery query that should be used for highlighting if different from the
+	 * @var null|\Elastica\Query\AbstractQuery query that should be used for highlighting if different from the
 	 * query used for selecting.
 	 */
 	private $highlightQuery = null;
@@ -194,10 +166,9 @@ class Searcher extends ElasticsearchIntermediary {
 	private $returnResult = false;
 
 	/**
-	 * @var null|float[] lazily initialized version of $wgCirrusSearchNamespaceWeights with all string keys
-	 * translated into integer namespace codes using $this->language.
+	 * @var boolean return explanation with results
 	 */
-	private $normalizedNamespaceWeights = null;
+	private $returnExplain = false;
 
 	/**
 	 * @var \Elastica\Query\Match[] queries that don't use Elastic's "query string" query, for more
@@ -214,15 +185,20 @@ class Searcher extends ElasticsearchIntermediary {
 	/**
 	 * Search environment configuration
 	 * @var SearchConfig
-	 * Specified as public because of closures. When we move to non-anicent PHP version, can be made protected.
 	 */
-	public $config;
+	protected $config;
+
+	/**
+	 * @var SearchContext
+	 */
+	private $searchContext;
 
 	/**
 	 * Constructor
+	 * @param Connection $conn
 	 * @param int $offset Offset the results by this much
 	 * @param int $limit Limit the results to this many
-	 * @param SearchConfig Configuration settings
+	 * @param SearchConfig|null $config Configuration settings
 	 * @param int[]|null $namespaces Array of namespace numbers to search or null to search all namespaces.
 	 * @param User|null $user user for which this search is being performed.  Attached to slow request logs.
 	 * @param string|boolean $index Base name for index to search from, defaults to wfWikiId()
@@ -231,19 +207,21 @@ class Searcher extends ElasticsearchIntermediary {
 		User $user = null, $index = false ) {
 
 		if ( is_null( $config ) ) {
-			// @todo connection has an embeded config ... reuse that? somehow should
+			// @todo connection has an embedded config ... reuse that? somehow should
 			// at least ensure they are the same.
-			$config = ConfigFactory::getDefaultInstance()->makeConfig( 'CirrusSearch' );
+			$config = MediaWikiServices::getInstance()
+				->getConfigFactory()
+				->makeConfig( 'CirrusSearch' );
 		}
 
 		parent::__construct( $conn, $user, $config->get( 'CirrusSearchSlowSearch' ) );
 		$this->config = $config;
 		$this->offset = min( $offset, self::MAX_OFFSET );
 		$this->limit = $limit;
-		$this->namespaces = $namespaces;
 		$this->indexBaseName = $index ?: $config->getWikiId();
 		$this->language = $config->get( 'ContLang' );
 		$this->escaper = new Escaper( $config->get( 'LanguageCode' ), $config->get( 'CirrusSearchAllowLeadingWildcard' ) );
+		$this->searchContext = new SearchContext( $this->config, $namespaces );
 	}
 
 	/**
@@ -268,6 +246,13 @@ class Searcher extends ElasticsearchIntermediary {
 	}
 
 	/**
+	 * @param boolean $returnExplain return query explanation
+	 */
+	public function setReturnExplain( $returnExplain ) {
+		$this->returnExplain = $returnExplain;
+	}
+
+	/**
 	 * Set the type of sort to perform.  Must be 'relevance', 'title_asc', 'title_desc'.
 	 * @param string $sort sort type
 	 */
@@ -286,10 +271,10 @@ class Searcher extends ElasticsearchIntermediary {
 	/**
 	 * Perform a "near match" title search which is pretty much a prefix match without the prefixes.
 	 * @param string $search text by which to search
-	 * @return Status(mixed) status containing results defined by resultsType on success
+	 * @return Status status containing results defined by resultsType on success
 	 */
 	public function nearMatchTitleSearch( $search ) {
-		self::checkTitleSearchRequestLength( $search );
+		$this->checkTitleSearchRequestLength( $search );
 
 		// Elasticsearch seems to have trouble extracting the proper terms to highlight
 		// from the default query we make so we feed it exactly the right query to highlight.
@@ -315,10 +300,10 @@ class Searcher extends ElasticsearchIntermediary {
 	/**
 	 * Perform a prefix search.
 	 * @param string $search text by which to search
-	 * @return Status(mixed) status containing results defined by resultsType on success
+	 * @return Status status containing results defined by resultsType on success
 	 */
 	public function prefixSearch( $search ) {
-		self::checkTitleSearchRequestLength( $search );
+		$this->checkTitleSearchRequestLength( $search );
 
 		if ( $search ) {
 			if ( $this->config->get( 'CirrusSearchPrefixSearchStartsWithAnyWord' ) ) {
@@ -345,10 +330,20 @@ class Searcher extends ElasticsearchIntermediary {
 		} else {
 			$this->query = new \Elastica\Query\MatchAll();
 		}
-		$this->boostTemplates = self::getDefaultBoostTemplates();
-		$this->boostLinks = true;
+
+		$this->setBoostLinks();
 
 		return $this->search( 'prefix', $search );
+	}
+
+	/**
+	 * Tiny function to restrict warning suppression
+	 * @todo: use dedicated rescore profiles for prefix search.
+	 *
+	 * @suppress PhanDeprecatedFunction
+	 */
+	private function setBoostLinks() {
+		$this->searchContext->setBoostLinks( true );
 	}
 
 	/**
@@ -360,22 +355,20 @@ class Searcher extends ElasticsearchIntermediary {
 
 	/**
 	 * Search articles with provided term.
-	 * @param $term string term to search
+	 * @param string $term term to search
 	 * @param boolean $showSuggestion should this search suggest alternative searches that might be better?
-	 * @return Status(mixed) status containing results defined by resultsType on success
+	 * @return Status status containing results defined by resultsType on success
 	 */
 	public function searchText( $term, $showSuggestion ) {
-		$checkLengthStatus = self::checkTextSearchRequestLength( $term );
-		if ( !$checkLengthStatus->isOk() ) {
+		$checkLengthStatus = $this->checkTextSearchRequestLength( $term );
+		if ( !$checkLengthStatus->isOK() ) {
 			return $checkLengthStatus;
 		}
 
 		// Transform Mediawiki specific syntax to filters and extra (pre-escaped) query string
-		$searcher = $this;
 		$originalTerm = $term;
 		$searchContainedSyntax = false;
 		$this->term = $term;
-		$this->boostLinks = $this->config->get( 'CirrusSearchBoostLinks' );
 		$searchType = 'full_text';
 		// Handle title prefix notation
 		$prefixPos = strpos( $this->term, 'prefix:' );
@@ -390,7 +383,7 @@ class Searcher extends ElasticsearchIntermediary {
 				$cirrusSearchEngine = new CirrusSearch();
 				$cirrusSearchEngine->setConnection( $this->connection );
 				$value = trim( $cirrusSearchEngine->replacePrefixes( $value ) );
-				$this->namespaces = $cirrusSearchEngine->namespaces;
+				$this->searchContext->setNamespaces( $cirrusSearchEngine->namespaces );
 				// If the namespace prefix wasn't the entire prefix filter then add a filter for the title
 				if ( strpos( $value, ':' ) !== strlen( $value ) - 1 ) {
 					$value = str_replace( '_', ' ', $value );
@@ -422,13 +415,12 @@ class Searcher extends ElasticsearchIntermediary {
 				return '';
 			}
 		);
-		$this->preferRecentDecayPortion = $preferRecentDecayPortion;
-		$this->preferRecentHalfLife = $preferRecentHalfLife;
+		$this->searchContext->setPreferRecentOptions( $preferRecentDecayPortion, $preferRecentHalfLife );
 
 		$this->extractSpecialSyntaxFromTerm(
 			'/^\s*local:/',
-			function ( $matches ) use ( $searcher ) {
-				$searcher->limitSearchToLocalWiki( true );
+			function () {
+				$this->limitSearchToLocalWiki( true );
 				return '';
 			}
 		);
@@ -436,13 +428,12 @@ class Searcher extends ElasticsearchIntermediary {
 		// Handle other filters
 		$filters = $this->filters;
 		$notFilters = $this->notFilters;
-		$boostTemplates = self::getDefaultBoostTemplates();
 		$highlightSource = array();
 		$this->extractSpecialSyntaxFromTerm(
 			'/(?<not>-)?insource:\/(?<pattern>(?:[^\\\\\/]|\\\\.)+)\/(?<insensitive>i)? ?/',
-			function ( $matches ) use ( $searcher, &$filters, &$notFilters, &$searchContainedSyntax, &$searchType, &$highlightSource ) {
+			function ( $matches ) use ( &$filters, &$notFilters, &$searchContainedSyntax, &$searchType, &$highlightSource ) {
 
-				if ( !$searcher->config->get( 'CirrusSearchEnableRegex' ) ) {
+				if ( !$this->config->get( 'CirrusSearchEnableRegex' ) ) {
 					return;
 				}
 
@@ -456,11 +447,11 @@ class Searcher extends ElasticsearchIntermediary {
 				} else {
 					$highlightSource[] = array(
 						'pattern' => $matches[ 'pattern' ],
-						'locale' => $searcher->config->get( 'LanguageCode' ),
+						'locale' => $this->config->get( 'LanguageCode' ),
 						'insensitive' => $insensitive,
 					);
 				}
-				$regex = $searcher->config->getElement( 'CirrusSearchWikimediaExtraPlugin', 'regex' );
+				$regex = $this->config->getElement( 'CirrusSearchWikimediaExtraPlugin', 'regex' );
 				if ( $regex && in_array( 'use', $regex ) ) {
 					$filter = new SourceRegex( $matches[ 'pattern' ], 'source_text', 'source_text.trigram' );
 					if ( isset( $regex[ 'max_inspect' ] ) ) {
@@ -468,9 +459,9 @@ class Searcher extends ElasticsearchIntermediary {
 					} else {
 						$filter->setMaxInspect( 10000 );
 					}
-					$filter->setMaxDeterminizedStates( $searcher->config->get( 'CirrusSearchRegexMaxDeterminizedStates' ) );
-					if ( isset( $regex[ 'max_ngrams_extracted' ] ) ) {
-						$filter->setMaxNgramExtracted( $regex[ 'max_ngrams_extracted' ] );
+					$filter->setMaxDeterminizedStates( $this->config->get( 'CirrusSearchRegexMaxDeterminizedStates' ) );
+					if ( isset( $regex['max_ngrams_extracted'] ) ) {
+						$filter->setMaxNgramsExtracted( $regex['max_ngrams_extracted'] );
 					}
 					$filter->setCaseSensitive( !$insensitive );
 					$filter->setLocale( $this->config->get( 'LanguageCode' ) );
@@ -504,7 +495,7 @@ GROOVY;
 						array(
 							'pattern' => '.*(' . $matches[ 'pattern' ] . ').*',
 							'insensitive' => $insensitive,
-							'language' => $searcher->config->get( 'LanguageCode' ),
+							'language' => $this->config->get( 'LanguageCode' ),
 							// These null here creates a slot in which the script will shove
 							// an automaton while executing.
 							'automaton' => null,
@@ -517,12 +508,11 @@ GROOVY;
 		);
 		// Match filters that look like foobar:thing or foobar:"thing thing"
 		// The {7,15} keeps this from having horrible performance on big strings
-		$escaper = $this->escaper;
 		$fuzzyQuery = $this->fuzzyQuery;
 		$isEmptyQuery = false;
 		$this->extractSpecialSyntaxFromTerm(
 			'/(?<key>[a-z\\-]{7,15}):\s*(?<value>"(?<quoted>(?:[^"]|(?<=\\\)")+)"|(?<unquoted>\S+)) ?/',
-			function ( $matches ) use ( $searcher, $escaper, &$filters, &$notFilters, &$boostTemplates,
+			function ( $matches ) use ( &$filters, &$notFilters,
 					&$searchContainedSyntax, &$fuzzyQuery, &$highlightSource, &$isEmptyQuery ) {
 				$key = $matches['key'];
 				$quotedValue = $matches['value'];
@@ -538,10 +528,8 @@ GROOVY;
 				}
 				switch ( $key ) {
 					case 'boost-templates':
-						$boostTemplates = Searcher::parseBoostTemplates( $value );
-						if ( $boostTemplates === null ) {
-							$boostTemplates = Searcher::getDefaultBoostTemplates();
-						}
+						$boostTemplates = Util::parseBoostTemplates( $value );
+						$this->getSearchContext()->setBoostTemplatesFromQuery( $boostTemplates );
 						$searchContainedSyntax = true;
 						return '';
 					case 'hastemplate':
@@ -559,16 +547,16 @@ GROOVY;
 									$title->getDBkey() )->getPrefixedText();
 							}
 						}
-						$filterDestination[] = $searcher->matchPage( 'template', $value );
+						$filterDestination[] = $this->matchPage( 'template', $value );
 						$searchContainedSyntax = true;
 						return '';
 					case 'linksto':
-						$filterDestination[] = $searcher->matchPage( 'outgoing_link', $value, true );
+						$filterDestination[] = $this->matchPage( 'outgoing_link', $value, true );
 						$searchContainedSyntax = true;
 						return '';
 					case 'incategory':
-						$categories = array_slice( explode( '|', $value ), 0, $searcher->config->get( 'CirrusSearchMaxIncategoryOptions' ) );
-						$categoryFilters = $searcher->matchPageCategories( $categories );
+						$categories = array_slice( explode( '|', $value ), 0, $this->config->get( 'CirrusSearchMaxIncategoryOptions' ) );
+						$categoryFilters = $this->matchPageCategories( $categories );
 						if ( $categoryFilters === null ) {
 							$isEmptyQuery = true;
 						} else {
@@ -577,11 +565,11 @@ GROOVY;
 						$searchContainedSyntax = true;
 						return '';
 					case 'insource':
-						$updateReferences = Filters::insource( $escaper, $searcher, $quotedValue );
+						$updateReferences = Filters::insource( $this->escaper, $this->getSearchContext(), $quotedValue );
 						$updateReferences( $fuzzyQuery, $filterDestination, $highlightSource, $searchContainedSyntax );
 						return '';
 					case 'intitle':
-						$updateReferences = Filters::intitle( $escaper, $searcher, $quotedValue );
+						$updateReferences = Filters::intitle( $this->escaper, $this->getSearchContext(), $quotedValue );
 						$updateReferences( $fuzzyQuery, $filterDestination, $highlightSource, $searchContainedSyntax );
 						return $keepText ? "$quotedValue " : '';
 					default:
@@ -594,8 +582,7 @@ GROOVY;
 		}
 		$this->filters = $filters;
 		$this->notFilters = $notFilters;
-		$this->boostTemplates = $boostTemplates;
-		$this->searchContainedSyntax = $searchContainedSyntax;
+		$this->searchContext->setSearchContainedSyntax( $searchContainedSyntax );
 		$this->fuzzyQuery = $fuzzyQuery;
 		$this->highlightSource = $highlightSource;
 
@@ -608,9 +595,9 @@ GROOVY;
 		// The following all match: "a", "a boat", "a\"boat", "a boat"~, "a boat"~9, "a boat"~9~, -"a boat", -"a boat"~9~
 		$slop = $this->config->get('CirrusSearchPhraseSlop');
 		$query = self::replacePartsOfQuery( $this->term, '/(?<![\]])(?<negate>-|!)?(?<main>"((?:[^"]|(?<=\\\)")+)"(?<slop>~\d+)?)(?<fuzzy>~)?/',
-			function ( $matches ) use ( $searcher, $escaper, $slop ) {
+			function ( $matches ) use ( $slop ) {
 				$negate = $matches[ 'negate' ][ 0 ] ? 'NOT ' : '';
-				$main = $escaper->fixupQueryStringPart( $matches[ 'main' ][ 0 ] );
+				$main = $this->escaper->fixupQueryStringPart( $matches[ 'main' ][ 0 ] );
 
 				if ( !$negate && !isset( $matches[ 'fuzzy' ] ) && !isset( $matches[ 'slop' ] ) &&
 						 preg_match( '/^"([^"*]+)[*]"/', $main, $matches ) ) {
@@ -635,8 +622,8 @@ GROOVY;
 					// The highlighter locks phrases to the fields that specify them.  It doesn't do
 					// that with terms.
 					return array(
-						'escaped' => $negate . $searcher->switchSearchToExact( $main, true ),
-						'nonAll' => $negate . $searcher->switchSearchToExact( $main, false ),
+						'escaped' => $negate . $this->switchSearchToExact( $main, true ),
+						'nonAll' => $negate . $this->switchSearchToExact( $main, false ),
 					);
 				}
 				return array( 'escaped' => $negate . $main );
@@ -645,11 +632,11 @@ GROOVY;
 		// prevents prefix matches from getting confused by stemming.  Users really don't expect stemming
 		// in prefix queries.
 		$query = self::replaceAllPartsOfQuery( $query, '/\w+\*(?:\w*\*?)*/u',
-			function ( $matches ) use ( $searcher, $escaper ) {
-				$term = $escaper->fixupQueryStringPart( $matches[ 0 ][ 0 ] );
+			function ( $matches ) {
+				$term = $this->escaper->fixupQueryStringPart( $matches[ 0 ][ 0 ] );
 				return array(
-					'escaped' => $searcher->switchSearchToExactForWildcards( $term ),
-					'nonAll' => $searcher->switchSearchToExactForWildcards( $term )
+						'escaped' => $this->switchSearchToExactForWildcards( $term ),
+					'nonAll' => $this->switchSearchToExactForWildcards( $term )
 				);
 			} );
 
@@ -681,13 +668,13 @@ GROOVY;
 
 		// Actual text query
 		list( $queryStringQueryString, $this->fuzzyQuery ) =
-			$escaper->fixupWholeQueryString( implode( ' ', $escapedQuery ) );
+			$this->escaper->fixupWholeQueryString( implode( ' ', $escapedQuery ) );
 		// Note that no escaping is required for near_match's match query.
 		$nearMatchQuery = implode( ' ', $nearMatchQuery );
 		if ( $queryStringQueryString !== '' ) {
 			if ( preg_match( '/(?<!\\\\)[?*+~"!|-]|AND|OR|NOT/', $queryStringQueryString ) ) {
-				$this->searchContainedSyntax = true;
-				// We're unlikey to make good suggestions for query string with special syntax in them....
+				$this->searchContext->setSearchContainedSyntax( true );
+				// We're unlikely to make good suggestions for query string with special syntax in them....
 				$showSuggestion = false;
 			}
 			$fields = array_merge(
@@ -698,14 +685,14 @@ GROOVY;
 			$this->query = $this->buildSearchTextQuery( $fields, $nearMatchFields,
 				$queryStringQueryString, $nearMatchQuery );
 
-			// The highlighter doesn't know about the weightinging from the all fields so we have to send
+			// The highlighter doesn't know about the weighting from the all fields so we have to send
 			// it a query without the all fields.  This swaps one in.
 			if ( $this->config->getElement( 'CirrusSearchAllFields', 'use' ) ) {
 				$nonAllFields = array_merge(
 					$this->buildFullTextSearchFields( 1, '.plain', false ),
 					$this->buildFullTextSearchFields( $this->config->get( 'CirrusSearchStemmedWeight' ), '', false ) );
-				list( $nonAllQueryString, /*_*/ ) = $escaper->fixupWholeQueryString( implode( ' ', $nonAllQuery ) );
-				$this->highlightQuery = $this->buildSearchTextQueryForFields( $nonAllFields, $nonAllQueryString, 1, false );
+				list( $nonAllQueryString, /*_*/ ) = $this->escaper->fixupWholeQueryString( implode( ' ', $nonAllQuery ) );
+				$this->highlightQuery = $this->buildSearchTextQueryForFields( $nonAllFields, $nonAllQueryString, 1, false, true );
 			} else {
 				$nonAllFields = $fields;
 			}
@@ -714,9 +701,9 @@ GROOVY;
 			// Queries without spaces are either single term or have a phrase query generated.
 			// Queries with the quote already contain a phrase query and we can't build phrase queries
 			// out of phrase queries at this point.
-			if ( $this->config->get( 'CirrusSearchPhraseRescoreBoost' ) > 1.0 &&
+			if ( $this->config->get( 'CirrusSearchPhraseRescoreBoost' ) > 0.0 &&
 					$this->config->get( 'CirrusSearchPhraseRescoreWindowSize' ) &&
-					!$this->searchContainedSyntax &&
+					!$this->searchContext->isSearchContainedSyntax() &&
 					strpos( $queryStringQueryString, '"' ) === false &&
 					strpos( $queryStringQueryString, ' ' ) !== false ) {
 
@@ -771,251 +758,6 @@ GROOVY;
 	}
 
 	/**
-	 * Produce a set of completion suggestions for text using _suggest
-	 * See https://www.elastic.co/guide/en/elasticsearch/reference/1.6/search-suggesters-completion.html
-	 *
-	 * WARNING: experimental API
-	 *
-	 * @param string $text Search term
-	 * @return Status
-	 */
-	public function suggest( $text, $context = null ) {
-		$this->term = $text;
-
-		$suggest = array( 'text' => $text );
-		$queryLen = mb_strlen( trim( $text ) ); // Avoid cheating with spaces
-		$profile = $this->config->get( 'CirrusSearchCompletionSettings' );
-
-		if ( $context != null && isset( $context['geo']['lat'] ) && isset( $context['geo']['lon'] )
-			&& is_numeric( $context['geo']['lat'] ) && is_numeric( $context['geo']['lon'] )
-		) {
-			$profile = $this->prepareGeoContextSuggestProfile( $context );
-			$description = "geo suggest query for {query}";
-		}
-
-		foreach ( $profile as $name => $config ) {
-			if ( $config['min_query_len'] > $queryLen ) {
-				continue;
-			}
-			if ( isset( $config['max_query_len'] ) && $queryLen > $config['max_query_len'] ) {
-				continue;
-			}
-			$field = $config['field'];
-			$suggest[$name] = array(
-				'completion' => array(
-					'field' => $field,
-					'size' => $this->limit * $config['fetch_limit_factor']
-				)
-			);
-			if ( isset( $config['fuzzy'] ) ) {
-				$suggest[$name]['completion']['fuzzy'] = $config['fuzzy'];
-			}
-			if ( isset( $config['context'] ) ) {
-				$suggest[$name]['completion']['context'] = $config['context'];
-			}
-		}
-
-		$queryOptions = array();
-		$queryOptions[ 'timeout' ] = $this->config->getElement( 'CirrusSearchSearchShardTimeout', 'default' );
-		$this->connection->setTimeout( $queryOptions[ 'timeout' ] );
-
-		$index = $this->connection->getIndex( $this->indexBaseName, Connection::TITLE_SUGGEST_TYPE );
-		$logContext = array(
-			'query' => $text,
-			'queryType' => 'comp_suggest'
-		);
-		$searcher = $this;
-		$limit = $this->limit;
-		$result = Util::doPoolCounterWork(
-			'CirrusSearch-Search',
-			$this->user,
-			function() use( $searcher, $index, $suggest, $logContext, $queryOptions,
-					$profile, $text , $limit ) {
-				$description = "{queryType} search for '{query}'";
-				$searcher->start( $description, $logContext );
-				try {
-					$result = $index->request( "_suggest", Request::POST, $suggest, $queryOptions );
-					if( $result->isOk() ) {
-						$result = $searcher->postProcessSuggest( $text, $result,
-							$profile, $limit );
-						return $searcher->success( $result );
-					}
-					return $result;
-				} catch ( \Elastica\Exception\ExceptionInterface $e ) {
-					return $searcher->failure( $e );
-				}
-			}
-		);
-		return $result;
-	}
-
-	/**
-	 * prepare the list of suggest requests used for geo context suggestions
-	 * This method will merge $this->config->get( 'CirrusSearchCompletionSettings and
-	 * $this->config->get( 'CirrusSearchCompletionGeoContextSettings
-	 * @param array $context user's geo context
-	 * @return array of suggest request profiles
-	 */
-	private function prepareGeoContextSuggestProfile( $context ) {
-		$profiles = array();
-		foreach ( $this->config->get( 'CirrusSearchCompletionGeoContextSettings' ) as $geoname => $geoprof ) {
-			foreach ( $this->config->get( 'CirrusSearchCompletionSettings' ) as $sugname => $sugprof ) {
-				if ( !in_array( $sugname, $geoprof['with'] ) ) {
-					continue;
-				}
-				$profile = $sugprof;
-				$profile['field'] .= $geoprof['field_suffix'];
-				$profile['discount'] *= $geoprof['discount'];
-				$profile['context'] = array(
-					'location' => array(
-						'lat' => $context['geo']['lat'],
-						'lon' => $context['geo']['lon'],
-						'precision' => $geoprof['precision']
-					)
-				);
-				$profiles["$sugname-$geoname"] = $profile;
-			}
-		}
-		return $profiles;
-	}
-
-	/**
-	 * merge top level multi-queries and resolve returned pageIds into Title objects.
-	 *
-	 * WARNING: experimental API
-	 *
-	 * @param string $query the user query
-	 * @param \Elastica\Response $response Response from elasticsearch _suggest api
-	 * @param array $profile the suggestion profile
-	 * @param int $limit Maximum suggestions to return, -1 for unlimited
-	 * @return Title[] List of suggested titles
-	 */
-	protected function postProcessSuggest( $query, \Elastica\Response $response, $profile, $limit = -1 ) {
-		$this->logContext['elasticTookMs'] = intval( $response->getQueryTime() * 1000 );
-		$data = $response->getData();
-		unset( $data['_shards'] );
-
-		$suggestions = array();
-		foreach ( $data as $name => $results  ) {
-			$discount = $profile[$name]['discount'];
-			foreach ( $results  as $suggested ) {
-				foreach ( $suggested['options'] as $suggest ) {
-					$output = explode( ':', $suggest['text'], 3 );
-					if ( sizeof ( $output ) < 2 ) {
-						// Ignore broken output
-						continue;
-					}
-					$pageId = $output[0];
-					$type = $output[1];
-
-					$score = $discount * $suggest['score'];
-					if ( !isset( $suggestions[$pageId] ) ||
-						$score > $suggestions[$pageId]['score']
-					) {
-						$suggestion = array(
-							'score' => $score,
-							'pageId' => $pageId
-						);
-						// If it's a title suggestion we have the text
-						if ( $type === 't' && sizeof( $output ) == 3 ) {
-								$suggestion['text'] = $output[2];
-						}
-						$suggestions[$pageId] = $suggestion;
-					}
-				}
-			}
-		}
-
-		// simply sort by existing scores
-		uasort( $suggestions, function ( $a, $b ) {
-			return $b['score'] - $a['score'];
-		} );
-
-		$this->logContext['hitsTotal'] = count( $suggestions );
-
-		if ( $limit > 0 ) {
-			$suggestions = array_slice( $suggestions, 0, $limit, true );
-		}
-
-		$this->logContext['hitsReturned'] = count( $suggestions );
-		$this->logContext['hitsOffset'] = 0;
-
-		// we must fetch redirect data for redirect suggestions
-		$missingText = array();
-		foreach ( $suggestions as $id => $suggestion ) {
-			if ( !isset( $suggestion['text'] ) ) {
-				$missingText[] = $id;
-			}
-		}
-
-		if ( !empty ( $missingText ) ) {
-			// Experimental.
-			//
-			// Second pass query to fetch redirects.
-			// It's not clear if it's the best option, this will slowdown the whole query
-			// when we hit a redirect suggestion.
-			// Other option would be to encode redirects as a payload resulting in a
-			// very big index...
-
-			// XXX: we support only the content index
-			$type = $this->connection->getPageType( $this->indexBaseName, Connection::CONTENT_INDEX_TYPE );
-			// NOTE: we are already in a poolCounterWork
-			// Multi get is not supported by elastica
-			$redirResponse = null;
-			try {
-				$redirResponse = $type->request( '_mget', 'GET',
-					array( 'ids' => $missingText ),
-					array( '_source_include' => 'redirect' ) );
-				if ( $redirResponse->isOk() ) {
-					$this->logContext['elasticTook2PassMs'] = intval( $redirResponse->getQueryTime() * 1000 );
-					$docs = $redirResponse->getData();
-					$docs = $docs['docs'];
-					foreach ( $docs as $doc ) {
-						$id = $doc['_id'];
-						if ( !isset( $doc['_source']['redirect'] )
-							|| empty( $doc['_source']['redirect'] )
-						) {
-							continue;
-						}
-						$text = Util::chooseBestRedirect( $query, $doc['_source']['redirect'] );
-						$suggestions[$id]['text'] = $text;
-					}
-				} else {
-					LoggerFactory::getInstance( 'CirrusSearch' )->warning(
-						'Unable to fetch redirects for suggestion {query} with results {ids} : {error}',
-						array( 'query' => $query,
-							'ids' => serialize( $missingText ),
-							'error' => $redirResponse->getError() ) );
-				}
-			} catch ( \Elastica\Exception\ExceptionInterface $e ) {
-				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
-					'Unable to fetch redirects for suggestion {query} with results {ids} : {error}',
-					array( 'query' => $query,
-						'ids' => serialize( $missingText ),
-						'error' => $this->extractMessage( $e ) ) );
-			}
-		}
-
-		$retval = array();
-		foreach ( $suggestions as $suggestion ) {
-			if ( !isset( $suggestion['text'] ) ) {
-				// We were unable to find a text to display
-				// Maybe a page with redirects when we built the suggester index
-				// but now without redirects?
-				continue;
-			}
-			$retval[] = array(
-				// XXX: we run the suggester for namespace 0 for now
-				'title' => Title::makeTitle( 0, $suggestion['text'] ),
-				'pageId' => $suggestion['pageId'],
-				'score' => $suggestion['score'],
-			);
-		}
-
-		return $retval;
-	}
-
-	/**
 	 * Builds a match query against $field for $title.  $title is munged to make title matching better more
 	 * intuitive for users.
 	 * @param string $field field containing the title
@@ -1037,11 +779,11 @@ GROOVY;
 	/**
 	 * Builds an or between many categories that the page could be in.
 	 * @param string[] $categories categories to match
-	 * @return \Elastica\Filter\Bool|null A null return value means all values are filtered
+	 * @return \Elastica\Filter\BoolFilter|null A null return value means all values are filtered
 	 *  and an empty result set should be returned.
 	 */
 	public function matchPageCategories( $categories ) {
-		$filter = new \Elastica\Filter\Bool();
+		$filter = new \Elastica\Filter\BoolFilter();
 		$ids = array();
 		$names = array();
 		foreach ( $categories as $category ) {
@@ -1054,7 +796,7 @@ GROOVY;
 				$names[] = $category;
 			}
 		}
-		foreach ( Title::newFromIds( $ids ) as $title ) {
+		foreach ( Title::newFromIDs( $ids ) as $title ) {
 			$names[] = $title->getText();
 		}
 		if ( !$names ) {
@@ -1072,9 +814,10 @@ GROOVY;
 	 * @param int $options bitset of options:
 	 *  MORE_LIKE_THESE_NONE
 	 *  MORE_LIKE_THESE_ONLY_WIKIBASE - filter results to only those containing wikibase items
-	 * @return Status(ResultSet)
+	 * @return Status<ResultSet>
 	 */
 	public function moreLikeTheseArticles( array $titles, $options = Searcher::MORE_LIKE_THESE_NONE ) {
+		sort( $titles, SORT_STRING );
 		$pageIds = array();
 		foreach ( $titles as $title ) {
 			$pageIds[] = $title->getArticleID();
@@ -1087,9 +830,18 @@ GROOVY;
 			return Status::newGood( new SearchResultSet( true ) /* empty */ );
 		}
 
-		$this->searchContainedSyntax = true;
+		// more like this queries are quite expensive and are suspected to be
+		// triggering latency spikes. This allows redirecting more like this
+		// queries to a different cluster
+		$cluster = $this->config->get( 'CirrusSearchMoreLikeThisCluster' );
+		if ( $cluster ) {
+			$this->connection = Connection::getPool( $this->config, $cluster );
+		}
+
+		$this->searchContext->setSearchContainedSyntax( true );
 		$moreLikeThisFields = $this->config->get( 'CirrusSearchMoreLikeThisFields' );
 		$moreLikeThisUseFields = $this->config->get( 'CirrusSearchMoreLikeThisUseFields' );
+		sort( $moreLikeThisFields );
 		$this->query = new \Elastica\Query\MoreLikeThis();
 		$this->query->setParams( $this->config->get( 'CirrusSearchMoreLikeThisConfig' ) );
 		$this->query->setFields( $moreLikeThisFields );
@@ -1105,7 +857,7 @@ GROOVY;
 			// against other fields.
 			$text = array();
 			$found = $this->get( $pageIds, array( 'text' ) );
-			if ( !$found->isOk() ) {
+			if ( !$found->isOK() ) {
 				return $found;
 			}
 			$found = $found->getValue();
@@ -1116,6 +868,7 @@ GROOVY;
 			foreach ( $found as $foundArticle ) {
 				$text[] = $foundArticle->text;
 			}
+			sort( $text, SORT_STRING );
 			$this->query->setLikeText( implode( ' ', $text ) );
 		}
 
@@ -1126,7 +879,15 @@ GROOVY;
 			$this->filters[] = new \Elastica\Filter\Exists( 'wikibase_item' );
 		}
 
-		return $this->search( 'more_like', implode( ', ', $titles ) );
+		// highlight snippets are not great so it's worth running a match all query
+		// to save cpu cycles
+		$this->highlightQuery = new \Elastica\Query\MatchAll();
+
+		return $this->search(
+			'more_like',
+			implode( ', ', $titles ),
+			$this->config->get( 'CirrusSearchMoreLikeThisTTL' )
+		);
 	}
 
 	/**
@@ -1139,58 +900,59 @@ GROOVY;
 	 */
 	public function get( array $pageIds, $sourceFiltering ) {
 		$indexType = $this->pickIndexTypeFromNamespaces();
-		$searcher = $this;
-		$indexBaseName = $this->indexBaseName;
-		$conn = $this->connection;
 		return Util::doPoolCounterWork(
 			'CirrusSearch-Search',
 			$this->user,
-			function() use ( $searcher, $pageIds, $sourceFiltering, $indexType, $indexBaseName, $conn ) {
+			function() use ( $pageIds, $sourceFiltering, $indexType ) {
 				try {
-					$searcher->start( "get of {indexType}.{pageIds}", array(
+					$this->start( "get of {indexType}.{pageIds}", array(
 						'indexType' => $indexType,
 						'pageIds' => array_map( 'intval', $pageIds ),
+						'queryType' => 'get',
 					) );
 					// Shard timeout not supported on get requests so we just use the client side timeout
-					$conn->setTimeout( $this->config->getElement( 'CirrusSearchClientSideSearchTimeout', 'default' ) );
-					$pageType = $conn->getPageType( $indexBaseName, $indexType );
+					$this->connection->setTimeout( $this->config->getElement( 'CirrusSearchClientSideSearchTimeout', 'default' ) );
+					$pageType = $this->connection->getPageType( $this->indexBaseName, $indexType );
 					$query = new \Elastica\Query( new \Elastica\Query\Ids( null, $pageIds ) );
 					$query->setParam( '_source', $sourceFiltering );
 					$query->addParam( 'stats', 'get' );
 					$resultSet = $pageType->search( $query, array( 'search_type' => 'query_and_fetch' ) );
-					return $searcher->success( $resultSet->getResults() );
+					return $this->success( $resultSet->getResults() );
 				} catch ( \Elastica\Exception\NotFoundException $e ) {
 					// NotFoundException just means the field didn't exist.
 					// It is up to the caller to decide if that is an error.
-					return $searcher->success( array() );
+					return $this->success( array() );
 				} catch ( \Elastica\Exception\ExceptionInterface $e ) {
-					return $searcher->failure( $e );
+					return $this->failure( $e );
 				}
 			});
 	}
 
+	/**
+	 * @param string $name
+	 * @return Status
+	 */
 	public function findNamespace( $name ) {
-		$searcher = $this;
-		$indexBaseName = $this->indexBaseName;
-		$conn = $this->connection;
 		return Util::doPoolCounterWork(
 			'CirrusSearch-NamespaceLookup',
 			$this->user,
-			function() use ( $searcher, $name, $indexBaseName, $conn ) {
+			function() use ( $name ) {
 				try {
-					$searcher->start( "lookup namespace for {namespaceName}", array(
+					$this->start( "lookup namespace for {namespaceName}", array(
 						'namespaceName' => $name,
+						'query' => $name,
+						'queryType' => 'namespace',
 					) );
-					$pageType = $conn->getNamespaceType( $indexBaseName );
+					$pageType = $this->connection->getNamespaceType( $this->indexBaseName );
 					$match = new \Elastica\Query\Match();
 					$match->setField( 'name', $name );
 					$query = new \Elastica\Query( $match );
 					$query->setParam( '_source', false );
 					$query->addParam( 'stats', 'namespace' );
 					$resultSet = $pageType->search( $query, array( 'search_type' => 'query_and_fetch' ) );
-					return $searcher->success( $resultSet->getResults() );
+					return $this->success( $resultSet->getResults() );
 				} catch ( \Elastica\Exception\ExceptionInterface $e ) {
-					return $searcher->failure( $e );
+					return $this->failure( $e );
 				}
 			});
 	}
@@ -1200,18 +962,16 @@ GROOVY;
 	 * @param callable $callback
 	 */
 	private function extractSpecialSyntaxFromTerm( $regex, $callback ) {
-		$suggestPrefixes = $this->suggestPrefixes;
 		$this->term = preg_replace_callback( $regex,
-			function ( $matches ) use ( $callback, &$suggestPrefixes ) {
+			function ( $matches ) use ( $callback ) {
 				$result = $callback( $matches );
 				if ( $result === '' ) {
-					$suggestPrefixes[] = $matches[ 0 ];
+					$this->suggestPrefixes[] = $matches[ 0 ];
 				}
 				return $result;
 			},
 			$this->term
 		);
-		$this->suggestPrefixes = $suggestPrefixes;
 	}
 
 	/**
@@ -1266,11 +1026,12 @@ GROOVY;
 	 *
 	 * @param string $type
 	 * @param string $for
-	 * @return Status(mixed) results from the query transformed by the resultsType
+	 * @param int $cacheTTL Cache results into ObjectCache for $cacheTTL seconds
+	 * @return Status results from the query transformed by the resultsType
 	 */
-	private function search( $type, $for ) {
+	private function search( $type, $for, $cacheTTL = 0 ) {
 		if ( $this->nonTextQueries ) {
-			$bool = new \Elastica\Query\Bool();
+			$bool = new \Elastica\Query\BoolQuery();
 			if ( $this->query !== null ) {
 				$bool->addMust( $this->query );
 			}
@@ -1294,10 +1055,11 @@ GROOVY;
 
 		$extraIndexes = array();
 		$indexType = $this->pickIndexTypeFromNamespaces();
-		if ( $this->namespaces ) {
+		$namespaces = $this->getNamespaces();
+		if ( $namespaces ) {
 			$extraIndexes = $this->getAndFilterExtraIndexes();
 			if ( $this->needNsFilter( $extraIndexes, $indexType ) ) {
-				$this->filters[] = new \Elastica\Filter\Terms( 'namespace', $this->namespaces );
+				$this->filters[] = new \Elastica\Filter\Terms( 'namespace', $namespaces );
 			}
 		}
 
@@ -1309,7 +1071,7 @@ GROOVY;
 
 		// Call installBoosts right after we're done munging the query to include filters
 		// so any rescores installBoosts adds to the query are done against filtered results.
-		$this->installBoosts();
+		$this->installBoosts( $type );
 
 		$query->setQuery( $this->query );
 
@@ -1326,7 +1088,7 @@ GROOVY;
 			if ( !empty( $this->nonTextHighlightQueries ) ) {
 				// We have some phrase_prefix queries, so let's include them in the
 				// generated highlight_query.
-				$bool = new \Elastica\Query\Bool();
+				$bool = new \Elastica\Query\BoolQuery();
 				if ( $this->highlightQuery ) {
 					$bool->addShould( $this->highlightQuery );
 				}
@@ -1341,7 +1103,16 @@ GROOVY;
 			$query->setHighlight( $highlight );
 		}
 		if ( $this->suggest ) {
-			$query->setParam( 'suggest', $this->suggest );
+			if ( interface_exists( 'Elastica\\ArrayableInterface' ) ) {
+				// Elastica 2.3.x.  For some reason it unwraps our suggest
+				// query when we don't want it to, so wrap it one more time
+				// to make the unwrap do nothing.
+				$query->setParam( 'suggest', array(
+					'suggest' => $this->suggest,
+				) );
+			} else {
+				$query->setParam( 'suggest', $this->suggest );
+			}
 			$query->addParam( 'stats', 'suggest' );
 		}
 		if( $this->offset ) {
@@ -1427,6 +1198,11 @@ GROOVY;
 		$logContext = array(
 			'queryType' => $type,
 			'query' => $for,
+			'limit' => $this->limit ?: null,
+			// null means not requested, '' means not found. If found
+			// parent::buildLogContext will replace the '' with an
+			// actual suggestion.
+			'suggestion' => $this->suggest ? '' : null,
 		);
 
 		if ( $this->returnQuery ) {
@@ -1439,21 +1215,46 @@ GROOVY;
 			) );
 		}
 
+		if ( $this->returnExplain ) {
+			$query->setExplain( true );
+		}
+		if ( $this->returnResult || $this->returnExplain ) {
+			// don't cache debugging queries
+			$cacheTTL = 0;
+		}
+
+		$requestStats = \RequestContext::getMain()->getStats();
+		if ( $cacheTTL > 0 ) {
+			$cache = ObjectCache::getLocalClusterInstance();
+			$key = $cache->makeKey( 'cirrussearch', 'search', md5(
+				$search->getPath() .
+				serialize( $search->getOptions() ) .
+				serialize( $query->toArray() ) .
+				serialize( $this->resultsType )
+			) );
+			$cacheResult = $cache->get( $key );
+			if ( $cacheResult ) {
+				$requestStats->increment("CirrusSearch.query_cache.$type.hit");
+				$this->successViaCache( $description, $logContext );
+				return $cacheResult;
+			} else {
+				$requestStats->increment("CirrusSearch.query_cache.$type.miss");
+			}
+		}
+
 		// Perform the search
-		$searcher = $this;
-		$user = $this->user;
 		$result = Util::doPoolCounterWork(
 			$poolCounterType,
 			$this->user,
-			function() use ( $searcher, $search, $description, $logContext ) {
+			function() use ( $search, $description, $logContext ) {
 				try {
-					$searcher->start( $description, $logContext );
-					return $searcher->success( $search->search() );
+					$this->start( $description, $logContext );
+					return $this->success( $search->search() );
 				} catch ( \Elastica\Exception\ExceptionInterface $e ) {
-					return $searcher->failure( $e );
+					return $this->failure( $e );
 				}
 			},
-			function( $error, $key, $userName ) use ( $type, $description, $user, $logContext ) {
+			function( $error, $key, $userName ) use ( $type, $description, $logContext ) {
 				$forUserName = $userName ? "for {userName} " : '';
 				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
 					"Pool error {$forUserName}on key {key} during $description:  {error}",
@@ -1466,7 +1267,7 @@ GROOVY;
 
 				if ( $error === 'pool-queuefull' ) {
 					if ( strpos( $key, 'nowait:CirrusSearch:_per_user' ) === 0 ) {
-						$loggedIn = $user->isLoggedIn() ? 'logged-in' : 'anonymous';
+						$loggedIn = $this->user->isLoggedIn() ? 'logged-in' : 'anonymous';
 						return Status::newFatal( "cirrussearch-too-busy-for-you-{$loggedIn}-error" );
 					}
 					if ( $type === 'regex' ) {
@@ -1488,8 +1289,10 @@ GROOVY;
 			}
 
 			$result->setResult( true, $this->resultsType->transformElasticsearchResult( $this->suggestPrefixes,
-				$this->suggestSuffixes, $result->getValue(), $this->searchContainedSyntax ) );
+				$this->suggestSuffixes, $result->getValue(), $this->searchContext->isSearchContainedSyntax() ) );
+			$isPartialResult = false;
 			if ( isset( $responseData['timed_out'] ) && $responseData[ 'timed_out' ] ) {
+				$isPartialResult = true;
 				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
 					"$description timed out and only returned partial results!",
 					$logContext
@@ -1500,7 +1303,13 @@ GROOVY;
 					$result->warning( 'cirrussearch-timed-out' );
 				}
 			}
+
+			if ( $cacheTTL > 0 && !$isPartialResult ) {
+				$requestStats->increment("CirrusSearch.query_cache.$type.set");
+				$cache->set( $key, $result, $cacheTTL );
+			}
 		}
+
 
 		return $result;
 	}
@@ -1509,7 +1318,7 @@ GROOVY;
 	 * @return int[]|null
 	 */
 	public function getNamespaces() {
-		return $this->namespaces;
+		return $this->searchContext->getNamespaces();
 	}
 
 	/**
@@ -1522,7 +1331,7 @@ GROOVY;
 			// We're reaching into another wiki's indexes and we don't know what is there so be defensive.
 			return true;
 		}
-		$nsCount = count( $this->namespaces );
+		$nsCount = count( $this->getNamespaces() );
 		$validNsCount = count( MWNamespace::getValidNamespaces() );
 		if ( $nsCount === $validNsCount ) {
 			// We're only on our wiki and we're searching _everything_.
@@ -1541,7 +1350,7 @@ GROOVY;
 	 * @param string[] $nearMatchFields
 	 * @param string $queryString
 	 * @param string $nearMatchQuery
-	 * @return \Elastica\Query\Simple|\Elastica\Query\Bool
+	 * @return \Elastica\Query\Simple|\Elastica\Query\BoolQuery
 	 */
 	private function buildSearchTextQuery( array $fields, array $nearMatchFields, $queryString, $nearMatchQuery ) {
 		$queryForMostFields = $this->buildSearchTextQueryForFields( $fields, $queryString,
@@ -1549,7 +1358,7 @@ GROOVY;
 		if ( $nearMatchQuery ) {
 			// Build one query for the full text fields and one for the near match fields so that
 			// the near match can run unescaped.
-			$bool = new \Elastica\Query\Bool();
+			$bool = new \Elastica\Query\BoolQuery();
 			$bool->setMinimumNumberShouldMatch( 1 );
 			$bool->addShould( $queryForMostFields );
 			$nearMatch = new \Elastica\Query\MultiMatch();
@@ -1562,50 +1371,29 @@ GROOVY;
 	}
 
 	/**
+	 * @todo: refactor as we may want to implement many different way to build
+	 *        the main query.
 	 * @param string[] $fields
 	 * @param string $queryString
 	 * @param int $phraseSlop
-	 * @param boolean $isRescore
+	 * @param bool $isRescore
+	 * @param bool $forHighlight
 	 * @return \Elastica\Query\Simple
 	 */
-	private function buildSearchTextQueryForFields( array $fields, $queryString, $phraseSlop, $isRescore ) {
-		$query = new \Elastica\Query\QueryString( $queryString );
-		$query->setFields( $fields );
-		$query->setAutoGeneratePhraseQueries( true );
-		$query->setPhraseSlop( $phraseSlop );
-		$query->setDefaultOperator( 'AND' );
-		$query->setAllowLeadingWildcard( $this->config->get( 'CirrusSearchAllowLeadingWildcard' ) );
-		$query->setFuzzyPrefixLength( 2 );
-		$query->setRewrite( 'top_terms_boost_1024' );
-
-		$states = $this->config->get( 'CirrusSearchQueryStringMaxDeterminizedStates' );
-		if ( isset( $states ) ) {
-			// Requires ES 1.4+
-			$query->setParam( 'max_determinized_states', $states );
+	private function buildSearchTextQueryForFields( array $fields, $queryString, $phraseSlop, $isRescore, $forHighlight = false ) {
+		$searchTextQueryBuilder = $this->searchContext->searchTextQueryBuilder( $queryString );
+		if ( $isRescore ) {
+			return $searchTextQueryBuilder->buildRescoreQuery( $fields, $queryString, $phraseSlop );
+		} else if( $forHighlight ) {
+			return $searchTextQueryBuilder->buildHighlightQuery( $fields, $queryString, $phraseSlop );
+		} else {
+			return $searchTextQueryBuilder->buildMainQuery( $fields, $queryString, $phraseSlop );
 		}
-
-		return $this->wrapInSaferIfPossible( $query, $isRescore );
-	}
-
-	/**
-	 * @param string $query
-	 * @param boolean $isRescore
-	 * @return \Elastica\Query\Simple
-	 */
-	public function wrapInSaferIfPossible( $query, $isRescore ) {
-		$saferQuery = $this->config->getElement( 'CirrusSearchWikimediaExtraPlugin', 'safer' );
-		if ( is_null($saferQuery) ) {
-			return $query;
-		}
-		$saferQuery[ 'query' ] = $query->toArray();
-		$tooLargeAction = $isRescore ? 'convert_to_match_all_query' : 'convert_to_term_queries';
-		$saferQuery[ 'phrase' ][ 'phrase_too_large_action' ] = 'convert_to_term_queries';
-		return new \Elastica\Query\Simple( array( 'safer' => $saferQuery ) );
 	}
 
 	/**
 	 * Build suggest config for $field.
-	 * @param $field string field to suggest against
+	 * @param string $field field to suggest against
 	 * @return array[] array of Elastica configuration
 	 */
 	private function buildSuggestConfig( $field ) {
@@ -1678,7 +1466,7 @@ GROOVY;
 	/**
 	 * Expand wildcard queries to the all.plain and title.plain fields if
 	 * wgCirrusSearchAllFields[ 'use' ] is set to true. Fallback to all
-	 * the possible fields otherwize. This prevents applying and compiling
+	 * the possible fields otherwise. This prevents applying and compiling
 	 * costly wildcard queries too many times.
 	 * @param string $term
 	 * @return string
@@ -1702,7 +1490,7 @@ GROOVY;
 	/**
 	 * Build fields searched by full text search.
 	 * @param float $weight weight to multiply by all fields
-	 * @param string $fieldSuffix suffux to add to field names
+	 * @param string $fieldSuffix suffix to add to field names
 	 * @param boolean $allFieldAllowed can we use the all field?  False for
 	 *    collecting phrases for the highlighter.
 	 * @return string[] array of fields to query
@@ -1710,7 +1498,7 @@ GROOVY;
 	public function buildFullTextSearchFields( $weight, $fieldSuffix, $allFieldAllowed ) {
 		if ( $this->config->getElement( 'CirrusSearchAllFields', 'use' ) && $allFieldAllowed ) {
 			if ( $fieldSuffix === '.near_match' ) {
-				// The near match fields can't shard a root field because field fields nead it -
+				// The near match fields can't shard a root field because field fields need it -
 				// thus no suffix all.
 				return array( "all_near_match^${weight}" );
 			}
@@ -1739,7 +1527,8 @@ GROOVY;
 		$fields[] = "opening_text${fieldSuffix}^${openingTextWeight}";
 		$fields[] = "text${fieldSuffix}^${textWeight}";
 		$fields[] = "auxiliary_text${fieldSuffix}^${auxiliaryTextWeight}";
-		if ( !$this->namespaces || in_array( NS_FILE, $this->namespaces ) ) {
+		$namespaces = $this->getNamespaces();
+		if ( !$namespaces || in_array( NS_FILE, $namespaces ) ) {
 			$fileTextWeight = $weight * $searchWeights[ 'file_text' ];
 			$fields[] = "file_text${fieldSuffix}^${fileTextWeight}";
 		}
@@ -1751,12 +1540,13 @@ GROOVY;
 	 * @return string|false either an index type or false to use all index types
 	 */
 	private function pickIndexTypeFromNamespaces() {
-		if ( !$this->namespaces ) {
+		$namespaces = $this->getNamespaces();
+		if ( !$namespaces ) {
 			return false; // False selects all index types
 		}
 
 		$indexTypes = array();
-		foreach ( $this->namespaces as $namespace ) {
+		foreach ( $namespaces as $namespace ) {
 			$indexTypes[] =
 				$this->connection->getIndexSuffixForNamespace( $namespace );
 		}
@@ -1775,7 +1565,7 @@ GROOVY;
 		if ( $this->limitSearchToLocalWiki ) {
 			return array();
 		}
-		$extraIndexes = OtherIndexes::getExtraIndexesForNamespaces( $this->namespaces );
+		$extraIndexes = OtherIndexes::getExtraIndexesForNamespaces( $this->getNamespaces() );
 		if ( $extraIndexes ) {
 			$this->notFilters[] = new \Elastica\Filter\Term(
 				array( 'local_sites_with_dupe' => $this->indexBaseName ) );
@@ -1785,196 +1575,25 @@ GROOVY;
 
 	/**
 	 * If there is any boosting to be done munge the the current query to get it right.
+	 *
+	 * @param string $type
 	 */
-	private function installBoosts() {
-		// Quick note:  At the moment ".isEmpty()" is _much_ faster then ".empty".  Never
-		// use ".empty".  See https://github.com/elasticsearch/elasticsearch/issues/5086
-
+	private function installBoosts( $type ) {
 		if ( $this->sort !== 'relevance' ) {
 			// Boosts are irrelevant if you aren't sorting by, well, relevance
 			return;
 		}
 
-		$functionScore = new \Elastica\Query\FunctionScore();
-		$useFunctionScore = false;
-
-		// Customize score by boosting based on incoming links count
-		if ( $this->boostLinks ) {
-			$useFunctionScore = true;
-			if ( $this->config->getElement( 'CirrusSearchWikimediaExtraPlugin', 'field_value_factor_with_default' ) ) {
-				$functionScore->addFunction( 'field_value_factor_with_default', array(
-					'field' => 'incoming_links',
-					'modifier' => 'log2p',
-					'missing' => 0,
-				) );
-			} else {
-				$scoreBoostExpression = "log10(doc['incoming_links'].value + 2)";
-				$functionScore->addScriptScoreFunction( new \Elastica\Script( $scoreBoostExpression, null, 'expression' ) );
-			}
+		$profile = $this->config->get( 'CirrusSearchRescoreProfile' );
+		if ( $type === 'prefix' ) {
+			$profile = $this->config->get( 'CirrusSearchPrefixSearchRescoreProfile' );
+		} else if( $type == 'more_like' ) {
+			$profile = $this->config->get( 'CirrusSearchMoreLikeRescoreProfile' );
 		}
-
-		// Customize score by decaying a portion by time since last update
-		if ( $this->preferRecentDecayPortion > 0 && $this->preferRecentHalfLife > 0 ) {
-			// Convert half life for time in days to decay constant for time in milliseconds.
-			$decayConstant = log( 2 ) / $this->preferRecentHalfLife / 86400000;
-			$parameters = array(
-				'decayConstant' => $decayConstant,
-				'decayPortion' => $this->preferRecentDecayPortion,
-				'nonDecayPortion' => 1 - $this->preferRecentDecayPortion,
-				'now' => time() * 1000
-			);
-
-			// e^ct where t is last modified time - now which is negative
-			$exponentialDecayExpression = "exp(decayConstant * (doc['timestamp'].value - now))";
-			if ( $this->preferRecentDecayPortion !== 1.0 ) {
-				$exponentialDecayExpression = "$exponentialDecayExpression * decayPortion + nonDecayPortion";
-			}
-			$functionScore->addScriptScoreFunction( new \Elastica\Script( $exponentialDecayExpression,
-				$parameters, 'expression' ) );
-			$useFunctionScore = true;
-		}
-
-		// Add boosts for pages that contain certain templates
-		if ( $this->boostTemplates ) {
-			foreach ( $this->boostTemplates as $name => $boost ) {
-				$match = new \Elastica\Query\Match();
-				$match->setFieldQuery( 'template', $name );
-				$filterQuery = new \Elastica\Filter\Query( $match );
-				$filterQuery->setCached( true );
-				$functionScore->addBoostFactorFunction( $boost, $filterQuery );
-			}
-			$useFunctionScore = true;
-		}
-
-		// Add boosts for namespaces
-		$namespacesToBoost = $this->namespaces ?: MWNamespace::getValidNamespaces();
-		if ( $namespacesToBoost ) {
-			// Group common weights together and build a single filter per weight
-			// to save on filters.
-			$weightToNs = array();
-			foreach ( $namespacesToBoost as $ns ) {
-				$weight = $this->getBoostForNamespace( $ns );
-				$weightToNs[ (string)$weight ][] = $ns;
-			}
-			if ( count( $weightToNs ) > 1 ) {
-				unset( $weightToNs[ '1' ] );  // That'd be redundant.
-				foreach ( $weightToNs as $weight => $namespaces ) {
-					$filter = new \Elastica\Filter\Terms( 'namespace', $namespaces );
-					$functionScore->addBoostFactorFunction( $weight, $filter );
-					$useFunctionScore = true;
-				}
-			}
-		}
-
-		// Boost pages in a user's language
-		$userLang = $this->config->getUserLanguage();
-		$userWeight = $this->config->getElement( 'CirrusSearchLanguageWeight', 'user' );
-		if ( $userWeight ) {
-			$functionScore->addBoostFactorFunction(
-				$userWeight,
-				new \Elastica\Filter\Term( array( 'language' => $userLang ) )
-			);
-			$useFunctionScore = true;
-		}
-		// And a wiki's language, if it's different
-		$wikiWeight = $this->config->getElement( 'CirrusSearchLanguageWeight', 'wiki' );
-		if ( $userLang != $this->config->get( 'LanguageCode' ) && $wikiWeight ) {
-			$functionScore->addBoostFactorFunction(
-				$wikiWeight,
-				new \Elastica\Filter\Term( array( 'language' => $this->config->get( 'LanguageCode' ) ) )
-			);
-			$useFunctionScore = true;
-		}
-
-		if ( !$useFunctionScore ) {
-			// Nothing to do
-			return;
-		}
-
-		// The function score is done as a rescore on top of everything else
-		$this->rescore[] = array(
-			'window_size' => $this->config->get( 'CirrusSearchFunctionRescoreWindowSize' ),
-			'query' => array(
-				'rescore_query' => $functionScore,
-				'query_weight' => 1.0,
-				'rescore_query_weight' => 1.0,
-				'score_mode' => 'multiply',
-			)
-		);
+		$builder = new RescoreBuilder( $this->searchContext, $profile );
+		$this->rescore = array_merge( $this->rescore, $builder->build() );
 	}
 
-	/**
-	 * @return float[]
-	 */
-	public static function getDefaultBoostTemplates() {
-		static $defaultBoostTemplates = null;
-		if ( $defaultBoostTemplates === null ) {
-			$source = wfMessage( 'cirrussearch-boost-templates' )->inContentLanguage();
-			$defaultBoostTemplates = array();
-			if( !$source->isDisabled() ) {
-				$lines = Util::parseSettingsInMessage( $source->plain() );
-				$defaultBoostTemplates = self::parseBoostTemplates(
-					implode( ' ', $lines ) );                  // Now parse the templates
-			}
-		}
-		return $defaultBoostTemplates;
-	}
-
-	/**
-	 * Parse boosted templates.  Parse failures silently return no boosted templates.
-	 * @param string $text text representation of boosted templates
-	 * @return float[] array of boosted templates.
-	 */
-	public static function parseBoostTemplates( $text ) {
-		$boostTemplates = array();
-		$templateMatches = array();
-		if ( preg_match_all( '/([^|]+)\|(\d+)% ?/', $text, $templateMatches, PREG_SET_ORDER ) ) {
-			foreach ( $templateMatches as $templateMatch ) {
-				$boostTemplates[ $templateMatch[ 1 ] ] = floatval( $templateMatch[ 2 ] ) / 100;
-			}
-		}
-		return $boostTemplates;
-	}
-
-	/**
-	 * Get the weight of a namespace.
-	 * @param int $namespace the namespace
-	 * @return float the weight of the namespace
-	 */
-	private function getBoostForNamespace( $namespace ) {
-		if ( $this->normalizedNamespaceWeights === null ) {
-			$this->normalizedNamespaceWeights = array();
-			foreach ( $this->config->get( 'CirrusSearchNamespaceWeights' ) as $ns => $weight ) {
-				if ( is_string( $ns ) ) {
-					$ns = $this->language->getNsIndex( $ns );
-					// Ignore namespaces that don't exist.
-					if ( $ns === false ) {
-						continue;
-					}
-				}
-				// Now $ns should always be an integer.
-				$this->normalizedNamespaceWeights[ $ns ] = $weight;
-			}
-		}
-
-		if ( isset( $this->normalizedNamespaceWeights[ $namespace ] ) ) {
-			return $this->normalizedNamespaceWeights[ $namespace ];
-		}
-		if ( MWNamespace::isSubject( $namespace ) ) {
-			if ( $namespace === NS_MAIN ) {
-				return 1;
-			}
-			return $this->config->get( 'CirrusSearchDefaultNamespaceWeight' );
-		}
-		$subjectNs = MWNamespace::getSubject( $namespace );
-		if ( isset( $this->normalizedNamespaceWeights[ $subjectNs ] ) ) {
-			return $this->config->get( 'CirrusSearchTalkNamespaceWeight' ) * $this->normalizedNamespaceWeights[ $subjectNs ];
-		}
-		if ( $namespace === NS_TALK ) {
-			return $this->config->get( 'CirrusSearchTalkNamespaceWeight' );
-		}
-		return $this->config->get( 'CirrusSearchDefaultNamespaceWeight' ) * $this->config->get( 'CirrusSearchTalkNamespaceWeight' );
-	}
 
 	/**
 	 * @param string $search
@@ -2016,18 +1635,18 @@ GROOVY;
 			return;
 		}
 		$namespaceName = substr( $query, 0, $colon );
-		$foundNamespace = $this->findNamespace( $namespaceName );
+		$status = $this->findNamespace( $namespaceName );
 		// Failure case is already logged so just handle success case
-		if ( !$foundNamespace->isOK() ) {
+		if ( !$status->isOK() ) {
 			return;
 		}
-		$foundNamespace = $foundNamespace->getValue();
+		$foundNamespace = $status->getValue();
 		if ( !$foundNamespace ) {
 			return;
 		}
 		$foundNamespace = $foundNamespace[ 0 ];
 		$query = substr( $query, $colon + 1 );
-		$this->namespaces = array( $foundNamespace->getId() );
+		$this->searchContext->setNamespaces( array( $foundNamespace->getId() ) );
 	}
 
 	/**
@@ -2048,41 +1667,10 @@ GROOVY;
 	}
 
 	/**
-	 * Try to detect language using langdetect plugin
-	 * See: https://github.com/jprante/elasticsearch-langdetect
-	 * @param string $text
-	 * @return string|NULL Language name or null
+	 * @return SearchContext
 	 */
-	public static function detectLanguage( $text ) {
-		$client = Connection::getClient();
-		try {
-			$response = $client->request( "_langdetect", Request::POST, $text );
-		} catch ( ResponseException $e ) {
-			// This happens when language detection is not configured
-			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
-				"Could not connect to language detector: {exception}",
-				array( "exception" => $e->getMessage() )
-			);
-			return null;
-		}
-		if ( $response->isOk() ) {
-			$value = $response->getData();
-			if ( $value && !empty( $value['languages'] ) ) {
-				$langs = $value['languages'];
-				if ( count( $langs ) == 1 ) {
-					// TODO: add minimal threshold
-					return $langs[0]['language'];
-				}
-				// FIXME: here I'm just winging it, should be something
-				// that makes sense for multiple languages
-				if ( count( $langs ) == 2) {
-					if( $langs[0]['probability'] > 2*$langs[1]['probability'] ) {
-						return $langs[0]['language'];
-					}
-				}
-			}
-		}
-		return null;
+	public function getSearchContext() {
+		return $this->searchContext;
 	}
 
 }

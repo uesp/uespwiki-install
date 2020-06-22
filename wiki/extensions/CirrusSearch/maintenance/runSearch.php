@@ -3,8 +3,9 @@
 namespace CirrusSearch\Maintenance;
 
 use CirrusSearch;
-use CirrusSearch\Searcher;
 use CirrusSearch\Search\ResultSet;
+use RequestContext;
+use SearchSuggestionSet;
 use Status;
 
 /**
@@ -35,20 +36,26 @@ require_once( __DIR__ . '/../includes/Maintenance/Maintenance.php' );
 
 class RunSearch extends Maintenance {
 
+	/**
+	 * @var string
+	 */
 	protected $indexBaseName;
 
 	public function __construct() {
 		parent::__construct();
-		$this->addDescription( 'Run one or more searches against the cluster. ' .
+		$this->addDescription( 'Run one or more searches against the specified cluster. ' .
 			'search queries are read from stdin.' );
 		$this->addOption( 'baseName', 'What basename to use for all indexes, ' .
 			'defaults to wiki id', false, true );
 		$this->addOption( 'type', 'What type of search to run, prefix, suggest or full_text. ' .
 			'defaults to full_text.', false, true );
 		$this->addOption( 'options', 'A JSON object mapping from global variable to ' .
-			'its test value' );
+			'its test value', false, true );
 		$this->addOption( 'fork', 'Fork multiple processes to run queries from.' .
 			'defaults to false.', false, true );
+		$this->addOption( 'decode', 'urldecode() queries before running them', false, false );
+		$this->addOption( 'explain', 'Include lucene explanation in the results', false, false );
+		$this->addOption( 'limit', 'Set the max number of results returned by query (defaults to 10)', false, true );
 	}
 
 	public function execute() {
@@ -62,13 +69,13 @@ class RunSearch extends Maintenance {
 		// the global request log.
 		$wgCirrusSearchLogElasticRequests = false;
 
-		$this->indexBaseName = $this->getOption( 'baseName', wfWikiId() );
+		$this->indexBaseName = $this->getOption( 'baseName', wfWikiID() );
 
 		$this->applyGlobals();
 		$callback = array( $this, 'consume' );
 		$forks = $this->getOption( 'fork', false );
 		$forks = ctype_digit( $forks ) ? intval( $forks ) : 0;
-		$controller = new StreamingForkController( $forks, $callback, STDIN, STDOUT );
+		$controller = new OrderedStreamingForkController( $forks, $callback, STDIN, STDOUT );
 		$controller->start();
 	}
 
@@ -77,7 +84,7 @@ class RunSearch extends Maintenance {
 	 * to override current settings.
 	 */
 	protected function applyGlobals() {
-		$options = json_decode( $this->getOption( 'options', 'false' ) );
+		$options = json_decode( $this->getOption( 'options', 'false' ), true );
 		if ( $options ) {
 			foreach ( $options as $key => $value ) {
 				if ( array_key_exists( $key, $GLOBALS ) ) {
@@ -98,14 +105,51 @@ class RunSearch extends Maintenance {
 	 * @return string JSON object
 	 */
 	public function consume( $query ) {
+		if ( $this->getOption( 'decode' ) ) {
+			$query = urldecode( $query );
+		}
 		$data = array( 'query' => $query );
 		$status = $this->searchFor( $query );
 		if ( $status->isOK() ) {
 			$value = $status->getValue();
 			if ( $value instanceof ResultSet ) {
-				$data['rows'] = $value->numRows();
-			} elseif ( is_array ($value ) ) {
-				$data['rows'] = count( $value );
+				// these are prefix or full text results
+				$data['totalHits'] = $value->getTotalHits();
+				$data['rows'] = array();
+				$result = $value->next();
+				while ( $result ) {
+					$data['rows'][] = array(
+						// use getDocId() rather than asking the title to allow this script
+						// to work when a production index has been imported to a test es instance
+						'pageId' => $result->getDocId(),
+						'title' => $result->getTitle()->getPrefixedText(),
+						'score' => $result->getScore(),
+						'snippets' => array(
+							'text' => $result->getTextSnippet( $query ),
+							'title' => $result->getTitleSnippet(),
+							'redirect' => $result->getRedirectSnippet(),
+							'section' => $result->getSectionSnippet(),
+							'category' => $result->getCategorySnippet(),
+						),
+						'explanation' => $result->getExplanation(),
+					);
+					$result = $value->next();
+				}
+			} elseif ( $value instanceof SearchSuggestionSet ) {
+				// these are suggestion results
+				$data['totalHits'] = $value->getSize();
+				foreach ( $value->getSuggestions() as $suggestion ) {
+					$data['rows'][] = array(
+						'pageId' => $suggestion->getSuggestedTitleID(),
+						'title' => $suggestion->getSuggestedTitle()->getPrefixedText(),
+						'snippets' => array(),
+					);
+				}
+			} else {
+				throw new \RuntimeException(
+					"Unknown result type: "
+					. is_object( $value ) ? get_class( $value ) : gettype( $value )
+				);
 			}
 		} else {
 			$data['error'] = $status->getMessage()->text();
@@ -122,11 +166,18 @@ class RunSearch extends Maintenance {
 	 */
 	protected function searchFor( $query ) {
 		$searchType = $this->getOption( 'type', 'full_text' );
+		$limit = $this->getOption( 'limit', 10 );
+		if ( $this->getOption( 'explain' ) ) {
+			RequestContext::getMain()->getRequest()->setVal( 'cirrusExplain', true );
+		}
+
+		$engine = new CirrusSearch( $this->indexBaseName );
+		$engine->setConnection( $this->getConnection() );
+		$engine->setLimitOffset( $limit );
+
 		switch ( $searchType ) {
 		case 'full_text':
 			// @todo pass through $this->getConnection() ?
-			$engine = new CirrusSearch( $this->indexBaseName );
-			$engine->setConnection( $this->getConnection() );
 			$result = $engine->searchText( $query );
 			if ( $result instanceof Status ) {
 				return $result;
@@ -135,12 +186,13 @@ class RunSearch extends Maintenance {
 			}
 
 		case 'prefix':
-			$searcher = new Searcher( $this->getConnection(), 0, 10, null, null, null, $this->indexBaseName );
-			return $searcher->prefixSearch( $query );
+			$titles = $engine->defaultPrefixSearch( $query );
+			$resultSet = SearchSuggestionSet::fromTitles( $titles );
+			return Status::newGood( $resultSet );
 
 		case 'suggest':
-			$searcher = new Searcher( $this->getConnection(), 0, 10, null, null, null, $this->indexBaseName );
-			$result = $searcher->suggest( $query );
+			$engine->setFeatureData( CirrusSearch::COMPLETION_SUGGESTER_FEATURE, true );
+			$result = $engine->completionSearch( $query );
 			if ( $result instanceof Status ) {
 				return $result;
 			} else {

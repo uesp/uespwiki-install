@@ -61,17 +61,17 @@ class UsersEditCountPage extends QueryPage {
 	function getPageHeader() {
 		$header  = '<p>';
 		$skin = $this->getSkin();
-		
-		$linkday = $skin->makeLinkObj( $this->getTitle(), 'Day', 'date=day');
-		$linkweek = $skin->makeLinkObj( $this->getTitle(), 'Week', 'date=week');
-		$linkmonth = $skin->makeLinkObj( $this->getTitle(), 'Month', 'date=month');
-		$link6month = $skin->makeLinkObj( $this->getTitle(), '6 Months', 'date=6month');
-		$linkyear = $skin->makeLinkObj( $this->getTitle(), 'Year', 'date=year');
-		$linkall = $skin->makeLinkObj( $this->getTitle(), 'All Time');
+			//$target, $html = null, $customAttribs = [], $query = [], $options = []
+		$linkday = Linker::link( $this->getTitle(), 'Day', [], array('date' => 'day'));
+		$linkweek = Linker::link( $this->getTitle(), 'Week', [], array('date' => 'week'));
+		$linkmonth = Linker::link( $this->getTitle(), 'Month', [], array('date' => 'month'));
+		$link6month = Linker::link( $this->getTitle(), '6 Months', [], array('date' => '6month'));
+		$linkyear = Linker::link( $this->getTitle(), 'Year', [], array('date' => 'year'));
+		$linkall = Linker::link( $this->getTitle(), 'All Time');
 		
 		$header .= "<small style='position:absolute; top:12px;'>View Edit Counts for the Last: {$linkday} | {$linkweek} | {$linkmonth} | {$link6month} | {$linkyear} | {$linkall} </small>";
 		$header .= '<br />';
-		$header .= wfMsg('userseditcounttext') . ' ';
+		$header .= wfMessage('userseditcounttext') . ' ';
 		
 		if ($this->RequestDate)
 			$header .= 'Showing counts for edits in the last '. $this->RequestDateTitle .'. ';
@@ -169,13 +169,13 @@ class UsersEditCountPage extends QueryPage {
 		}
 		else {
 			$title = $user->getUserPage();
-			$link  = $skin->makeLinkObj( $title, $wgContLang->convert( $user->getName() ) );
+			$link  = Linker::link( $title, $wgContLang->convert( $user->getName() ) );
 			
 			$titletalk = $user->getTalkPage();
-			$linktalk  = $skin->makeLinkObj( $titletalk, 'talk' );
+			$linktalk  = Linker::link( $titletalk, 'talk' );
 
 			$titlecontrib = Title::newFromText("Special:Contributions/{$user->getName()}");
-			$linkcontrib  = $skin->makeLinkObj( $titlecontrib, 'contribs');
+			$linkcontrib  = Linker::link( $titlecontrib, 'contribs');
 		
 			return "{$link} ( {$linktalk} | {$linkcontrib} ) has {$result->value} edits.";
 		}

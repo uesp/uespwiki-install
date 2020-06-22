@@ -1,5 +1,11 @@
-.svn
 *~
 *.kate-swp
 .*.swp
 .project
+node_modules/
+
+# Composer
+/vendor
+/composer.lock
+/composer.json
+/composer.local.json

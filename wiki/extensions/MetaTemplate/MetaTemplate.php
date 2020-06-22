@@ -210,7 +210,7 @@ function efMetaTemplateInit( Parser $parser ) {
 // these functions do not access parser stack and therefore can use old-style hook arguments
 	$parser->setFunctionHook( MAG_METATEMPLATE_PICKFROM, 'efMetaTemplateImplementPickfrom' );
 	$parser->setFunctionHook( MAG_METATEMPLATE_TRIMLINKS, 'efMetaTemplateImplementTrimlinks');
-	
+		
 		// Tag function hooks
 	$parser->setHook( MAG_METATEMPLATE_DISPLAYCODE, 'efMetaTemplateDisplaycode' );
 	$parser->setHook( MAG_METATEMPLATE_CLEANSPACE, 'efMetaTemplateCleanspace' );

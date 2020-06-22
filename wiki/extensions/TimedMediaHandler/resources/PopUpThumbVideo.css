@@ -1,5 +1,4 @@
-.PopUpMediaTransform a .play-btn-large{
-	position : absolute;
+.PopUpMediaTransform a .play-btn-large {
 	top: 50%;
 	left : 50%;
 	width: 70px;
@@ -9,21 +8,13 @@
 	/* @embed */
 	background-image:url('player_big_play_button.png');
 }
-.PopUpMediaTransform a .play-btn-large :hover{
+.PopUpMediaTransform a .play-btn-large :hover {
 	/* @embed */
 	background-image:url('player_big_play_button_hover.png');
-}
-.PopUpMediaTransform {
-	position : relative;
-	display: inline-block;
 }
 /* Should hopefully be only visible to screen readers */
 .mw-tmh-playtext {
 	display: block;
 	height: 0;
 	overflow: hidden;
-}
-
-li.gallerybox div.thumb div.PopUpMediaTransform {
-        margin: 0 auto;
 }

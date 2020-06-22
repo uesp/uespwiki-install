@@ -4,6 +4,8 @@
  * @group MobileFrontend
  */
 class ApiParseExtenderTest extends MediaWikiTestCase {
+	const SECTION_INDICATOR = '<div class="mw-ui-icon mw-ui-icon-element indicator"></div>';
+
 	/**
 	 * @dataProvider getData
 	 */
@@ -12,8 +14,7 @@ class ApiParseExtenderTest extends MediaWikiTestCase {
 
 		$this->setMwGlobals( 'wgMFRemovableClasses',
 			array(
-				'base' => array(),
-				'HTML' => array( '.nomobile' )
+				'base' => array( '.nomobile' )
 			)
 		);
 		if ( $wgUseTidy ) {
@@ -51,17 +52,21 @@ class ApiParseExtenderTest extends MediaWikiTestCase {
 					'mobileformat' => '',
 					'text' => "I exist\n\n<span class='nomobile'>I don't</span>"
 				),
-				'<div><p>I exist</p><p></p></div>' ),
+				'<div class="mf-section-0"><p>I exist</p><p></p></div>' ),
 			array(
 				array(
 					'mobileformat' => 'html',
 					'text' => "Lede<h2>Section1</h2>Text<h2>Section2</h2>Text"
 				),
-				'<div>Lede</div>' .
-				'<h2><span class="mw-headline" id="Section1">Section1</span></h2>' .
-				'<div>Text</div>' .
-				'<h2><span class="mw-headline" id="Section2">Section2</span></h2>' .
-				'<div>Text</div>' ),
+				'<div class="mf-section-0">Lede</div>' .
+				'<h2 class="section-heading">' .
+				self::SECTION_INDICATOR .
+				'<span class="mw-headline" id="Section1">Section1</span></h2>' .
+				'<div class="mf-section-1">Text</div>' .
+				'<h2 class="section-heading">' .
+				self::SECTION_INDICATOR .
+				'<span class="mw-headline" id="Section2">Section2</span></h2>' .
+				'<div class="mf-section-2">Text</div>' ),
 		);
 	}
 }

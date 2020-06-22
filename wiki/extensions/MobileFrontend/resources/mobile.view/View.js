@@ -1,7 +1,5 @@
 ( function ( M, $ ) {
-
-	var EventEmitter = M.require( 'mobile.oo/eventemitter' ),
-		View,
+	var
 		// Cached regex to split keys for `delegate`.
 		delegateEventSplitter = /^(\S+)\s*(.*)$/,
 		idCounter = 0;
@@ -71,22 +69,27 @@
 	 *     </code>
 	 *
 	 * @class View
-	 * @extends EventEmitter
-	 * @param {Object} options Options for the view, containing the el or
-	 * template data or any other information you want to use in the view.
+	 * @mixins OO.EventEmitter
 	 * Example:
 	 *     @example
 	 *     <pre>
-	 *     var View, Section, section;
+	 *     var View, section;
+	 *     function Section( options ) {
+	 *       View.call( this, options );
+	 *     }
 	 *     View = M.require( 'mobile.view/View' );
-	 *     Section = View.extend( {
+	 *     OO.mfExtend( Section, View, {
 	 *       template: mw.template.compile( "&lt;h2&gt;{{title}}&lt;/h2&gt;" ),
 	 *     } );
 	 *     section = new Section( { title: 'Test', text: 'Test section body' } );
 	 *     section.appendTo( 'body' );
 	 *     </pre>
 	 */
-	View = EventEmitter.extend( {
+	function View() {
+		this.initialize.apply( this, arguments );
+	}
+	OO.mixinClass( View, OO.EventEmitter );
+	OO.mfExtend( View, {
 		/**
 		 * A css class to apply to the containing element of the View.
 		 * @property {String} className
@@ -124,9 +127,9 @@
 		 *     // <h1>Heading</h1>
 		 *     // {{>content}}
 		 *
-		 *     var SomeView = View.extend( {
-		 *     template: M.template.get( 'some.hogan' ),
-		 *     templatePartials: { content: M.template.get( 'sub.hogan' ) }
+		 *     oo.mfExtend( SomeView, View, {
+		 *       template: M.template.get( 'some.hogan' ),
+		 *       templatePartials: { content: M.template.get( 'sub.hogan' ) }
 		 *     }
 		 *
 		 * @property {Object}
@@ -158,9 +161,7 @@
 		initialize: function ( options ) {
 			var self = this;
 
-			EventEmitter.prototype.initialize.apply( this, arguments );
-			this.defaults = $.extend( {}, this._parent.defaults, this.defaults );
-			this.templatePartials = $.extend( {}, this._parent.templatePartials, this.templatePartials );
+			OO.EventEmitter.call( this );
 			options = $.extend( {}, this.defaults, options );
 			this.options = options;
 			// Assign a unique id for dom events binding/unbinding
@@ -332,7 +333,6 @@
 			this.$el.off( eventName + '.delegateEvents' + this.cid, selector,
 				listener );
 		}
-
 	} );
 
 	$.each( [
@@ -354,6 +354,6 @@
 		};
 	} );
 
-	M.define( 'mobile.view/View', View ).deprecate( 'View' );
+	M.define( 'mobile.view/View', View );
 
 }( mw.mobileFrontend, jQuery ) );

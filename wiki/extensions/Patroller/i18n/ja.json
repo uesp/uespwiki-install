@@ -21,7 +21,7 @@
 	"patrol-reverted-ok": "編集を差し戻しました。",
 	"patrol-reverted-failed": "編集を差し戻せませんでした。",
 	"patrol-skipped-ok": "編集を無視しています。",
-	"patrol-reasons": "* 単なる荒らし\r\n* 新規参加者によるテスト\r\n* ノートを参照",
+	"patrol-reasons": "* 単なる荒らし\n* 新規参加者によるテスト\n* ノートを参照",
 	"patrol-another": "あれば別の編集を表示する。",
 	"patrol-stopped": "あなたは別の編集を巡回しないよう設定しています。$1",
 	"patrol-resume": "再開するにはここをクリックしてください。",

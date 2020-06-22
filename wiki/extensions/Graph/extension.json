@@ -15,22 +15,52 @@
 		]
 	},
 	"AutoloadClasses": {
-		"Graph\\Singleton": "Graph.body.php",
-		"Graph\\Content": "Graph.body.php",
-		"GraphHooks": "Graph.hooks.php"
+		"Graph\\ApiGraph": "includes/ApiGraph.php",
+		"Graph\\DataModule": "includes/DataModule.php",
+		"Graph\\Singleton": "includes/Graph.body.php",
+		"Graph\\Sandbox": "includes/Sandbox.php",
+		"Graph\\Content": "includes/Graph.body.php",
+		"Graph\\Hooks": "includes/Graph.hooks.php"
+	},
+	"APIModules": {
+		"graph": "Graph\\ApiGraph"
 	},
 	"ResourceModules": {
-		"ext.graph": {
-			"scripts": [
-				"lib/d3.js",
-				"lib/topojson.js",
-				"lib/vega.js",
-				"js/graph.js"
-			],
+		"ext.graph.styles": {
 			"styles": [
 				"styles/common.less"
 			],
+			"targets": [
+				"mobile",
+				"desktop"
+			]
+		},
+		"ext.graph.data": {
+			"class": "Graph\\DataModule"
+		},
+		"ext.graph.loader": {
+			"scripts": [
+				"modules/graph-loader.js"
+			],
 			"dependencies": [
+				"mediawiki.api"
+			],
+			"targets": [
+				"mobile",
+				"desktop"
+			]
+		},
+		"ext.graph.vega1": {
+			"scripts": [
+				"lib/d3.js",
+				"lib/d3-global.js",
+				"lib/topojson.js",
+				"lib/topojson-global.js",
+				"lib/vega1/vega.js",
+				"modules/graph1.js"
+			],
+			"dependencies": [
+				"ext.graph.data",
 				"mediawiki.Uri"
 			],
 			"targets": [
@@ -38,9 +68,92 @@
 				"desktop"
 			]
 		},
-		"ext.graph.editor": {
+		"ext.graph.vega2": {
 			"scripts": [
-				"js/graph.editor.js"
+				"lib/d3.js",
+				"lib/d3-global.js",
+				"lib/topojson.js",
+				"lib/topojson-global.js",
+				"lib/vega2/vega.js",
+				"lib/graph2.compiled.js"
+			],
+			"dependencies": [
+				"ext.graph.data",
+				"mediawiki.Uri"
+			],
+			"targets": [
+				"mobile",
+				"desktop"
+			]
+		},
+		"ext.graph.sandbox": {
+			"scripts": [
+				"lib/jquery.splitter-0.18.0.js",
+				"modules/graph.sandbox.js"
+			],
+			"styles": [
+				"styles/jquery.splitter.css"
+			],
+			"dependencies": [
+				"jquery.throttle-debounce",
+				"mediawiki.confirmCloseWindow",
+				"ext.codeEditor",
+				"ext.graph.vega2"
+			],
+			"messages": [ "ok", "editwarning-warning" ],
+			"targets": [ "desktop" ]
+		},
+		"ext.graph.visualEditor": {
+			"scripts": [
+				"modules/ve-graph/ve.ce.MWGraphNode.js",
+				"modules/ve-graph/ve.dm.MWGraphModel.js",
+				"modules/ve-graph/ve.dm.MWGraphNode.js",
+				"modules/ve-graph/ve.ui.MWGraphDialog.js",
+				"modules/ve-graph/ve.ui.MWGraphDialogTool.js",
+				"modules/ve-graph/widgets/ve.ui.RowWidget.js",
+				"modules/ve-graph/widgets/ve.ui.TableWidget.js"
+			],
+			"styles": [
+				"modules/ve-graph/ve.ce.MWGraphNode.css",
+				"modules/ve-graph/ve.ui.MWGraphIcons.css",
+				"modules/ve-graph/widgets/ve.ui.RowWidget.css",
+				"modules/ve-graph/widgets/ve.ui.TableWidget.css"
+			],
+			"dependencies": [
+				"ext.graph.data",
+				"ext.visualEditor.mwcore",
+				"ext.visualEditor.mwimage.core"
+			],
+			"messages": [
+				"graph-ve-dialog-button-tooltip",
+				"graph-ve-dialog-edit-field-graph-type",
+				"graph-ve-dialog-edit-field-raw-json",
+				"graph-ve-dialog-edit-height",
+				"graph-ve-dialog-edit-json-invalid",
+				"graph-ve-dialog-edit-padding-auto",
+				"graph-ve-dialog-edit-padding-fieldset",
+				"graph-ve-dialog-edit-padding-table-bottom",
+				"graph-ve-dialog-edit-padding-table-left",
+				"graph-ve-dialog-edit-padding-table-right",
+				"graph-ve-dialog-edit-padding-table-top",
+				"graph-ve-dialog-edit-padding-table-unit",
+				"graph-ve-dialog-edit-page-data",
+				"graph-ve-dialog-edit-page-general",
+				"graph-ve-dialog-edit-page-raw",
+				"graph-ve-dialog-edit-size-fieldset",
+				"graph-ve-dialog-edit-size-table-unit",
+				"graph-ve-dialog-edit-table-row-delete",
+				"graph-ve-dialog-edit-title",
+				"graph-ve-dialog-edit-type-area",
+				"graph-ve-dialog-edit-type-bar",
+				"graph-ve-dialog-edit-type-line",
+				"graph-ve-dialog-edit-type-unknown",
+				"graph-ve-dialog-edit-width",
+				"graph-ve-dialog-edit-unknown-graph-type-warning",
+				"graph-ve-empty-graph",
+				"graph-ve-no-spec",
+				"graph-ve-vega-error",
+				"graph-ve-vega-error-no-render"
 			],
 			"targets": [
 				"mobile",
@@ -53,35 +166,38 @@
 		"remoteExtPath": "Graph"
 	},
 	"Hooks": {
+		"ContentHandlerDefaultModelFor": [
+			"Graph\\Singleton::onContentHandlerDefaultModelFor"
+		],
 		"ParserFirstCallInit": [
 			"Graph\\Singleton::onParserFirstCallInit"
-		],
-		"EditPage::showEditForm:initial": [
-			"Graph\\Singleton::editPageShowEditFormInitial"
 		],
 		"ParserAfterParse": [
 			"Graph\\Singleton::onParserAfterParse"
 		],
-		"ResourceLoaderRegisterModules": [
-			"GraphHooks::onResourceLoaderRegisterModules"
-		],
 		"ResourceLoaderTestModules": [
-			"GraphHooks::onResourceLoaderTestModules"
+			"Graph\\Hooks::onResourceLoaderTestModules"
 		]
 	},
 	"VisualEditorPluginModules": [
 		"ext.graph.visualEditor"
 	],
 	"config": {
-		"GraphDataDomains": [],
-		"GraphUrlBlacklist": false,
+		"GraphAllowedDomains": {},
+		"GraphDefaultVegaVer": 1,
 		"GraphIsTrusted": false,
-		"GraphImgServiceAlways": false,
 		"GraphImgServiceUrl": false
 	},
 	"TrackingCategories": [
 		"graph-tracking-category",
+		"graph-obsolete-category",
 		"graph-broken-category"
 	],
+	"SpecialPages": {
+		"GraphSandbox": "Graph\\Sandbox"
+	},
+	"ExtensionMessagesFiles": {
+		"GraphAliases": "Graph.alias.php"
+	},
 	"manifest_version": 1
 }

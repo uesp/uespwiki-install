@@ -4,8 +4,6 @@
  * CirrusSearch - List of profiles for search as you type suggestions
  * (Completion suggester)
  *
- * Set $wgSearchType to 'CirrusSearch'
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -30,17 +28,20 @@
 $wgCirrusSearchCompletionProfiles = array(
 	// Default profile
 	'default' => array(
+		// Defines the list of suggest queries to run in the same request.
 		// key is the name of the suggestion request
 		'plain' => array(
 			// Field to request
 			'field' => 'suggest',
-			// Fire the request only if the user query has min_query_len chars
+			// Fire the request only if the user query has min_query_len chars.
+			// See max_query_len to limit on max.
 			'min_query_len' => 0,
 			// Discount result scores for this request
 			// Useful to discount fuzzy request results
 			'discount' => 1.0,
-			// Fetch more result than the limit
-			// It's possible to have the same page multiple times.
+			// Fetch more results than the limit
+			// It's possible to have the same page multiple times
+			// (title and redirect suggestion).
 			// Requesting more than the limit helps to display the correct number
 			// of suggestions
 			'fetch_limit_factor' => 2,
@@ -52,11 +53,35 @@ $wgCirrusSearchCompletionProfiles = array(
 			'fetch_limit_factor' => 2,
 		),
 		// Fuzzy query for query length (3 to 4) with prefix len 1
-		'plain_fuzzy_1' => array(
+		'plain_fuzzy_2' => array(
 			'field' => 'suggest',
 			'min_query_len' => 3,
 			'max_query_len' => 4,
-			'discount' => 0.005,
+			'discount' => 0.000001,
+			'fetch_limit_factor' => 2,
+			'fuzzy' => array(
+				'fuzzyness' => 'AUTO',
+				'prefix_length' => 1,
+				'unicode_aware' => true,
+			)
+		),
+		'plain_stop_fuzzy_2' => array(
+			'field' => 'suggest-stop',
+			'min_query_len' => 3,
+			'max_query_len' => 4,
+			'discount' => 0.0000001,
+			'fetch_limit_factor' => 1,
+			'fuzzy' => array(
+				'fuzzyness' => 'AUTO',
+				'prefix_length' => 2,
+				'unicode_aware' => true,
+			)
+		),
+		// Fuzzy query for query length > 5 with prefix len 0
+		'plain_fuzzy_1' => array(
+			'field' => 'suggest',
+			'min_query_len' => 5,
+			'discount' => 0.000001,
 			'fetch_limit_factor' => 1,
 			'fuzzy' => array(
 				'fuzzyness' => 'AUTO',
@@ -66,36 +91,12 @@ $wgCirrusSearchCompletionProfiles = array(
 		),
 		'plain_stop_fuzzy_1' => array(
 			'field' => 'suggest-stop',
-			'min_query_len' => 3,
-			'max_query_len' => 4,
-			'discount' => 0.0001,
+			'min_query_len' => 5,
+			'discount' => 0.0000001,
 			'fetch_limit_factor' => 1,
 			'fuzzy' => array(
 				'fuzzyness' => 'AUTO',
 				'prefix_length' => 1,
-				'unicode_aware' => true,
-			)
-		),
-		// Fuzzy query for query length > 5 with prefix len 0
-		'plain_fuzzy_0' => array(
-			'field' => 'suggest',
-			'min_query_len' => 5,
-			'discount' => 0.005,
-			'fetch_limit_factor' => 1,
-			'fuzzy' => array(
-				'fuzzyness' => 'AUTO',
-				'prefix_length' => 0,
-				'unicode_aware' => true,
-			)
-		),
-		'plain_stop_fuzzy_0' => array(
-			'field' => 'suggest-stop',
-			'min_query_len' => 5,
-			'discount' => 0.0001,
-			'fetch_limit_factor' => 1,
-			'fuzzy' => array(
-				'fuzzyness' => 'AUTO',
-				'prefix_length' => 0,
 				'unicode_aware' => true,
 			)
 		)

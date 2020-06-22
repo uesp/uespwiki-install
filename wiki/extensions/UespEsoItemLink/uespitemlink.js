@@ -12,13 +12,14 @@ window.CreateEsoItemLinkPopup = function()
 }
 
 
-window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSummary, intLevel, intType, itemLink, setCount, questId, collectId, enchantId, enchantIntLevel, enchantIntType, enchantFactor, potionData, extraData, version, extraArmor, trait)
+window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSummary, intLevel, intType, itemLink, setCount, questId, collectId, enchantId, enchantIntLevel, enchantIntType, enchantFactor, potionData, extraData, version, extraArmor, trait, antiquityId)
 {
 	EsoItemLinkPopup_LastElement = parent;
 	
 	var linkSrc = "//esoitem.uesp.net/itemLink.php?&embed";
 	var dataOk = false;
 	
+	if (antiquityId) { linkSrc += "&antiquityid=" + antiquityId; dataOk = true; }
 	if (questId) { linkSrc += "&questid=" + questId; dataOk = true; }
 	if (collectId) { linkSrc += "&collectid=" + collectId; dataOk = true; }
 	if (itemId) { linkSrc += "&itemid=" + itemId; dataOk = true; }
@@ -69,6 +70,10 @@ window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSumm
 	else if (collectId) 
 	{
 		cacheId = "C-" + collectId.toString();
+	}
+	else if (antiquityId) 
+	{
+		cacheId = "A-" + antiquityId.toString();
 	}
 	
 	if (level) cacheId += "-L" + level.toString();
@@ -209,7 +214,7 @@ window.OnEsoItemLinkEnter = function()
 			$this.attr('summary'), $this.attr('intlevel'), $this.attr('inttype'), $this.attr('itemlink'), $this.attr('setcount'),
 			$this.attr('questid'), $this.attr('collectid'), $this.attr('enchantid'), $this.attr('enchantintlevel'),
 			$this.attr('enchantinttype'), $this.attr('enchantfactor'), $this.attr('potiondata'), $this.attr('extradata'),
-			$this.attr('version'), $this.attr('extraarmor'), $this.attr('trait'));
+			$this.attr('version'), $this.attr('extraarmor'), $this.attr('trait'), $this.attr('antiquityid'));
 }
 
 

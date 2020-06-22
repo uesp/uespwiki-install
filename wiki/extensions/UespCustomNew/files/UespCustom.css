@@ -1,0 +1,14 @@
+/*
+** CSS customizations for UESP 
+*/
+
+/* overrides of CSS in monobook/main.css */
+div.floatleft, table.floatleft {
+	clear: none;
+}
+div.tright {
+	clear: none;
+}
+div.tleft {
+	clear: none;
+}

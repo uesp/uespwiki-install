@@ -4,9 +4,7 @@ namespace CirrusSearch\Maintenance\Validators;
 
 use CirrusSearch\Maintenance\Maintenance;
 use CirrusSearch\Maintenance\Reindexer;
-use CirrusSearch\Maintenance\Validators\Validator;
 use Elastica\Client;
-use Elastica\Index;
 use RawMessage;
 use Status;
 
@@ -61,8 +59,8 @@ class SpecificAliasValidator extends IndexAliasValidator {
 	}
 
 	/**
-	 * @param array $add
-	 * @param array $remove
+	 * @param string[] $add
+	 * @param string[] $remove
 	 * @return Status
 	 */
 	protected function updateIndices( array $add, array $remove ) {
@@ -107,7 +105,7 @@ class SpecificAliasValidator extends IndexAliasValidator {
 	}
 
 	/**
-	 * @param array $add
+	 * @param string[] $add
 	 * @return Status
 	 */
 	public function updateFreeIndices( array $add ) {
@@ -140,6 +138,10 @@ class SpecificAliasValidator extends IndexAliasValidator {
 		return Status::newGood();
 	}
 
+	/**
+	 * @param string $name
+	 * @return bool
+	 */
 	protected function shouldRemoveFromAlias( $name ) {
 		return true;
 	}

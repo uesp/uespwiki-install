@@ -21,7 +21,9 @@
 			"Fitoschido",
 			"Jmarchn",
 			"Toniher",
-			"Macofe"
+			"Macofe",
+			"Jaumeortola",
+			"Matma Rex"
 		]
 	},
 	"abusefilter-desc": "Aplica heurística automàtica a les edicions",
@@ -143,6 +145,7 @@
 	"abusefilter-edit-oldwarning": "<strong>Esteu editant una versió vella d'aquest filtre.\nLes estadístiques indicades són de la versió més recent del filtre.\nSi deseu els vostres canvis, revertireu tots els canvis posteriors a aquesta versió.</strong> &bull;\n[[Special:AbuseFilter/history/$2|Torna a l'historial d'aquest filtre]].",
 	"abusefilter-edit-status-label": "Estadístiques:",
 	"abusefilter-edit-status": "De {{PLURAL:$1|la darrera acció|les $1 darreres accions}} aquest filtre n'ha detectat $2 ($3%).",
+	"abusefilter-edit-status-profile": "De {{PLURAL:$1|la darrera acció|les $1 darreres accions}} aquest filtre n'ha detectat $2 ($3%).\nDe mitjana, la seva durada d'execució és de $4 ms i utilitza $5 {{PLURAL:$5|condició|condicions}} del límit total.",
 	"abusefilter-edit-throttled": "'''Atenció''': Aquest filtre s'ha desactivat automàticament com a mesura de seguretat.\nHa sobrepassat el límit de deteccions del $1% de les accions.",
 	"abusefilter-edit-new": "Nou filtre",
 	"abusefilter-edit-save": "Desa filtre",
@@ -185,7 +188,7 @@
 	"abusefilter-edit-done-subtitle": "Filtre editat",
 	"abusefilter-edit-done": "[[Special:AbuseFilter/history/$1/diff/prev/$2|Els vostres canvis]] al [[Special:AbuseFilter/$1|filtre $3]] s'han desat correctament.",
 	"abusefilter-edit-badsyntax": "Hi ha un error de sintaxi en el filtre que heu especificat.\nLa producció de l'analitzador era:<pre>$1</pre>",
-	"abusefilter-edit-restricted": "No es pot editar aquest filtre, perquè conté un o més accions restringides.\nSi us plau demani un usuari amb permís d'afegir les accions restringides per fer el canvi per a vostè.",
+	"abusefilter-edit-restricted": "No podeu modificar aquest filtre perquè conté una o més accions restringides.\nDemaneu a un usuari amb permís per a afegir accions restringides que faci el canvi.",
 	"abusefilter-edit-viewhistory": "Mostra l'historial d'aquest filtre",
 	"abusefilter-edit-history": "Historial:",
 	"abusefilter-edit-check": "Comprova la sintaxi",
@@ -345,7 +348,7 @@
 	"abusefilter-revert-periodend": "Fi del període:",
 	"abusefilter-revert-search": "Seleccionau les accions",
 	"abusefilter-revert-filter": "Filtre:",
-	"abusefilter-revert-preview-intro": "A continuació es presenten les mesures adoptades pel filtre d'abús que es revertiran amb aquesta acció.\nSi us plau comproveu-les amb cura i feu clic a \"{{int:abusefilter-revert-confirm}}\" per confirmar la vostra selecció.",
+	"abusefilter-revert-preview-intro": "A continuació es presenten les mesures adoptades pel filtre d'abús que es revertiran amb aquesta acció.\nComproveu-les amb cura i feu clic a \"{{int:abusefilter-revert-confirm}}\" per a confirmar la vostra selecció.",
 	"abusefilter-revert-confirm": "Confirma",
 	"abusefilter-revert-success": "Heu revertit totes les accions del filtre d'abusos generades pel [[Special:AbuseFilter/$1|filtre $2]].",
 	"abusefilter-revert-reason": "Automatic tornar de totes les mesures adoptades pel filtre d'abús a causa de filtre de  $1 .\nMotiu donat:$2",

@@ -20,7 +20,7 @@
 	"patrol-reverted-ok": "Redigeringen återställdes.",
 	"patrol-reverted-failed": "Redigeringen kunde inte återställas.",
 	"patrol-skipped-ok": "Ignorera redigering.",
-	"patrol-reasons": "* Enkel vandalism\r\n* Nybörjartest\r\n* Se diskussionssida",
+	"patrol-reasons": "* Enkel vandalism\n* Nybörjartest\n* Se diskussionssida",
 	"patrol-another": "Visa andra redigeringar, om det är tillgängligt.",
 	"patrol-stopped": "Du har valt och inte patrullera en annan redigering. $1",
 	"patrol-resume": "Klicka här för att fortsätta.",

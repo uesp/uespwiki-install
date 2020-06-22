@@ -11,6 +11,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 
 	var sampleSpecs = {
 		areaGraph: {
+			version: 2,
 			width: 500,
 			height: 200,
 			padding: {
@@ -38,7 +39,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 					zero: false,
 					domain: {
 						data: 'table',
-						field: 'data.x'
+						field: 'x'
 					}
 				},
 				{
@@ -48,7 +49,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 					nice: true,
 					domain: {
 						data: 'table',
-						field: 'data.y'
+						field: 'y'
 					}
 				}
 			],
@@ -75,11 +76,11 @@ QUnit.module( 'ext.graph.visualEditor' );
 							},
 							x: {
 								scale: 'x',
-								field: 'data.x'
+								field: 'x'
 							},
 							y: {
 								scale: 'y',
-								field: 'data.y'
+								field: 'y'
 							},
 							y2: {
 								scale: 'y',
@@ -95,6 +96,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 		},
 
 		stackedAreaGraph: {
+			version: 2,
 			width: 500,
 			height: 200,
 			padding: {
@@ -136,12 +138,12 @@ QUnit.module( 'ext.graph.visualEditor' );
 						{
 							type: 'facet',
 							keys: [
-								'data.x'
+								'x'
 							]
 						},
 						{
 							type: 'stats',
-							value: 'data.y'
+							value: 'y'
 						}
 					]
 				}
@@ -154,7 +156,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 					zero: false,
 					domain: {
 						data: 'table',
-						field: 'data.x'
+						field: 'x'
 					}
 				},
 				{
@@ -192,13 +194,13 @@ QUnit.module( 'ext.graph.visualEditor' );
 							{
 								type: 'facet',
 								keys: [
-									'data.c'
+									'c'
 								]
 							},
 							{
 								type: 'stack',
-								point: 'data.x',
-								height: 'data.y'
+								point: 'x',
+								height: 'y'
 							}
 						]
 					},
@@ -212,7 +214,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 									},
 									x: {
 										scale: 'x',
-										field: 'data.x'
+										field: 'x'
 									},
 									y: {
 										scale: 'y',
@@ -224,7 +226,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 									},
 									fill: {
 										scale: 'color',
-										field: 'data.c'
+										field: 'c'
 									}
 								},
 								update: {
@@ -245,6 +247,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 		},
 
 		invalidAxesBarGraph: {
+			version: 2,
 			width: 500,
 			height: 200,
 			padding: {
@@ -272,7 +275,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 					zero: false,
 					domain: {
 						data: 'table',
-						field: 'data.x'
+						field: 'x'
 					}
 				},
 				{
@@ -282,7 +285,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 					nice: true,
 					domain: {
 						data: 'table',
-						field: 'data.y'
+						field: 'y'
 					}
 				}
 			],
@@ -309,11 +312,11 @@ QUnit.module( 'ext.graph.visualEditor' );
 							},
 							x: {
 								scale: 'x',
-								field: 'data.x'
+								field: 'x'
 							},
 							y: {
 								scale: 'y',
-								field: 'data.y'
+								field: 'y'
 							},
 							y2: {
 								scale: 'y',
@@ -335,7 +338,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 		var node = new ve.dm.MWGraphNode(),
 			specString = JSON.stringify( sampleSpecs.areaGraph );
 
-		assert.deepEqual( node.getSpec(), null, 'MWGraphNode spec is initialized to null' );
+		assert.deepEqual( node.getSpec(), ve.dm.MWGraphNode.static.defaultSpec, 'MWGraphNode spec is initialized to the default spec' );
 
 		node.setSpecFromString( specString );
 		assert.deepEqual( node.getSpec(), sampleSpecs.areaGraph, 'Basic valid spec is parsed' );
@@ -350,16 +353,14 @@ QUnit.module( 'ext.graph.visualEditor' );
 		assert.deepEqual( node.getSpec(), {}, 'Setting a null spec resets the spec to an empty object' );
 	} );
 
-	QUnit.test( 've.ce.MWGraphNode', 2, function ( assert ) {
+	QUnit.test( 've.ce.MWGraphNode', 1, function ( assert ) {
 		var view = ve.test.utils.createSurfaceViewFromHtml(
 				'<div typeof="mw:Extension/graph"></div>'
 			),
 			documentNode = view.getDocument().getDocumentNode(),
-			node = documentNode.children[ 0 ].children[ 0 ];
+			node = documentNode.children[ 0 ];
 
 		assert.equal( node.type, 'mwGraph', 'Parsoid HTML graphs are properly recognized as graph nodes' );
-
-		assert.equal( $( node.$element[ 0 ] ).text(), ve.msg( 'graph-ve-no-spec' ), 'A null spec displays an error message' );
 	} );
 
 	QUnit.test( 've.ce.MWGraphNode.static', 2, function ( assert ) {
@@ -395,6 +396,7 @@ QUnit.module( 'ext.graph.visualEditor' );
 				]
 			},
 			areaGraphRemovalExpected = {
+				version: 2,
 				width: 500,
 				height: 200,
 				padding: {

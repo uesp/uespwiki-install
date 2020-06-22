@@ -20,7 +20,9 @@
 			"Dianakc",
 			"He7d3r",
 			"Teles",
-			"Araceletorres"
+			"Araceletorres",
+			"HenriqueCrang",
+			"Matma Rex"
 		]
 	},
 	"abusefilter-desc": "Aplica heurísticas automáticas às edições.",
@@ -146,6 +148,7 @@
 	"abusefilter-edit-oldwarning": "<strong>Você está editando uma versão antiga deste filtro.\nAs estatísticas transcritas são relativas à versão mais recente do filtro.\nSe gravar as suas modificações, irá sobrepor todas as modificações desde a revisão que você está aeditando.</strong> &bull;\n[[Special:AbuseFilter/history/$2|Voltar ao histórico deste filtro]].",
 	"abusefilter-edit-status-label": "Estatísticas:",
 	"abusefilter-edit-status": "{{PLURAL:$1|Da última $1 ação|Das últimas $1 ações}}, este filtro correspondeu com $2 ($3%).",
+	"abusefilter-edit-status-profile": "{{PLURAL:$1|Da última 1 ação|Das últimas $1 ações}}, este filtro correspondeu com $2 ($3%).\nEm média, o seu tempo de execução é de $4 ms, e consome $5 {{PLURAL:$5|condição|condições}} do seu limite de condições.",
 	"abusefilter-edit-throttled": "'''Aviso''': Este filtro foi automaticamente desativado como medida de segurança.\nO filtro atingiu o limite de correspondência com mais de $1% de ações.",
 	"abusefilter-edit-new": "Novo filtro",
 	"abusefilter-edit-save": "Salvar filtro",
@@ -181,8 +184,8 @@
 	"abusefilter-edit-warn-other-label": "Nome da página de outra mensagem:\n:''(sem prefixo MediaWiki)''",
 	"abusefilter-edit-warn-actions": "Ações:",
 	"abusefilter-edit-warn-preview": "Prever mensagem selecionada",
-	"abusefilter-edit-warn-edit": "Criar/Editar mensagem selecionada",
-	"abusefilter-edit-tag-tag": "Etiquetas a aplicar (uma por linha):",
+	"abusefilter-edit-warn-edit": "Criar/editar mensagem selecionada",
+	"abusefilter-edit-tag-tag": "[[Special:Tags|Etiquetas]] a aplicar (uma por linha):",
 	"abusefilter-edit-denied": "Você não pode ver os detalhes deste filtro porque ele está ocultado da visualização pública.",
 	"abusefilter-edit-main": "Parâmetros do filtro",
 	"abusefilter-edit-done-subtitle": "Filtro editado",

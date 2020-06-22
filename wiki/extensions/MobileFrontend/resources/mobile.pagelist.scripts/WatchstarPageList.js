@@ -1,29 +1,31 @@
 ( function ( M, $ ) {
 
-	var WatchstarPageList,
-		mWatchstar,
+	var mWatchstar,
 		PageList = M.require( 'mobile.pagelist/PageList' ),
 		Watchstar = M.require( 'mobile.watchstar/Watchstar' ),
-		WatchstarApi = M.require( 'mobile.watchstar/WatchstarApi' ),
 		user = M.require( 'mobile.user/user' ),
-		Page = M.require( 'mobile.startup/Page' );
+		Page = M.require( 'mobile.startup/Page' ),
+		WatchstarGateway = M.require( 'mobile.watchstar/WatchstarGateway' );
 
 	/**
 	 * List of items page view
 	 * @class WatchstarPageList
 	 * @uses Page
-	 * @uses WatchstarApi
+	 * @uses WatchstarGateway
 	 * @uses Watchstar
 	 * @extends View
 	 */
-	WatchstarPageList = PageList.extend( {
+	function WatchstarPageList( options ) {
+		this.wsGateway = new WatchstarGateway( options.api );
+		PageList.apply( this, arguments );
+	}
+
+	OO.mfExtend( WatchstarPageList, PageList, {
 		/**
 		 * @inheritdoc
+		 * @cfg {Object} defaults Default options hash.
+		 * @cfg {mw.Api} defaults.api
 		 */
-		initialize: function ( options ) {
-			this.api = new WatchstarApi( options );
-			PageList.prototype.initialize.apply( this, arguments );
-		},
 		/**
 		 * Retrieve pages
 		 *
@@ -32,7 +34,7 @@
 		 * @return {jQuery.Deferred}
 		 */
 		getPages: function ( ids ) {
-			return this.api.load( ids );
+			return this.wsGateway.loadWatchStatus( ids );
 		},
 		/**
 		 * @inheritdoc
@@ -41,7 +43,7 @@
 			var $li,
 				self = this,
 				pages = [],
-				api = this.api;
+				gateway = this.wsGateway;
 
 			PageList.prototype.postRender.apply( this );
 
@@ -67,9 +69,10 @@
 							} );
 
 						watchstar = new Watchstar( {
+							api: self.options.api,
 							funnel: self.options.funnel,
 							isAnon: false,
-							isWatched: api.isWatchedPage( page ),
+							isWatched: gateway.isWatchedPage( page ),
 							page: page,
 							el: $( '<div>' ).appendTo( this )
 						} );
@@ -93,7 +96,5 @@
 	} );
 
 	mWatchstar = M.define( 'mobile.pagelist.scripts/WatchstarPageList', WatchstarPageList );
-	mWatchstar.deprecate( 'modules/WatchstarPageList' );
-	mWatchstar.deprecate( 'modules/PageList' );
 
 }( mw.mobileFrontend, jQuery ) );

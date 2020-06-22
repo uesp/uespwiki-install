@@ -1,6 +1,5 @@
 ( function ( M, $ ) {
-	var ImageOverlay,
-		Overlay = M.require( 'mobile.overlays/Overlay' ),
+	var Overlay = M.require( 'mobile.overlays/Overlay' ),
 		Icon = M.require( 'mobile.startup/Icon' ),
 		Button = M.require( 'mobile.startup/Button' ),
 		ImageGateway = M.require( 'mobile.mediaViewer/ImageGateway' );
@@ -12,7 +11,14 @@
 	 * @uses Icon
 	 * @uses ImageGateway
 	 */
-	ImageOverlay = Overlay.extend( {
+	function ImageOverlay( options ) {
+		this.gateway = new ImageGateway( {
+			api: options.api
+		} );
+		Overlay.apply( this, arguments );
+	}
+
+	OO.mfExtend( ImageOverlay, Overlay, {
 		// allow pinch zooming
 		hasFixedHeader: false,
 		className: 'overlay media-viewer',
@@ -56,14 +62,6 @@
 			// Click tracking for table of contents so we can see if people interact with it
 			'click .slider-button': 'onSlide'
 		} ),
-
-		/** @inheritdoc */
-		initialize: function ( options ) {
-			this.gateway = new ImageGateway( {
-				api: options.api
-			} );
-			Overlay.prototype.initialize.apply( this, arguments );
-		},
 		/**
 		 * Event handler for slide event
 		 * @param {jQuery.Event} ev
@@ -78,7 +76,7 @@
 		 * @param {Thumbnail} thumbnail
 		 */
 		setNewImage: function ( thumbnail ) {
-			window.location.hash = '#/media/' + thumbnail.getFileName();
+			window.location.hash = '#/media/' + encodeURIComponent( thumbnail.getFileName() );
 		},
 		/** @inheritdoc */
 		preRender: function () {
@@ -251,7 +249,6 @@
 			}
 		}
 	} );
-	M.define( 'mobile.mediaViewer/ImageOverlay', ImageOverlay )
-		.deprecate( 'modules/mediaViewer/ImageOverlay' );
+	M.define( 'mobile.mediaViewer/ImageOverlay', ImageOverlay );
 
 }( mw.mobileFrontend, jQuery ) );
