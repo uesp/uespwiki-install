@@ -5,8 +5,7 @@
 # It is included by LocalSettings.php.
 #
 
-$wgLocalInterwikis = array ($wgLanguageCode);
-if ($wgLanguageCode != "en")
-{
-	$uespLanguageSuffix = "_" . $wgLanguageCode;
+if ($wgLanguageCode != "") {
+	$wgLocalInterwikis = array($wgLanguageCode);
 }
+

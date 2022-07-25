@@ -177,7 +177,7 @@ class MetaTemplateCategoryViewer extends CategoryTreeCategoryViewer {
 			if (strlen($vals['catredirect'])>0)
 				$isRedirect = $vals['catredirect'];
 
-			$link = $this->getSkin()->link( $title, htmlspecialchars( $vals['catlabel'] ) );
+			$link = Linker::link( $title, htmlspecialchars( $vals['catlabel'] ) );
 			if ($isRedirect)
 				$link = '<span class="redirect-in-category">' . $link . '</span>';
 

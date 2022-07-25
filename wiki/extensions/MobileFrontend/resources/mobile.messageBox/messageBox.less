@@ -1,12 +1,14 @@
-@import "minerva.variables";
-@import "minerva.mixins";
-@import "mediawiki.mixins";
+@import 'minerva.variables';
+@import 'minerva.mixins';
+@import 'mediawiki.mixins';
 
 // Used for messages on login screen (They're more informational than actual warnings.)
-.warningbox {
+// FIXME: standardise these two classes
+.warningbox,
+.mw-revision {
 	border: 1px solid @colorGray12;
 	background-color: @colorGray14;
-	color: @grayDark;
+	color: @colorGray2;
 }
 
 .successbox {
@@ -16,14 +18,15 @@
 
 .successbox,
 .errorbox,
-.warningbox {
+.warningbox,
+.mw-revision {
 	padding: 1em @contentMargin;
 	margin: 0 0 1em;
 
 	h2 {
 		font: bold 100% @fontFamily;
 		padding: 0;
-		margin: 0 0 .5em 0;
+		margin: 0 0 0.5em 0;
 	}
 
 	// used e.g. in EditorOverlay

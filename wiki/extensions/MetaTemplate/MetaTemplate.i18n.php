@@ -23,4 +23,10 @@ $messages['en'] = array(
 	'mt_varsonpage-submit' => 'Go',
 	'mt_varsonpage-no-page' => 'No page specified.',
 	'mt_varsonpage-no-results' => 'There are no variables saved on this page.',
+	'mttc-args' => 'MetaTemplate-Split Arguments',
+	'mttc-data' => 'MetaTemplate-Data',
+	'mttc-include' => 'MetaTemplate-Include',
+	'mttc-listsaved' => 'MetaTemplate-Listsaved',
+	'mttc-stack' => 'MetaTemplate-Stack',
+	'mttc-varset' => 'MetaTemplate-Variables'
 );

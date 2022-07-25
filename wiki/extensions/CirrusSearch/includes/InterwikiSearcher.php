@@ -39,56 +39,65 @@ class InterwikiSearcher extends Searcher {
 	/**
 	 * Constructor
 	 * @param Connection $connection
-	 * @param int[] $namespaces Namespace numbers to search
+	 * @param int[]|null $namespaces Namespace numbers to search, or null for all of them
 	 * @param User|null $user
-	 * @param string $index Base name for index to search from, defaults to wfWikiId()
-	 * @param string $interwiki Interwiki prefix we're searching
+	 * @param string $index Base name for index to search from, defaults to $wgCirrusSearchIndexBaseName
 	 */
-	public function __construct( Connection $connection, array $namespaces, User $user = null, $index, $interwiki ) {
+	public function __construct( Connection $connection, array $namespaces = null, User $user = null ) {
 		// Only allow core namespaces. We can't be sure any others exist
 		if ( $namespaces !== null ) {
 			$namespaces = array_filter( $namespaces, function( $namespace ) {
 				return $namespace <= 15;
 			} );
 		}
-		parent::__construct( $connection, 0, self::MAX_RESULTS, null, $namespaces, $user, $index );
-		$this->interwiki = $interwiki;
+		parent::__construct( $connection, 0, self::MAX_RESULTS, null, $namespaces, $user );
 	}
 
 	/**
 	 * Fetch search results, from caches, if there's any
 	 * @param string $term Search term to look for
-	 * @return ResultSet|null
+	 * @return ResultSet[]|null
 	 */
 	public function getInterwikiResults( $term ) {
-
 		// Return early if we can
 		if ( !$term ) {
 			return null;
 		}
 
-		$namespaceKey = $this->getNamespaces() !== null ?
-			implode( ',', $this->getNamespaces() ) : '';
-
-		$cache = ObjectCache::getLocalClusterInstance();
-		$key = $cache->makeKey(
-			'cirrus',
-			'interwiki',
-			$this->interwiki,
-			$namespaceKey,
-			md5( $term )
+		$sources = $this->config->get( 'CirrusSearchInterwikiSources' );
+		if ( !$sources ) {
+			return null;
+		}
+		$this->searchContext->setCacheTtl(
+			$this->config->get( 'CirrusSearchInterwikiCacheTime' )
 		);
-		$ttl = $this->config->get( 'CirrusSearchInterwikiCacheTime' );
 
-		return $cache->getWithSetCallback( $key, $ttl, function () use ( $term ) {
-			$this->setResultsType( new InterwikiResultsType( $this->interwiki ) );
-			$results = $this->searchText( $term, false );
-			if ( $results->isOK() ) {
-				return $results->getValue();
+		$this->searchContext->setLimitSearchToLocalWiki( true );
+		$this->buildFullTextSearch( $term, false );
+		$context = $this->searchContext;
+
+		$retval = [];
+		$searches = [];
+		$resultsTypes = [];
+		foreach ( $sources as $interwiki => $index ) {
+			$resultsTypes[$interwiki] = new InterwikiResultsType( $interwiki );
+			$this->setResultsType( $resultsTypes[$interwiki] );
+			$this->indexBaseName = $index;
+			$this->searchContext = clone $context;
+			$search = $this->buildSearch();
+			if ( $this->searchContext->areResultsPossible() ) {
+				$searches[$interwiki] = $search;
 			} else {
-				return false;
+				$retval[$interwiki] = [];
 			}
-		} );
+		}
+
+		$results = $this->searchMulti( $searches, $term, $resultsTypes );
+		if ( !$results->isOK() ) {
+			return null;
+		}
+
+		return array_merge( $retval, $results->getValue() );
 	}
 
 	/**
@@ -119,6 +128,14 @@ class InterwikiSearcher extends Searcher {
 	 * @return array
 	 */
 	protected function getAndFilterExtraIndexes() {
-		return array();
+		return [];
+	}
+
+	/**
+	 * @return string The stats key used for reporting hit/miss rates of the
+	 *  application side query cache.
+	 */
+	protected function getQueryCacheStatsKey() {
+		return 'CirrusSearch.query_cache.interwiki';
 	}
 }

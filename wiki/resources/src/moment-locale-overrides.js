@@ -2,7 +2,7 @@
 
 // HACK: Overwrite moment's i18n with MediaWiki's for the current language so that
 // wgTranslateNumerals is respected.
-moment.updateLocale( moment.locale(), {
+moment.locale( moment.locale(), {
 	preparse: function ( s ) {
 		var i,
 			table = mw.language.getDigitTransformTable();
@@ -27,7 +27,7 @@ moment.updateLocale( moment.locale(), {
 		if ( mw.config.get( 'wgTranslateNumerals' ) ) {
 			for ( i = 0; i < 10; i++ ) {
 				if ( table[ i ] !== undefined ) {
-					s = s.replace( new RegExp( mw.RegExp.escape( i ), 'g' ), table[ i ] );
+					s = s.replace( new RegExp( i, 'g' ), table[ i ] );
 				}
 			}
 		}

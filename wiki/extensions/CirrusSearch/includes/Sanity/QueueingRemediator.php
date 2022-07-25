@@ -28,6 +28,9 @@ use WikiPage;
  */
 
 class QueueingRemediator implements Remediator {
+	/**
+	 * @var string|null
+	 */
 	protected $cluster;
 
 	/**
@@ -37,6 +40,7 @@ class QueueingRemediator implements Remediator {
 	public function __construct( $cluster ) {
 		$this->cluster = $cluster;
 	}
+
 	public function redirectInIndex( WikiPage $page ) {
 		$this->pushLinksUpdateJob( $page );
 	}
@@ -45,40 +49,50 @@ class QueueingRemediator implements Remediator {
 	}
 
 	/**
-	 * @param int $pageId
+	 * @param string $docId
 	 * @param Title $title
 	 */
-	public function ghostPageInIndex( $pageId, Title $title ) {
+	public function ghostPageInIndex( $docId, Title $title ) {
 		JobQueueGroup::singleton()->push(
-			new DeletePages( $title, array(
-				'id' => $pageId,
+			new DeletePages( $title, [
+				'docId' => $docId,
 				'cluster' => $this->cluster,
-			) )
+			] )
 		);
 	}
 
 	/**
+	 * @param string $docId
 	 * @param WikiPage $page
 	 * @param string $wrongIndex
 	 */
-	public function pageInWrongIndex( WikiPage $page, $wrongIndex ) {
+	public function pageInWrongIndex( $docId, WikiPage $page, $wrongIndex ) {
 		JobQueueGroup::singleton()->push(
-			new DeletePages( $page->getTitle(), array(
+			new DeletePages( $page->getTitle(), [
 				'indexType' => $wrongIndex,
-				'id' => $page->getId(),
+				'docId' => $docId,
 				'cluster' => $this->cluster,
-			) )
+			] )
 		);
+		$this->pushLinksUpdateJob( $page );
+	}
+
+	/**
+	 * @param string $docId
+	 * @param WikiPage $page
+	 * @param string $index
+	 */
+	public function oldVersionInIndex( $docId, WikiPage $page, $index ) {
 		$this->pushLinksUpdateJob( $page );
 	}
 
 	private function pushLinksUpdateJob( WikiPage $page ) {
 		JobQueueGroup::singleton()->push(
-			new LinksUpdate( $page->getTitle(), array(
-				'addedLinks' => array(),
-				'removedLinks' => array(),
+			new LinksUpdate( $page->getTitle(), [
+				'addedLinks' => [],
+				'removedLinks' => [],
 				'cluster' => $this->cluster,
-			) )
+			] )
 		);
 	}
 }

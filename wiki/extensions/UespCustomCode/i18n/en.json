@@ -1,0 +1,14 @@
+{
+	"@metadata": {
+		"authors": [
+			"Daveh"
+		]
+	},
+	"mwe-upwiz-source-ownwork-assert-uesp-cc-by-sa-2.5": "I, $2, {{GENDER:$4|the copyright holder}} of {{PLURAL:$1|this work|these works}}, irrevocably grant anyone the right to use {{PLURAL:$1|this work|these works}} under the Creative Commons Attribution ShareAlike 2.5 license ([$3 legal code]).",
+	"mwe-upwiz-source-ownwork-uesp-cc-by-sa-2.5-explain": "(Anyone may use, share or remix {{PLURAL:$1|this work|these works}}, as long as they credit me.)",
+	"mwe-upwiz-license-uesp-cc-by-sa-2.5": "Creative Commons Attribution ShareAlike 2.5 ([$2 legal code])",
+	"mwe-upwiz-license-uesp-cc-by-2.5": "Creative Commons Attribution 2.5 ([$2 legal code])",
+	"mwe-upwiz-license-uesp-cc-by-sa-nc-2.5": "Creative Commons Attribution ShareAlike NonCommercial 2.5 ([$2 legal code])",
+	"mwe-upwiz-license-uesp-pd": "Public Domain",
+	"mwe-upwiz-license-uesp-usedwithpermission": "Used With Permission"
+}

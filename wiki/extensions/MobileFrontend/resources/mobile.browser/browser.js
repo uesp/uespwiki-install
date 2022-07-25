@@ -108,11 +108,11 @@
 		 * @method
 		 * @return {Boolean}
 		 */
-		isWideScreen: function () {
+		isWideScreen: memoize( function () {
 			var val = parseInt( mw.config.get( 'wgMFDeviceWidthTablet' ), 10 );
 			// Check portrait and landscape mode to be consistent
 			return window.innerWidth >= val || window.innerHeight >= val;
-		},
+		} ),
 		/**
 		 * Checks browser support for a given CSS property
 		 * @param {String} [property] the name of the property being tested
@@ -147,34 +147,6 @@
 			return this.supportsCSSProperty( 'animationName' ) &&
 				this.supportsCSSProperty( 'transform' ) &&
 				this.supportsCSSProperty( 'transition' );
-		} ),
-		/**
-		 * Detect if fixed position is supported in browser
-		 * http://www.quirksmode.org/blog/archives/2010/12/the_fifth_posit.html
-		 * https://github.com/Modernizr/Modernizr/issues/167
-		 * http://mobilehtml5.org/
-		 * @method
-		 * @return {Boolean}
-		 */
-		supportsPositionFixed: memoize( function () {
-			var support = false,
-				userAgent = this.userAgent;
-
-			$.each( [
-				// Webkit 534+
-				/AppleWebKit\/(53[4-9]|5[4-9]\d|[6-9]\d\d|\d{4,})/,
-				// Android 2+ (we lockViewport for Android 2 meaning we can support it)
-				/Android [2-9]/,
-				// any Firefox
-				/Firefox/,
-				// Trident (IE 10+)
-				/Trident\/[6-9]|Trident\/1\d[\d\.]+/
-			], function ( index, item ) {
-				if ( item.test( userAgent ) ) {
-					support = true;
-				}
-			} );
-			return support;
 		} ),
 		/**
 		 * Whether touchstart and other touch events are supported by the current browser.
@@ -221,7 +193,16 @@
 		} )
 	};
 
-	browser = new Browser( window.navigator.userAgent, $( 'html' ) );
+	/**
+	 * @static
+	 * @returns {Browser}
+	 */
+	Browser.getSingleton = function () {
+		if ( !browser ) {
+			browser = new Browser( window.navigator.userAgent, $( 'html' ) );
+		}
+		return browser;
+	};
+
 	M.define( 'mobile.browser/Browser', Browser );
-	M.define( 'mobile.browser/browser', browser );
 }( mw.mobileFrontend, jQuery ) );

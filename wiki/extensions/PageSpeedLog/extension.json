@@ -9,10 +9,19 @@
 	"AutoloadClasses": {
 		"PageSpeedLog": "PageSpeedLog.php"
 	},
+	"ExtensionFunctions" : [
+		"PageSpeedLog::onInitialize"
+	],
 	"Hooks": {
 		"ParserFirstCallInit": [
 			"PageSpeedLog::setHooks"
 		]
+	},
+	"config": {
+		"PageSpeedLogFile": {
+			"value": "/var/log/httpd/pagespeed.log",
+			"description": "Sets the file for the page speed log to be written to."
+		}
 	},
 	"manifest_version": 1
 }

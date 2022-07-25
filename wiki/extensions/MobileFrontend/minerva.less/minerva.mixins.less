@@ -1,14 +1,14 @@
-@import "mediawiki.mixins.less";
+@import 'mediawiki.mixins.less';
 
 // Shorthand for background-image-svg in core
 .background-image-svg-quick( @url ) {
-	.background-image-svg( ~"@{url}.svg", ~"@{url}.png" );
+	.background-image-svg( ~'@{url}.svg', ~'@{url}.png' );
 }
 
 .m-background-image( @url ) {
 	&:after,
 	&:before {
-		.background-image(@url)
+		.background-image( @url );
 	}
 }
 
@@ -20,7 +20,7 @@
 }
 
 .m-background-image-svg-quick( @url ) {
-	.m-background-image-svg( ~"@{url}.svg", ~"@{url}.png" );
+	.m-background-image-svg( ~'@{url}.svg', ~'@{url}.png' );
 }
 
 .box-sizing( @value ) {
@@ -36,7 +36,7 @@
 	background-size: @width @height;
 }
 
-.vertical-gradient ( @startColor: gray, @endColor: white, @startPos: 0, @endPos: 100% ) {
+.vertical-gradient ( @startColor: #808080, @endColor: #fff, @startPos: 0, @endPos: 100% ) {
 	background-color: @endColor;
 	background-image: -moz-linear-gradient( top, @startColor @startPos, @endColor @endPos ); // Firefox 3.6+
 	background-image: -webkit-gradient( linear, left top, left bottom, color-stop( @startPos, @startColor ), color-stop( @endPos, @endColor ) ); // Safari 4+, Chrome 2+

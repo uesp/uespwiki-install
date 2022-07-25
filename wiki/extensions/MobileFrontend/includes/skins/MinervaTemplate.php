@@ -16,9 +16,6 @@ class MinervaTemplate extends BaseTemplate {
 	/** @var boolean Specify whether the page is main page */
 	protected $isMainPage;
 
-	/** @var boolean Whether to insert the page actions before the heading in HTML */
-	protected $shouldDisplayPageActionsBeforeHeading = true;
-
 	/**
 	 * Gets the header content for the top chrome.
 	 * @param array $data Data used to build the page
@@ -35,20 +32,16 @@ class MinervaTemplate extends BaseTemplate {
 	 * @return string
 	 */
 	protected function getSearchForm( $data ) {
-		return Html::openElement( 'form',
-				array(
-					'action' => $data['wgScript'],
-					'class' => 'search-box',
-				)
-			) .
-			$this->makeSearchInput( $this->getSearchAttributes() ) .
-			$this->makeSearchButton(
-				'fulltext',
-				array(
-					'class' => MobileUI::buttonClass( 'progressive', 'fulltext-search no-js-only' ),
-				)
-			) .
-			Html::closeElement( 'form' );
+		$args = [
+			'action' => $data['wgScript'],
+			'searchInput' => $this->makeSearchInput( $this->getSearchAttributes() ),
+			'searchButton' => $this->makeSearchButton( 'fulltext', [
+				'class' => MobileUI::buttonClass( 'progressive',
+					'fulltext-search' ),
+			] )
+		];
+		$templateParser = new TemplateParser( __DIR__ );
+		return $templateParser->processTemplate( 'search_form', $args );
 	}
 
 	/**
@@ -60,7 +53,7 @@ class MinervaTemplate extends BaseTemplate {
 		$this->isSpecialMobileMenuPage = $this->isSpecialPage &&
 			$title->equals( SpecialPage::getTitleFor( 'MobileMenu' ) );
 		$this->isMainPage = $title->isMainPage();
-		Hooks::run( 'MinervaPreRender', array( $this ) );
+		Hooks::run( 'MinervaPreRender', [ $this ] );
 		$this->render( $this->data );
 	}
 
@@ -69,16 +62,50 @@ class MinervaTemplate extends BaseTemplate {
 	 * @return array
 	 */
 	public function getPageActions() {
-		return $this->isFallbackEditor() ? array() : $this->data['page_actions'];
+		return $this->isFallbackEditor() ? [] : $this->data['page_actions'];
 	}
 
 	/**
-	 * Returns footer links
-	 * @param string $option
+	 * Returns template data for footer
+	 *
+	 * @param array $data Data used to build the page
 	 * @return array
 	 */
-	public function getFooterLinks( $option = null ) {
-		return $this->data['footerlinks'];
+	protected function getFooterTemplateData( $data ) {
+		$groups = [];
+
+		foreach ( $data['footerlinks'] as $category => $links ) {
+			$items = [];
+			foreach ( $links as $link ) {
+				if ( isset( $this->data[$link] ) && $data[$link] !== '' ) {
+					$items[] = [
+						'category' => $category,
+						'name' => $link,
+						'linkhtml' => $data[$link],
+					];
+				}
+			}
+			$groups[] = [
+				'name' => $category,
+				'items' => $items,
+			];
+		}
+
+		if ( $this->getSkin()->isFooterV2() ) {
+			// This turns off the footer id and allows us to distinguish the old footer with the new design
+			return [
+				'lastmodified' => $this->getHistoryLinkHtml( $data ),
+				'headinghtml' => $data['footer-site-heading-html'],
+				'licensehtml' => $data['mobile-license'],
+				'lists' => $groups,
+				'v1' => false,
+			];
+		} else {
+			return [
+				'v1' => true,
+				'lists' => $groups,
+			];
+		}
 	}
 
 	/**
@@ -86,36 +113,15 @@ class MinervaTemplate extends BaseTemplate {
 	 * @return array Array with attributes for search bar
 	 */
 	protected function getSearchAttributes() {
-		$searchBox = array(
+		$searchBox = [
 			'id' => 'searchInput',
 			'class' => 'search',
 			'autocomplete' => 'off',
 			// The placeholder gets fed to HTML::element later which escapes all
 			// attribute values, so need to escape the string here.
 			'placeholder' => $this->getMsg( 'mobile-frontend-placeholder' )->text(),
-		);
+		];
 		return $searchBox;
-	}
-
-	/**
-	 * Get the HTML for rendering the footer elements
-	 * @param array $data Data used to build the footer
-	 * @return string html
-	 */
-	protected function getFooterHtml( $data ) {
-		$footer = '<div id="footer" class="post-content">';
-		foreach ( $this->getFooterLinks() as $category => $links ) {
-			$footer .= Html::openElement( 'ul', array( 'class' => 'footer-' . $category ) );
-			foreach ( $links as $link ) {
-				if ( isset( $this->data[$link] ) && $this->data[$link] !== '' ) {
-					$footer .= Html::rawElement( 'li',
-						array( 'id' => "footer-{$category}-{$link}" ), $data[$link] );
-				}
-			}
-			$footer .= '</ul>';
-		}
-		$footer .= '</div>';
-		return $footer;
 	}
 
 	/**
@@ -129,8 +135,11 @@ class MinervaTemplate extends BaseTemplate {
 		$isJSOnly = true;
 		if ( $actions ) {
 			foreach ( $actions as $key => $val ) {
-				if ( isset( $val['is_js_only'] ) && !$val['is_js_only'] ) {
-					$isJSOnly = false;
+				if ( isset( $val['is_js_only'] ) ) {
+					if ( !$val['is_js_only'] ) {
+						$isJSOnly = false;
+					}
+					unset( $val['is_js_only'] );  // no need to output this attribute
 				}
 				$html .= $this->makeListItem( $key, $val );
 			}
@@ -149,16 +158,20 @@ class MinervaTemplate extends BaseTemplate {
 		$action = Action::getActionName( RequestContext::getMain() );
 		if ( isset( $data['historyLink'] ) && $action === 'view' ) {
 			$historyLink = $data['historyLink'];
-			$args = array(
+			$args = [
+				'clockIconClass' => MobileUI::iconClass( 'clock-gray', 'before' ),
+				'arrowIconClass' => MobileUI::iconClass(
+					'arrow-gray', 'element', 'mw-ui-icon-small indicator' ),
 				'isMainPage' => $this->getSkin()->getTitle()->isMainPage(),
 				'link' => $historyLink['href'],
 				'text' => $historyLink['text'],
 				'username' => $historyLink['data-user-name'],
 				'userGender' => $historyLink['data-user-gender'],
 				'timestamp' => $historyLink['data-timestamp']
-			);
+			];
 			$templateParser = new TemplateParser( __DIR__ );
-			return $templateParser->processTemplate( 'history', $args );
+			$templateName = $this->getSkin()->isFooterV2() ? 'history-beta' : 'history';
+			return $templateParser->processTemplate( $templateName, $args );
 		} else {
 			return '';
 		}
@@ -173,7 +186,7 @@ class MinervaTemplate extends BaseTemplate {
 	 */
 	protected function getSecondaryActions() {
 		if ( $this->isFallbackEditor() ) {
-			return array();
+			return [];
 		}
 
 		return $this->data['secondary_actions'];
@@ -184,23 +197,22 @@ class MinervaTemplate extends BaseTemplate {
 	 * @return string
 	 */
 	protected function getSecondaryActionsHtml() {
-		// no secondary actions on the user page
-		if ( $this->getSkin()->isUserPage ) {
-			return '';
-		}
 		$baseClass = MobileUI::buttonClass( '', 'button' );
-		$html = Html::openElement( 'div', array(
+		$html = Html::openElement( 'div', [
 			'class' => 'post-content',
 			'id' => 'page-secondary-actions'
-		) );
+		] );
 
-		foreach ( $this->getSecondaryActions() as $el ) {
-			if ( isset( $el['attributes']['class'] ) ) {
-				$el['attributes']['class'] .= ' ' . $baseClass;
-			} else {
-				$el['attributes']['class'] = $baseClass;
+		// no secondary actions on the user page
+		if ( !$this->getSkin()->isUserPage ) {
+			foreach ( $this->getSecondaryActions() as $el ) {
+				if ( isset( $el['attributes']['class'] ) ) {
+					$el['attributes']['class'] .= ' ' . $baseClass;
+				} else {
+					$el['attributes']['class'] = $baseClass;
+				}
+				$html .= Html::element( 'a', $el['attributes'], $el['label'] );
 			}
-			$html .= Html::element( 'a', $el['attributes'], $el['label'] );
 		}
 
 		return $html . Html::closeElement( 'div' );
@@ -213,10 +225,10 @@ class MinervaTemplate extends BaseTemplate {
 	 */
 	protected function getContentHtml( $data ) {
 		if ( !$data[ 'unstyledContent' ] ) {
-			$content = Html::openElement( 'div', array(
+			$content = Html::openElement( 'div', [
 				'id' => 'bodyContent',
 				'class' => 'content',
-			) );
+			] );
 			$content .= $data[ 'bodytext' ];
 			if ( isset( $data['subject-page'] ) ) {
 				$content .= $data['subject-page'];
@@ -241,25 +253,17 @@ class MinervaTemplate extends BaseTemplate {
 		$html = '';
 		if ( $internalBanner || $preBodyHtml || isset( $data['page_actions'] ) ) {
 			$html .= $preBodyHtml
-				. Html::openElement( 'div', array( 'class' => 'pre-content heading-holder' ) );
-				if ( !$this->shouldDisplayPageActionsBeforeHeading ) {
-					$html .= $headingHtml;
-				}
-				if ( !$this->isSpecialPage ){
-					$html .= $this->getPageActionsHtml( $data );
-				}
-				if ( $this->shouldDisplayPageActionsBeforeHeading ) {
-					$html .= $headingHtml;
-				}
-				$html .= $postHeadingHtml;
-				$html .= $data['subtitle'];
-				// FIXME: Temporary solution until we have design
-				if ( isset( $data['_old_revision_warning'] ) ) {
-					$html .= $data['_old_revision_warning'];
-				}
+				. Html::openElement( 'div', [ 'class' => 'pre-content heading-holder' ] );
 
-				$html .= $internalBanner;
-				$html .=  '</div>';
+			if ( !$this->isSpecialPage ){
+				$html .= $this->getPageActionsHtml( $data );
+			}
+
+			$html .= $headingHtml;
+			$html .= $postHeadingHtml;
+			$html .= $data['subtitle'];
+			$html .= $internalBanner;
+			$html .=  '</div>';
 		}
 		return $html;
 	}
@@ -272,7 +276,7 @@ class MinervaTemplate extends BaseTemplate {
 	 */
 	protected function getPostContentHtml( $data ) {
 		return $this->getSecondaryActionsHtml() .
-			$this->getHistoryLinkHtml( $data );
+			( $this->getSkin()->isFooterV2() ? '' : $this->getHistoryLinkHtml( $data ) );
 	}
 
 	/**
@@ -311,9 +315,13 @@ class MinervaTemplate extends BaseTemplate {
 	protected function getHeaderHtml( $data ) {
 		// Note these should be wrapped in divs
 		// see https://phabricator.wikimedia.org/T98498 for details
-		return '<div>' . $data['menuButton'] . '</div>'
-			. $this->getChromeHeaderContentHtml( $data )
-			. '<div>' . $data['secondaryButton'] . '</div>';
+		$html = '<div>' . $data['menuButton'] . '</div>'
+			. $this->getChromeHeaderContentHtml( $data );
+		// Do not show the secondary button container if no secondary button is available
+		if ( $data['secondaryButton'] ) {
+			$html .= '<div>' . $data['secondaryButton'] . '</div>';
+		}
+		return $html;
 	}
 
 	/**
@@ -325,14 +333,14 @@ class MinervaTemplate extends BaseTemplate {
 		$templateParser = new TemplateParser( __DIR__ );
 
 		// prepare template data
-		$templateData = array(
+		$templateData = [
 			'banners' => $data['banners'],
 			'headelement' => $data[ 'headelement' ],
 			'headerhtml' => $this->getHeaderHtml( $data ),
 			'mainmenuhtml' => $this->getMainMenuHtml( $data ),
 			'contenthtml' => $this->getContentWrapperHtml( $data ),
-			'footerhtml' => $this->getFooterHtml( $data ),
-		);
+			'footer' => $this->getFooterTemplateData( $data ),
+		];
 		// begin rendering
 		echo $templateParser->processTemplate( 'minerva', $templateData );
 		$this->printTrail();

@@ -2,16 +2,14 @@
 
 namespace CirrusSearch;
 
-use Exception;
-use GenderCache;
 use IP;
 use MediaWiki\Logger\LoggerFactory;
-use MWNamespace;
+use MediaWiki\MediaWikiServices;
 use PoolCounterWorkViaCallback;
 use RequestContext;
 use Status;
 use Title;
-use User;
+use UIDGenerator;
 use WebRequest;
 
 /**
@@ -41,32 +39,19 @@ class Util {
 	private static $defaultBoostTemplates = null;
 
 	/**
+	 * @var string Id identifying this php execution
+	 */
+	static private $executionId;
+
+	/**
 	 * Get the textual representation of a namespace with underscores stripped, varying
-	 * by gender if need be.
+	 * by gender if need be (using Title::getNsText()).
 	 *
 	 * @param Title $title The page title to use
 	 * @return string
 	 */
 	public static function getNamespaceText( Title $title ) {
-		global $wgContLang;
-
-		$ns = $title->getNamespace();
-
-		// If we're in NS_USER(_TALK) and we're in a gender-distinct language
-		// then vary the namespace on gender like we should.
-		$nsText = '';
-		if ( MWNamespace::hasGenderDistinction( $ns ) && $wgContLang->needsGenderDistinction() ) {
-			$nsText = $wgContLang->getGenderNsText( $ns,
-				GenderCache::singleton()->getGenderOf(
-					User::newFromName( $title->getText() ),
-					__METHOD__
-				)
-			);
-		} elseif ( $nsText !== NS_MAIN ) {
-			$nsText = $wgContLang->getNsText( $ns );
-		}
-
-		return strtr( $nsText, '_', ' ' );
+		return strtr( $title->getNsText(), '_', ' ' );
 	}
 
 	/**
@@ -124,7 +109,7 @@ class Util {
 	 */
 	private static function wrapWithPoolStats( $startPoolWork, $type, $isSuccess, $callback ) {
 		return function () use ( $type, $isSuccess, $callback, $startPoolWork ) {
-			RequestContext::getMain()->getStats()->timing(
+			MediaWikiServices::getInstance()->getStatsdDataFactory()->timing(
 				self::getPoolStatsKey( $type, $isSuccess ),
 				intval( 1000 * (microtime( true ) - $startPoolWork) )
 			);
@@ -138,15 +123,14 @@ class Util {
 	 * that Cirrus always uses.
 	 *
 	 * @param string $type same as type parameter on PoolCounter::factory
-	 * @param \User $user the user
+	 * @param \User|null $user the user
 	 * @param callable $workCallback callback when pool counter is acquired.  Called with
 	 *  no parameters.
-	 * @param callable $errorCallback optional callback called on errors.  Called with
-	 *  the error string and the key as parameters.  If left undefined defaults
-	 *  to a function that returns a fatal status and logs an warning.
+	 * @param string|null $busyErrorMsg The i18n key to return when the queue
+	 *  is full, or null to use the default.
 	 * @return mixed
 	 */
-	public static function doPoolCounterWork( $type, $user, $workCallback, $errorCallback = null ) {
+	public static function doPoolCounterWork( $type, $user, $workCallback, $busyErrorMsg = null ) {
 		global $wgCirrusSearchPoolCounterKey;
 
 		// By default the pool counter allows you to lock the same key with
@@ -155,76 +139,41 @@ class Util {
 
 		if ( !$user ) {
 			// We don't want to even use the pool counter if there isn't a user.
+			// Note that anonymous users are still users, this is most likely
+			// maintenance scripts.
+			//
+			// @todo Maintenenace scripts and jobs should already override
+			// poolcounters as necessary, can this be removed?
 			return $workCallback();
 		}
-		$perUserKey = md5( $user->getName() );
-		$perUserKey = "nowait:CirrusSearch:_per_user:$perUserKey";
-		$globalKey = "$type:$wgCirrusSearchPoolCounterKey";
-		if ( $errorCallback === null ) {
-			$errorCallback = function( $error, $key, $userName ) {
-				$forUserName = $userName ? "for {userName} " : '';
-				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
-					"Pool error {$forUserName}on {key}:  {error}",
-					array( 'userName' => $userName, 'key' => $key, 'error' => $error )
-				);
-				return Status::newFatal( 'cirrussearch-backend-error' );
-			};
-		}
+
+		$key = "$type:$wgCirrusSearchPoolCounterKey";
+
+		$errorCallback = function( Status $status ) use ( $key, $busyErrorMsg ) {
+			/** @suppress PhanDeprecatedFunction No good replacements for getErrorsArray */
+			$errors = $status->getErrorsArray();
+			$error = $errors[0][0];
+
+			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
+				"Pool error on {key}:  {error}",
+				[ 'key' => $key, 'error' => $error ]
+			);
+			if ( $error === 'pool-queuefull' ) {
+				return Status::newFatal( $busyErrorMsg ?: 'cirrussearch-too-busy-error' );
+			}
+			return Status::newFatal( 'cirrussearch-backend-error' );
+		};
+
 		// wrap some stats collection on the success/failure handlers
 		$startPoolWork = microtime( true );
 		$workCallback = self::wrapWithPoolStats( $startPoolWork, $type, true, $workCallback );
 		$errorCallback = self::wrapWithPoolStats( $startPoolWork, $type, false, $errorCallback );
 
-		$errorHandler = function( $key ) use ( $errorCallback, $user ) {
-			return function( Status $status ) use ( $errorCallback, $key, $user ) {
-				$status = $status->getErrorsArray();
-				// anon usernames are needed within the logs to determine if
-				// specific ips (such as large #'s of users behind a proxy)
-				// need to be whitelisted. We do not need this information
-				// for logged in users and do not store it.
-				$userName = $user->isAnon() ? $user->getName() : '';
-				return $errorCallback( $status[ 0 ][ 0 ], $key, $userName );
-			};
-		};
-		$doPerUserWork = function() use ( $type, $globalKey, $workCallback, $errorHandler ) {
-			// Now that we have the per user lock lets get the operation lock.
-			// Note that this could block, causing the user to wait in line with their lock held.
-			$work = new PoolCounterWorkViaCallback( $type, $globalKey, array(
-				'doWork' => $workCallback,
-				'error' => $errorHandler( $globalKey ),
-			) );
-			return $work->execute();
-		};
-		$work = new PoolCounterWorkViaCallback( 'CirrusSearch-PerUser', $perUserKey, array(
-			'doWork' => $doPerUserWork,
-			'error' => function( $status ) use( $errorHandler, $perUserKey, $doPerUserWork ) {
-				$errorCallback = $errorHandler( $perUserKey );
-				$errorResult = $errorCallback( $status );
-				if ( Util::isUserPoolCounterActive() ) {
-					return $errorResult;
-				} else {
-					return $doPerUserWork();
-				}
-			},
-		) );
+		$work = new PoolCounterWorkViaCallback( $type, $key, [
+			'doWork' => $workCallback,
+			'error' => $errorCallback,
+		] );
 		return $work->execute();
-	}
-
-	/**
-	 * @return bool
-	 */
-	public static function isUserPoolCounterActive() {
-		global $wgCirrusSearchBypassPerUserFailure,
-			$wgCirrusSearchForcePerUserPoolCounter;
-
-		$ip = RequestContext::getMain()->getRequest()->getIP();
-		if ( IP::isInRanges( $ip, $wgCirrusSearchForcePerUserPoolCounter ) ) {
-			return true;
-		} elseif ( $wgCirrusSearchBypassPerUserFailure ) {
-			return false;
-		} else {
-			return true;
-		}
 	}
 
 	/**
@@ -237,146 +186,6 @@ class Util {
 			return (float) $result;
 		}
 		return $result / 100;
-	}
-
-	/**
-	 * Matches $data against $properties to clear keys that no longer exist.
-	 * E.g.:
-	 * $data = array(
-	 *     'title' => "I'm a title",
-	 *     'useless' => "I'm useless",
-	 * );
-	 * $properties = array(
-	 *     'title' => 'params-for-title'
-	 * );
-	 *
-	 * Will return:
-	 * array(
-	 *     'title' => "I'm a title",
-	 * )
-	 * With the no longer existing 'useless' field stripped.
-	 *
-	 * We could just use array_intersect_key for this simple example, but it
-	 * gets more complex with nested data.
-	 *
-	 * @param array $data
-	 * @param array $properties
-	 * @return array
-	 */
-	public static function cleanUnusedFields( array $data, array $properties ) {
-		$data = array_intersect_key( $data, $properties );
-
-		foreach ( $data as $key => $value ) {
-			if ( is_array( $value ) ) {
-				foreach ( $value as $i => $innerValue ) {
-					if ( is_array( $innerValue ) && isset( $properties[$key]['properties'] ) ) {
-						// go recursive to intersect multidimensional values
-						$data[$key][$i] = static::cleanUnusedFields( $innerValue, $properties[$key]['properties'] );
-					}
-
-				}
-			}
-		}
-
-		return $data;
-	}
-
-	/**
-	 * Iterate over a scroll.
-	 *
-	 * @param \Elastica\Index $index
-	 * @param string $scrollId the initial $scrollId
-	 * @param string $scrollTime the scroll timeout
-	 * @param callable $consumer function that receives the results
-	 * @param int $limit the max number of results to fetch (0: no limit)
-	 * @param int $retryAttempts the number of times we retry
-	 * @param callable $retryErrorCallback function called before each retries
-	 */
-	public static function iterateOverScroll( \Elastica\Index $index, $scrollId, $scrollTime, $consumer, $limit = 0, $retryAttempts = 0, $retryErrorCallback = null ) {
-		$clearScroll = true;
-		$fetched = 0;
-
-		while( true ) {
-			$result = static::withRetry( $retryAttempts,
-				function() use ( $index, $scrollId, $scrollTime ) {
-					return $index->search ( array(), array(
-						'scroll_id' => $scrollId,
-						'scroll' => $scrollTime
-					) );
-				}, $retryErrorCallback );
-
-			$scrollId = $result->getResponse()->getScrollId();
-
-			if( !$result->count() ) {
-				// No need to clear scroll on the last call
-				$clearScroll = false;
-				break;
-			}
-
-			$fetched += $result->count();
-			$results =  $result->getResults();
-
-			if( $limit > 0 && $fetched > $limit ) {
-				$results = array_slice( $results, 0, sizeof( $results ) - ( $fetched - $limit ) );
-			}
-			$consumer( $results );
-
-			if( $limit > 0 && $fetched >= $limit ) {
-				break;
-			}
-		}
-		// @todo: catch errors and clear the scroll, it'd be easy with a finally block ...
-
-		if( $clearScroll ) {
-			try {
-				$index->getClient()->request( "_search/scroll/".$scrollId, \Elastica\Request::DELETE );
-			} catch ( Exception $e ) {}
-		}
-	}
-
-	/**
-	 * A function that retries callback $func if it throws an exception.
-	 * The $beforeRetry is called before a retry and receives the underlying
-	 * ExceptionInterface object and the number of failed attempts.
-	 * It's generally used to log and sleep between retries. Default behaviour
-	 * is to sleep with a random backoff.
-	 * @see Util::backoffDelay
-	 *
-	 * @param int $attempts the number of times we retry
-	 * @param callable $func
-	 * @param callable $beforeRetry function called before each retry
-	 * @return mixed
-	 */
-	public static function withRetry( $attempts, $func, $beforeRetry = null ) {
-		$errors = 0;
-		while ( true ) {
-			if ( $errors < $attempts ) {
-				try {
-					return $func();
-				} catch ( Exception $e ) {
-					$errors += 1;
-					if( $beforeRetry ) {
-						$beforeRetry( $e, $errors );
-					} else {
-						$seconds = static::backoffDelay( $errors );
-						sleep( $seconds );
-					}
-				}
-			} else {
-				return $func();
-			}
-		}
-	}
-
-	/**
-	 * Backoff with lowest possible upper bound as 16 seconds.
-	 * With the default maximum number of errors (5) this maxes out at 256 seconds.
-	 *
-	 * @param int $errorCount
-	 * @return int
-	 */
-	public static function backoffDelay( $errorCount ) {
-		return rand( 1, (int) pow( 2, 3 + $errorCount ) );
 	}
 
 	/**
@@ -484,44 +293,185 @@ class Util {
 	}
 
 	/**
-	 * Parse boosted templates.  Parse failures silently return no boosted templates.
-	 *
-	 * @param string $text text representation of boosted templates
-	 * @return float[] map of boosted templates (key is the template, value is a float).
+	 * Get boost templates configured in messages.
+	 * @param SearchConfig $config Search config requesting the templates
+	 * @return \float[]
 	 */
-	public static function parseBoostTemplates( $text ) {
-		$boostTemplates = array();
-		$templateMatches = array();
-		if ( preg_match_all( '/([^|]+)\|(\d+)% ?/', $text, $templateMatches, PREG_SET_ORDER ) ) {
-			foreach ( $templateMatches as $templateMatch ) {
-				// templates field is populated with Title::getPrefixedText
-				// which will replace _ to ' '. We should do the same here.
-				$template = strtr( $templateMatch[ 1 ], '_', ' ' );
-				$boostTemplates[ $template ] = floatval( $templateMatch[ 2 ] ) / 100;
-			}
+	public static function getDefaultBoostTemplates( SearchConfig $config = null ) {
+		if ( is_null( $config ) ) {
+			$config = MediaWikiServices::getInstance()->getConfigFactory()->makeConfig( 'CirrusSearch' );
 		}
-		return $boostTemplates;
+
+		$fromConfig = $config->get( 'CirrusSearchBoostTemplates' );
+		if ( $config->get( 'CirrusSearchIgnoreOnWikiBoostTemplates' ) ) {
+			// on wiki messages disabled, we can return this config
+			// directly
+			return $fromConfig;
+		}
+
+		$fromMessage = self::getOnWikiBoostTemplates( $config );
+		if ( empty( $fromMessage ) ) {
+			// the onwiki config is empty (or unknown for non-local
+			// config), we can fallback to templates from config
+			return $fromConfig;
+		}
+		return $fromMessage;
 	}
 
 	/**
-	 * @return float[]
+	 * Load and cache boost templates configured on wiki via the system
+	 * message 'cirrussearch-boost-templates'.
+	 * If called from the local wiki the message will be cached.
+	 * If called from a non local wiki an attempt to fetch this data from the cache is made.
+	 * If an empty array is returned it means that no config is available on wiki
+	 * or the value possibly unknown if run from a non local wiki.
+	 *
+	 * @param SearchConfig $config
+	 * @return \float[] indexed by template name
 	 */
-	public static function getDefaultBoostTemplates() {
-		if ( self::$defaultBoostTemplates === null ) {
-			$cache = \ObjectCache::getLocalServerInstance();
-			self::$defaultBoostTemplates = $cache->getWithSetCallback(
-				$cache->makeKey( 'cirrussearch-boost-templates' ),
+	private static function getOnWikiBoostTemplates( SearchConfig $config ) {
+		$cache = \ObjectCache::getLocalClusterInstance();
+		$cacheKey = $cache->makeGlobalKey( 'cirrussearch-boost-templates', $config->getWikiId() );
+		if ( $config->getWikiId() == wfWikiID() ) {
+			// Local wiki we can fetch boost templates from system
+			// message
+			if ( self::$defaultBoostTemplates !== null ) {
+				// This static cache is never set with non-local
+				// wiki data.
+				return self::$defaultBoostTemplates;
+			}
+
+			$templates = $cache->getWithSetCallback(
+				$cacheKey,
 				600,
-				function() {
+				function () {
 					$source = wfMessage( 'cirrussearch-boost-templates' )->inContentLanguage();
 					if( !$source->isDisabled() ) {
 						$lines = Util::parseSettingsInMessage( $source->plain() );
-						return Util::parseBoostTemplates( implode( ' ', $lines ) );                  // Now parse the templates
+						// Now parse the templates
+						return Query\BoostTemplatesFeature::parseBoostTemplates( implode( ' ', $lines ) );
 					}
-					return array();
+					return [];
 				}
 			);
+			self::$defaultBoostTemplates = $templates;
+			return $templates;
 		}
-		return self::$defaultBoostTemplates;
+		// Here we're dealing with boost template from other wiki, try to fetch it if it exists
+		// otherwise, don't bother.
+		$nonLocalCache = $cache->get( $cacheKey );
+		if ( !is_array( $nonLocalCache ) ) {
+			// not yet in cache, value is unknown
+			// return empty array
+			return [];
+		}
+		return $nonLocalCache;
 	}
+
+	/**
+	 * Strip question marks from queries, according to the defined stripping
+	 * level, defined by $wgCirrusSearchStripQuestionMarks. Strip all ?s, those
+	 * at word breaks, or only string-final. Ignore queries that are all
+	 * punctuation or use insource. Don't remove escaped \?s, but unescape them.
+	 * ¿ is not :punct:, hence $more_punct.
+	 *
+	 * @param string $term
+	 * @param string $strippingLevel
+	 * @return string modified term, based on strippingLevel
+	 */
+	public static function stripQuestionMarks( $term, $strippingLevel ) {
+		// strip question marks
+		$more_punct = "[¿]";
+		if ( strpos( $term, 'insource:' ) === false &&
+			preg_match( "/^([[:punct:]]|\s|$more_punct)+$/", $term ) === 0
+		) {
+			if ( $strippingLevel === 'final' ) {
+				// strip only query-final question marks that are not escaped
+				$term = preg_replace( "/((?<!\\\\)\?|\s)+$/", '', $term );
+				$term = preg_replace( '/\\\\\?/', '?', $term );
+			} elseif ( $strippingLevel === 'break' ) {
+				//strip question marks at word boundaries
+				$term = preg_replace( '/(?<!\\\\)(\?)+(\PL|$)/', '$2', $term );
+				$term = preg_replace( '/\\\\\?/', '?', $term );
+			} elseif ( $strippingLevel === 'all' ) {
+				//strip all unescapred question marks
+				$term = preg_replace( '/(?<!\\\\)(\?)+/', ' ', $term );
+				$term = preg_replace( '/\\\\\?/', '?', $term );
+			}
+		}
+		return $term;
+	}
+
+	/**
+	 * Identifies a specific execution of php. That might be one web
+	 * request, or multiple jobs run in the same executor. An execution id
+	 * is valid over a brief timespan, perhaps a minute or two for some jobs.
+	 *
+	 * @return string unique identifier
+	 */
+	public static function getExecutionId() {
+		if ( self::$executionId === null ) {
+			self::$executionId = (string) mt_rand();
+		}
+		return self::$executionId;
+	}
+
+	/**
+	 * Unit tests only
+	 */
+	public static function resetExecutionId() {
+		self::$executionId = null;
+	}
+
+	/**
+	 * Get a token that (hopefully) uniquely identifies this search. It will be
+	 * added to the search result page js config vars, and put into the url with
+	 * history.replaceState(). This means click through's from supported browsers
+	 * will record this token as part of the referrer.
+	 *
+	 * @return string
+	 */
+	public static function getRequestSetToken() {
+		static $token;
+		if ( $token === null ) {
+			// random UID, 70B tokens have a collision probability of 4*10^-16
+			// so should work for marking unique queries.
+			$uuid = UIDGenerator::newUUIDv4();
+			// make it a little shorter by using straight base36
+			$hex = substr( $uuid, 0, 8 ) . substr( $uuid, 9, 4 ) .
+				   substr( $uuid, 14, 4 ) . substr( $uuid, 19, 4) .
+				   substr( $uuid, 24 );
+			$token = \Wikimedia\base_convert( $hex, 16, 36 );
+		}
+		return $token;
+	}
+
+	/**
+	 * @param string $extraData Extra information to mix into the hash
+	 * @return string A token that identifies the source of the request
+	 */
+	public static function generateIdentToken( $extraData = '' ) {
+		$request = \RequestContext::getMain()->getRequest();
+		return md5( implode( ':', [
+			$extraData,
+			$request->getIP(),
+			$request->getHeader( 'X-Forwarded-For' ),
+			$request->getHeader( 'User-Agent' ),
+		] ) );
+	}
+
+	/**
+	 * @return string The context the request is in. Either cli, api or web.
+	 */
+	static public function getExecutionContext() {
+		if ( php_sapi_name() === 'cli' ) {
+			return 'cli';
+		} elseif ( defined( 'MW_API' ) ) {
+			return 'api';
+		} else {
+			return 'web';
+		}
+	}
+
+
 }

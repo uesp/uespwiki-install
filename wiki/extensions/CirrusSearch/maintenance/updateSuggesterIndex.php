@@ -4,17 +4,22 @@ namespace CirrusSearch\Maintenance;
 
 use CirrusSearch\Connection;
 use CirrusSearch\DataSender;
-use CirrusSearch\ElasticsearchIntermediary;
+use CirrusSearch\ElasticaErrorHandler;
 use CirrusSearch\Util;
-use CirrusSearch\BuildDocument\SuggestBuilder;
-use CirrusSearch\BuildDocument\SuggestScoringMethodFactory;
-use CirrusSearch\BuildDocument\SuggestScoringMethod;
+use CirrusSearch\BuildDocument\Completion\DefaultSortSuggestionsBuilder;
+use CirrusSearch\BuildDocument\Completion\NaiveSubphrasesSuggestionsBuilder;
+use CirrusSearch\BuildDocument\Completion\GeoSuggestionsBuilder;
+use CirrusSearch\BuildDocument\Completion\SuggestBuilder;
+use CirrusSearch\BuildDocument\Completion\SuggestScoringMethodFactory;
+use CirrusSearch\BuildDocument\Completion\SuggestScoringMethod;
 use CirrusSearch\Maintenance\Validators\AnalyzersValidator;
+use CirrusSearch\SearchConfig;
 use Elastica;
 use Elastica\Index;
 use Elastica\Query;
 use Elastica\Request;
 use Elastica\Status;
+use MWElasticUtils;
 
 /**
  * Update the search configuration on the search backend for the title
@@ -75,6 +80,11 @@ class UpdateSuggesterIndex extends Maintenance {
 	private $indexIdentifier;
 
 	/**
+	 * @var string the score method name to use.
+	 */
+	private $scoreMethodName;
+
+	/**
 	 * @var SuggestScoringMethod the score function to use.
 	 */
 	private $scoreMethod;
@@ -104,11 +114,6 @@ class UpdateSuggesterIndex extends Maintenance {
 	 */
 	private $availablePlugins;
 
-
-	/**
-	 * @var boolean index geo contextualized suggestions
-	 */
-	private $withGeo;
 
 	/**
 	 * @var string
@@ -155,7 +160,6 @@ class UpdateSuggesterIndex extends Maintenance {
 			'of moving a shard this can time out.  This will retry the attempt after some backoff ' .
 			'rather than failing the whole reindex process.  Defaults to 5.', false, true );
 		$this->addOption( 'optimize', 'Optimize the index to 1 segment. Defaults to false.', false, false );
-		$this->addOption( 'with-geo', 'Build geo contextualized suggestions. Defaults to false.', false, false );
 		$this->addOption( 'scoringMethod', 'The scoring method to use when computing suggestion weights. ' .
 			'Defaults to $wgCirrusSearchCompletionDefaultScore or quality if unset.', false, true );
 		$this->addOption( 'masterTimeout', 'The amount of time to wait for the master to respond to mapping ' .
@@ -173,10 +177,11 @@ class UpdateSuggesterIndex extends Maintenance {
 	public function execute() {
 		global $wgLanguageCode,
 			$wgCirrusSearchBannedPlugins,
-			$wgPoolCounterConf,
 			$wgCirrusSearchMasterTimeout,
-			$wgCirrusSearchMaxShardsPerNode;
+			$wgCirrusSearchMaxShardsPerNode,
+			$wgCirrusSearchCompletionDefaultScore;
 
+		$this->disablePoolCountersAndLogging();
 		$this->masterTimeout = $this->getOption( 'masterTimeout', $wgCirrusSearchMasterTimeout );
 		$this->indexTypeName = Connection::TITLE_SUGGEST_TYPE;
 
@@ -188,18 +193,11 @@ class UpdateSuggesterIndex extends Maintenance {
 			$this->error( "Failed to get shard count and replica count information: {$e->getMessage()}", 1 );
 		}
 
-		// Make sure we don't flood the pool counter
-		unset( $wgPoolCounterConf['CirrusSearch-Search'] );
-
-		// Set the timeout for maintenance actions
-		$this->setConnectionTimeout();
-
-		$this->indexBaseName = $this->getOption( 'baseName', wfWikiID() );
+		$this->indexBaseName = $this->getOption( 'baseName', $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME ) );
 		$this->indexChunkSize = $this->getOption( 'indexChunkSize', 100 );
 		$this->indexRetryAttempts = $this->getOption( 'reindexRetryAttempts', 5 );
 
 		$this->optimizeIndex = $this->getOption( 'optimize', false );
-		$this->withGeo = $this->getOption( 'with-geo', false );
 
 		$this->utils = new ConfigUtils( $this->getClient(), $this);
 
@@ -213,11 +211,26 @@ class UpdateSuggesterIndex extends Maintenance {
 
 		$this->maxShardsPerNode = isset( $wgCirrusSearchMaxShardsPerNode[ $this->indexTypeName ] ) ? $wgCirrusSearchMaxShardsPerNode[ $this->indexTypeName ] : 'unlimited';
 
+		$this->scoreMethodName = $this->getOption( 'scoringMethod', $wgCirrusSearchCompletionDefaultScore );
+		$this->scoreMethod = SuggestScoringMethodFactory::getScoringMethod( $this->scoreMethodName );
+
+		$extraBuilders = [];
+		if( $this->getSearchConfig()->get( 'CirrusSearchCompletionSuggesterUseDefaultSort' ) ) {
+			$extraBuilders[] = new DefaultSortSuggestionsBuilder();
+		}
+		$subPhrasesConfig =  $this->getSearchConfig()->get( 'CirrusSearchCompletionSuggesterSubphrases' );
+		if( $subPhrasesConfig['build'] ) {
+			$extraBuilders[] = NaiveSubphrasesSuggestionsBuilder::create( $subPhrasesConfig );
+		}
+		if ( $this->getSearchConfig()->getElement( 'CirrusSearchCompletionSuggesterGeoContext', 'build' ) ) {
+			$extraBuilders[] = new GeoSuggestionsBuilder();
+		}
+		$this->builder = new SuggestBuilder( $this->scoreMethod, $extraBuilders );
+
 		try {
 			// If the version does not exist it's certainly because nothing has been indexed.
-			$versionIndex = $this->getConnection()->getIndex( 'mw_cirrus_versions' );
-			if ( !$versionIndex->exists() ) {
-				throw new \Exception("mw_cirrus_versions does not exist, you must index your data first");
+			if ( !MetaStoreIndex::cirrusReady( $this->getConnection() ) ) {
+				throw new \Exception("Cirrus meta sotre does not exist, you must index your data first");
 			}
 
 			if ( !$this->canWrite() ) {
@@ -238,8 +251,9 @@ class UpdateSuggesterIndex extends Maintenance {
 			$this->error( "Http error communicating with Elasticsearch:  $message.\n", 1 );
 		} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 			$type = get_class( $e );
-			$message = ElasticsearchIntermediary::extractMessage( $e );
-			$trace = $this->getExceptionTraceAsString( $e );
+			$message = ElasticaErrorHandler::extractMessage( $e );
+			/** @suppress PhanUndeclaredMethod ExceptionInterface has no methods */
+			$trace = $e->getTraceAsString();
 			$this->log( "\nUnexpected Elasticsearch failure.\n" );
 			$this->error( "Elasticsearch failed in an unexpected way.  This is always a bug in CirrusSearch.\n" .
 				"Error type: $type\n" .
@@ -254,8 +268,8 @@ class UpdateSuggesterIndex extends Maintenance {
 	 */
 	private function canWrite() {
 		// Reuse DataSender even if we don't send anything with it.
-		$sender = new DataSender( $this->getConnection() );
-		return $sender->areIndexesAvailableForWrites( array( $this->getIndexTypeName() ) );
+		$sender = new DataSender( $this->getConnection(), $this->getSearchConfig() );
+		return $sender->areIndexesAvailableForWrites( [ $this->getIndexTypeName() ] );
 	}
 
 	/**
@@ -267,9 +281,9 @@ class UpdateSuggesterIndex extends Maintenance {
 		if ( count( $indices ) < 2 ) {
 			return;
 		}
-		$indexByName = array();
-		foreach( $indices as $idx ) {
-			$indexByName[$idx] = $this->getConnection()->getIndex( $idx );
+		$indexByName = [];
+		foreach( $indices as $name ) {
+			$indexByName[$name] = $this->getConnection()->getIndex( $name );
 		}
 
 		$status = new Status($this->getClient());
@@ -277,16 +291,16 @@ class UpdateSuggesterIndex extends Maintenance {
 			// do not try to delete indices that are used in aliases
 			unset( $indexByName[$aliased->getName()] );
 		}
-		foreach ( $indexByName as $name => $idx ) {
+		foreach ( $indexByName as $name => $index ) {
 			# double check with stats
-			$stats = $idx->getStats()->getData();
+			$stats = $index->getStats()->getData();
 			// Extra check: if stats report usages we should not try to fix things
 			// automatically.
 			if ( $stats['_all']['total']['suggest']['total'] == 0 ) {
-				$this->log( "Deleting broken index {$idx->getName()}\n" );
-				$this->deleteIndex( $idx );
+				$this->log( "Deleting broken index {$index->getName()}\n" );
+				$this->deleteIndex( $index );
 			} else {
-				$this->log( "Broken index {$idx->getName()} appears to be in use, please check and delete.\n" );
+				$this->log( "Broken index {$index->getName()} appears to be in use, please check and delete.\n" );
 			}
 
 		}
@@ -339,9 +353,9 @@ class UpdateSuggesterIndex extends Maintenance {
 		list( $aMaj ) = explode( '.', \CirrusSearch\Maintenance\SuggesterAnalysisConfigBuilder::VERSION );
 
 		try {
-			$versionDoc = $this->getConnection()->getIndex( 'mw_cirrus_versions' )->getType( 'version' )->getDocument( $this->getIndexTypeName() );
+			$versionDoc = MetaStoreIndex::getVersionType( $this->getConnection() )->getDocument( $this->getIndexTypeName() );
 		} catch( \Elastica\Exception\NotFoundException $nfe ) {
-			$this->error( 'Index missing in mw_cirrus_versions, cannot recycle.' );
+			$this->error( 'Index missing in mw_cirrus_metastore::version, cannot recycle.' );
 			return false;
 		}
 
@@ -402,22 +416,23 @@ class UpdateSuggesterIndex extends Maintenance {
 		// At this point we may read the new un-optimized FST segments
 		// Old ones should be pretty small after expungeDeletes
 		$this->getIndex()->refresh();
-		$query = new Query();
-		$query->setQuery(
-			new Elastica\Query\Filtered(
-				new Elastica\Query\MatchAll(),
-				new Elastica\Filter\BoolNot(
-					new Elastica\Filter\Term( array( "batch_id" => $this->builder->getBatchId() ) )
-				)
-			)
-		);
-		$query->setFields( array( '_id' ) );
 
-		$scrollOptions = array(
+		$boolNot = new Elastica\Query\BoolQuery();
+		$boolNot->addMustNot(
+			new Elastica\Query\Term( [ "batch_id" => $this->builder->getBatchId() ] )
+		);
+		$bool = new Elastica\Query\BoolQuery();
+		$bool->addFilter( $boolNot );
+
+		$query = new Elastica\Query();
+		$query->setQuery( $bool );
+		$query->setFields( [ '_id' ] );
+
+		$scrollOptions = [
 			'search_type' => 'scan',
 			'scroll' => "15m",
 			'size' => $this->indexChunkSize
-		);
+		];
 		$result = $this->getIndex()->search( $query, $scrollOptions );
 
 		$totalDocsInIndex = $result->getResponse()->getData();
@@ -425,17 +440,17 @@ class UpdateSuggesterIndex extends Maintenance {
 		$totalDocsToDump = $totalDocsInIndex;
 
 		$this->log( "Deleting remaining docs from previous batch ($totalDocsInIndex).\n" );
-		Util::iterateOverScroll( $this->getIndex(), $result->getResponse()->getScrollId(), '15m',
+		MWElasticUtils::iterateOverScroll( $this->getIndex(), $result->getResponse()->getScrollId(), '15m',
 			function( $results ) use ( &$docsDumped, $totalDocsToDump ) {
-				$ids = array();
+				$docIds = [];
 				foreach( $results as $result ) {
 					$docsDumped++;
-					$ids[] = $result->getId();
+					$docIds[] = $result->getId();
 				}
 				$this->outputProgress( $docsDumped, $totalDocsToDump );
-				Util::withRetry( $this->indexRetryAttempts,
-					function() use ( $ids ) {
-						$this->getType()->deleteIds( $ids );
+				MWElasticUtils::withRetry( $this->indexRetryAttempts,
+					function() use ( $docIds ) {
+						$this->getType()->deleteIds( $docIds );
 					}
 				);
 			}, 0, $this->indexRetryAttempts );
@@ -460,8 +475,8 @@ class UpdateSuggesterIndex extends Maintenance {
 			$this->oldIndex->request(
 				'',
 				Request::DELETE,
-				array(),
-				array( 'master_timeout' => $this->masterTimeout )
+				[],
+				[ 'master_timeout' => $this->masterTimeout ]
 			);
 			$this->output("ok.\n");
 		}
@@ -477,70 +492,47 @@ class UpdateSuggesterIndex extends Maintenance {
 		$index->request(
 			'',
 			Request::DELETE,
-			array(),
-			array( 'master_timeout' => $this->masterTimeout )
+			[],
+			[ 'master_timeout' => $this->masterTimeout ]
 		);
-	}
-
-	protected function setConnectionTimeout() {
-		global $wgCirrusSearchMaintenanceTimeout;
-		$this->getConnection()->setTimeout( $wgCirrusSearchMaintenanceTimeout );
 	}
 
 	private function optimize() {
 		$this->log("Optimizing index...");
-		$this->getIndex()->optimize( array( 'max_num_segments' => 1 ) );
+		$this->getIndex()->optimize( [ 'max_num_segments' => 1 ] );
 		$this->output("ok.\n");
 	}
 
 	private function expungeDeletes() {
 		$this->log("Purging deleted docs...");
-		$this->getIndex()->optimize( array( 'only_expunge_deletes' => true, 'flush' => false ) );
+		$this->getIndex()->optimize( [ 'only_expunge_deletes' => true, 'flush' => false ] );
 		$this->output("ok.\n");
 	}
 
 	private function indexData() {
-		global $wgCirrusSearchCompletionDefaultScore;
-		$scoreMethodName = $this->getOption( 'scoringMethod', $wgCirrusSearchCompletionDefaultScore );
-		if ( $this->scoreMethod == null ) {
-			$this->scoreMethod = SuggestScoringMethodFactory::getScoringMethod( $scoreMethodName );
-		}
-		if ( $this->builder == null ) {
-			// NOTE: the builder stores a batchId value to flag
-			// documents indexed by this builder. Make sure to
-			// reuse the same instance when building docs otherwise
-			// the batchId might be regenerated and can cause data
-			// loss when recycling the index.
-			$this->builder = new SuggestBuilder( $this->scoreMethod, $this->withGeo );
-		}
-
 		// We build the suggestions by reading CONTENT and GENERAL indices.
 		// This does not support extra indices like FILES on commons.
-		$sourceIndexTypes = array( Connection::CONTENT_INDEX_TYPE, Connection::GENERAL_INDEX_TYPE );
+		$sourceIndexTypes = [ Connection::CONTENT_INDEX_TYPE, Connection::GENERAL_INDEX_TYPE ];
 
 		// Indices to use for counting max_docs used by scoring functions
 		// Since we work mostly on the content namespace it seems OK to count
 		// only docs in the CONTENT index.
-		$countIndices = array( Connection::CONTENT_INDEX_TYPE );
+		$countIndices = [ Connection::CONTENT_INDEX_TYPE ];
 
 		$query = new Query();
-		$query->setFields( array( '_id', '_type', '_source' ) );
-		$query->setSource( array(
+		$query->setFields( [ '_id', '_type', '_source' ] );
+		$query->setSource( [
 			'include' => $this->builder->getRequiredFields()
-		) );
+		] );
 
-		$query->setQuery(
-			new Elastica\Query\Filtered(
-				new Elastica\Query\MatchAll(),
-				new Elastica\Filter\BoolAnd( array(
-					new Elastica\Filter\Type( Connection::PAGE_TYPE_NAME ),
-					new Elastica\Filter\BoolOr( array(
-						new Elastica\Filter\Term( array( "namespace" => NS_MAIN ) ),
-						new Elastica\Filter\Term( array( "redirect.namespace" => NS_MAIN ) ),
-					) )
-				) )
-			)
-		);
+		$pageAndNs = new Elastica\Query\BoolQuery();
+		$pageAndNs->addShould( new Elastica\Query\Term( [ "namespace" => NS_MAIN ] ) );
+		$pageAndNs->addShould( new Elastica\Query\Term( [ "redirect.namespace" => NS_MAIN ] ) );
+		$pageAndNs->addMust( new Elastica\Query\Type( Connection::PAGE_TYPE_NAME ) );
+		$bool = new Elastica\Query\BoolQuery();
+		$bool->addFilter( $pageAndNs );
+
+		$query->setQuery( $bool );
 
 		// Run a first query to count the number of docs.
 		// This is needed for the scoring methods that need
@@ -562,11 +554,11 @@ class UpdateSuggesterIndex extends Maintenance {
 		$this->scoreMethod->setMaxDocs( $total );
 
 		foreach( $sourceIndexTypes as $sourceIndexType ) {
-			$scrollOptions = array(
+			$scrollOptions = [
 				'search_type' => 'scan',
 				'scroll' => "15m",
 				'size' => $this->indexChunkSize
-			);
+			];
 
 			$sourceIndex = $this->getConnection()->getIndex( $this->indexBaseName, $sourceIndexType );
 			$result = $sourceIndex->search( $query, $scrollOptions );
@@ -575,25 +567,25 @@ class UpdateSuggesterIndex extends Maintenance {
 			$totalDocsToDump = $totalDocsInIndex;
 
 			$docsDumped = 0;
-			$this->log( "Indexing $totalDocsToDump documents from $sourceIndexType ($totalDocsInIndex in the index) with batchId: {$this->builder->getBatchId()} and scoring method: $scoreMethodName\n" );
+			$this->log( "Indexing $totalDocsToDump documents from $sourceIndexType ($totalDocsInIndex in the index) with batchId: {$this->builder->getBatchId()} and scoring method: {$this->scoreMethodName}\n" );
 
 			$destinationType = $this->getIndex()->getType( Connection::TITLE_SUGGEST_TYPE_NAME );
 
-			Util::iterateOverScroll( $sourceIndex, $result->getResponse()->getScrollId(), '15m',
+			MWElasticUtils::iterateOverScroll( $sourceIndex, $result->getResponse()->getScrollId(), '15m',
 				function( $results ) use ( &$docsDumped, $totalDocsToDump,
 						$destinationType ) {
-					$inputDocs = array();
+					$inputDocs = [];
 					foreach ( $results as $result ) {
 						$docsDumped++;
-						$inputDocs[] = array(
+						$inputDocs[] = [
 							'id' => $result->getId(),
 							'source' => $result->getSource()
-						);
+						];
 					}
 
 					$suggestDocs = $this->builder->build( $inputDocs );
 					$this->outputProgress( $docsDumped, $totalDocsToDump );
-					Util::withRetry( $this->indexRetryAttempts,
+					MWElasticUtils::withRetry( $this->indexRetryAttempts,
 						function() use ( $destinationType, $suggestDocs ) {
 							$destinationType->addDocuments( $suggestDocs );
 						}
@@ -611,15 +603,15 @@ class UpdateSuggesterIndex extends Maintenance {
 		$name = $this->getIndexTypeName();
 
 		$path = '_aliases';
-		$data = array('actions' => array());
+		$data = ['actions' => []];
 		$status = new Status($index->getClient());
 		foreach ($status->getIndicesWithAlias($name) as $aliased) {
-			$data['actions'][] = array('remove' => array('index' => $aliased->getName(), 'alias' => $name));
+			$data['actions'][] = ['remove' => ['index' => $aliased->getName(), 'alias' => $name]];
 		}
 
-		$data['actions'][] = array('add' => array('index' => $index->getName(), 'alias' => $name));
+		$data['actions'][] = ['add' => ['index' => $index->getName(), 'alias' => $name]];
 
-		$index->getClient()->request($path, Request::POST, $data, array( 'master_timeout' => $this->masterTimeout ) );
+		$index->getClient()->request($path, Request::POST, $data, [ 'master_timeout' => $this->masterTimeout ] );
 	}
 
 	/**
@@ -652,7 +644,7 @@ class UpdateSuggesterIndex extends Maintenance {
 	 * @param array $availablePlugins
 	 * @return AnalysisConfigBuilder
 	 */
-	private function pickAnalyzer( $langCode, array $availablePlugins = array() ) {
+	private function pickAnalyzer( $langCode, array $availablePlugins = [] ) {
 		$analysisConfigBuilder = new \CirrusSearch\Maintenance\SuggesterAnalysisConfigBuilder( $langCode, $availablePlugins );
 		$this->outputIndented( 'Picking analyzer...' .
 			$analysisConfigBuilder->getDefaultTextAnalyzerType() . "\n" );
@@ -671,7 +663,7 @@ class UpdateSuggesterIndex extends Maintenance {
 		// We create the index with 0 replicas, this is faster and will
 		// stress less nodes with 4 shards and 2 replicas we would
 		// stress 12 nodes (moreover with the optimize flag)
-		$settings = array(
+		$settings = [
 			'number_of_shards' => $this->getShardCount(),
 			// hacky but we still use auto_expand_replicas
 			// for convenience on small install.
@@ -679,7 +671,7 @@ class UpdateSuggesterIndex extends Maintenance {
 			'refresh_interval' => -1,
 			'analysis' => $this->analysisConfigBuilder->buildConfig(),
 			'routing.allocation.total_shards_per_node' => $maxShardsPerNode,
-		);
+		];
 
 		if ( $this->hasOption( 'allocationIncludeTag' ) ) {
 			$this->output( "Using routing.allocation.include.tag: {$this->getOption( 'allocationIncludeTag' )}, " .
@@ -693,17 +685,17 @@ class UpdateSuggesterIndex extends Maintenance {
 			$settings['routing.allocation.exclude.tag'] = $this->getOption( 'allocationExcludeTag' );
 		}
 
-		$args = array(
+		$args = [
 			'settings' => $settings,
 			'mappings' => $mappingConfigBuilder->buildConfig()
-		);
+		];
 		// @todo utilize $this->getIndex()->create(...) once it supports setting
 		// the master_timeout parameter.
 		$this->getIndex()->request(
 			'',
 			Request::PUT,
 			$args,
-			array( 'master_timeout' => $this->masterTimeout )
+			[ 'master_timeout' => $this->masterTimeout ]
 		);
 
 		// Index create is async, we have to make sure that the index is ready
@@ -713,18 +705,18 @@ class UpdateSuggesterIndex extends Maintenance {
 
 	private function enableReplicas() {
 		$this->log("Enabling replicas...\n");
-		$args = array(
-			'index' => array(
+		$args = [
+			'index' => [
 				'auto_expand_replicas' => $this->getReplicaCount(),
-			),
-		);
+			],
+		];
 
 		$path = $this->getIndex()->getName() . "/_settings";
 		$this->getIndex()->getClient()->request(
 			$path,
 			Request::PUT,
 			$args,
-			array( 'master_timeout' => $this->masterTimeout )
+			[ 'master_timeout' => $this->masterTimeout ]
 		);
 
 		// The previous call seems to be async, let's wait few sec
@@ -756,23 +748,23 @@ class UpdateSuggesterIndex extends Maintenance {
 
 	private function updateVersions() {
 		$this->log( "Updating tracking indexes..." );
-		$index = $this->getConnection()->getIndex( 'mw_cirrus_versions' );
+		$index = MetaStoreIndex::getVersionType( $this->getConnection() );
 		if ( !$index->exists() ) {
-			throw new \Exception("mw_cirrus_versions does not exist, you must index your data first");
+			throw new \Exception("meta store does not exist, you must index your data first");
 		}
 		list( $aMaj, $aMin ) = explode( '.', \CirrusSearch\Maintenance\SuggesterAnalysisConfigBuilder::VERSION );
 		list( $mMaj, $mMin ) = explode( '.', \CirrusSearch\Maintenance\SuggesterMappingConfigBuilder::VERSION );
 		$doc = new \Elastica\Document(
 			$this->getIndexTypeName(),
-			array (
+			[
 				'analysis_maj' => $aMaj,
 				'analysis_min' => $aMin,
 				'mapping_maj' => $mMaj,
 				'mapping_min' => $mMin,
 				'shard_count' => $this->getShardCount(),
-			)
+			]
 		);
-		$index->getType('version')->addDocument( $doc );
+		$index->addDocument( $doc );
 		$this->output("ok.\n");
 	}
 
@@ -805,5 +797,5 @@ class UpdateSuggesterIndex extends Maintenance {
 	}
 }
 
-$maintClass = 'CirrusSearch\Maintenance\UpdateSuggesterIndex';
+$maintClass = UpdateSuggesterIndex::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

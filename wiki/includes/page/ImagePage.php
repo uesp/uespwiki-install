@@ -53,18 +53,6 @@ class ImagePage extends Article {
 	}
 
 	/**
-	 * Constructor from a page id
-	 * @param int $id Article ID to load
-	 * @return ImagePage|null
-	 */
-	public static function newFromID( $id ) {
-		$t = Title::newFromID( $id );
-		# @todo FIXME: Doesn't inherit right
-		return $t == null ? null : new self( $t );
-		# return $t == null ? null : new static( $t ); // PHP 5.3
-	}
-
-	/**
 	 * @param File $file
 	 * @return void
 	 */
@@ -81,7 +69,6 @@ class ImagePage extends Article {
 		$this->fileLoaded = true;
 
 		$this->displayImg = $img = false;
-
 		Hooks::run( 'ImagePageFindFile', [ $this, &$img, &$this->displayImg ] );
 		if ( !$img ) { // not set by hook?
 			$img = wfFindFile( $this->getTitle() );
@@ -223,11 +210,12 @@ class ImagePage extends Article {
 				$out->addStyle( $css );
 			}
 		}
-		// always show the local local Filepage.css, bug 29277
-		$out->addModuleStyles( 'filepage' );
 
-		// Add MediaWiki styles for a file page
-		$out->addModuleStyles( 'mediawiki.action.view.filepage' );
+		$out->addModuleStyles( [
+			'filepage', // always show the local local Filepage.css, bug 29277
+			'mediawiki.action.view.filepage', // Add MediaWiki styles for a file page
+		] );
+
 	}
 
 	/**
@@ -348,7 +336,7 @@ class ImagePage extends Article {
 			$filename = wfEscapeWikiText( $this->displayImg->getName() );
 			$linktext = $filename;
 
-			// Use of &$this in hooks triggers warnings in PHP 7.1
+			// Avoid PHP 7.1 warning from passing $this by reference
 			$imagePage = $this;
 
 			Hooks::run( 'ImageOpenShowImageInlineBefore', [ &$imagePage, &$out ] );
@@ -813,7 +801,7 @@ EOT
 	 * @return ResultWrapper
 	 */
 	protected function queryImageLinks( $target, $limit ) {
-		$dbr = wfGetDB( DB_SLAVE );
+		$dbr = wfGetDB( DB_REPLICA );
 
 		return $dbr->select(
 			[ 'imagelinks', 'page' ],

@@ -64,7 +64,7 @@ class WantedPagesPage extends WantedQueryPage {
 			'conds' => [
 				'pg1.page_namespace IS NULL',
 				"pl_namespace NOT IN ( '" . NS_USER . "', '" . NS_USER_TALK . "' )",
-				"pl_from_namespace != '" . NS_MEDIAWIKI . "'"
+				"pg2.page_namespace != '" . NS_MEDIAWIKI . "'"
 			],
 			'options' => [
 				'HAVING' => [

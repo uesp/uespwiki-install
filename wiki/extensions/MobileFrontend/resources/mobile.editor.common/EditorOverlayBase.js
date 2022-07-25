@@ -1,7 +1,7 @@
 ( function ( M, $ ) {
 	var Overlay = M.require( 'mobile.overlays/Overlay' ),
 		PageGateway = M.require( 'mobile.startup/PageGateway' ),
-		browser = M.require( 'mobile.browser/browser' ),
+		browser = M.require( 'mobile.browser/Browser' ).getSingleton(),
 		Icon = M.require( 'mobile.startup/Icon' ),
 		toast = M.require( 'mobile.toast/toast' ),
 		user = M.require( 'mobile.user/user' );
@@ -60,6 +60,7 @@
 		this.sectionId = options.sectionId;
 		this.config = mw.config.get( 'wgMFEditorOptions' );
 		this.sessionId = options.sessionId;
+		this.overlayManager = options.overlayManager;
 		this.allowCloseWindow = mw.confirmCloseWindow( {
 			/** Returns true, if content has changed, otherwise false */
 			test: function () {
@@ -80,6 +81,7 @@
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
+		 * @cfg {OverlayManager} defaults.overlayManager instance
 		 * @cfg {mw.Api} defaults.api to interact with
 		 * @cfg {Boolean} defaults.hasToolbar Whether the editor has a toolbar or not. When
 		 *  disabled a header will be show instead.
@@ -178,13 +180,12 @@
 			this.pageGateway.invalidatePage( title );
 
 			if ( this.isNewPage ) {
-				msg = 'mobile-frontend-editor-success-new-page';
+				msg = mw.msg( 'mobile-frontend-editor-success-new-page' );
 			} else if ( this.isNewEditor ) {
-				msg = 'mobile-frontend-editor-success-landmark-1';
+				msg = mw.msg( 'mobile-frontend-editor-success-landmark-1' );
 			} else {
-				msg = 'mobile-frontend-editor-success';
+				msg = mw.msg( 'mobile-frontend-editor-success' );
 			}
-			msg = mw.msg( msg );
 			toast.showOnPageReload( msg, 'success' );
 
 			// Ensure we don't lose this event when logging

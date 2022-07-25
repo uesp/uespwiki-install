@@ -251,7 +251,7 @@ class CheckUser extends SpecialPage {
 			return;
 		}
 
-		$blockedUsers = self::doMassUserBlockInternal( $users, $blockParams, $tag, $talkTag );
+		$blockedUsers = $this->doMassUserBlockInternal( $users, $blockParams, $tag, $talkTag );
 		$blockedCount = count( $blockedUsers );
 		if ( $blockedCount > 0 ) {
 			$lang = $this->getLanguage();
@@ -273,21 +273,13 @@ class CheckUser extends SpecialPage {
 	 * @param string $talkTag replaces user talk pages
 	 * @return string[] List of html-safe usernames which were actually were blocked
 	 */
-	public static function doMassUserBlockInternal( $users, array $blockParams,
+	protected function doMassUserBlockInternal( $users, array $blockParams,
 		$tag = '', $talkTag = '' ) {
-		global $wgBlockAllowsUTEdit, $wgUser;
+		global $wgBlockAllowsUTEdit;
 
-		$blockSize = 0;
+		$currentUser = $this->getUser();
 		$safeUsers = array();
 		foreach ( $users as $name ) {
-			// Enforce limits
-			$blockSize++;
-			// Lets not go *too* fast
-			if ( $blockSize >= 20 ) {
-				$blockSize = 0;
-				wfWaitForSlaves( 5 );
-			}
-
 			$u = User::newFromName( $name, false );
 			// Do some checks to make sure we can block this user first
 			if ( $u === null ) {
@@ -314,14 +306,14 @@ class CheckUser extends SpecialPage {
 			// Create the block
 			$block = new Block();
 			$block->setTarget( $u );
-			$block->setBlocker( $wgUser );
+			$block->setBlocker( $currentUser );
 			$block->mReason = $blockParams['reason'];
 			$block->mExpiry = $expiry;
 			$block->isHardblock( !$isIP );
 			$block->isAutoblocking( true );
 			$block->prevents( 'createaccount', true );
 			$block->prevents( 'sendemail',
-				( SpecialBlock::canBlockEmail( $wgUser ) && $blockParams['email'] )
+				( SpecialBlock::canBlockEmail( $currentUser ) && $blockParams['email'] )
 			);
 			$block->prevents( 'editownusertalk', ( !$wgBlockAllowsUTEdit || $blockParams['talk'] ) );
 			$status = $block->insert();
@@ -334,15 +326,15 @@ class CheckUser extends SpecialPage {
 			$logEntry = new ManualLogEntry( 'block', 'block' );
 			$logEntry->setTarget( $userTitle );
 			$logEntry->setComment( $blockParams['reason'] );
-			$logEntry->setPerformer( $wgUser );
+			$logEntry->setPerformer( $currentUser );
 			$logEntry->setParameters( $logParams );
 			$blockIds = array_merge( array( $status['id'] ), $status['autoIds'] );
 			$logEntry->setRelations( array( 'ipb_id' => $blockIds ) );
 			$logEntry->publish( $logEntry->insert() );
 
 			// Tag user page and user talk page
-			self::tagPage( $userTitle, $tag, $blockParams['reason'] );
-			self::tagPage( $userTalkTitle, $talkTag, $blockParams['reason'] );
+			$this->tagPage( $userTitle, $tag, $blockParams['reason'] );
+			$this->tagPage( $userTalkTitle, $talkTag, $blockParams['reason'] );
 		}
 
 		return $safeUsers;
@@ -383,7 +375,7 @@ class CheckUser extends SpecialPage {
 	 * @param string $tag
 	 * @param string $summary
 	 */
-	protected static function tagPage( Title $title, $tag, $summary ) {
+	protected function tagPage( Title $title, $tag, $summary ) {
 		// Check length to avoid mistakes
 		if ( strlen( $tag ) > 2 ) {
 			$page = WikiPage::factory( $title );
@@ -391,7 +383,8 @@ class CheckUser extends SpecialPage {
 			if ( $page->exists() ) {
 				$flags |= EDIT_MINOR;
 			}
-			$page->doEditContent( new WikitextContent( $tag ), $summary, $flags );
+			$page->doEditContent( new WikitextContent( $tag ), $summary,
+				$flags, false, $this->getUser() );
 		}
 	}
 
@@ -473,10 +466,7 @@ class CheckUser extends SpecialPage {
 		}
 
 		// Record check...
-		if ( !self::addLogEntry( 'userips', 'user', $user, $reason, $user_id ) ) {
-			// FIXME: addWikiMsg
-			$out->addHTML( '<p>' . $this->msg( 'checkuser-log-fail' )->escaped() . '</p>' );
-		}
+		self::addLogEntry( 'userips', 'user', $user, $reason, $user_id );
 
 		$dbr = wfGetDB( DB_SLAVE );
 		$time_conds = $this->getTimeConds( $period );
@@ -552,7 +542,9 @@ class CheckUser extends SpecialPage {
 						__METHOD__ );
 				}
 				if ( $ipedits > $ips_edits[$ip] ) {
-					$s .= ' <i>(' . $this->msg( 'checkuser-ipeditcount', $ipedits )->escaped() . ')</i>';
+					$s .= ' <i>(' .
+						$this->msg( 'checkuser-ipeditcount' )->numParams( $ipedits )->escaped() .
+						')</i>';
 				}
 
 				// If this IP is blocked, give a link to the block log
@@ -634,9 +626,7 @@ class CheckUser extends SpecialPage {
 		$logType = $xfor ? 'ipedits-xff' : 'ipedits';
 
 		// Record check in the logs
-		if ( !self::addLogEntry( $logType, 'ip', $ip, $reason ) ) {
-			$out->addWikiMsg( 'checkuser-log-fail' );
-		}
+		self::addLogEntry( $logType, 'ip', $ip, $reason );
 
 		$ip_conds = $dbr->makeList( $ip_conds, LIST_AND );
 		$time_conds = $this->getTimeConds( $period );
@@ -746,7 +736,9 @@ class CheckUser extends SpecialPage {
 			$lb = new LinkBatch;
 			foreach ( $ret as $row ) {
 				$userText = str_replace( ' ', '_', $row->cuc_user_text );
-				$lb->add( $row->cuc_namespace, $row->cuc_title );
+				if ( $row->cuc_title !== '' ) {
+					$lb->add( $row->cuc_namespace, $row->cuc_title );
+				}
 				$lb->add( NS_USER, $userText );
 				$lb->add( NS_USER_TALK, $userText );
 			}
@@ -775,7 +767,9 @@ class CheckUser extends SpecialPage {
 		$lb = new LinkBatch();
 		$lb->setCaller( __METHOD__ );
 		foreach ( $rows as $row ) {
-			$lb->add( $row->cuc_namespace, $row->cuc_title );
+			if ( $row->cuc_title !== '' ) {
+				$lb->add( $row->cuc_namespace, $row->cuc_title );
+			}
 		}
 		$lb->execute();
 		$rows->seek( 0 );
@@ -812,9 +806,7 @@ class CheckUser extends SpecialPage {
 		}
 
 		// Record check...
-		if ( !self::addLogEntry( 'useredits', 'user', $user, $reason, $user_id ) ) {
-			$out->addHTML( '<p>' . $this->msg( 'checkuser-log-fail' )->escaped() . '</p>' );
-		}
+		self::addLogEntry( 'useredits', 'user', $user, $reason, $user_id );
 
 		$dbr = wfGetDB( DB_SLAVE );
 		$user_cond = "cuc_user = '$user_id'";
@@ -933,9 +925,7 @@ class CheckUser extends SpecialPage {
 		$logType = $xfor ? 'ipusers-xff' : 'ipusers';
 
 		// Log the check...
-		if ( !self::addLogEntry( $logType, 'ip', $ip, $reason ) ) {
-			$out->addHTML( '<p>' . $this->msg( 'checkuser-log-fail' )->escaped() . '</p>' );
-		}
+		self::addLogEntry( $logType, 'ip', $ip, $reason );
 
 		$ip_conds = $dbr->makeList( $ip_conds, LIST_AND );
 		$time_conds = $this->getTimeConds( $period );
@@ -1031,7 +1021,7 @@ class CheckUser extends SpecialPage {
 			)
 		);
 
-		$users_first = $users_last = $users_edits = $users_ids = array();
+		$users_first = $users_last = $users_edits = $users_ids = $users_agentsets = $users_infosets = array();
 		if ( !$dbr->numRows( $ret ) ) {
 			$s = $this->noMatchesMessage( $ip, !$xfor ) . "\n";
 		} else {
@@ -1069,8 +1059,11 @@ class CheckUser extends SpecialPage {
 				$s .= Xml::check( 'users[]', false, array( 'value' => $name ) ) . '&#160;';
 				// Load user object
 				$user = User::newFromName( $name, false );
-				// Add user tool links
-				$s .= Linker::userLink( -1, $name ) . Linker::userToolLinks( -1, $name );
+				// Add user page and tool links
+				$s .= Linker::userLink( -1, $name ) . ' ';
+				$ip = IP::isIPAddress( $name ) ? $name : '';
+				$linksMsgKey = $ip ? 'checkuser-userlinks-ip' : 'checkuser-userlinks';
+				$s .= $this->msg( $linksMsgKey, $name )->parse();
 				// Add CheckUser link
 				$s .= ' ' . $this->msg( 'parentheses' )->rawParams(
 					$this->getSelfLink(
@@ -1087,7 +1080,6 @@ class CheckUser extends SpecialPage {
 				// @todo FIXME: i18n issue: Hard coded brackets.
 				$s .= ' [<strong>' . $count . '</strong>]<br />';
 				// Check if this user or IP is blocked. If so, give a link to the block log...
-				$ip = IP::isIPAddress( $name ) ? $name : '';
 				$flags = $this->userBlockFlags( $ip, $users_ids[$name], $user );
 				// Check how many accounts the user made recently
 				if ( $ip ) {
@@ -1146,7 +1138,30 @@ class CheckUser extends SpecialPage {
 	 * @return string
 	 */
 	protected function getBlockForm( $tag, $talkTag ) {
-		global $wgBlockAllowsUTEdit;
+		global $wgBlockAllowsUTEdit, $wgCheckUserCAMultiLock;
+		if ( $wgCheckUserCAMultiLock !== false ) {
+			if ( !class_exists( 'CentralAuthUser' ) ) {
+				// $wgCheckUserCAMultiLock shouldn't be enabled if CA is not loaded
+				throw new Exception( '$wgCheckUserCAMultiLock requires CentralAuth extension.' );
+			}
+
+			$caUserGroups = CentralAuthUser::getInstance( $this->getUser() )->getGlobalGroups();
+			// Only load the script for users in the configured global group(s)
+			if ( count( array_intersect( $wgCheckUserCAMultiLock['groups'], $caUserGroups ) ) ) {
+				$out = $this->getOutput();
+				$out->addModules( 'ext.checkUser.caMultiLock' );
+				$centralMLUrl = WikiMap::getForeignURL(
+					$wgCheckUserCAMultiLock['centralDB'],
+					// Use canonical name instead of local name so that it works
+					// even if the local language is different from central wiki
+					Title::makeTitle( NS_SPECIAL, 'MultiLock' )->getPrefixedText()
+				);
+				if ( $centralMLUrl === false ) {
+					throw new Exception( "Could not retrieve URL for {$wgCheckUserCAMultiLock['centralDB']}" );
+				}
+				$out->addJsConfigVars( 'wgCUCAMultiLockCentral', $centralMLUrl );
+			}
+		}
 
 		$s = "<fieldset>\n";
 		$s .= '<legend>' . $this->msg( 'checkuser-massblock' )->escaped() . "</legend>\n";
@@ -1465,13 +1480,13 @@ class CheckUser extends SpecialPage {
 	protected static function buildGroupLink( $group, $username ) {
 		static $cache = array();
 		if ( !isset( $cache[$group] ) ) {
-			$cache[$group] = User::makeGroupLinkHtml( $group, User::getGroupMember( $group, $username ) );
+			$cache[$group] = User::makeGroupLinkHTML( $group, User::getGroupMember( $group, $username ) );
 		}
 		return $cache[$group];
 	}
 
 	/**
-	 * @param DatabaseBase $db
+	 * @param IDatabase $db
 	 * @param string $ip
 	 * @param string|bool $xfor
 	 * @return array|false array for valid conditions, false if invalid
@@ -1518,7 +1533,7 @@ class CheckUser extends SpecialPage {
 	}
 
 	public static function addLogEntry( $logType, $targetType, $target, $reason, $targetID = 0 ) {
-		global $wgUser;
+		$user = RequestContext::getMain()->getUser();
 
 		if ( $targetType == 'ip' ) {
 			list( $rangeStart, $rangeEnd ) = IP::parseRange( $target );
@@ -1530,26 +1545,33 @@ class CheckUser extends SpecialPage {
 			$targetHex = $rangeStart = $rangeEnd = '';
 		}
 
-		$dbw = wfGetDB( DB_MASTER );
-		$dbw->insert( 'cu_log',
-			array(
-				'cul_id' => $dbw->nextSequenceValue( 'cu_log_cul_id_seq' ),
-				'cul_timestamp' => $dbw->timestamp(),
-				'cul_user' => $wgUser->getId(),
-				'cul_user_text' => $wgUser->getName(),
-				'cul_reason' => $reason,
-				'cul_type' => $logType,
-				'cul_target_id' => $targetID,
-				'cul_target_text' => $target,
-				'cul_target_hex' => $targetHex,
-				'cul_range_start' => $rangeStart,
-				'cul_range_end' => $rangeEnd,
-			),
-			__METHOD__
+		$timestamp = time();
+		$data = array(
+			'cul_user' => $user->getId(),
+			'cul_user_text' => $user->getName(),
+			'cul_reason' => $reason,
+			'cul_type' => $logType,
+			'cul_target_id' => $targetID,
+			'cul_target_text' => $target,
+			'cul_target_hex' => $targetHex,
+			'cul_range_start' => $rangeStart,
+			'cul_range_end' => $rangeEnd
 		);
 
-		// @todo FIXME: Callers expect this to return false on failure
-		return true;
+		DeferredUpdates::addCallableUpdate(
+			function () use ( $data, $timestamp ) {
+				$dbw = wfGetDB( DB_MASTER );
+				$dbw->insert(
+					'cu_log',
+					[
+						'cul_id' => $dbw->nextSequenceValue( 'cu_log_cul_id_seq' ),
+						'cul_timestamp' => $dbw->timestamp( $timestamp )
+					] + $data,
+					__METHOD__
+				);
+			},
+			DeferredUpdates::PRESEND // fail on error and show no output
+		);
 	}
 
 	/**

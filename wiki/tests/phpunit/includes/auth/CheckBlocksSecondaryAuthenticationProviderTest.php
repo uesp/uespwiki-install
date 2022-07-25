@@ -152,7 +152,7 @@ class CheckBlocksSecondaryAuthenticationProviderTest extends \MediaWikiTestCase 
 		];
 		$block = new \Block( $blockOptions );
 		$block->insert();
-		$scopeVariable = new \ScopedCallback( [ $block, 'delete' ] );
+		$scopeVariable = new \Wikimedia\ScopedCallback( [ $block, 'delete' ] );
 
 		$user = \User::newFromName( 'UTNormalUser' );
 		if ( $user->getID() == 0 ) {
@@ -161,7 +161,6 @@ class CheckBlocksSecondaryAuthenticationProviderTest extends \MediaWikiTestCase 
 			$user->saveSettings();
 		}
 		$this->setMwGlobals( [ 'wgUser' => $user ] );
-		\RequestContext::getMain()->setUser( $user );
 		$newuser = \User::newFromName( 'RandomUser' );
 
 		$provider = new CheckBlocksSecondaryAuthenticationProvider(

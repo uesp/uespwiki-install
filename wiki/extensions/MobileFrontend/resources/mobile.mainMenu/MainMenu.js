@@ -1,5 +1,5 @@
 ( function ( M, $ ) {
-	var browser = M.require( 'mobile.browser/browser' ),
+	var browser = M.require( 'mobile.browser/Browser' ).getSingleton(),
 		View = M.require( 'mobile.view/View' );
 
 	/**
@@ -18,6 +18,10 @@
 		isTemplateMode: true,
 		/** @inheritdoc */
 		template: mw.template.get( 'mobile.mainMenu', 'menu.hogan' ),
+		/** @inheritdoc */
+		templatePartials: {
+			menuGroup: mw.template.get( 'mobile.mainMenu', 'menuGroup.hogan' )
+		},
 
 		/**
 		 * @cfg {Object} defaults Default options hash.
@@ -45,10 +49,10 @@
 			$( function () {
 				var $activator = $( self.activator ).eq( 0 );
 				$activator.addClass( 'indicator-circle' );
-				mw.loader.using( 'mobile.contentOverlays' ).done( function () {
+				mw.loader.using( 'mobile.pointerOverlay' ).done( function () {
 					$activator.one( 'click', function () {
 						var po,
-							PointerOverlay = M.require( 'mobile.contentOverlays/PointerOverlay' );
+							PointerOverlay = require( 'mobile.pointerOverlay' );
 
 						po = new PointerOverlay( {
 							appendToElement: self.$el.parent(),

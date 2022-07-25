@@ -1,5 +1,6 @@
 {{{headelement}}}
 <div id="mw-mf-viewport">
+	{{>ie8Html5Support}}
 	<nav id="mw-mf-page-left" class="navigation-drawer view-border-box">
 		{{{mainmenuhtml}}}
 	</nav>
@@ -7,12 +8,15 @@
 		<div class="banner-container">
 			{{>banners}}
 		</div>
-		<div class="header">
-			{{{headerhtml}}}
+		<div class="header-container">
+			<div class="header">
+				{{{headerhtml}}}
+			</div>
 		</div>
 		<div id="content" class="mw-body">
 			{{{contenthtml}}}
 		</div>
-		{{{footerhtml}}}
+		{{>footer}}
 	</div>
 </div>
+<!-- v:5 -->

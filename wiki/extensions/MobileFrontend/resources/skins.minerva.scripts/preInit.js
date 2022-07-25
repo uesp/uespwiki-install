@@ -7,23 +7,65 @@
  */
 ( function ( M, $ ) {
 	var currentPage, skin,
+		OverlayManager = M.require( 'mobile.startup/OverlayManager' ),
+		overlayManager = new OverlayManager( require( 'mediawiki.router' ) ),
 		PageGateway = M.require( 'mobile.startup/PageGateway' ),
 		gateway = new PageGateway( new mw.Api() ),
 		Page = M.require( 'mobile.startup/Page' ),
 		mainMenu = M.require( 'skins.minerva.scripts.top/mainMenu' ),
-		Skin = M.require( 'mobile.startup/Skin' );
+		Skin = M.require( 'mobile.startup/Skin' ),
+		ReferencesMobileViewGateway = M.require(
+			'mobile.references.gateway/ReferencesMobileViewGateway'
+		),
+		skinData = {
+			el: 'body',
+			tabletModules: mw.config.get( 'skin' ) === 'minerva' ? [ 'skins.minerva.tablet.scripts' ] : [],
+			page: getCurrentPage(),
+			referencesGateway: ReferencesMobileViewGateway.getSingleton(),
+			mainMenu: mainMenu
+		};
 
-	skin = new Skin( {
-		el: 'body',
-		tabletModules: mw.config.get( 'skin' ) === 'minerva' ? [ 'skins.minerva.tablet.scripts' ] : [],
-		page: getCurrentPage(),
-		mainMenu: mainMenu
-	} );
+	skin = new Skin( skinData );
 	M.define( 'skins.minerva.scripts/skin', skin ).deprecate( 'mobile.startup/skin' );
 
+	/**
+	 * Given 2 functions, it returns a function that will run both with it's
+	 * context and parameters and return the results combined
+	 * @private
+	 * @param {Function} fn1
+	 * @param {Function} fn2
+	 * @return {Function} which returns the results of [fn1, fn2]
+	 */
+	function apply2( fn1, fn2 ) {
+		return function () {
+			return [
+				fn1.apply( this, arguments ),
+				fn2.apply( this, arguments )
+			];
+		};
+	}
+
+	/**
+	 * @event resize
+	 * The `window`'s resize event debounced at 100 ms. The `resize:throttled` event is the `window`'s
+	 * resize event throttled to 200 ms.
+	 */
+
+	/**
+	 * @event scroll
+	 * The `window`'s scroll event debounced at 100 ms. The `scroll:throttled` event is the `window`'s
+	 * scroll event throttled to 200 ms.
+	 */
+
 	$( window )
-		.on( 'resize', $.debounce( 100, $.proxy( M, 'emit', 'resize' ) ) )
-		.on( 'scroll', $.debounce( 100, $.proxy( M, 'emit', 'scroll' ) ) );
+		.on( 'resize', apply2(
+			$.debounce( 100, $.proxy( M, 'emit', 'resize' ) ),
+			$.throttle( 200, $.proxy( M, 'emit', 'resize:throttled' ) )
+		) )
+		.on( 'scroll', apply2(
+			$.debounce( 100, $.proxy( M, 'emit', 'scroll' ) ),
+			$.throttle( 200, $.proxy( M, 'emit', 'scroll:throttled' ) )
+		) );
 
 	/**
 	 * Get current page view object
@@ -77,4 +119,7 @@
 			mw.config.get( 'wgMFEnableJSConsoleRecruitment' ) ) {
 		console.log( mw.msg( 'mobile-frontend-console-recruit' ) );
 	}
+
+	M.define( 'skins.minerva.scripts/overlayManager', overlayManager )
+		.deprecate( 'mobile.startup/overlayManager' );
 }( mw.mobileFrontend, jQuery ) );

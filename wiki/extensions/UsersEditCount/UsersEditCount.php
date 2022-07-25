@@ -1,37 +1,14 @@
 <?php
-# Confirm it's being called from a valid entry point; skip unless MEDIAWIKI is defined
-if (!defined('MEDIAWIKI')) {
-        echo <<<EOT
-To install the User Edit Count extension, put the following line in LocalSettings.php:
-require_once( \$IP . '/extensions/UsersEditCount/UsersEditCount.php' );
-EOT;
-        exit( 1 );
-}
-
-$wgExtensionCredits['specialpage'][] = array(
-	'name' => 'UsersEditCount',
-	'author' => 'Dave Humphrey',
-	'url' => 'http://www.uesp.net/wiki/UESPWiki:Users_Edit_Count',
-	'description' => 'Special page listing edit counts for all editors',
-	'version' => '1.1',
-);
-
-$dir = dirname(__FILE__) . '/';
-
-# Add to list of special pages
-$wgSpecialPages['UsersEditCount'] = 'UsersEditCountPage';
-$wgSpecialPageGroups['UsersEditCount'] = 'users';
-$wgHooks['wgQueryPages'][] = 'onwgQueryPages';
-
-# Tell Mediawiki where to find the file containing the extension's class
-$wgAutoloadClasses['UsersEditCountPage'] = $dir . '/UsersEditCount_body.php';
-
-# Load messages
-$wgExtensionMessagesFiles['userseditcount'] = $dir . 'UsersEditCount.i18n.php';
-$wgExtensionMessagesFiles['userseditcountAlias'] = $dir . 'UsersEditCount.alias.php';
-
-function onwgQueryPages( &$wgQueryPages ) {
-	$wgQueryPages[] = array('UsersEditCountPage', 'Userseditcount');
-	
+if (function_exists('wfLoadExtension')) {
+	wfLoadExtension('UsersEditCount');
+	// Keep i18n globals so mergeMessageFileList.php doesn't break
+	$wgMessagesDirs['UsersEditCount'] = __DIR__ . '/i18n';
+	$wgExtensionMessagesFiles['UsersEditCountAlias'] = __DIR__ . '/i18n/UsersEditCount.i18n.alias.php';
+	wfWarn(
+		'Deprecated PHP entry point used for Riven extension. Please use wfLoadExtension instead, ' .
+			'see https://www.mediawiki.org/wiki/Extension_registration for more details.'
+	);
 	return true;
+} else {
+	die('This version of the UsersEditCount extension requires MediaWiki 1.25+');
 }

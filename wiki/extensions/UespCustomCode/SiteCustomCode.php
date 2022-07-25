@@ -177,10 +177,13 @@ $wgHooks['BeforePageDisplay'][] = 'UESP_beforePageDisplay';
 //$wgHooks['SpecialSearchCreateLink'][] = 'onSpecialSearchCreateLink';
 $wgHooks['TitleSquidURLs'][] = 'onUespTitleSquidURLs';
 
+$wgHooks['UserMailerTransformMessage'][] = 'onUespUserMailerTransformMessage';
+
 	/* Mobile Specific */
 $wgHooks['MinervaDiscoveryTools'][] = 'onUespMinervaDiscoveryTools';
 $wgHooks['MobilePersonalTools'][] = 'onUespMobilePersonalTools';
 $wgHooks['MobileMenu'][] = 'onUespMobileMenu';
+$wgHooks['OutputPageBeforeHTML'][] = 'uespMobileAddTopAdDiv';
 
 $wgHooks['BeforeInitialize'][] = 'onUespBeforeInitialize';
 
@@ -202,6 +205,7 @@ $wgHooks['IsFileCacheable'][] = 'SiteMiscFunctions::isFileCacheable';
 # To disable these features, change <site>'settrail' to 0 (system message)
 $wgHooks['OutputPageParserOutput'][] = 'SiteBreadCrumbTrail::getCachedTrail';
 $wgHooks['SkinSubPageSubtitle'][] = 'SiteBreadCrumbTrail::subpageHook';
+
 
 # Hook to add a rel=canonical tag to the header
 $wgHooks['OutputPageParserOutput'][] = 'SiteMiscFunctions::addCanonicalToHeader';
@@ -275,6 +279,14 @@ $wgResourceModules['ext.UespCustomCode.app.scripts'] = array(
 	'localBasePath' => __DIR__,
 	'remoteBasePath' => "$wgScriptPath/extensions/UespCustomCode/",
 	'targets' => array( 'mobile' ),
+);
+
+$wgResourceModules['ext.UespCustomCode.analytics'] = array(
+	'position' => 'top',
+	'scripts' => array( 'modules/uespGoogleAnalytics.js' ),
+	'localBasePath' => __DIR__,
+	'remoteBasePath' => "$wgScriptPath/extensions/UespCustomCode/",
+	'targets' => array( 'desktop', 'mobile' ),
 );
 
 /*
@@ -357,6 +369,7 @@ function efSiteCustomCode() {
 function onUespBeforeInitialize() 
 {
 	global $wgOut;
+	global $uespIsApp;
 	
 	if ($uespIsApp)
 	{
@@ -367,7 +380,10 @@ function onUespBeforeInitialize()
 	{
 		if (UESP_isShowAds()) 
 		{
-			$wgOut->addModules( 'ext.UespCustomCode.ad' );
+			$wgOut->addModules( 'ext.UespCustomCode.analytics' );
+			
+				// Old Curse Ads
+			//$wgOut->addModules( 'ext.UespCustomCode.ad' );
 		}
 		else 
 		{
@@ -386,46 +402,90 @@ function UESP_isShowAds() {
 	if ($cachedUser == null) {
 		$db = wfGetDB(DB_SLAVE);
 	
-		$res = $db->select('patreon_user', '*', ['user_id' => $wgUser->getId()]);
-		
+		$res = $db->select('patreon_user', '*', ['wikiuser_id' => $wgUser->getId()]);
 		if ($res->numRows() == 0) return true;
 		
 		$row = $res->fetchRow();
-		
 		if ($row == null) return true;
 		
 		$cachedUser = $row;
 	}
-
-	$hasPaid = ($cachedUser['has_donated'] > 0);
 	
-	//error_log("Has Donated: " . $cachedUser['has_donated']);
+	$hasPaid = ($cachedUser['lifetimePledgeCents'] > 0);
+	//error_log("Has Donated: " . $hasPaid);
 	
-	if ($hasPaid) return false;
-	return true;
+	return !$hasPaid;
 }
 
 
 function UESP_beforePageDisplay(&$out) {
 	global $wgScriptPath;
-
-	SetUespEsoMapSessionData();
+	
+	SetupUespFavIcons($out);
+	
+	SetUespMapSessionData();
+	SetupUespLongitudeAds($out);
+	SetupUespTwitchEmbed($out);
 	
 	return true;
 }
 
 
-function SetUespEsoMapSessionData()
+function SetupUespFavIcons(&$out) {
+	$out->addLink(array('rel' => 'icon', 'type' => 'image/png', 'href' => 'https://images.uesp.net/favicon-16.png',  'sizes' => '16x16'));
+	$out->addLink(array('rel' => 'icon', 'type' => 'image/png', 'href' => 'https://images.uesp.net/favicon-32.png',  'sizes' => '32x32'));
+	$out->addLink(array('rel' => 'icon', 'type' => 'image/png', 'href' => 'https://images.uesp.net/favicon-48.png',  'sizes' => '48x48'));
+	$out->addLink(array('rel' => 'icon', 'type' => 'image/png', 'href' => 'https://images.uesp.net/favicon-64.png',  'sizes' => '64x64'));
+	$out->addLink(array('rel' => 'icon', 'type' => 'image/png', 'href' => 'https://images.uesp.net/favicon-96.png',  'sizes' => '96x96'));
+	$out->addLink(array('rel' => 'icon', 'type' => 'image/png', 'href' => 'https://images.uesp.net/favicon-128.png', 'sizes' => '128x128'));
+	$out->addLink(array('rel' => 'icon', 'type' => 'image/png', 'href' => 'https://images.uesp.net/favicon-256.png', 'sizes' => '256x256'));
+}
+
+
+function SetupUespLongitudeAds(&$out) {
+	global $uespIsApp;
+	
+	if (UESP_isShowAds()) {
+		$out->addInlineScript("var uesptopad = document.getElementById('topad'); if (uesptopad) uesptopad.style = 'height:90px;'; ");
+		$out->addScriptFile('https://lngtd.com/uesp.js');
+	}
+	else {
+		$out->addInlineScript("var uesptopad = document.getElementById('topad'); if (uesptopad) uesptopad.style = 'display:none;'; ");
+	}
+}
+
+
+function SetupUespTwitchEmbed(&$out) {
+	
+	$out->addScriptFile('https://player.twitch.tv/js/embed/v1.js');
+	
+}
+
+
+function SetUespMapSessionData()
 {
 	global $_SESSION, $wgUser;
 	
+	$_SESSION['UESP_AllMap_canEdit'] = false;
 	$_SESSION['UESP_EsoMap_canEdit'] = false;
+	$_SESSION['UESP_TRMap_canEdit'] = false;
+	$_SESSION['UESP_OtherMap_canEdit'] = false;
 	
 	if ($wgUser == null) return;
 	
-	if( $wgUser->isAllowed( 'esomapedit' ))
+	if ($wgUser->isAllowed( 'esomapedit' ))
 	{
 		$_SESSION['UESP_EsoMap_canEdit'] = true;
+	}
+	
+	if ($wgUser->isAllowed( 'mapedit' ) || $wgUser->isAllowed( 'othermapedit' ))
+	{
+		$_SESSION['UESP_OtherMap_canEdit'] = true;
+	}
+	
+	if ($wgUser->isAllowed( 'trmapedit' ))
+	{
+		$_SESSION['UESP_TRMap_canEdit'] = true;
 	}
 }
 
@@ -482,8 +542,22 @@ function onSearchGetNearMatchBefore( $allSearchTerms, &$title ) {
 	return !$title->exists();
 }
 
+
 function onSpecialSearchCreateLink( $t, &$params ) {
 	$params[1] = preg_replace('/\((ESO) OR online\)/i', '$1', $params[1]);
+	
+	return true;
+}
+
+
+function onUespUserMailerTransformMessage(array $to, MailAddress $from, &$subject, &$headers, &$body, &$error ) 
+{
+	
+		// Fix issue with body hash changing which breaks DKIM verification
+		// Original 8bit encoding is changed to quoted-printable at some point in the mail chain.
+	$headers['Content-transfer-encoding'] = 'quoted-printable';
+	
+	$body = quoted_printable_encode($body);
 	
 	return true;
 }
@@ -606,6 +680,8 @@ function onUespMinervaDiscoveryTools (&$items)
 
 function onUespMobilePersonalTools (&$items)
 {
+	global $wgServer;
+	
 	$items[] = array(
 			'name' => 'viewdesktop',
 			'components' => array(
@@ -618,6 +694,22 @@ function onUespMobilePersonalTools (&$items)
 			),
 		);
 }
+
+
+function uespMobileAddTopAdDiv( &$out, &$text ) 
+{
+	global $uespIsMobile;
+	static $hasAddedDiv = false;
+	
+	if ($hasAddedDiv) return true;
+	if (!$uespIsMobile) return true;
+	
+	$text = "<div id='uesp_M_1'></div>" . $text;
+	
+	$hasAddedDiv = true;
+	return true;
+}
+
 
 // group pages appear under at Special:SpecialPages
 // $wgSpecialPageGroups['Preferences'] = 'users';

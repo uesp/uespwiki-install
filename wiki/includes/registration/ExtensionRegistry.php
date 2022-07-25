@@ -1,5 +1,7 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * ExtensionRegistry class
  *
@@ -39,6 +41,11 @@ class ExtensionRegistry {
 	const MERGE_STRATEGY = '_merge_strategy';
 
 	/**
+	 * @var BagOStuff
+	 */
+	protected $cache;
+
+	/**
 	 * Array of loaded things, keyed by name, values are credits information
 	 *
 	 * @var array
@@ -76,6 +83,16 @@ class ExtensionRegistry {
 		return self::$instance;
 	}
 
+	public function __construct() {
+		// We use a try/catch because we don't want to fail here
+		// if $wgObjectCaches is not configured properly for APC setup
+		try {
+			$this->cache = MediaWikiServices::getInstance()->getLocalServerObjectCache();
+		} catch ( MWException $e ) {
+			$this->cache = new EmptyBagOStuff();
+		}
+	}
+
 	/**
 	 * @param string $path Absolute path to the JSON file
 	 */
@@ -89,8 +106,7 @@ class ExtensionRegistry {
 			} else {
 				throw new Exception( "$path does not exist!" );
 			}
-
-			if ( $mtime === false ) {
+			if ( !$mtime ) {
 				$err = error_get_last();
 				throw new Exception( "Couldn't stat $path: {$err['message']}" );
 			}
@@ -110,19 +126,12 @@ class ExtensionRegistry {
 			'mediawiki' => $wgVersion
 		];
 
-		// We use a try/catch because we don't want to fail here
-		// if $wgObjectCaches is not configured properly for APC setup
-		try {
-			$cache = ObjectCache::getLocalServerInstance();
-		} catch ( MWException $e ) {
-			$cache = new EmptyBagOStuff();
-		}
 		// See if this queue is in APC
 		$key = wfMemcKey(
 			'registration',
 			md5( json_encode( $this->queued + $versions ) )
 		);
-		$data = $cache->get( $key );
+		$data = $this->cache->get( $key );
 		if ( $data ) {
 			$this->exportExtractedData( $data );
 		} else {
@@ -132,7 +141,7 @@ class ExtensionRegistry {
 			// did that, but it should be cached
 			$data['globals']['wgAutoloadClasses'] += $data['autoload'];
 			unset( $data['autoload'] );
-			$cache->set( $key, $data, 60 * 60 * 24 );
+			$this->cache->set( $key, $data, 60 * 60 * 24 );
 		}
 		$this->queued = [];
 	}
@@ -248,6 +257,9 @@ class ExtensionRegistry {
 			switch ( $mergeStrategy ) {
 				case 'array_merge_recursive':
 					$GLOBALS[$key] = array_merge_recursive( $GLOBALS[$key], $val );
+					break;
+				case 'array_replace_recursive':
+					$GLOBALS[$key] = array_replace_recursive( $GLOBALS[$key], $val );
 					break;
 				case 'array_plus_2d':
 					$GLOBALS[$key] = wfArrayPlus2d( $GLOBALS[$key], $val );

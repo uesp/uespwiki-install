@@ -2,6 +2,8 @@
 
 namespace CirrusSearch\Api;
 
+use CirrusSearch\SearchConfig;
+
 /**
  * Dumps CirrusSearch mappings for easy viewing.
  *
@@ -23,14 +25,18 @@ namespace CirrusSearch\Api;
 class SettingsDump extends ApiBase {
 	public function execute() {
 		$conn = $this->getCirrusConnection();
+		$indexPrefix = $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME );
 		foreach( $conn->getAllIndexTypes() as $index ) {
-			$this->getResult()->addValue( array( $index, 'page' ), 'index',
-				$conn->getIndex( wfWikiID(), $index )->getSettings()->get() );
+			$this->getResult()->addValue( 
+				[ $index, 'page' ],
+				'index',
+				$conn->getIndex( $indexPrefix, $index )->getSettings()->get()
+			);
 		}
 	}
 
 	public function getAllowedParams() {
-		return array();
+		return [];
 	}
 
 	/**
@@ -44,10 +50,10 @@ class SettingsDump extends ApiBase {
 	 * @see ApiBase::getExamplesMessages
 	 */
 	protected function getExamplesMessages() {
-		return array(
+		return [
 			'action=cirrus-settings-dump' =>
 				'apihelp-cirrus-settings-dump-example'
-		);
+		];
 	}
 
 }

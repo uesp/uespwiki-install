@@ -536,12 +536,26 @@ class AFPException extends MWException {
 // Exceptions that we might conceivably want to report to ordinary users
 // (i.e. exceptions that don't represent bugs in the extension itself)
 class AFPUserVisibleException extends AFPException {
+	public $mExceptionId;
+	public $mPosition;
+	public $mParams;
+
 	/**
 	 * @param string $exception_id
 	 * @param int $position
 	 * @param array $params
 	 */
 	function __construct( $exception_id, $position, $params ) {
+		$this->mExceptionID = $exception_id;
+		$this->mPosition = $position;
+		$this->mParams = $params;
+
+		// Exception message text for logs should be in English.
+		$msg = $this->getMessageObj()->inLanguage( 'en' )->useDatabase( false )->text();
+		parent::__construct( $msg );
+	}
+
+	public function getMessageObj() {
 		// Give grep a chance to find the usages:
 		// abusefilter-exception-unexpectedatend, abusefilter-exception-expectednotfound
 		// abusefilter-exception-unrecognisedkeyword, abusefilter-exception-unexpectedtoken
@@ -551,15 +565,10 @@ class AFPUserVisibleException extends AFPException {
 		// abusefilter-exception-notenoughargs, abusefilter-exception-regexfailure
 		// abusefilter-exception-overridebuiltin, abusefilter-exception-outofbounds
 		// abusefilter-exception-notlist
-		$msg = wfMessage(
-			'abusefilter-exception-' . $exception_id,
-			array_merge( array( $position ), $params )
-		)->text();
-		parent::__construct( $msg );
-
-		$this->mExceptionID = $exception_id;
-		$this->mPosition = $position;
-		$this->mParams = $params;
+		return wfMessage(
+			'abusefilter-exception-' . $this->mExceptionID,
+			array_merge( array( $this->mPosition ), $this->mParams )
+		);
 	}
 }
 
@@ -604,9 +613,17 @@ class AbuseFilterParser {
 		'funcSetVar',
 	);
 
-	public static $funcCache = array();
+	public static $mKeywords = array(
+		'in' => 'keywordIn',
+		'like' => 'keywordLike',
+		'matches' => 'keywordLike',
+		'contains' => 'keywordContains',
+		'rlike' => 'keywordRegex',
+		'irlike' => 'keywordRegexInsensitive',
+		'regex' => 'keywordRegex'
+	);
 
-	private static $hasSmartPregMatchAll = null;
+	public static $funcCache = array();
 
 	/**
 	 * Create a new instance
@@ -617,11 +634,6 @@ class AbuseFilterParser {
 		$this->resetState();
 		if ( $vars instanceof AbuseFilterVariableHolder ) {
 			$this->mVars = $vars;
-		}
-		if ( self::$hasSmartPregMatchAll === null ) {
-			// Starting with PHP 5.4, preg_match_all() allows omitting the '$matches' argument.
-			$r = new ReflectionFunction( 'preg_match_all' );
-			self::$hasSmartPregMatchAll = $r->getNumberOfRequiredParameters() === 2;
 		}
 	}
 
@@ -646,7 +658,7 @@ class AbuseFilterParser {
 		} catch ( AFPUserVisibleException $excep ) {
 			$this->mAllowShort = $origAS;
 
-			return array( $excep->getMessage(), $excep->mPosition );
+			return array( $excep->getMessageObj()->text(), $excep->mPosition );
 		}
 		$this->mAllowShort = $origAS;
 
@@ -720,8 +732,9 @@ class AbuseFilterParser {
 				}
 			}
 		}
-		if ( !( $this->mCur->type == AFPToken::TBRACE && $this->mCur->value == ')' ) )
+		if ( !( $this->mCur->type == AFPToken::TBRACE && $this->mCur->value == ')' ) ) {
 			throw new AFPUserVisibleException( 'expectednotfound', $this->mCur->pos, array( ')' ) );
+		}
 	}
 
 	/**
@@ -882,7 +895,7 @@ class AbuseFilterParser {
 			$this->move();
 			$this->doLevelBoolOps( $result );
 
-			if ( !( $this->mCur->type == AFPToken::TKEYWORD && $this->mCur->value == 'then' ) )
+			if ( !( $this->mCur->type == AFPToken::TKEYWORD && $this->mCur->value == 'then' ) ) {
 				throw new AFPUserVisibleException( 'expectednotfound',
 					$this->mCur->pos,
 					array(
@@ -891,6 +904,7 @@ class AbuseFilterParser {
 						$this->mCur->value
 					)
 				);
+			}
 			$this->move();
 
 			$r1 = new AFPData();
@@ -907,7 +921,7 @@ class AbuseFilterParser {
 				$this->mShortCircuit = $scOrig;
 			}
 
-			if ( !( $this->mCur->type == AFPToken::TKEYWORD && $this->mCur->value == 'else' ) )
+			if ( !( $this->mCur->type == AFPToken::TKEYWORD && $this->mCur->value == 'else' ) ) {
 				throw new AFPUserVisibleException( 'expectednotfound',
 					$this->mCur->pos,
 					array(
@@ -916,6 +930,7 @@ class AbuseFilterParser {
 						$this->mCur->value
 					)
 				);
+			}
 			$this->move();
 
 			if ( $isTrue ) {
@@ -927,7 +942,7 @@ class AbuseFilterParser {
 				$this->mShortCircuit = $scOrig;
 			}
 
-			if ( !( $this->mCur->type == AFPToken::TKEYWORD && $this->mCur->value == 'end' ) )
+			if ( !( $this->mCur->type == AFPToken::TKEYWORD && $this->mCur->value == 'end' ) ) {
 				throw new AFPUserVisibleException( 'expectednotfound',
 					$this->mCur->pos,
 					array(
@@ -936,6 +951,7 @@ class AbuseFilterParser {
 						$this->mCur->value
 					)
 				);
+			}
 			$this->move();
 
 			if ( $result->toBool() ) {
@@ -961,7 +977,7 @@ class AbuseFilterParser {
 					$this->mShortCircuit = $scOrig;
 				}
 
-				if ( !( $this->mCur->type == AFPToken::TOP && $this->mCur->value == ':' ) )
+				if ( !( $this->mCur->type == AFPToken::TOP && $this->mCur->value == ':' ) ) {
 					throw new AFPUserVisibleException( 'expectednotfound',
 						$this->mCur->pos,
 						array(
@@ -970,6 +986,7 @@ class AbuseFilterParser {
 							$this->mCur->value
 						)
 					);
+				}
 				$this->move();
 
 				if ( $isTrue ) {
@@ -1117,17 +1134,10 @@ class AbuseFilterParser {
 	protected function doLevelSpecialWords( &$result ) {
 		$this->doLevelUnarys( $result );
 		$keyword = strtolower( $this->mCur->value );
-		$specwords = array(
-			'in' => 'keywordIn',
-			'like' => 'keywordLike',
-			'matches' => 'keywordLike',
-			'contains' => 'keywordContains',
-			'rlike' => 'keywordRegex',
-			'irlike' => 'keywordRegexInsensitive',
-			'regex' => 'keywordRegex'
-		);
-		if ( $this->mCur->type == AFPToken::TKEYWORD && in_array( $keyword, array_keys( $specwords ) ) ) {
-			$func = $specwords[$keyword];
+		if ( $this->mCur->type == AFPToken::TKEYWORD
+			&& in_array( $keyword, array_keys( self::$mKeywords ) )
+		) {
+			$func = self::$mKeywords[$keyword];
 			$this->move();
 			$r2 = new AFPData();
 			$this->doLevelUnarys( $r2 );
@@ -1200,12 +1210,13 @@ class AbuseFilterParser {
 			} else {
 				$this->doLevelSemicolon( $result );
 			}
-			if ( !( $this->mCur->type == AFPToken::TBRACE && $this->mCur->value == ')' ) )
+			if ( !( $this->mCur->type == AFPToken::TBRACE && $this->mCur->value == ')' ) ) {
 				throw new AFPUserVisibleException(
 					'expectednotfound',
 					$this->mCur->pos,
 					array( ')', $this->mCur->type, $this->mCur->value )
 				);
+			}
 			$this->move();
 		} else {
 			$this->doLevelFunction( $result );
@@ -1574,13 +1585,8 @@ class AbuseFilterParser {
 			$needle = preg_replace( '!(\\\\\\\\)*(\\\\)?/!', '$1\/', $needle );
 			$needle = "/$needle/u";
 
-			if ( self::$hasSmartPregMatchAll ) {
-				// Omit the '$matches' argument to avoid computing them, just count.
-				$count = preg_match_all( $needle, $haystack );
-			} else {
-				$matches = array();
-				$count = preg_match_all( $needle, $haystack, $matches );
-			}
+			// Omit the '$matches' argument to avoid computing them, just count.
+			$count = preg_match_all( $needle, $haystack );
 
 			if ( $count === false ) {
 				throw new AFPUserVisibleException(
@@ -1879,8 +1885,9 @@ class AbuseFilterParser {
 			$result = mb_strpos( $haystack, $needle );
 		}
 
-		if ( $result === false )
+		if ( $result === false ) {
 			$result = -1;
+		}
 
 		return new AFPData( AFPData::DINT, $result );
 	}

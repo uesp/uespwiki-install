@@ -5,14 +5,13 @@
 		isEditable = mw.config.get( 'wgIsProbablyEditable' ),
 		blockInfo =  mw.config.get( 'wgMinervaUserBlockInfo', false ),
 		settings = M.require( 'mobile.settings/settings' ),
-		router = M.require( 'mobile.startup/router' ),
-		overlayManager = M.require( 'mobile.startup/overlayManager' ),
+		router = require( 'mediawiki.router' ),
+		overlayManager = M.require( 'skins.minerva.scripts/overlayManager' ),
 		loader = M.require( 'mobile.overlays/moduleLoader' ),
 		Icon = M.require( 'mobile.startup/Icon' ),
 		Button = M.require( 'mobile.startup/Button' ),
 		Anchor = M.require( 'mobile.startup/Anchor' ),
 		skin = M.require( 'skins.minerva.scripts/skin' ),
-		browser = M.require( 'mobile.browser/browser' ),
 		disabledEditIcon = new Icon( {
 			name: 'edit'
 		} ),
@@ -22,7 +21,6 @@
 		currentPage = M.getCurrentPage(),
 		enabledClass = enabledEditIcon.getGlyphClassName(),
 		disabledClass = disabledEditIcon.getGlyphClassName(),
-		context = M.require( 'mobile.context/context' ),
 		user = M.require( 'mobile.user/user' ),
 		popup = M.require( 'mobile.toast/toast' ),
 		// FIXME: Disable on IE < 10 for time being
@@ -132,7 +130,7 @@
 			window.alert( mw.msg( 'mobile-frontend-editor-undo-unsupported' ) );
 		}
 
-		page.$( '.edit-page' ).on( 'click', function () {
+		page.$( '.edit-page, .edit-link' ).removeClass( disabledClass ).on( 'click', function () {
 			router.navigate( '#/editor/' + $( this ).data( 'section' ) );
 			return false;
 		} );
@@ -142,6 +140,7 @@
 				result = $.Deferred(),
 				preferredEditor = getPreferredEditor(),
 				editorOptions = {
+					overlayManager: overlayManager,
 					api: new mw.Api(),
 					licenseMsg: skin.getLicenseMsg(),
 					title: page.title,
@@ -181,22 +180,10 @@
 			 * @method
 			 */
 			function loadSourceEditor() {
-				var rlModuleName, moduleName;
-
 				logInit( 'wikitext' );
 
-				// use the new wikitexteditor with a basic toolbar as a test for beta users and users
-				// without an iphone (bottom toolbars doesn't work) - Bug T109224
-				// FIXME: Make this working with iOS8
-				if ( !user.inUserBucketA() && context.isBetaGroupMember() && !browser.isIos( 8 ) ) {
-					moduleName = 'mobile.editor.overlay.withtoolbar/EditorOverlayWithToolbar';
-					rlModuleName = 'mobile.editor.overlay.withtoolbar';
-				} else {
-					moduleName = 'mobile.editor.overlay/EditorOverlay';
-					rlModuleName = 'mobile.editor.overlay';
-				}
-				loader.loadModule( rlModuleName ).done( function () {
-					var EditorOverlay = M.require( moduleName );
+				loader.loadModule( 'mobile.editor.overlay' ).done( function () {
+					var EditorOverlay = M.require( 'mobile.editor.overlay/EditorOverlay' );
 					result.resolve( new EditorOverlay( editorOptions ) );
 				} );
 			}
@@ -231,7 +218,8 @@
 			return result;
 		} );
 		$caEdit.addClass( enabledClass ).removeClass( disabledClass ).removeClass( 'hidden' );
-
+		// reveal edit links on user pages
+		page.$( '.edit-link' ).removeClass( 'hidden' );
 		currentPage.getRedLinks().on( 'click', function ( ev ) {
 			var drawerOptions = {
 					progressiveButton: new Button( {
@@ -305,7 +293,7 @@
 				$( '.edit-page' ).detach();
 			} else {
 				$caEdit.removeClass( 'hidden' );
-				showSorryToast( 'mobile-frontend-editor-disabled' );
+				showSorryToast( mw.msg( 'mobile-frontend-editor-disabled' ) );
 			}
 		}
 	}
@@ -335,7 +323,7 @@
 			} );
 		} else {
 			$caEdit.removeClass( 'hidden' );
-			showSorryToast( 'mobile-frontend-editor-disabled' );
+			showSorryToast( mw.msg( 'mobile-frontend-editor-disabled' ) );
 		}
 	}
 
@@ -343,11 +331,11 @@
 	 * Show a toast message with sincere condolences.
 	 * @method
 	 * @ignore
-	 * @param {String} msg Message key for sorry message
+	 * @param {String} msg Message for sorry message
 	 */
 	function showSorryToast( msg ) {
 		$( '#ca-edit, .edit-page' ).on( 'click', function ( ev ) {
-			popup.show( mw.msg( msg ) );
+			popup.show( msg );
 			ev.preventDefault();
 		} );
 	}
@@ -355,11 +343,11 @@
 	if ( !isEditingSupported ) {
 		// Editing is disabled (or browser is blacklisted)
 		$caEdit.removeClass( 'hidden' );
-		showSorryToast( 'mobile-frontend-editor-unavailable' );
+		showSorryToast( mw.msg( 'mobile-frontend-editor-unavailable' ) );
 	} else if ( isNewFile ) {
 		$caEdit.removeClass( 'hidden' );
 		// Is a new file page (enable upload image only) Bug 58311
-		showSorryToast( 'mobile-frontend-editor-uploadenable' );
+		showSorryToast( mw.msg( 'mobile-frontend-editor-uploadenable' ) );
 	} else {
 		if ( user.isAnon() ) {
 			// Cta's will be rendered in EditorOverlay, if anonymous editing is enabled.

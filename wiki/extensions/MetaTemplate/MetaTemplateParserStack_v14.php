@@ -1,4 +1,5 @@
 <?php
+
 // group of functions to manipulate parser argument stack
 class MetaTemplateParserStack {
 	protected $_parser;
@@ -14,6 +15,30 @@ class MetaTemplateParserStack {
 		$this->_frame = &$frame;
 		$this->_stackcount = $frame->depth;
 	}
+	
+		// Needed for MW 1.28
+ 	public static function newWithText( $name, $text ) {
+ 		if (method_exists("PPNode_Hash_Tree", "newWithText"))
+ 		{
+ 			return PPNode_Hash_Tree::newWithText($name, $text);
+ 		}
+ 		else if (method_exists("PPNode_Hash_Tree", "addChild"))
+ 		{
+			$obj = new PPNode_Hash_Tree( $name );
+			$obj->addChild( new PPNode_Hash_Text( $text ) );
+			return $obj;
+ 		}
+ 		
+ 		$store = [ [ 'part', [
+				[ 'name', [ strval( $name ) ] ],
+				'=',
+				[ 'value', [ strval( $text ) ] ],
+			] ] ];
+ 		
+ 		$obj = new PPNode_Hash_Tree( $store, 0 );
+ 		return $obj;
+	}
+	
 	
 	function get_stackcount() {
 		return $this->_stackcount;
@@ -54,16 +79,21 @@ class MetaTemplateParserStack {
 			$varname = (integer) $varname;
 		if ($currframe->getArgument($varname)!==false) {
 			if (is_int($varname)) {
-				$currframe->numberedArgs[$varname]->getFirstChild()->value = $value;
+				$child = $currframe->numberedArgs[$varname]->getFirstChild();
+				if ($child)
+					$child->value = $value;
 				$currframe->numberedExpansionCache[$varname] = $value;
 			}
 			else {
-				$currframe->namedArgs[$varname]->getFirstChild()->value = $value;
+				$child = $currframe->namedArgs[$varname]->getFirstChild();
+				if ($child)
+					$child->value = $value;
 				$currframe->namedExpansionCache[$varname] = $value;
 			}
 		}
 		else {
-			$element = PPNode_Hash_Tree::newWithText( 'value', $value );
+			$element = self::newWithText( 'value', $value );
+			//$element = PPNode_Hash_Tree::newWithText( 'value', $value );
 			if (is_int($varname)) {
 				$currframe->numberedArgs[$varname] = $element;
 				$currframe->numberedExpansionCache[$varname] = $value;

@@ -1,7 +1,0 @@
-/composer.lock
-/vendor/
-*~
-*.kate-swp
-.*.swp
-.idea
-node_modules/

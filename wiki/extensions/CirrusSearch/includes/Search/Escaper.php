@@ -103,17 +103,17 @@ class Escaper {
 	 * @return array(string, boolean) (fixed up query string, is this a fuzzy query?)
 	 */
 	public function fixupWholeQueryString( $string ) {
+		$escapeBadSyntax = [ self::class, 'escapeBadSyntax' ];
+
 		// Be careful when editing this method because the ordering of the replacements matters.
 
 		// Escape ~ that don't follow a term or a quote
-		$string = preg_replace_callback( '/(?<![\w"])~/u',
-			'CirrusSearch\Search\Escaper::escapeBadSyntax', $string );
+		$string = preg_replace_callback( '/(?<![\w"])~/u', $escapeBadSyntax, $string );
 
 		// When allow leading wildcard is disabled elasticsearch will report an
 		// error if these are unescaped. Escape ? and * that don't follow a term.
 		if ( !$this->allowLeadingWildcard ) {
-			$string = preg_replace_callback( '/(?<![\w])([?*])/u',
-				'CirrusSearch\Search\Escaper::escapeBadSyntax', $string );
+			$string = preg_replace_callback( '/(?<![\w])([?*])/u', $escapeBadSyntax, $string );
 		}
 
 		// Reduce token ranges to bare tokens without the < or >
@@ -123,7 +123,7 @@ class Escaper {
 		$fuzzyQuery = false;
 		$string = preg_replace_callback( '/(?<leading>\w)~(?<trailing>\S*)/u',
 			function ( $matches ) use ( &$fuzzyQuery ) {
-				if ( preg_match( '/^(?:|0|0?\.\d+|1(?:\.0)?)$/', $matches[ 'trailing' ] ) ) {
+				if ( preg_match( '/^(|[0-2])$/', $matches[ 'trailing' ] ) ) {
 					$fuzzyQuery = true;
 					return $matches[ 0 ];
 				} else {
@@ -144,25 +144,21 @@ class Escaper {
 		// Escape +, -, and ! when not immediately followed by a term or when immediately
 		// prefixed with a term.  Catches "foo-bar", "foo- bar", "foo - bar".  The only
 		// acceptable use is "foo -bar" and "-bar foo".
-		$string = preg_replace_callback( '/[+\-!]+(?!\w)/u',
-			'CirrusSearch\Search\Escaper::escapeBadSyntax', $string );
-		$string = preg_replace_callback( '/(?<!^|[ \\\\])[+\-!]+/u',
-			'CirrusSearch\Search\Escaper::escapeBadSyntax', $string );
+		$string = preg_replace_callback( '/[+\-!]+(?!\w)/u', $escapeBadSyntax, $string );
+		$string = preg_replace_callback( '/(?<!^|[ \\\\])[+\-!]+/u', $escapeBadSyntax, $string );
 
 		// Escape || when not between terms
-		$string = preg_replace_callback( '/^\s*\|\|/u',
-			'CirrusSearch\Search\Escaper::escapeBadSyntax', $string );
-		$string = preg_replace_callback( '/\|\|\s*$/u',
-			'CirrusSearch\Search\Escaper::escapeBadSyntax', $string );
+		$string = preg_replace_callback( '/^\s*\|\|/u', $escapeBadSyntax, $string );
+		$string = preg_replace_callback( '/\|\|\s*$/u', $escapeBadSyntax, $string );
 
 		// Lowercase AND and OR when not surrounded on both sides by a term.
 		// Lowercase NOT when it doesn't have a term after it.
 		$string = preg_replace_callback( '/^|(AND|OR|NOT)\s*(?:AND|OR)/u',
-			'CirrusSearch\Search\Escaper::lowercaseMatched', $string );
+			[ self::class, 'lowercaseMatched' ], $string );
 		$string = preg_replace_callback( '/(?:AND|OR|NOT)\s*$/u',
-			'CirrusSearch\Search\Escaper::lowercaseMatched', $string );
+			[ self::class, 'lowercaseMatched' ], $string );
 
-		return array( $string, $fuzzyQuery );
+		return [ $string, $fuzzyQuery ];
 	}
 
 	/**

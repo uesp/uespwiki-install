@@ -1,0 +1,42 @@
+{
+	"name": "UespGameMap",
+	"version": "0.1",
+	"author": [
+		"[https://uesp.net/wiki/User:Daveh Daveh]"
+	],
+	"descriptionmsg": "uespgamemap-desc",
+	"license-name": "MIT",
+	"type": "other",
+	"AutoloadClasses": {
+		"SpecialUespGameMap": "SpecialUespGameMap.php"
+	},
+	"Hooks": {
+	},
+	"SpecialPages": {
+		"UespGameMap": "SpecialUespGameMap"
+	},
+	"MessagesDirs": {
+		"UespGameMap": [
+			"i18n"
+		]
+	},
+	"GroupPermissions": {
+	},
+	"ResourceModules" : {
+		"ext.UespGameMap.modules": {
+			"localBasePath": "modules",
+			"remoteExtPath": "UespGameMap/modules",
+			"styles": [
+				"uespGameMap.css"
+			],
+			"scripts": [
+				"uespGameMap.js"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		}
+	},
+	"manifest_version": 1
+}

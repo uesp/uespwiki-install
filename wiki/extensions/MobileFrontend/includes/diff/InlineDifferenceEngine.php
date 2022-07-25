@@ -147,7 +147,7 @@ class InlineDifferenceEngine extends DifferenceEngine {
 			throw new Exception( 'mOldid and mNewid must be set to get diff cache key.' );
 		}
 
-		return wfMemcKey( 'diff', 'inline', MW_DIFF_VERSION,
+		return wfMemcKey( 'diff', 'inline', self::DIFF_VERSION,
 			'oldid', $this->mOldid, 'newid', $this->mNewid );
 	}
 
@@ -162,13 +162,13 @@ class InlineDifferenceEngine extends DifferenceEngine {
 			$this->getOutput()->addModules( 'mobile.patrol.ajax' );
 			$linkInfo = Html::linkButton(
 				$this->msg( 'markaspatrolleddiff' )->escaped(),
-				array(
-					'href' => $this->mNewPage->getLocalUrl( array(
+				[
+					'href' => $this->mNewPage->getLocalUrl( [
 						'action' => 'markpatrolled',
 						'rcid' => $linkInfo['rcid'],
 						'token' => $linkInfo['token'],
-					) ),
-				)
+					] ),
+				]
 			);
 		}
 		return $linkInfo;

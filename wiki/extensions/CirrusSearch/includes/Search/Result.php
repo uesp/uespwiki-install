@@ -29,6 +29,8 @@ use Title;
  * http://www.gnu.org/copyleft/gpl.html
  */
 class Result extends SearchResult {
+	/** @var int */
+	private $namespace;
 	/** @var string */
 	private $titleSnippet = '';
 	/** @var Title|null */
@@ -61,6 +63,8 @@ class Result extends SearchResult {
 	private $score;
 	/** @var array */
 	private $explanation;
+	/** @var bool */
+	private $ignoreMissingRev;
 
 	/**
 	 * Build the result.
@@ -71,11 +75,14 @@ class Result extends SearchResult {
 	 * @param \Elastica\Result $result containing information about the result this class should represent
 	 */
 	public function __construct( $results, $result, $interwiki = '' ) {
+		global $wgCirrusSearchDevelOptions;
+		$this->ignoreMissingRev = isset( $wgCirrusSearchDevelOptions['ignore_missing_rev'] );
 		if ( $interwiki ) {
 			$this->setInterwiki( $result, $interwiki );
 		}
 		$this->docId = $result->getId();
-		$this->mTitle = Title::makeTitle( $result->namespace, $result->title, '', $this->interwiki );
+		$this->namespace = $result->namespace;
+		$this->mTitle = $this->makeTitle( $result->namespace, $result->title );
 		if ( $this->getTitle()->getNamespace() == NS_FILE ) {
 			$this->mImage = wfFindFile( $this->mTitle );
 		}
@@ -93,9 +100,7 @@ class Result extends SearchResult {
 		} elseif ( $this->mTitle->isExternal() ) {
 			// Interwiki searches are weird. They won't have title highlights by design, but
 			// if we don't return a title snippet we'll get weird display results.
-			$nsText = $this->getInterwikiNamespaceText();
-			$titleText = $this->mTitle->getText();
-			$this->titleSnippet = $nsText ? "$nsText:$titleText" : $titleText;
+			$this->titleSnippet = $this->mTitle->getText();
 		}
 
 		if ( !isset( $highlights[ 'title' ] ) && isset( $highlights[ 'redirect.title' ] ) ) {
@@ -166,7 +171,7 @@ class Result extends SearchResult {
 	 * @return bool
 	 */
 	public function isMissingRevision() {
-		return !$this->mTitle->isKnown();
+		return !($this->ignoreMissingRev || $this->mTitle->isKnown());
 	}
 
 	/**
@@ -181,8 +186,8 @@ class Result extends SearchResult {
 			$highlightPreEscaped = htmlspecialchars( Searcher::HIGHLIGHT_PRE );
 			$highlightPostEscaped = htmlspecialchars( Searcher::HIGHLIGHT_POST );
 		}
-		return str_replace( array( $highlightPreEscaped, $highlightPostEscaped ),
-			array( Searcher::HIGHLIGHT_PRE, Searcher::HIGHLIGHT_POST ),
+		return str_replace( [ $highlightPreEscaped, $highlightPostEscaped ],
+			[ Searcher::HIGHLIGHT_PRE, Searcher::HIGHLIGHT_POST ],
 			htmlspecialchars( $snippet ) );
 	}
 
@@ -218,23 +223,20 @@ class Result extends SearchResult {
 		if ( $best === null ) {
 			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
 				"Search backend highlighted a redirect ({title}) but didn't return it.",
-				array( 'title' => $title )
+				[ 'title' => $title ]
 			);
 			return null;
 		}
-		return Title::makeTitleSafe( $best[ 'namespace' ], $best[ 'title' ], '', $this->interwiki );
+		return $this->makeTitle( $best[ 'namespace' ], $best[ 'title' ] );
 	}
 
 	/**
 	 * @return Title
 	 */
 	private function findSectionTitle() {
-		$heading = $this->stripHighlighting( $this->sectionSnippet );
-		return Title::makeTitle(
-			$this->getTitle()->getNamespace(),
-			$this->getTitle()->getDBkey(),
-			Title::escapeFragmentForURL( $heading )
-		);
+		return $this->getTitle()->createFragmentTarget( Title::escapeFragmentForURL(
+			$this->stripHighlighting( $this->sectionSnippet )
+		) );
 	}
 
 	/**
@@ -242,7 +244,7 @@ class Result extends SearchResult {
 	 * @return string
 	 */
 	private function stripHighlighting( $highlighted ) {
-		$markers = array( Searcher::HIGHLIGHT_PRE, Searcher::HIGHLIGHT_POST );
+		$markers = [ Searcher::HIGHLIGHT_PRE, Searcher::HIGHLIGHT_POST ];
 		return str_replace( $markers, '', $highlighted );
 	}
 
@@ -373,5 +375,28 @@ class Result extends SearchResult {
 	 */
 	public function getExplanation() {
 		return $this->explanation;
+	}
+
+	/**
+	 * Create a title. When making interwiki titles we should be providing the
+	 * namespace text as a portion of the text, rather than a namespace id,
+	 * because namespace id's are not consistent across wiki's. This
+	 * additionally prevents the local wiki from localizing the namespace text
+	 * when it should be using the localized name of the remote wiki.
+	 *
+	 * Unfortunately we don't always have the remote namespace text, such as
+	 * when handling redirects. Do the best we can in this case and take the
+	 * less-than ideal results when we don't.
+	 *
+	 * @param int $namespace
+	 * @param string $text
+	 * @return Title
+	 */
+	private function makeTitle( $namespace, $text ) {
+		if ( $this->interwikiNamespace && $namespace === $this->namespace ) {
+			return Title::makeTitle( 0, $this->interwikiNamespace . ':' . $text, '', $this->interwiki );
+		} else {
+			return Title::makeTitle( $namespace, $text, '', $this->interwiki );
+		}
 	}
 }

@@ -18,6 +18,7 @@
  * @file
  * @ingroup Language
  */
+use MediaWiki\MediaWikiServices;
 
 use MediaWiki\Logger\LoggerFactory;
 
@@ -49,7 +50,9 @@ class LanguageConverter {
 	];
 
 	public $mMainLanguageCode;
-	public $mVariants, $mVariantFallbacks, $mVariantNames;
+	public $mVariants;
+	public $mVariantFallbacks;
+	public $mVariantNames;
 	public $mTablesLoaded = false;
 	public $mTables;
 	// 'bidirectional' 'unidirectional' 'disable' for each variant
@@ -354,12 +357,11 @@ class LanguageConverter {
 		if ( $this->guessVariant( $text, $toVariant ) ) {
 			return $text;
 		}
+
 		/* we convert everything except:
 		   1. HTML markups (anything between < and >)
 		   2. HTML entities
 		   3. placeholders created by the parser
-		   IMPORTANT: Beware of failure from pcre.backtrack_limit (T124404).
-		   Minimize use of backtracking where possible.
 		*/
 		$marker = '|' . Parser::MARKER_PREFIX . '[^\x7f]++\x7f';
 
@@ -388,7 +390,6 @@ class LanguageConverter {
 
 		// Guard against delimiter nulls in the input
 		$text = str_replace( "\000", '', $text );
-		$text = str_replace( "\004", '', $text );
 
 		$markupMatches = null;
 		$elementMatches = null;
@@ -403,13 +404,6 @@ class LanguageConverter {
 					// We hit the end.
 					$elementPos = strlen( $text );
 					$element = '';
-				} elseif ( substr( $element, -1 ) === "\004" ) {
-					// This can sometimes happen if we have
-					// unclosed html tags (For example
-					// when converting a title attribute
-					// during a recursive call that contains
-					// a &lt; e.g. <div title="&lt;">.
-					$element = substr( $element, 0, -1 );
 				}
 			} else {
 				// If we hit here, then Language Converter could be tricked
@@ -419,11 +413,11 @@ class LanguageConverter {
 				$log = LoggerFactory::getInstance( 'languageconverter' );
 				$log->error( "Hit pcre.backtrack_limit in " . __METHOD__
 					. ". Disabling language conversion for this page.",
-					[
+					array(
 						"method" => __METHOD__,
 						"variant" => $toVariant,
 						"startOfText" => substr( $text, 0, 500 )
-					]
+					)
 				);
 				return $text;
 			}
@@ -437,14 +431,7 @@ class LanguageConverter {
 			if ( $element !== ''
 				&& preg_match( '/^(<[^>\s]*+)\s([^>]*+)(.*+)$/', $element, $elementMatches )
 			) {
-				// FIXME, this decodes entities, so if you have something
-				// like <div title="foo&lt;bar"> the bar won't get
-				// translated since after entity decoding it looks like
-				// unclosed html and we call this method recursively
-				// on attributes.
 				$attrs = Sanitizer::decodeTagAttributes( $elementMatches[2] );
-				// Ensure self-closing tags stay self-closing.
-				$close = substr( $elementMatches[2], -1 ) === '/' ? ' /' : '';
 				$changed = false;
 				foreach ( [ 'title', 'alt' ] as $attrName ) {
 					if ( !isset( $attrs[$attrName] ) ) {
@@ -457,7 +444,7 @@ class LanguageConverter {
 					}
 
 					// Remove HTML tags to avoid disrupting the layout
-					$attr = preg_replace( '/<[^>]++>/', '', $attr );
+					$attr = preg_replace( '/<[^>]+>/', '', $attr );
 					if ( $attr !== $attrs[$attrName] ) {
 						$attrs[$attrName] = $attr;
 						$changed = true;
@@ -465,7 +452,7 @@ class LanguageConverter {
 				}
 				if ( $changed ) {
 					$element = $elementMatches[1] . Html::expandAttributes( $attrs ) .
-						$close . $elementMatches[3];
+						$elementMatches[3];
 				}
 			}
 			$literalBlob .= $element . "\000";
@@ -594,8 +581,8 @@ class LanguageConverter {
 			$variant = $this->getPreferredVariant();
 		}
 
-		$cache = ObjectCache::newAccelerator( CACHE_NONE );
-		$key = wfMemcKey( 'languageconverter', 'namespace-text', $index, $variant );
+		$cache = MediaWikiServices::getInstance()->getLocalServerObjectCache();
+		$key = $cache->makeKey( 'languageconverter', 'namespace-text', $index, $variant );
 		$nsVariantText = $cache->get( $key );
 		if ( $nsVariantText !== false ) {
 			return $nsVariantText;
@@ -681,9 +668,7 @@ class LanguageConverter {
 
 		$noScript = '<script.*?>.*?<\/script>(*SKIP)(*FAIL)';
 		$noStyle = '<style.*?>.*?<\/style>(*SKIP)(*FAIL)';
-		// @codingStandardsIgnoreStart Generic.Files.LineLength.TooLong
 		$noHtml = '<(?:[^>=]*+(?>[^>=]*+=\s*+(?:"[^"]*"|\'[^\']*\'|[^\'">\s]*+))*+[^>=]*+>|.*+)(*SKIP)(*FAIL)';
-		// @codingStandardsIgnoreEnd
 		while ( $startPos < $length && $continue ) {
 			$continue = preg_match(
 				// Only match -{ outside of html.
@@ -1144,11 +1129,11 @@ class LanguageConverter {
 			//  -{zh-hans:<span style="font-size:120%;">xxx</span>;zh-hant:\
 			// 	<span style="font-size:120%;">yyy</span>;}-
 			// we should split it as:
-			//  array(
+			//  [
 			// 	  [0] => 'zh-hans:<span style="font-size:120%;">xxx</span>'
 			// 	  [1] => 'zh-hant:<span style="font-size:120%;">yyy</span>'
 			// 	  [2] => ''
-			// 	 )
+			//  ]
 			$pat = '/;\s*(?=';
 			foreach ( $this->mVariants as $variant ) {
 				// zh-hans:xxx;zh-hant:yyy

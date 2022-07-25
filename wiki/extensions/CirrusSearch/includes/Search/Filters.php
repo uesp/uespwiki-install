@@ -3,7 +3,10 @@
 namespace CirrusSearch\Search;
 
 use Elastica;
-use Elastica\Filter\AbstractFilter;
+use Elastica\Query\AbstractQuery;
+use Elastica\Query\BoolQuery;
+use Elastica\Query\MatchAll;
+use GeoData\Coord;
 
 /**
  * Utilities for dealing with filters.
@@ -25,22 +28,46 @@ use Elastica\Filter\AbstractFilter;
  */
 class Filters {
 	/**
+	 * Turns a list of queries into a boolean OR, requiring only one
+	 * of the provided queries to match.
+	 *
+	 * @param AbstractQuery[] $queries
+	 * @param bool $matchAll When true (default) function never returns null,
+	 *  when no queries are provided a MatchAll is returned.
+	 * @return AbstractQuery|null The resulting OR query. Only returns null when
+	 *  no queries are passed and $matchAll is false.
+	 */
+	public static function booleanOr( array $queries, $matchAll = true ) {
+		if ( !$queries ) {
+			return $matchAll ? new MatchAll() : null;
+		} elseif ( count( $queries ) === 1 ) {
+			return reset( $queries );
+		} else {
+			$bool = new BoolQuery();
+			foreach ( $queries as $query ) {
+				$bool->addShould( $query );
+			}
+			return $bool;
+		}
+	}
+
+	/**
 	 * Merges lists of include/exclude filters into a single filter that
 	 * Elasticsearch will execute efficiently.
 	 *
-	 * @param AbstractFilter[] $mustFilters filters that must match all returned documents
-	 * @param AbstractFilter[] $mustNotFilters filters that must not match all returned documents
-	 * @return null|AbstractFilter null if there are no filters or one that will execute
+	 * @param AbstractQuery[] $mustFilters filters that must match all returned documents
+	 * @param AbstractQuery[] $mustNotFilters filters that must not match all returned documents
+	 * @return null|AbstractQuery null if there are no filters or one that will execute
 	 *     all of the provided filters
 	 */
-	public static function unify( $mustFilters, $mustNotFilters ) {
+	public static function unify( array $mustFilters, array $mustNotFilters ) {
 		// We want to make sure that we execute script filters last.  So we do these steps:
 		// 1.  Strip script filters from $must and $mustNot.
 		// 2.  Unify the non-script filters.
 		// 3.  Build a BoolAnd filter out of the script filters if there are any.
-		$scriptFilters = array();
-		$nonScriptMust = array();
-		$nonScriptMustNot = array();
+		$scriptFilters = [];
+		$nonScriptMust = [];
+		$nonScriptMustNot = [];
 		foreach ( $mustFilters as $must ) {
 			if ( $must->hasParam( 'script' ) ) {
 				$scriptFilters[] = $must;
@@ -48,12 +75,16 @@ class Filters {
 				$nonScriptMust[] = $must;
 			}
 		}
+		$scriptMustNotFilter = new BoolQuery();
 		foreach ( $mustNotFilters as $mustNot ) {
 			if ( $mustNot->hasParam( 'script' ) ) {
-				$scriptFilters[] = new \Elastica\Filter\BoolNot( $mustNot );
+				$scriptMustNotFilter->addMustNot( $mustNot );
 			} else {
 				$nonScriptMustNot[] = $mustNot;
 			}
+		}
+		if ( $scriptMustNotFilter->hasParam( 'must_not' ) ) {
+			$scriptFilters[] = $scriptMustNotFilter;
 		}
 
 		$nonScript = self::unifyNonScript( $nonScriptMust, $nonScriptMustNot );
@@ -62,30 +93,30 @@ class Filters {
 			return $nonScript;
 		}
 
-		$boolAndFilter = new \Elastica\Filter\BoolAnd();
+		$bool = new \Elastica\Query\BoolQuery();
 		if ( $nonScript === null ) {
 			if ( $scriptFiltersCount === 1 ) {
 				return $scriptFilters[ 0 ];
 			}
 		} else {
-			$boolAndFilter->addFilter( $nonScript );
+			$bool->addFilter( $nonScript );
 		}
 		foreach ( $scriptFilters as $scriptFilter ) {
-			$boolAndFilter->addFilter( $scriptFilter );
+			$bool->addFilter( $scriptFilter );
 		}
-		return $boolAndFilter;
+		return $bool;
 
 	}
 
 	/**
 	 * Unify non-script filters into a single filter.
 	 *
-	 * @param AbstractFilter[] $mustFilters filters that must be found
-	 * @param AbstractFilter[] $mustNotFilters filters that must not be found
-	 * @return null|AbstractFilter null if there are no filters or one that will execute
+	 * @param AbstractQuery[] $mustFilters filters that must be found
+	 * @param AbstractQuery[] $mustNotFilters filters that must not be found
+	 * @return null|AbstractQuery null if there are no filters or one that will execute
 	 *     all of the provided filters
 	 */
-	private static function unifyNonScript( $mustFilters, $mustNotFilters ) {
+	private static function unifyNonScript( array $mustFilters, array $mustNotFilters ) {
 		$mustFilterCount = count( $mustFilters );
 		$mustNotFilterCount = count( $mustNotFilters );
 		if ( $mustFilterCount + $mustNotFilterCount === 0 ) {
@@ -94,17 +125,14 @@ class Filters {
 		if ( $mustFilterCount === 1 && $mustNotFilterCount == 0 ) {
 			return $mustFilters[ 0 ];
 		}
-		if ( $mustFilterCount === 0 && $mustNotFilterCount == 1 ) {
-			return new \Elastica\Filter\BoolNot( $mustNotFilters[ 0 ] );
-		}
-		$boolFilter = new \Elastica\Filter\BoolFilter();
+		$bool = new \Elastica\Query\BoolQuery();
 		foreach ( $mustFilters as $must ) {
-			$boolFilter->addMust( $must );
+			$bool->addMust( $must );
 		}
 		foreach ( $mustNotFilters as $mustNot ) {
-			$boolFilter->addMustNot( $mustNot );
+			$bool->addMustNot( $mustNot );
 		}
-		return $boolFilter;
+		return $bool;
 	}
 
 	/**
@@ -115,26 +143,25 @@ class Filters {
 	 * @param Escaper $escaper
 	 * @param SearchContext $context
 	 * @param string $value
-	 * @return callable a side-effecting function to update several references
+	 * @return AbstractQuery
 	 */
 	public static function insource( Escaper $escaper, SearchContext $context, $value ) {
-		return self::insourceOrIntitle( $escaper, $context, $value, true, function () {
+		return self::insourceOrIntitle( $escaper, $context, $value, function () {
 			return 'source_text.plain';
 		});
 	}
 
 	/**
 	 * Create a filter for intitle: queries.  This was extracted from the big
-	 * switch block in Searcher.php.  This function is pure, deferring state
-	 * changes to the reference-updating return function.
+	 * switch block in Searcher.php.
 	 *
 	 * @param Escaper $escaper
 	 * @param SearchContext $context
 	 * @param string $value
-	 * @return callable a side-effecting function to update several references
+	 * @return AbstractQuery
 	 */
 	public static function intitle( Escaper $escaper, SearchContext $context, $value ) {
-		return self::insourceOrIntitle( $escaper, $context, $value, false, function ( $queryString ) {
+		return self::insourceOrIntitle( $escaper, $context, $value, function ( $queryString ) {
 			if ( preg_match( '/[?*]/u', $queryString ) ) {
 				return 'title.plain';
 			} else {
@@ -147,34 +174,23 @@ class Filters {
 	 * @param Escaper $escaper
 	 * @param SearchContext $context
 	 * @param string $value
-	 * @param bool $updateHighlightSourceRef
 	 * @param callable $fieldF
-	 * @return callable
+	 * @return AbstractQuery
 	 */
-	private static function insourceOrIntitle( Escaper $escaper, SearchContext $context, $value, $updateHighlightSourceRef, $fieldF ) {
+	private static function insourceOrIntitle( Escaper $escaper, SearchContext $context, $value, $fieldF ) {
 		list( $queryString, $fuzzyQuery ) = $escaper->fixupWholeQueryString(
 			$escaper->fixupQueryStringPart( $value ) );
 		$field = $fieldF( $queryString );
 		$query = new \Elastica\Query\QueryString( $queryString );
-		$query->setFields( array( $field ) );
+		$query->setFields( [ $field ] );
 		$query->setDefaultOperator( 'AND' );
 		$query->setAllowLeadingWildcard( $escaper->getAllowLeadingWildcard() );
 		$query->setFuzzyPrefixLength( 2 );
 		$query->setRewrite( 'top_terms_boost_1024' );
-		$wrappedQuery = $context->wrapInSaferIfPossible( $query, false );
 
-		$updateReferences =
-			function ( &$fuzzyQueryRef, &$filterDestinationRef, &$highlightSourceRef, &$searchContainedSyntaxRef )
-			     use ( $fuzzyQuery, $wrappedQuery, $updateHighlightSourceRef ) {
-				$fuzzyQueryRef             = $fuzzyQuery;
-				$filterDestinationRef[]    = new \Elastica\Filter\Query( $wrappedQuery );
-				if ($updateHighlightSourceRef) {
-					$highlightSourceRef[]      = array( 'query' => $wrappedQuery );
-				}
-				$searchContainedSyntaxRef  = true;
-			};
+		// @todo use a multi-return instead of passing in context?
+		$context->setFuzzyQuery( $fuzzyQuery );
 
-		return $updateReferences;
+		return $query;
 	}
-
 }

@@ -24,11 +24,9 @@ class SkinMinerva extends SkinTemplate {
 	protected $mobileContext;
 	/** @var bool whether the page is the user's page, i.e. User:Username */
 	public $isUserPage = false;
-	/**
-	 * @var boolean Whether the language button should be included in the secondary
-	 * actions HTML on non-main pages
-	 */
-	protected $shouldSecondaryActionsIncludeLanguageBtn = true;
+	/** @var ContentHandler Content handler of page; only access through getContentHandler */
+	protected $contentHandler = null;
+
 	/** @var bool Whether the page is also available in other languages or variants */
 	protected $doesPageHaveLanguages = false;
 
@@ -42,6 +40,14 @@ class SkinMinerva extends SkinTemplate {
 	}
 
 	/**
+	 * Whether the new footer is to be used
+	 * @return boolean
+	 */
+	public function isFooterV2() {
+		return $this->getMFConfig()->get( 'MinervaUseFooterV2' );
+	}
+
+	/**
 	 * initialize various variables and generate the template
 	 * @return QuickTemplate
 	 */
@@ -51,7 +57,7 @@ class SkinMinerva extends SkinTemplate {
 		$out = $this->getOutput();
 		// add head items
 		if ( $appleTouchIcon !== false ) {
-			$out->addLink( array( 'rel' => 'apple-touch-icon', 'href' => $appleTouchIcon ) );
+			$out->addLink( [ 'rel' => 'apple-touch-icon', 'href' => $appleTouchIcon ] );
 		}
 		$out->addMeta( 'viewport', 'initial-scale=1.0, user-scalable=yes, minimum-scale=0.25, ' .
 				'maximum-scale=5.0, width=device-width'
@@ -78,7 +84,6 @@ class SkinMinerva extends SkinTemplate {
 		$this->prepareHeaderAndFooter( $tpl );
 		$this->prepareMenuButton( $tpl );
 		$this->prepareBanners( $tpl );
-		$this->prepareWarnings( $tpl );
 		$this->preparePageActions( $tpl );
 		$this->prepareUserButton( $tpl );
 		$this->prepareLanguages( $tpl );
@@ -113,25 +118,54 @@ class SkinMinerva extends SkinTemplate {
 			$tpl->set( 'subject-page', Linker::link(
 				$title->getSubjectPage(),
 				$this->msg( $msg, $title->getText() )->escaped(),
-				array( 'class' => 'return-link' )
+				[ 'class' => 'return-link' ]
 			) );
 		}
 	}
 
 	/**
-	 * Returns true, if the pageaction is configured to be displayed.
+	 * Gets whether or not the page action is allowed.
+	 *
+	 * Page actions isn't allowed when:
+	 * <ul>
+	 *   <li>
+	 *     the action is disabled (by removing it from the <code>MinervaPageActions</code>
+	 *     configuration variable; or
+	 *   </li>
+	 *   <li>the user is on the main page</li>
+	 * </ul>
+	 *
+	 * The "edit" page action is not allowed if editing is not possible on the page
+	 * see @method: isCurrentPageContentModelEditable
+	 *
+	 * The "switch-language" is allowed if there are interlanguage links on the page,
+	 * or <code>$wgMinervaAlwaysShowLanguageButton</code>
+	 * is truthy.
+	 *
 	 * @param string $action
 	 * @return boolean
 	 */
 	protected function isAllowedPageAction( $action ) {
 		$title = $this->getTitle();
-		// All actions disabled on main apge.
-		if ( !$title->isMainPage() &&
-			in_array( $action, $this->getMFConfig()->get( 'MinervaPageActions' ) ) ) {
-			return true;
-		} else {
+		$config = $this->getMFConfig();
+
+		if (
+			! in_array( $action, $config->get( 'MinervaPageActions' ) )
+			|| $title->isMainPage()
+			|| ( $this->isUserPage && !$title->exists() )
+		) {
 			return false;
 		}
+
+		if ( $action === 'edit' ) {
+			return $this->isCurrentPageContentModelEditable();
+		}
+
+		if ( $action === 'switch-language' ) {
+			return $this->doesPageHaveLanguages || $config->get( 'MinervaAlwaysShowLanguageButton' );
+		}
+
+		return true;
 	}
 
 	/**
@@ -150,17 +184,30 @@ class SkinMinerva extends SkinTemplate {
 			$lang = wfGetLangObj( $lang );
 			$message = $this->msg( 'mobile-frontend-editor-edit' )->inLanguage( $lang )->text();
 			$html = Html::openElement( 'span' );
-			$html .= Html::element( 'a', array(
-				'href' =>  $this->getTitle()->getLocalUrl( array( 'action' => 'edit', 'section' => $section ) ),
+			$html .= Html::element( 'a', [
+				'href' =>  $this->getTitle()->getLocalUrl( [ 'action' => 'edit', 'section' => $section ] ),
 				'title' => $this->msg( 'editsectionhint', $tooltip )->inLanguage( $lang )->text(),
 				'data-section' => $section,
 				// Note visibility of the edit section link button is controlled by .edit-page in ui.less so
 				// we default to enabled even though this may not be true.
 				'class' => MobileUI::iconClass( 'edit-enabled', 'element', 'edit-page' . $additionalClass ),
-			), $message );
+			], $message );
 			$html .= Html::closeElement( 'span' );
 			return $html;
 		}
+	}
+
+	/**
+	 * Gets content handler of current title
+	 *
+	 * @return ContentHandler
+	 */
+	protected function getContentHandler() {
+		if ( $this->contentHandler === null ) {
+			$this->contentHandler = ContentHandler::getForTitle( $this->getTitle() );
+		}
+
+		return $this->contentHandler;
 	}
 
 	/**
@@ -243,22 +290,22 @@ class SkinMinerva extends SkinTemplate {
 	 * @return string html relating to button
 	 */
 	protected function createSecondaryButton( $title, $url, $spanLabel, $spanClass ) {
-		return Html::openElement( 'a', array(
+		return Html::openElement( 'a', [
 				'title' => $title,
 				'href' => $url,
 				'class' => MobileUI::iconClass( 'notifications', 'element',
 					'user-button main-header-button icon-32px' ),
 				'id' => 'secondary-button',
-			) ) .
+			] ) .
 			Html::element(
 				'span',
-				array( 'class' => 'label' ),
+				[ 'class' => 'label' ],
 				$title
 			) .
 			Html::closeElement( 'a' ) .
 			Html::element(
 				'span',
-				array( 'class' => $spanClass ),
+				[ 'class' => $spanClass ],
 				$spanLabel
 			);
 	}
@@ -273,10 +320,12 @@ class SkinMinerva extends SkinTemplate {
 		$notificationsTitle = '';
 		$countLabel = '';
 		$isZero = true;
+		$hasUnseen = false;
 
 		$user = $this->getUser();
 		$newtalks = $this->getNewtalks();
 		$currentTitle = $this->getTitle();
+
 		// If Echo is available, the user is logged in, and they are not already on the
 		// notifications archive, show the notifications icon in the header.
 		if ( $this->useEcho() && $user->isLoggedIn() ) {
@@ -284,8 +333,17 @@ class SkinMinerva extends SkinTemplate {
 			$notificationsMsg = $this->msg( 'mobile-frontend-user-button-tooltip' )->text();
 			if ( $currentTitle->getPrefixedText() !== $notificationsTitle->getPrefixedText() ) {
 				$notifUser = MWEchoNotifUser::newFromUser( $user );
-				$count = $notifUser->getAlertCount() + $notifUser->getMessageCount();
+				$echoSeenTime = EchoSeenTime::newFromUser( $user )->getTime( 'all', /*flags*/ 0, TS_ISO_8601 );
+
+				$notifLastUnreadTime = $notifUser->getLastUnreadNotificationTime();
+				$count = $notifUser->getNotificationCount();
+
 				$isZero = $count === 0;
+				$hasUnseen = (
+					$count > 0 &&
+					$echoSeenTime < $notifLastUnreadTime->getTimestamp( TS_ISO_8601 )
+				);
+
 				$countLabel = EchoNotificationController::formatNotificationCount( $count );
 			}
 		} elseif ( !empty( $newtalks ) ) {
@@ -294,10 +352,12 @@ class SkinMinerva extends SkinTemplate {
 		}
 
 		if ( $notificationsTitle ) {
-			$spanClass = $isZero ? 'zero notification-count' : 'notification-count';
+			$spanClass = $isZero ? 'zero' : '';
+			$spanClass .= ' notification-count';
+			$spanClass .= $hasUnseen ? ' notification-unseen' : '';
 
 			$url = $notificationsTitle->getLocalURL(
-				array( 'returnto' => $currentTitle->getPrefixedText() ) );
+				[ 'returnto' => $currentTitle->getPrefixedText() ] );
 
 			$tpl->set( 'secondaryButton',
 				$this->createSecondaryButton( $notificationsMsg, $url, $countLabel, $spanClass )
@@ -312,7 +372,7 @@ class SkinMinerva extends SkinTemplate {
 	 * @param array $query representation of query string parameters (optional)
 	 * @return string url
 	 */
-	protected function getPersonalUrl( Title $title, $warning, array $query = array() ) {
+	protected function getPersonalUrl( Title $title, $warning, array $query = [] ) {
 		if ( $this->getUser()->isLoggedIn() ) {
 			return $title->getLocalUrl( $query );
 		} else {
@@ -328,17 +388,31 @@ class SkinMinerva extends SkinTemplate {
 	}
 
 	/**
-	 * Prepares and returns urls and links personal to the given user
-	 * @return array
+	 * Inserts the Contributions menu item into the menu.
+	 *
+	 * @param MenuBuilder $menu
+	 * @param User $user The user to whom the contributions belong
 	 */
-	protected function getPersonalTools() {
-		$returnToTitle = $this->getTitle()->getPrefixedText();
-		$donateTitle = SpecialPage::getTitleFor( 'Uploads' );
+	private function insertContributionsMenuItem( MenuBuilder $menu, User $user ) {
+		$menu->insert( 'contribs' )
+			->addComponent(
+				$this->msg( 'mobile-frontend-main-menu-contributions' )->escaped(),
+				SpecialPage::getTitleFor( 'Contributions', $user->getName() )->getLocalUrl(),
+				MobileUI::iconClass( 'mf-contributions-invert', 'before' ),
+				[ 'data-event-name' => 'contributions' ]
+			);
+	}
+
+	/**
+	 * Inserts the Watchlist menu item into the menu.
+	 *
+	 * @param MenuBuilder $menu
+	 */
+	protected function insertWatchlistMenuItem( MenuBuilder $menu ) {
 		$watchTitle = SpecialPage::getTitleFor( 'Watchlist' );
-		$menu = new MenuBuilder();
 
 		// Watchlist link
-		$watchlistQuery = array();
+		$watchlistQuery = [];
 		$user = $this->getUser();
 		if ( $user ) {
 			$view = $user->getOption( SpecialMobileWatchlist::VIEW_OPTION_NAME, false );
@@ -359,9 +433,19 @@ class SkinMinerva extends SkinTemplate {
 					'mobile-frontend-watchlist-purpose',
 					$watchlistQuery
 				),
-				MobileUI::iconClass( 'watchlist', 'before' ),
-				array( 'data-event-name' => 'watchlist' )
+				MobileUI::iconClass( 'mf-watchlist-invert', 'before' ),
+				[ 'data-event-name' => 'watchlist' ]
 			);
+	}
+
+	/**
+	 * If the user is using a mobile device (or the UA presents itself as a mobile device), then the
+	 * Settings menu item is inserted into the menu; otherwise the Preferences menu item is inserted.
+	 *
+	 * @param MenuBuilder $menu
+	 */
+	protected function insertSettingsMenuItem( MenuBuilder $menu ) {
+		$returnToTitle = $this->getTitle()->getPrefixedText();
 
 		// Links specifically for mobile mode
 		if ( $this->isMobileMode ) {
@@ -371,9 +455,9 @@ class SkinMinerva extends SkinTemplate {
 				->addComponent(
 					$this->msg( 'mobile-frontend-main-menu-settings' )->escaped(),
 					SpecialPage::getTitleFor( 'MobileOptions' )->
-						getLocalUrl( array( 'returnto' => $returnToTitle ) ),
-					MobileUI::iconClass( 'mobileoptions', 'before' ),
-					array( 'data-event-name' => 'settings' )
+						getLocalUrl( [ 'returnto' => $returnToTitle ] ),
+					MobileUI::iconClass( 'mf-settings-invert', 'before' ),
+					[ 'data-event-name' => 'settings' ]
 				);
 
 		// Links specifically for desktop mode
@@ -387,15 +471,41 @@ class SkinMinerva extends SkinTemplate {
 						SpecialPage::getTitleFor( 'Preferences' ),
 						'prefsnologintext2'
 					),
-					MobileUI::iconClass( 'settings', 'before' ),
-					array( 'data-event-name' => 'preferences' )
+					MobileUI::iconClass( 'mf-settings-invert', 'before' ),
+					[ 'data-event-name' => 'preferences' ]
 				);
 		}
+	}
 
-		// Login/Logout links
-		$this->insertLogInOutLink( $menu );
+	/**
+	 * Builds the personal tools menu item group.
+	 *
+	 * ... by adding the Watchlist, Settings, and Log{in,out} menu items in the given order.
+	 *
+	 * @param MenuBuilder $menu
+	 */
+	protected function buildPersonalTools( MenuBuilder $menu ) {
+		$this->insertLogInOutMenuItem( $menu );
+
+		$user = $this->getUser();
+
+		if ( $user->isLoggedIn() ) {
+			$this->insertWatchlistMenuItem( $menu );
+			$this->insertContributionsMenuItem( $menu, $user );
+		}
+	}
+
+	/**
+	 * Prepares and returns urls and links personal to the given user
+	 * @return array
+	 */
+	protected function getPersonalTools() {
+		$menu = new MenuBuilder();
+
+		$this->buildPersonalTools( $menu );
+
 		// Allow other extensions to add or override tools
-		Hooks::run( 'MobileMenu', array( 'personal', &$menu ) );
+		Hooks::run( 'MobileMenu', [ 'personal', &$menu ] );
 		return $menu->getEntries();
 	}
 
@@ -420,6 +530,21 @@ class SkinMinerva extends SkinTemplate {
 	}
 
 	/**
+	 * Like <code>SkinMinerva#getDiscoveryTools</code> and <code>#getPersonalTools</code>, create
+	 * a group of configuration-related menu items. Currently, only the Settings menu item is in the
+	 * group.
+	 *
+	 * @return array
+	 */
+	private function getConfigurationTools() {
+		$menu = new MenuBuilder();
+
+		$this->insertSettingsMenuItem( $menu );
+
+		return $menu->getEntries();
+	}
+
+	/**
 	 * Prepares a list of links that have the purpose of discovery in the main navigation menu
 	 * @return array
 	 */
@@ -432,8 +557,8 @@ class SkinMinerva extends SkinTemplate {
 			->addComponent(
 				$this->msg( 'mobile-frontend-home-button' )->escaped(),
 				Title::newMainPage()->getLocalUrl(),
-				MobileUI::iconClass( 'home', 'before' ),
-				array( 'data-event-name' => 'home' )
+				MobileUI::iconClass( 'mf-home-invert', 'before' ),
+				[ 'data-event-name' => 'home' ]
 			);
 
 		// Random link
@@ -443,11 +568,11 @@ class SkinMinerva extends SkinTemplate {
 				SpecialPage::getTitleFor( 'Randompage',
 					MWNamespace::getCanonicalName( $config->get( 'MFContentNamespace' ) ) )->getLocalUrl() .
 						'#/random',
-				MobileUI::iconClass( 'random', 'before' ),
-				array(
+				MobileUI::iconClass( 'mf-random-invert', 'before' ),
+				[
 					'id' => 'randomButton',
 					'data-event-name' => 'random',
-				)
+				]
 			);
 
 		// Nearby link (if supported)
@@ -459,13 +584,13 @@ class SkinMinerva extends SkinTemplate {
 				->addComponent(
 					$this->msg( 'mobile-frontend-main-menu-nearby' )->escaped(),
 					SpecialPage::getTitleFor( 'Nearby' )->getLocalURL(),
-					MobileUI::iconClass( 'nearby', 'before', 'nearby' ),
-					array( 'data-event-name' => 'nearby' )
+					MobileUI::iconClass( 'mf-nearby-invert', 'before', 'nearby' ),
+					[ 'data-event-name' => 'nearby' ]
 				);
 		}
 
 		// Allow other extensions to add or override tools
-		Hooks::run( 'MobileMenu', array( 'discovery', &$menu ) );
+		Hooks::run( 'MobileMenu', [ 'discovery', &$menu ] );
 		return $menu->getEntries();
 	}
 
@@ -495,8 +620,8 @@ class SkinMinerva extends SkinTemplate {
 	 *
 	 * @param MenuBuilder $menu
 	 */
-	protected function insertLogInOutLink( MenuBuilder $menu ) {
-		$query = array();
+	protected function insertLogInOutMenuItem( MenuBuilder $menu ) {
+		$query = [];
 		if ( !$this->getRequest()->wasPosted() ) {
 			$returntoquery = $this->getRequest()->getValues();
 			unset( $returntoquery['title'] );
@@ -522,15 +647,15 @@ class SkinMinerva extends SkinTemplate {
 				->addComponent(
 					$username,
 					Title::newFromText( $username, NS_USER )->getLocalUrl(),
-					MobileUI::iconClass( 'profile', 'before', 'truncated-text primary-action' ),
-					array( 'data-event-name' => 'profile' )
+					MobileUI::iconClass( 'mf-profile-invert', 'before', 'truncated-text primary-action' ),
+					[ 'data-event-name' => 'profile' ]
 				)
 				->addComponent(
 					$this->msg( 'mobile-frontend-main-menu-logout' )->escaped(),
 					$url,
 					MobileUI::iconClass(
-						'secondary-logout', 'element', 'secondary-action truncated-text' ),
-					array( 'data-event-name' => 'logout' )
+						'mf-logout-invert', 'element', 'secondary-action truncated-text' ),
+					[ 'data-event-name' => 'logout' ]
 				);
 		} else {
 			// note returnto is not set for mobile (per product spec)
@@ -544,8 +669,8 @@ class SkinMinerva extends SkinTemplate {
 				->addComponent(
 					$this->msg( 'mobile-frontend-main-menu-login' )->escaped(),
 					$url,
-					MobileUI::iconClass( 'anonymous-white', 'before' ),
-					array( 'data-event-name' => 'login' )
+					MobileUI::iconClass( 'mf-anonymous-invert', 'before' ),
+					[ 'data-event-name' => 'login' ]
 				);
 		}
 	}
@@ -560,8 +685,10 @@ class SkinMinerva extends SkinTemplate {
 	protected function getHistoryLink( Title $title ) {
 		$user = $this->getUser();
 		$isMainPage = $title->isMainPage();
+		// Get rev_timestamp of current revision (preloaded by MediaWiki core)
+		$timestamp = $this->getOutput()->getRevisionTimestamp();
 		$mp = new MobilePage( $this->getTitle(), false );
-		$timestamp = $mp->getLatestTimestamp();
+		$mp->setLatestTimestamp( $timestamp );
 		// Main pages tend to include transclusions (see bug 51924)
 		if ( $isMainPage ) {
 			$lastModified = $this->msg( 'mobile-frontend-history' )->plain();
@@ -573,41 +700,57 @@ class SkinMinerva extends SkinTemplate {
 			)->parse();
 		}
 		$edit = $mp->getLatestEdit();
-		$link = array(
+		$link = [
+			// Use $edit['timestamp'] (Unix format) instead of $timestamp (MW format)
 			'data-timestamp' => $isMainPage ? '' : $edit['timestamp'],
 			'href' => SpecialPage::getTitleFor( 'History', $title )->getLocalURL(),
 			'text' => $lastModified,
 			'data-user-name' => $edit['name'],
 			'data-user-gender' => $edit['gender'],
-		);
+		];
 		return $link;
 	}
-
 	/**
-	 * Returns the HTML representing the header.
-	 * @returns {String} html for header
+	 * Returns the HTML representing the tagline
+	 * @returns string html for tagline
 	 */
-	protected function getHeaderHtml() {
-		$html = '';
+	protected function getTaglineHtml() {
+		$tagline = false;
 		if ( $this->isUserPage ) {
-			// The heading is just the username without namespace
-			$html = Html::rawElement( 'h1', array( 'id' => 'section_0' ),
-				$this->pageUser->getName() );
 			$fromDate = $this->pageUser->getRegistration();
 			if ( is_string( $fromDate ) ) {
 				$fromDateTs = new MWTimestamp( wfTimestamp( TS_UNIX, $fromDate ) );
-				$html .= Html::element( 'div', array( 'class' => 'tagline', ),
-					$this->msg( 'mobile-frontend-user-page-member-since',
-						$fromDateTs->format( 'F, Y' ) )
-				);
+				$tagline = $this->msg( 'mobile-frontend-user-page-member-since',
+						$fromDateTs->format( 'F, Y' ), $this->pageUser );
 			}
 		} else {
-			$title = $this->getOutput()->getPageTitle();
+			$title = $this->getTitle();
 			if ( $title ) {
-				$html = Html::rawElement( 'h1', array( 'id' => 'section_0' ), $title );
+				if ( !$title->isMainPage() && $title->inNamespace( NS_MAIN ) ) {
+					$vars = $this->getSkinConfigVariables();
+					$tagline = $vars['wgMFDescription'];
+				}
 			}
 		}
-		return $html;
+		return $tagline ?
+			Html::element( 'div', [ 'class' => 'tagline' ], $tagline ) : '';
+	}
+	/**
+	 * Returns the HTML representing the heading.
+	 * @returns {String} html for header
+	 */
+	protected function getHeadingHtml() {
+		$heading = '';
+		if ( $this->isUserPage ) {
+			// The heading is just the username without namespace
+			$heading = $this->pageUser->getName();
+		} else {
+			$pageTitle = $this->getOutput()->getPageTitle();
+			if ( $pageTitle ) {
+				$heading = $pageTitle;
+			}
+		}
+		return Html::rawElement( 'h1', [ 'id' => 'section_0' ], $heading );
 	}
 	/**
 	 * Create and prepare header and footer content
@@ -617,9 +760,10 @@ class SkinMinerva extends SkinTemplate {
 		$title = $this->getTitle();
 		$user = $this->getUser();
 		$out = $this->getOutput();
+		$postHeadingHtml = $this->getTaglineHtml();
 		if ( $this->isUserPage ) {
 			$talkPage = $this->pageUser->getTalkPage();
-			$data = array(
+			$data = [
 				'talkPageTitle' => $talkPage->getPrefixedURL(),
 				'talkPageLink' => $talkPage->getLocalUrl(),
 				'talkPageLinkTitle' => $this->msg(
@@ -632,10 +776,10 @@ class SkinMinerva extends SkinTemplate {
 					'Uploads', $this->pageUser )->getLocalURL(),
 				'uploadsPageTitle' => $this->msg(
 					'mobile-frontend-user-page-uploads' )->escaped(),
-			);
+			];
 			$templateParser = new TemplateParser( __DIR__ );
-			$tpl->set( 'postheadinghtml',
-				$templateParser->processTemplate( 'user_page_links', $data ) );
+			$postHeadingHtml .=
+				$templateParser->processTemplate( 'user_page_links', $data );
 		} elseif ( $title->isMainPage() ) {
 			if ( $user->isLoggedIn() ) {
 				$pageTitle = $this->msg(
@@ -645,6 +789,7 @@ class SkinMinerva extends SkinTemplate {
 			}
 			$out->setPageTitle( $pageTitle );
 		}
+		$tpl->set( 'postheadinghtml', $postHeadingHtml );
 
 		if ( $this->canUseWikiPage() ) {
 			// If it's a page that exists, add last edited timestamp
@@ -652,7 +797,7 @@ class SkinMinerva extends SkinTemplate {
 				$tpl->set( 'historyLink', $this->getHistoryLink( $title ) );
 			}
 		}
-		$tpl->set( 'headinghtml', $this->getHeaderHtml() );
+		$tpl->set( 'headinghtml', $this->getHeadingHtml() );
 
 		// set defaults
 		if ( !isset( $tpl->data['postbodytext'] ) ) {
@@ -668,12 +813,12 @@ class SkinMinerva extends SkinTemplate {
 		// menu button
 		$url = SpecialPage::getTitleFor( 'MobileMenu' )->getLocalUrl();
 		$tpl->set( 'menuButton',
-			Html::element( 'a', array(
+			Html::element( 'a', [
 				'title' => $this->msg( 'mobile-frontend-main-menu-button-tooltip' ),
 				'href' => $url,
 				'class' => MobileUI::iconClass( 'mainmenu', 'element', 'main-menu-button' ),
 				'id'=> 'mw-mf-main-menu-button',
-			), $this->msg( 'mobile-frontend-main-menu-button-tooltip' ) )
+			], $this->msg( 'mobile-frontend-main-menu-button-tooltip' ) )
 		);
 	}
 
@@ -685,7 +830,7 @@ class SkinMinerva extends SkinTemplate {
 	 */
 	protected function prepareBanners( BaseTemplate $tpl ) {
 		// Make sure Zero banner are always on top
-		$banners = array( '<div id="siteNotice"></div>' );
+		$banners = [ '<div id="siteNotice"></div>' ];
 		if ( $this->getMFConfig()->get( 'MinervaEnableSiteNotice' ) ) {
 			$siteNotice = $this->getSiteNotice();
 			if ( $siteNotice ) {
@@ -722,27 +867,8 @@ class SkinMinerva extends SkinTemplate {
 		}
 
 		// Allow other extensions to add or override tools
-		Hooks::run( 'MobileMenu', array( 'sitelinks', &$menu ) );
+		Hooks::run( 'MobileMenu', [ 'sitelinks', &$menu ] );
 		return $menu->getEntries();
-	}
-
-	/**
-	 * @return html for a message to display at top of old revisions
-	 */
-	protected function getOldRevisionHtml() {
-		return $this->getOutput()->getSubtitle();
-	}
-
-	/**
-	 * Prepare warnings for mobile output
-	 * @param BaseTemplate $tpl
-	 */
-	protected function prepareWarnings( BaseTemplate $tpl ) {
-		$out = $this->getOutput();
-		if ( $out->getRequest()->getText( 'oldid' ) ) {
-			$tpl->set( '_old_revision_warning',
-				MobileUI::warningBox( $this->getOldRevisionHtml() ) );
-		}
 	}
 
 	/**
@@ -755,15 +881,13 @@ class SkinMinerva extends SkinTemplate {
 			$this->getSkin()->getTitle()
 		)->getLocalURL();
 
-		return array(
-			'attributes' => array(
-				'id' => 'language-switcher',
-				// FIXME: remove class when cache clears
-				'class' => 'languageSelector',
+		return [
+			'attributes' => [
+				'class' => 'language-selector',
 				'href' => $languageUrl,
-			),
+			],
 			'label' => $this->msg( 'mobile-frontend-language-article-heading' )->text()
-		);
+		];
 	}
 
 	/**
@@ -773,14 +897,14 @@ class SkinMinerva extends SkinTemplate {
 	 * @return array
 	 */
 	protected function getTalkButton( $talkTitle, $talkButton ) {
-		return array(
-			'attributes' => array(
+		return [
+			'attributes' => [
 				'href' => $talkTitle->getLinkURL(),
 				'data-title' => $talkTitle->getFullText(),
 				'class' => MobileUI::iconClass( 'talk', 'before', 'talk' ),
-			),
+			],
 			'label' => $talkButton['text'],
-		);
+		];
 	}
 
 	/**
@@ -789,7 +913,7 @@ class SkinMinerva extends SkinTemplate {
 	 * @return string[]
 	 */
 	protected function getSecondaryActions( BaseTemplate $tpl ) {
-		$buttons = array();
+		$buttons = [];
 
 		// always add a button to link to the talk page
 		// in beta it will be the entry point for the talk overlay feature,
@@ -802,14 +926,12 @@ class SkinMinerva extends SkinTemplate {
 			$talkId = $subjectId === 'main' ? 'talk' : "{$subjectId}_talk";
 			if ( isset( $namespaces[$talkId] ) && !$title->isTalkPage() ) {
 				$talkButton = $namespaces[$talkId];
+				$talkTitle = $title->getTalkPage();
+				$buttons['talk'] = $this->getTalkButton( $talkTitle, $talkButton );
 			}
-
-			$talkTitle = $title->getTalkPage();
-			$buttons['talk'] = $this->getTalkButton( $talkTitle, $talkButton );
 		}
 
-		if ( $this->doesPageHaveLanguages &&
-			( $title->isMainPage() || $this->shouldSecondaryActionsIncludeLanguageBtn ) ) {
+		if ( $this->doesPageHaveLanguages && $title->isMainPage() ) {
 			$buttons['language'] = $this->getLanguageButton();
 		}
 
@@ -827,70 +949,123 @@ class SkinMinerva extends SkinTemplate {
 	 * @param BaseTemplate $tpl
 	 */
 	protected function preparePageActions( BaseTemplate $tpl ) {
-		$title = $this->getTitle();
-		$noJsEdit = MobileContext::singleton()->getMFConfig()->get( 'MFAllowNonJavaScriptEditing' );
-		// Reuse template data variable from SkinTemplate to construct page menu
-		$menu = array();
-		$actions = $tpl->data['content_navigation']['actions'];
+		$menu = [];
 
-		if ( $this->isUserPage ) {
-			if ( !$this->getTitle()->exists() ) {
-				$tpl->set( 'page_actions', $menu );
-				return;
-			}
-		}
-
-		// empty placeholder for edit and photos which both require js
 		if ( $this->isAllowedPageAction( 'edit' ) ) {
-			$additionalClass = $noJsEdit?' nojs-edit':'';
-
-			$menu['edit'] = array( 'id' => 'ca-edit', 'text' => '',
-				'itemtitle' => $this->msg( 'mobile-frontend-pageaction-edit-tooltip' ),
-				'class' => MobileUI::iconClass( 'edit-enabled', 'element' . $additionalClass ),
-				'links' => array(
-						'edit' => array(
-							'href' => $this->getTitle()->getLocalUrl( array( 'action' => 'edit', 'section' => 0 ) )
-					)
-				),
-				'is_js_only' => !$noJsEdit
-			);
+			$menu['edit'] = $this->createEditPageAction();
 		}
 
 		if ( $this->isAllowedPageAction( 'watch' ) ) {
-			$watchTemplate = array(
-				'id' => 'ca-watch',
-				// Use blank icon to reserve space for watchstar icon once JS loads
-				'class' => MobileUI::iconClass( '', 'element',
-					'icon-32px watch-this-article' ),
-				'is_js_only' => true
-			);
-			// standardise watch article into one menu item
-			if ( isset( $actions['watch'] ) ) {
-				$menu['watch'] = array_merge( $actions['watch'], $watchTemplate );
-			} elseif ( isset( $actions['unwatch'] ) ) {
-				$menu['watch'] = array_merge( $actions['unwatch'], $watchTemplate );
-				$menu['watch']['class'] .= ' watched';
-			} else {
-				// placeholder for not logged in
-				$menu['watch'] = $watchTemplate;
-				// FIXME: makeLink (used by makeListItem) when no text is present defaults to use the key
-				$menu['watch']['text'] = '';
-				$menu['watch']['href'] = $this->getLoginUrl( array( 'returnto' => $title ) );
-			}
+
+			// SkinTemplate#buildContentNavigationUrls creates distinct "watch" and "unwatch" actions.
+			// Pass these actions in as context for #createWatchPageAction.
+			$actions = $tpl->data['content_navigation']['actions'];
+
+			$menu['watch'] = $this->createWatchPageAction( $actions );
+		}
+
+		if ( $this->isAllowedPageAction( 'switch-language' ) ) {
+			$menu['switch-language'] = $this->createSwitchLanguageAction();
 		}
 
 		$tpl->set( 'page_actions', $menu );
 	}
 
 	/**
-	 * Checks to see if the current page is (probably) editable.
+	 * Creates the "edit" page action: the well-known pencil icon that, when tapped, will open an
+	 * editor with the lead section loaded.
 	 *
-	 * This is the same check that sets wgIsProbablyEditable later in the page output
+	 * @return array A map compatible with BaseTemplate#makeListItem
+	 */
+	protected function createEditPageAction() {
+		$noJsEdit = MobileContext::singleton()->getMFConfig()->get( 'MFAllowNonJavaScriptEditing' );
+		$additionalClass = $noJsEdit ? ' nojs-edit' : '';
+
+		return [
+			'id' => 'ca-edit',
+			'text' => '',
+			'itemtitle' => $this->msg( 'mobile-frontend-pageaction-edit-tooltip' ),
+			'class' => MobileUI::iconClass( 'edit-enabled', 'element' . $additionalClass ),
+			'links' => [
+				'edit' => [
+					'href' => $this->getTitle()->getLocalURL( [ 'action' => 'edit', 'section' => 0 ] )
+				],
+			],
+			'is_js_only' => !$noJsEdit
+		];
+	}
+
+	/**
+	 * Creates the "watch" or "unwatch" action: the well-known star icon that, when tapped, will
+	 * add the page to or remove the page from the user's watchlist; or, if the user is logged out,
+	 * will direct the user's UA to Special:Login.
+	 *
+	 * @return array A map compatible with BaseTemplate#makeListItem
+	 */
+	protected function createWatchPageAction( $actions ) {
+		$baseResult = [
+			'id' => 'ca-watch',
+			// Use blank icon to reserve space for watchstar icon once JS loads
+			'class' => MobileUI::iconClass( '', 'element', 'icon-32px watch-this-article' ),
+			'is_js_only' => true
+		];
+		$title = $this->getTitle();
+
+		if ( isset( $actions['watch'] ) ) {
+			$result = array_merge( $actions['watch'], $baseResult );
+		} elseif ( isset( $actions['unwatch'] ) ) {
+			$result = array_merge( $actions['unwatch'], $baseResult );
+			$result['class'] .= ' watched';
+		} else {
+			// placeholder for not logged in
+			$result = array_merge( $baseResult, [
+				// FIXME: makeLink (used by makeListItem) when no text is present defaults to use the key
+				'text' => '',
+				'href' => $this->getLoginUrl( [ 'returnto' => $title ] ),
+			] );
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Creates the the "switch-language" action: the icon that, when tapped, opens the language
+	 * switcher.
+	 *
+	 * @return array A map compatible with BaseTemplate#makeListItem
+	 */
+	protected function createSwitchLanguageAction() {
+		$languageSwitcherLinks = [];
+		$languageSwitcherClasses = 'language-selector';
+
+		if ( $this->doesPageHaveLanguages ) {
+			$languageSwitcherLinks['mobile-frontend-language-article-heading'] = [
+				'href' => SpecialPage::getTitleFor( 'MobileLanguages', $this->getTitle() )->getLocalURL()
+			];
+		} else {
+			$languageSwitcherClasses .= ' disabled';
+		}
+
+		return [
+			'text' => '',
+			'itemtitle' => $this->msg( 'mobile-frontend-language-article-heading' ),
+			'class' => MobileUI::iconClass( 'language-switcher', 'element', $languageSwitcherClasses ),
+			'links' => $languageSwitcherLinks,
+			'is_js_only' => false
+		];
+	}
+
+	/**
+	 * Checks to see if the current page is (probably) editable by the current user
+	 *
+	 * This is mostly the same check that sets wgIsProbablyEditable later in the page output
 	 * process.
 	 *
 	 * @return boolean
 	 */
-	protected function isCurrentPageEditable() {
+	protected function isCurrentPageEditableByUser() {
+		$contentHandler = $this->getContentHandler();
+
 		$title = $this->getTitle();
 		$user = $this->getUser();
 		return $title->quickUserCan( 'edit', $user )
@@ -898,15 +1073,34 @@ class SkinMinerva extends SkinTemplate {
 	}
 
 	/**
+	 * Checks whether the editor can handle the existing content handler type.
+	 *
+	 * This is mostly the same check that sets wgIsProbablyEditable later in the page output
+	 * process.
+	 *
+	 * @return boolean
+	 */
+	protected function isCurrentPageContentModelEditable() {
+		$contentHandler = $this->getContentHandler();
+
+		return $contentHandler->supportsDirectEditing()
+			&& $contentHandler->supportsDirectApiEditing();
+	}
+
+	/**
 	 * Returns a data representation of the main menus
 	 * @return array
 	 */
 	protected function getMenuData() {
-		$data = array(
-			'discovery' => $this->getDiscoveryTools(),
-			'personal' => $this->getPersonalTools(),
+		$data = [
+			'groups' => [
+				$this->getDiscoveryTools(),
+				$this->getPersonalTools(),
+				$this->getConfigurationTools(),
+			],
 			'sitelinks' => $this->getSiteLinks(),
-		);
+		];
+
 		return $data;
 	}
 	/**
@@ -919,11 +1113,12 @@ class SkinMinerva extends SkinTemplate {
 		$user = $this->getUser();
 		$out = $this->getOutput();
 
-		$vars = array(
+		$vars = [
 			'wgMinervaMenuData' => $this->getMenuData(),
 			// Expose for skins.minerva.tablet.scripts
-			'wgMinervaTocEnabled' => $this->getOutput()->getProperty( 'MFTOC' )
-		);
+			'wgMinervaTocEnabled' => $out->getProperty( 'MFTOC' ),
+			'wgMFDescription' => $out->getProperty( 'wgMFDescription' ),
+		];
 
 		if ( $this->isAuthenticatedUser() ) {
 			$blockInfo = false;
@@ -931,11 +1126,11 @@ class SkinMinerva extends SkinTemplate {
 				$block = $user->getBlock();
 				$blockReason = $block->mReason ?
 					$out->parseinline( $block->mReason ) : $this->msg( 'blockednoreason' )->text();
-				$blockInfo = array(
+				$blockInfo = [
 					'blockedBy' => $block->getByName(),
 					// check, if a reason for this block is saved, otherwise use "no reason given" msg
 					'blockReason' => $blockReason,
-				);
+				];
 			}
 			$vars['wgMinervaUserBlockInfo'] = $blockInfo;
 		}
@@ -972,19 +1167,29 @@ class SkinMinerva extends SkinTemplate {
 	 * @return array
 	 */
 	public function getContextSpecificModules() {
-		$modules = array();
+		$modules = [];
 		$user = $this->getUser();
 		$req = $this->getRequest();
 		$action = $req->getVal( 'article_action' );
 		$campaign = $req->getVal( 'campaign' );
 		$title = $this->getTitle();
 
+		if ( !$title->isSpecialPage() ) {
+			if ( $this->isAllowedPageAction( 'watch' ) ) {
+				// Explicitly add the mobile watchstar code.
+				$modules[] = 'skins.minerva.watchstar';
+			}
+			if ( $this->isCurrentPageContentModelEditable() ) {
+				$modules[] = 'skins.minerva.editor';
+			}
+		}
+
 		if ( $user->isLoggedIn() ) {
 			if ( $this->useEcho() ) {
 				$modules[] = 'skins.minerva.notifications';
 			}
 
-			if ( $this->isCurrentPageEditable() ) {
+			if ( $this->isCurrentPageEditableByUser() ) {
 				if ( $action === 'signup-edit' || $campaign === 'leftNavSignup' ) {
 					$modules[] = 'skins.minerva.newusers';
 				}
@@ -1011,7 +1216,7 @@ class SkinMinerva extends SkinTemplate {
 	public function getDefaultModules() {
 		$modules = parent::getDefaultModules();
 		// flush unnecessary modules
-		$modules['content'] = array();
+		$modules['content'] = [];
 
 		$modules['top'] = 'skins.minerva.scripts.top';
 		// Define all the modules that should load on the mobile site and their dependencies.
@@ -1019,25 +1224,17 @@ class SkinMinerva extends SkinTemplate {
 		$modules['stable'] = 'skins.minerva.scripts';
 
 		// Doing this unconditionally, prevents the desktop watchstar from ever leaking into mobile view.
-		$modules['watch'] = array();
-		if ( $this->isAllowedPageAction( 'watch' ) ) {
-			// Explicitly add the mobile watchstar code.
-			$modules['watch'] = array( 'skins.minerva.watchstar' );
-		}
-
-		if ( $this->isAllowedPageAction( 'edit' ) ) {
-			$modules['editor'] = array( 'skins.minerva.editor' );
-		}
+		$modules['watch'] = [];
 
 		$modules['context'] = $this->getContextSpecificModules();
 
 		if ( $this->isMobileMode ) {
-			$modules['toggling'] = array( 'skins.minerva.toggling' );
+			$modules['toggling'] = [ 'skins.minerva.toggling' ];
 		}
 		$modules['site'] = 'mobile.site';
 
 		// FIXME: Upstream?
-		Hooks::run( 'SkinMinervaDefaultModules', array( $this, &$modules ) );
+		Hooks::run( 'SkinMinervaDefaultModules', [ $this, &$modules ] );
 		return $modules;
 	}
 
@@ -1059,7 +1256,7 @@ class SkinMinerva extends SkinTemplate {
 	 */
 	protected function getSkinStyles() {
 		$title = $this->getTitle();
-		$styles = array(
+		$styles = [
 			'skins.minerva.base.reset',
 			'skins.minerva.base.styles',
 			'skins.minerva.content.styles',
@@ -1067,7 +1264,7 @@ class SkinMinerva extends SkinTemplate {
 			'mediawiki.ui.icon',
 			'mediawiki.ui.button',
 			'skins.minerva.icons.images',
-		);
+		];
 		if ( $title->isMainPage() ) {
 			$styles[] = 'skins.minerva.mainPage.styles';
 		} elseif ( $this->isUserPage ) {
@@ -1079,6 +1276,10 @@ class SkinMinerva extends SkinTemplate {
 		if ( $this->getOutput()->getRequest()->getText( 'oldid' ) ) {
 			$styles[] = 'mobile.messageBox';
 		}
+		if ( $this->isFooterV2() ) {
+			$styles[] = 'skins.minerva.footerV2.styles';
+		}
+
 		return $styles;
 	}
 

@@ -1,5 +1,5 @@
-@import "minerva.variables";
-@import "minerva.mixins";
+@import 'minerva.variables';
+@import 'minerva.mixins';
 
 // Content formatting and typography
 //
@@ -18,8 +18,8 @@ html {
 body {
 	font-family: @fontFamily;
 	line-height: @bodyLineHeight;
-	color: @grayDark;
-	background: #faebd7;
+	color: @colorGray2;
+	background: #fff;
 }
 
 .pre-content,
@@ -34,9 +34,9 @@ body {
 	word-wrap: break-word;
 }
 
-@media all and (max-width: @wgMFDeviceWidthMobileSmall) {
+@media all and ( max-width: @wgMFDeviceWidthMobileSmall ) {
 	body {
-		font-size: .8em;
+		font-size: 0.8em;
 	}
 
 	.content {

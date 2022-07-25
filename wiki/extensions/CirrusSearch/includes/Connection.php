@@ -3,7 +3,9 @@
 namespace CirrusSearch;
 
 use ElasticaConnection;
+use Exception;
 use MWNamespace;
+use CirrusSearch\Maintenance\MetaStoreIndex;
 
 /**
  * Forms and caches connection to Elasticsearch as well as client objects
@@ -79,7 +81,7 @@ class Connection extends ElasticaConnection {
 	/**
 	 * @var Connection[]
 	 */
-	private static $pool = array();
+	private static $pool = [];
 
 	/**
 	 * @param SearchConfig $config
@@ -103,7 +105,7 @@ class Connection extends ElasticaConnection {
 	 * in tests.
 	 */
 	public static function clearPool() {
-		self::$pool = array();
+		self::$pool = [];
 	}
 
 	/**
@@ -169,6 +171,7 @@ class Connection extends ElasticaConnection {
 		foreach ( $config as $idx => $server ) {
 			if (
 				isset( $server['transport'] ) &&
+				is_string( $server['transport'] ) &&
 				class_exists( $server['transport'] )
 			) {
 				$transportClass = $server['transport'];
@@ -189,31 +192,10 @@ class Connection extends ElasticaConnection {
 	}
 
 	/**
-	 * Fetch the Elastica Type used for all wikis in the cluster to track
-	 * frozen indexes that should not be written to.
-	 * @return \Elastica\Index
-	 */
-	public function getFrozenIndex() {
-		global $wgCirrusSearchCreateFrozenIndex;
-
-		$index = $this->getIndex( 'mediawiki_cirrussearch_frozen_indexes' );
-		if ( $wgCirrusSearchCreateFrozenIndex ) {
-			if ( !$index->exists() ) {
-				$options = array(
-					'number_of_shards' => 1,
-					'auto_expand_replicas' => '0-2',
-				 );
-				$index->create( $options, true );
-			}
-		}
-		return $index;
-	}
-
-	/**
 	 * @return \Elastica\Type
 	 */
 	public function getFrozenIndexNameType() {
-		return $this->getFrozenIndex()->getType( 'name' );
+		return MetaStoreIndex::getFrozenType( $this );
 	}
 
 	/**
@@ -243,8 +225,24 @@ class Connection extends ElasticaConnection {
 	 */
 	public function getAllIndexTypes() {
 		return array_merge( array_values( $this->config->get( 'CirrusSearchNamespaceMappings' ) ),
-			array( self::CONTENT_INDEX_TYPE, self::GENERAL_INDEX_TYPE ) );
+			[ self::CONTENT_INDEX_TYPE, self::GENERAL_INDEX_TYPE ] );
 	}
+
+	/**
+	 * @param string $name
+	 * @return string
+	 * @throws Exception
+	 */
+	public function extractIndexSuffix( $name ) {
+		$matches = [];
+		$possible = implode( '|', array_map( 'preg_quote', $this->getAllIndexTypes() ) );
+		if ( !preg_match( "/_($possible)_[^_]+$/", $name, $matches ) ) {
+			throw new Exception( "Can't parse index name: $name" );
+		}
+
+		return $matches[1];
+	}
+
 
 	/**
 	 * Get the index suffix for a given namespace
@@ -263,6 +261,7 @@ class Connection extends ElasticaConnection {
 
 	/**
 	 * Is there more then one namespace in the provided index type?
+	 *
 	 * @param string $indexType an index type
 	 * @return false|integer false if the number of indexes is unknown, an integer if it is known
 	 */
@@ -282,8 +281,74 @@ class Connection extends ElasticaConnection {
 		return $count;
 	}
 
+	/**
+	 * @param int[]|null $namespaces List of namespaces to check
+	 * @return string|false The suffix to use (e.g. content or general) to
+	 *  query the namespaces, or false if both need to be queried.
+	 */
+	public function pickIndexTypeForNamespaces( array $namespaces = null ) {
+		$indexTypes = [];
+		if ( $namespaces ) {
+			foreach ( $namespaces as $namespace ) {
+				$indexTypes[] = $this->getIndexSuffixForNamespace( $namespace );
+			}
+			$indexTypes = array_unique( $indexTypes );
+		}
+		if ( count( $indexTypes ) === 1 ) {
+			return $indexTypes[0];
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * @param int[]|null $namespaces List of namespaces to check
+	 * @return string[] the list of all index suffixes mathing the namespaces
+	 */
+	public function getAllIndexSuffixesForNamespaces( $namespaces = null ) {
+		if ( $namespaces ) {
+			foreach ( $namespaces as $namespace ) {
+				$indexTypes[] = $this->getIndexSuffixForNamespace( $namespace );
+			}
+			return array_unique( $indexTypes );
+		}
+		// If no namespaces provided all indices are needed
+		$mappings = $this->config->get( 'CirrusSearchNamespaceMappings' );
+		return array_merge( [ self::CONTENT_INDEX_TYPE, self::GENERAL_INDEX_TYPE ],
+			array_values( $mappings ) );
+	}
+
 	public function destroyClient() {
-		self::$pool = array();
+		self::$pool = [];
 		parent::destroyClient();
+	}
+
+	/**
+	 * @param string[] array of cluter names
+	 * @param SearchConfig $config the search config
+	 * @return Connection[] array of connection indexed by cluster name
+	 */
+	public static function getClusterConnections( array $clusters, SearchConfig $config ) {
+		$connections = [];
+		foreach ( $clusters as $name ) {
+			$connections[$name] = self::getPool( $config, $name );
+		}
+		return $connections;
+	}
+
+	/**
+	 * @param SearchConfig $config the search config
+	 * @return Connection[] array of connection indexed by cluster name.
+	 */
+	public static function getWritableClusterConnections( SearchConfig $config ) {
+		return self::getClusterConnections( $config->getWritableClusters(), $config );
+	}
+
+	/**
+	 * @param SearchConfig $config the search config
+	 * @return Connection[] array of connection indexed by cluster name.
+	 */
+	public static function getAllClusterConnections( SearchConfig $config ) {
+		return self::getClusterConnections( $config->getAvailableClusters(), $config );
 	}
 }

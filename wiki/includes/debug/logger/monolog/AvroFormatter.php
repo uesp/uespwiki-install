@@ -138,7 +138,9 @@ class AvroFormatter implements FormatterInterface {
 				$this->schemas[$channel]['schema'] = AvroSchema::parse( $schema );
 			} else {
 				$this->schemas[$channel]['schema'] = AvroSchema::real_parse(
-					$schema
+					$schema,
+					null,
+					new AvroNamedSchemata()
 				);
 			}
 		}

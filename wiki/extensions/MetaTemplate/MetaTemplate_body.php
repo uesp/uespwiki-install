@@ -33,6 +33,9 @@ function efMetaTemplateBlank(&$parser) {
 	 return '';
 }
 
+// This didn't used to cause evaluation of all arguments to a function like
+// #define, #ifexistx, etc., but now it does. Probably needs re-written
+// using arg->splitArg() like the current version of #switch does.
 function efMetaTemplateProcessArgs($args, &$frame, &$matchcase, &$skip, &$subset=NULL) {
 	global $wgVersion;
 	if( version_compare( $wgVersion, '1.12.0', '>=')) {
@@ -76,6 +79,7 @@ function efMetaTemplateProcessArgs($args, &$frame, &$matchcase, &$skip, &$subset
 // Implementation of {{#define}} parser function
 // don't want to skip ns_base or ns_id definition...
 function efMetaTemplateImplementDefine(&$parser) {
+	$parser->addTrackingCategory('mttc-varset');
 	$args = func_get_args();
 	array_shift($args);
 	$data = efMetaTemplateProcessArgs($args, $frame, $matchcase, $skip);
@@ -91,6 +95,7 @@ function efMetaTemplateImplementDefine(&$parser) {
 // Implementation of ((#preview}} parser function
 // (only difference from #define is when it gets activated)
 function efMetaTemplateImplementPreview(&$parser) {
+	$parser->addTrackingCategory('mttc-varset');
 	$args = func_get_args();
 	array_shift($args);
 	$data = efMetaTemplateProcessArgs($args, $frame, $matchcase, $skip);
@@ -108,6 +113,7 @@ function efMetaTemplateImplementPreview(&$parser) {
 // Implementation of ((#local}} parser function
 // (only difference from #define is in the parameters to SharedDefine)
 function efMetaTemplateImplementLocal(&$parser) {
+	$parser->addTrackingCategory('mttc-varset');
 	$args = func_get_args();
 	array_shift($args);
 	$data = efMetaTemplateProcessArgs($args, $frame, $matchcase, $skip);
@@ -140,6 +146,7 @@ function efMetaTemplateSharedDefine(&$parser, $frame, $matchcase, $data, $allowo
 
 // Implementation of ((#unset}} parser function
 function efMetaTemplateImplementUnset(&$parser) {
+	$parser->addTrackingCategory('mttc-varset');
 	$args = func_get_args();
 	array_shift($args);
 	$varnames = efMetaTemplateProcessArgs($args, $frame, $matchcase, $skip);
@@ -154,6 +161,8 @@ function efMetaTemplateImplementUnset(&$parser) {
 
 // Implementation of {{#return}} parser function
 function efMetaTemplateImplementReturn(&$parser) {
+	$parser->addTrackingCategory('mttc-varset');
+	$parser->addTrackingCategory('mttc-stack');
 	$args = func_get_args();
 	array_shift($args);
 	$varnames = efMetaTemplateProcessArgs($args, $frame, $matchcase, $skip);
@@ -173,6 +182,8 @@ function efMetaTemplateImplementReturn(&$parser) {
 
 // Implementation of {{#inherit}} parser function
 function efMetaTemplateImplementInherit(&$parser) {
+	$parser->addTrackingCategory('mttc-varset');
+	$parser->addTrackingCategory('mttc-stack');
 	$args = func_get_args();
 	array_shift($args);
 	$varnames = efMetaTemplateProcessArgs($args, $frame, $matchcase, $skip);
@@ -192,6 +203,7 @@ function efMetaTemplateImplementInherit(&$parser) {
 
 // Implementation of {{#include}} parser function
 function efMetaTemplateImplementInclude(&$parser) {
+	$parser->addTrackingCategory('mttc-include');
 	$args = func_get_args();
 	array_shift($args);
 	$pagenames = efMetaTemplateProcessArgs($args, $frame, $matchcase, $skip);
@@ -211,6 +223,7 @@ function efMetaTemplateImplementInclude(&$parser) {
 
 // Implementation of {{#splitargs}} parser function
 function efMetaTemplateImplementSplitargs(&$parser) {
+	$parser->addTrackingCategory('mttc-args');
 	global $wgVersion;
 	if( version_compare( $wgVersion, '1.12.0', '>=')) {
 		$frame = func_get_arg(1);
@@ -307,11 +320,15 @@ function efMetaTemplateImplementSplitargs(&$parser) {
 			}
 		}
 	}
-	return array($output, 'noparse' => false);
+
+	$output = $parser->preprocessToDom($output);
+	$output = $frame->expand($output);
+	return $output;
 }
 
 // Implementation of {{#Explodeargs}} parser function
 function efMetaTemplateImplementExplodeargs(&$parser) {
+	$parser->addTrackingCategory('mttc-args');
 	global $wgVersion;
 
 	if( version_compare( $wgVersion, '1.12.0', '>=')) {
@@ -402,7 +419,10 @@ function efMetaTemplateImplementExplodeargs(&$parser) {
 			$output .= '{{' . $pagename . $currargs . $nonnum . '}}';
 		}
 	}
-	return array($output, 'noparse' => false);
+
+	$output = $parser->preprocessToDom($output);
+	$output = $frame->expand($output);
+	return $output;
 }
 
 // Implementation of {{#pickfrom}} parser function
@@ -418,7 +438,7 @@ function efMetaTemplateImplementPickfrom(&$parser, $npick) {
 			$seed = (int) $matches[1];
 		elseif (preg_match('/^\s*separator\s*=(.*)/', $arg, $matches)) {
 			$separator = stripcslashes($matches[1]);
-			if (strlen($separator)>1 && $separator{0}==substr($separator,-1,1) && ($separator{0} == '\'' || $separator{0} == '"'))
+			if (strlen($separator)>1 && $separator[0]==substr($separator,-1,1) && ($separator[0] == '\'' || $separator[0] == '"'))
 				$separator = substr($separator,1,-1);
 		}
 		else
@@ -449,7 +469,7 @@ function efMetaTemplateImplementTrimlinks(&$parser, $text) {
 
 // Implementation of {{#save}} parser function
 function efMetaTemplateImplementSave(&$parser) {
-
+	$parser->addTrackingCategory('mttc-data');
         if ( wfReadOnly() ) return '';
 
 	// process before deciding whether to truly proceed, so that nowiki tags are previewed properly
@@ -491,6 +511,7 @@ function efMetaTemplateImplementSave(&$parser) {
 
 // Implementation of {{#load}} parser function
 function efMetaTemplateImplementLoad(&$parser) {
+	$parser->addTrackingCategory('mttc-data');
 	$args = func_get_args();
 	array_shift($args);
 	$data = efMetaTemplateProcessArgs($args, $frame, $matchcase, $skip, $subset);
@@ -601,10 +622,8 @@ function efMetaTemplateImplementLoad(&$parser) {
 				// get here either if no rows found for original title OR if original title data was cleared
 			if ($i==0) {
 				$rev = Revision::NewFromId($chktitle->getLatestRevID());
-				$text = $rev->getText();
-				if( $text !== false )
-					//$redirtitle = Title::newFromRedirect( $text );	//Function no longer exists in 1.27
-					$redirtitle = Title::newFromText( $text );
+				if ($rev) $content = $rev->getContent();
+				$redirtitle = $content ? $content->getRedirectTarget() : null;
 				if( is_object( $redirtitle ) ) {
 					$chktitle = $redirtitle;
 					if (!$chktitle->exists())
@@ -646,6 +665,8 @@ function efMetaTemplateImplementLoad(&$parser) {
 // Implementation of {{#listsaved}} parser function
 // To make this work efficiently, need to add index to mt_save_data
 function efMetaTemplateImplementListsaved(&$parser) {
+	$parser->addTrackingCategory('mttc-data');
+	$parser->addTrackingCategory('mttc-listsaved');
 	// don't use standard ProcessArgs here because this routine needs special processing
 	global $wgVersion;
 	if( version_compare( $wgVersion, '1.12.0', '>=')) {
@@ -694,11 +715,11 @@ function efMetaTemplateImplementListsaved(&$parser) {
 	if (!$tpl || !$tpl->exists())
 		return '<strong class="error">Listsaved error: Provided template, '.$template.', does not exist</strong>';
 	$rev = Revision::NewFromId($tpl->getLatestRevID());
-	$text = $rev->getText();
-	$maxlen = trim(wfMessage('mt_listsaved_template_maxlen'));
+	$text = $rev->getContent()->getNativeData();
+	$maxlen = trim(wfMessage('mt_listsaved_template_maxlen')->text());
 	if ($maxlen && strlen($text)>$maxlen)
 		return '<strong class="error">Listsaved error: Provided template, '.$template.', is longer than '.$maxlen.' bytes</strong>';
-	$disallowed = explode("\n", wfMessage('mt_listsaved_template_disallowed'));
+	$disallowed = explode("\n", wfMessage('mt_listsaved_template_disallowed')->text());
 	foreach ($disallowed as $chkword) {
 		if ($chkword && strpos($text, $chkword)!==false)
 			return '<strong class="error">Listsaved error: Provided template, '.$template.', contains a disallowed word: '.$chkword.'</strong>';
@@ -771,6 +792,7 @@ function efMetaTemplateImplementListsaved(&$parser) {
 					$setorder .= $setdata[$arg];
 				$setorder .= '_';
 			}
+			$setorder = trim($setorder, '_');
 			$calls[$setorder] = '';
 			foreach ($setdata as $varname => $value) {
 				$calls[$setorder] .= "|$varname=$value";
@@ -809,6 +831,7 @@ function efMetaTemplateImplementListsaved(&$parser) {
 }
 
 function efMetaTemplateImplementNestlevel(&$parser, $frame) {
+	$parser->addTrackingCategory('mttc-stack');
 	$pstack = new MetaTemplateParserStack($parser, $frame);
 	
 	if ($pstack->get_stackcount()<0 || is_null($value=$pstack->get('nestlevel')))
@@ -818,16 +841,19 @@ function efMetaTemplateImplementNestlevel(&$parser, $frame) {
 }
 
 function efMetaTemplateImplementNamespacex(&$parser) {
+	$parser->addTrackingCategory('mttc-stack');
 	$args = func_get_args();
 	array_shift($args);
 	return efMetaTemplatePreprocessTemplateName($parser, $args, 'NAMESPACE0');
 }
 function efMetaTemplateImplementPagenamex(&$parser) {
+	$parser->addTrackingCategory('mttc-stack');
 	$args = func_get_args();
 	array_shift($args);
 	return efMetaTemplatePreprocessTemplateName($parser, $args, 'PAGENAME0');
 }
 function efMetaTemplateImplementFullpagenamex(&$parser) {
+	$parser->addTrackingCategory('mttc-stack');
 	$args = func_get_args();
 	array_shift($args);
 	return efMetaTemplatePreprocessTemplateName($parser, $args, 'FULLPAGENAME0');
@@ -1109,28 +1135,8 @@ function efMetaTemplateDisplayMode(&$parser, &$frame, $istemplate=true, $isprevi
 // code copied from ParserFunctions
 // copy of ifexist that does NOT add link to wanted pages
 // code that created links is commented out
-function efMetaTemplateIncrementIfexistCount( $parser, $frame ) {
-		// Don't let this be called more than a certain number of times. It tends to make the database explode.
-	global $wgExpensiveParserFunctionLimit;
-	$parser->mExpensiveFunctionCount++;
-	if ( $frame ) {
-		$pdbk = $frame->getPDBK( 1 );
-		if ( !isset( $parser->pf_ifexist_breakdown[$pdbk] ) ) {
-			$parser->pf_ifexist_breakdown[$pdbk] = 0;
-		}
-		$parser->pf_ifexist_breakdown[$pdbk] ++;
-	}
-	return $parser->mExpensiveFunctionCount <= $wgExpensiveParserFunctionLimit;
-}
-
-// Implementation of {{#ifexistx}} parser function
-function efMetaTemplateIfExist( &$parser ) {
+function efMetaTemplateIfexistCommon( $parser, $frame, $titletext = '', $then = '', $else = '' ) {
 	global $wgContLang;
-	$args = func_get_args();
-	array_shift($args);
-	$data = efMetaTemplateProcessArgs($args, $frame, $matchcase, $skip);
-	list($titletext, $then, $else) = array_pad($data, 3, '');
-	
 	$title = Title::newFromText( $titletext );
 	$wgContLang->findVariantLink( $titletext, $title, true );
 	if ( $title ) {
@@ -1152,7 +1158,7 @@ function efMetaTemplateIfExist( &$parser ) {
 				 * since their existence can be checked without
 				 * accessing the database.
 				 */
-			return SpecialPage::exists( $title->getDBkey() ) ? $then : $else;
+			return SpecialPageFactory::exists( $title->getDBkey() ) ? $then : $else;
 		} elseif( $title->isExternal() ) {
 				/* Can't check the existence of pages on other sites,
 				 * so just return $else.  Makes a sort of sense, since
@@ -1162,24 +1168,57 @@ function efMetaTemplateIfExist( &$parser ) {
 		} else {
 			$pdbk = $title->getPrefixedDBkey();
 			$lc = LinkCache::singleton();
-			if ( !efMetaTemplateIncrementIfexistCount( $parser, $frame ) ) {
-				return $else;
-			}
-			if ( 0 != ( $id = $lc->getGoodLinkID( $pdbk ) ) ) {
+			$id = $lc->getGoodLinkID( $pdbk );
+			if ( $id !== 0 ) {
 				//				$parser->mOutput->addLink( $title, $id );
 				return $then;
 			} elseif ( $lc->isBadLink( $pdbk ) ) {
 				//				$parser->mOutput->addLink( $title, 0 );
 				return $else;
 			}
-			$id = $title->getArticleID();
+			if ( !efMetaTemplateIncrementIfexistCount( $parser, $frame ) ) {
+				return $else;
+			}
+			//			$id = $title->getArticleID();
 			//			$parser->mOutput->addLink( $title, $id );
-			if ( $id ) {
+
+			if ( $title->exists() ) {
 				return $then;
 			}
 		}
 	}
 	return $else;
+}
+
+function efMetaTemplateIncrementIfexistCount( $parser, $frame ) {
+		// Don't let this be called more than a certain number of times. It tends to make the database explode.
+	global $wgExpensiveParserFunctionLimit;
+	$parser->mExpensiveFunctionCount++;
+	if ( $frame ) {
+		$pdbk = $frame->getPDBK( 1 );
+		if ( !isset( $parser->pf_ifexist_breakdown[$pdbk] ) ) {
+			$parser->pf_ifexist_breakdown[$pdbk] = 0;
+		}
+		$parser->pf_ifexist_breakdown[$pdbk] ++;
+	}
+	return $parser->mExpensiveFunctionCount <= $wgExpensiveParserFunctionLimit;
+}
+
+// Implementation of {{#ifexistx}} parser function
+function efMetaTemplateIfExist( &$parser ) {
+	$args = func_get_args();
+	$frame = $args[1];
+	$args = $args[2];
+	$title = isset( $args[0] ) ? trim( $frame->expand( $args[0] ) ) : '';
+	$then = isset( $args[1] ) ? $args[1] : null;
+	$else = isset( $args[2] ) ? $args[2] : null;
+
+	$result = efMetaTemplateIfexistCommon( $parser, $frame, $title, $then, $else );
+	if ( $result === null ) {
+		return '';
+	} else {
+		return trim( $frame->expand( $result ) );
+	}
 }
 
 // Dynamic function

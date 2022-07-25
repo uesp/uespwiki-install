@@ -22,20 +22,21 @@
  */
 
 require_once __DIR__ . "/profiles/SuggestProfiles.php";
-require_once __DIR__ . "/profiles/PhraseSuggesterProfiles.php";
-require_once __DIR__ . "/profiles/CommonTermsQueryProfiles.php";
-require_once __DIR__ . "/profiles/RescoreProfiles.php";
+require_once __DIR__ . "/profiles/PhraseSuggesterProfiles.config.php";
+require_once __DIR__ . "/profiles/RescoreProfiles.config.php";
 require_once __DIR__ . "/profiles/SimilarityProfiles.php";
+require_once __DIR__ . "/profiles/SaneitizeProfiles.php";
+require_once __DIR__ . "/profiles/FullTextQueryBuilderProfiles.config.php";
 
-$wgExtensionCredits['other'][] = array(
+$wgExtensionCredits['other'][] = [
 	'path'           => __FILE__,
 	'name'           => 'CirrusSearch',
-	'author'         => array( 'Nik Everett', 'Chad Horohoe', 'Erik Bernhardson' ),
+	'author'         => [ 'Nik Everett', 'Chad Horohoe', 'Erik Bernhardson' ],
 	'descriptionmsg' => 'cirrussearch-desc',
 	'url'            => 'https://www.mediawiki.org/wiki/Extension:CirrusSearch',
 	'version'        => '0.2',
 	'license-name'   => 'GPL-2.0+'
-);
+];
 
 /**
  * Configuration
@@ -62,9 +63,9 @@ $wgCirrusSearchDefaultCluster = 'default';
 // 	'eqiad' => array( 'es01.eqiad.wmnet', 'es02.eqiad.wmnet' ),
 // 	'codfw' => array( 'es01.codfw.wmnet', 'es02.codfw.wmnet' ),
 // );
-$wgCirrusSearchClusters = array(
-	'default' => array( 'localhost' ),
-);
+$wgCirrusSearchClusters = [
+	'default' => [ 'localhost' ],
+];
 
 // List of clusters that can be used for writing. Must be a subset of keys
 // from $wgCirrusSearchClusters.
@@ -83,7 +84,7 @@ $wgCirrusSearchConnectionAttempts = 1;
 //  'cluster1' => array( 'content' => 2, 'general' => 2 ),
 //  'cluster2' => array( 'content' => 3, 'general' => 3 ),
 //);
-$wgCirrusSearchShardCount = array( 'content' => 4, 'general' => 4, 'titlesuggest' => 4 );
+$wgCirrusSearchShardCount = [ 'content' => 4, 'general' => 4, 'titlesuggest' => 4 ];
 
 // Number of replicas Elasticsearch can expand or contract to. This allows for
 // easy development and deployment to a single node (0 replicas) to scale up to
@@ -104,7 +105,7 @@ $wgCirrusSearchReplicas = '0-2';
 // Number of shards allowed on the same elasticsearch node.  Set this to 1 to
 // prevent two shards from the same high traffic index from being allocated
 // onto the same node.
-$wgCirrusSearchMaxShardsPerNode = array();
+$wgCirrusSearchMaxShardsPerNode = [];
 // Example: $wgCirrusSearchMaxShardsPerNode[ 'content' ] = 1;
 
 // How many seconds must a search of Elasticsearch be before we consider it
@@ -132,7 +133,7 @@ $wgCirrusSearchOptimizeIndexForExperimentalHighlighter = false;
 
 // Should CirrusSearch try to use the wikimedia/extra plugin?  An empty array
 // means don't use it at all.
-$wgCirrusSearchWikimediaExtraPlugin = array();
+//
 // Here is an example to enable faster regex matching:
 // $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] =
 //     array( 'build', 'use', 'max_inspect' => 10000 );
@@ -143,18 +144,19 @@ $wgCirrusSearchWikimediaExtraPlugin = array();
 // the 'max_inspect' key is the maximum number of pages to recheck the regex
 // against.  Its optional and defaults to 10000 which seems like a reasonable
 // compromise to keep regexes fast while still producing good results.
-// This example enables the safer query's phrase processing:
-// $wgCirrusSearchWikimediaExtraPlugin[ 'safer' ] = array(
-// 	'phrase' => array(
-// 		'max_terms_in_all_queries' => 128,
-// 	)
-// );
+//
 // This turns on noop-detection for updates and is compatible with
-// wikimedia-extra versions 1.3.1, 1.4.2, and 1.5.0:
+// wikimedia-extra versions 1.3.1, 1.4.2, 1.5.0, and greater:
 // $wgCirrusSearchWikimediaExtraPlugin[ 'super_detect_noop' ] = true;
+//
+// This turns on document level noop-detection for updates based on revision
+// ids and is compatible with wikimedia-extra versions 2.3.4.1 and greater:
+// $wgCirrusSearchWikimediaExtraPlugin[ 'documentVersion' ] = true
+//
 // This allows forking on reindexing and is compatible with wikimedia-extra
-// versions 1.3.1, 1.4.2, and 1.5.0
+// versions 1.3.1, 1.4.2, 1.5.0, and greater:
 // $wgCirrusSearchWikimediaExtraPlugin[ 'id_hash_mod_filter' ] = true;
+$wgCirrusSearchWikimediaExtraPlugin = [];
 
 // Should CirrusSearch try to support regular expressions with insource:?
 // These can be really expensive, but mostly ok, especially if you have the
@@ -175,6 +177,7 @@ $wgCirrusSearchRegexMaxDeterminizedStates = 20000;
 // 10000.
 // With elasticsearch 1.3 this setting must be disabled.
 // $wgCirrusSearchQueryStringMaxDeterminizedStates = 500;
+$wgCirrusSearchQueryStringMaxDeterminizedStates = null;
 
 // By default, Cirrus will organize pages into one of two indexes (general or
 // content) based on whether a page is in a content namespace. This should
@@ -183,7 +186,7 @@ $wgCirrusSearchRegexMaxDeterminizedStates = 20000;
 // the value is a string name of what index suffix to use. Changing this setting
 // requires a full reindex (not in-place) of the wiki.  If this setting contains
 // any values then the index names must also exist in $wgCirrusSearchShardCount.
-$wgCirrusSearchNamespaceMappings = array();
+$wgCirrusSearchNamespaceMappings = [];
 
 // Extra indexes (if any) you want to search, and for what namespaces?
 // The key should be the local namespace, with the value being an array of one
@@ -201,13 +204,13 @@ $wgCirrusSearchNamespaceMappings = array();
 // done by a job, even when run from forceSearchIndex.php.  If you add an image
 // to your wiki but after it is in the extra search index you'll see duplicate
 // results until the job is done.
-$wgCirrusSearchExtraIndexes = array();
+$wgCirrusSearchExtraIndexes = [];
 
-// Shard timeout for non-maintenance index operations.  This is the amount of
-// time Elasticsearch will wait around for an offline primary shard. Currently
-// this is just used in page updates and not deletes.  It is defined in
-// Elasticsearch's time format which is a string containing a number and then
-// a unit which is one of d (days), m (minutes), h (hours), ms (milliseconds) or
+// Shard timeout for index operations.  This is the amount of time
+// Elasticsearch will wait around for an offline primary shard. Currently this
+// is just used in page updates and not deletes.  It is defined in
+// Elasticsearch's time format which is a string containing a number and then a
+// unit which is one of d (days), m (minutes), h (hours), ms (milliseconds) or
 // w (weeks).  Cirrus defaults to a very tiny value to prevent job executors
 // from waiting around a long time for Elasticsearch.  Instead, the job will
 // fail and be retried later.
@@ -234,18 +237,18 @@ $wgCirrusSearchClientSideConnectTimeout = 5;
 // Some shard actions are capable of returning partial results and others are
 // just ignored.  Regexes default to 120 seconds because they are known to be
 // slow at this point.
-$wgCirrusSearchSearchShardTimeout = array(
+$wgCirrusSearchSearchShardTimeout = [
 	'default' => '20s',
 	'regex' => '120s',
-);
+];
 
 // Client side timeout for searches in seconds.  Best to keep this double the
 // shard timeout to give Elasticsearch a chance to timeout the shards and return
 // partial results.
-$wgCirrusSearchClientSideSearchTimeout = array(
+$wgCirrusSearchClientSideSearchTimeout = [
 	'default' => 40,
 	'regex' => 240,
-);
+];
 
 // Client side timeout for maintenance operations.  We can't disable the timeout
 // all together so we set it to one hour for really long running operations
@@ -267,7 +270,7 @@ $wgCirrusSearchPrefixSearchStartsWithAnyWord = false;
 // quoted text.  The 'default' key is for matching quoted text that ends in a ~.
 // The 'boost' key is used for the phrase rescore that boosts phrase matches on queries
 // that don't already contain phrases.
-$wgCirrusSearchPhraseSlop = array( 'precise' => 0, 'default' => 0, 'boost' => 1 );
+$wgCirrusSearchPhraseSlop = [ 'precise' => 0, 'default' => 0, 'boost' => 1 ];
 
 // If the search doesn't include any phrases (delimited by quotes) then we try wrapping
 // the whole thing in quotes because sometimes that can turn up better results. This is
@@ -288,6 +291,11 @@ $wgCirrusSearchFunctionRescoreWindowSize = 8192;
 // http://www.elasticsearch.org/blog/understanding-query-then-fetch-vs-dfs-query-then-fetch/
 $wgCirrusSearchMoreAccurateScoringMode = true;
 
+/**
+ * Should the phrase suggester (did you mean) be enabled?
+ */
+$wgCirrusSearchEnablePhraseSuggest = true;
+
 // NOTE: This settings is deprecated: update or create your own PhraseSuggester profile.
 // Maximum number of terms that we ask phrase suggest to correct.
 // See max_errors on http://www.elasticsearch.org/guide/reference/api/search/suggest/
@@ -307,10 +315,10 @@ $wgCirrusSearchPhraseSuggestMaxErrorsHardLimit = 2;
 $wgCirrusSearchPhraseSuggestMaxTermFreqHardLimit = 0.6;
 
 // List of allowed values for the suggest mode
-$wgCirrusSearchPhraseSuggestAllowedMode = array( 'missing', 'popular', 'always' );
+$wgCirrusSearchPhraseSuggestAllowedMode = [ 'missing', 'popular', 'always' ];
 
 // List of allowed smoothing models
-$wgCirrusSearchPhraseSuggestAllowedSmoothingModel = array( 'stupid_backoff', 'laplace', 'linear' );
+$wgCirrusSearchPhraseSuggestAllowedSmoothingModel = [ 'stupid_backoff', 'laplace', 'linear' ];
 
 // Set the hard limit for $wgCirrusSearchPhraseSuggestPrefixLength. This prevents customizing
 // this setting in a way that could hurt the system performances.
@@ -321,12 +329,23 @@ $wgCirrusSearchPhraseSuggestPrefixLengthHardLimit = 2;
 // see profiles/PhraseSuggesterProfiles.php
 $wgCirrusSearchPhraseSuggestSettings = $wgCirrusSearchPhraseSuggestProfiles['default'];
 
-// Look for suggestions in the article text?  Changing this from false to true will
-// break search until you perform an in place index rebuild.  Changing it from true
-// to false is ok and then you can change it back to true so long as you _haven't_
-// done an index rebuild since then.  If you perform an in place index rebuild after
-// changing this to false then you'll see some space savings.
+// Use a reverse field to build the did you mean suggestions.
+// This is usefull to workaround the prefix length limitation, by working with a reverse
+// field we can suggest typos correction that appears in the first 2 characters of the word.
+// i.e. Suggesting "search" if the user types "saerch" is possible with the reverse field.
+// Set build to true and reindex before set use to true
+$wgCirrusSearchPhraseSuggestReverseField = [
+	'build' => false,
+	'use' => false,
+];
+
+// Look for suggestions in the article text?
+// An inplace reindex is needed after any changes to this value.
 $wgCirrusSearchPhraseSuggestUseText = false;
+
+// Look for suggestions in the article opening text?
+// An inplace reindex is needed after any changes to this value.
+$wgCirrusSearchPhraseSuggestUseOpeningText = false;
 
 // Allow leading wildcard queries.
 // Searching for terms that have a leading ? or * can be very slow. Turn this off to
@@ -344,12 +363,12 @@ $wgCirrusSearchUnlinkedArticlesToUpdate = 25;
 
 // Configure the similarity module
 // see profile/SimilarityProfiles.php for more details
-$wgCirrusSearchSimilarityProfile = $wgCirrusSearchSimilarityProfiles['default'];
+$wgCirrusSearchSimilarityProfile = 'default';
 
 // Weight of fields.  Must be integers not decimals.  If $wgCirrusSearchAllFields['use']
 // is false this can be changed on the fly.  If it is true then changes to this require
 // an in place reindex to take effect.
-$wgCirrusSearchWeights = array(
+$wgCirrusSearchWeights = [
 	'title' => 20,
 	'redirect' => 15,
 	'category' => 8,
@@ -358,15 +377,15 @@ $wgCirrusSearchWeights = array(
 	'text' => 1,
 	'auxiliary_text' => 0.5,
 	'file_text' => 0.5,
-);
+];
 
 // Weight of fields in prefix search.  It is safe to change these at any time.
-$wgCirrusSearchPrefixWeights = array(
+$wgCirrusSearchPrefixWeights = [
 	'title' => 10,
 	'redirect' => 1,
 	'title_asciifolding' => 7,
 	'redirect_asciifolding' => 0.7,
-);
+];
 
 // Enable building and using of "all" fields that contain multiple copies of other fields
 // for weighting.  These all fields exist entirely to speed up the full_text query type by
@@ -379,7 +398,7 @@ $wgCirrusSearchPrefixWeights = array(
 // more muddy how much.
 // Note setting 'use' to true without having set 'build' to true and performing an in place
 // reindex will cause all searches to find nothing.
-$wgCirrusSearchAllFields = array( 'build' => true, 'use' => true );
+$wgCirrusSearchAllFields = [ 'build' => true, 'use' => true ];
 
 // Should Cirrus use the weighted all fields for the phrase rescore if it is using them
 // for the regular query?
@@ -407,13 +426,13 @@ $wgCirrusSearchStemmedWeight = 0.5;
 //   $wgCirrusSearchNamespaceWeights[ NS_MAIN ] * wgCirrusSearchTalkNamespaceWeight
 // You can specify namespace by number or string.  Strings are converted to numbers using the
 // content language including aliases.
-$wgCirrusSearchNamespaceWeights = array(
+$wgCirrusSearchNamespaceWeights = [
 	NS_USER => 0.05,
 	NS_PROJECT => 0.1,
 	NS_MEDIAWIKI => 0.05,
 	NS_TEMPLATE => 0.005,
 	NS_HELP => 0.1,
-);
+];
 
 // Default weight of non-talks namespaces
 $wgCirrusSearchDefaultNamespaceWeight = 0.2;
@@ -426,10 +445,10 @@ $wgCirrusSearchTalkNamespaceWeight = 0.25;
 // 'wiki' is the weight given to the wiki's content language
 // If your wiki is only one language you can leave these at 0, otherwise try setting it
 // to something like 5.0 for 'user' and 2.5 for 'wiki'
-$wgCirrusSearchLanguageWeight = array(
+$wgCirrusSearchLanguageWeight = [
 	'user' => 0.0,
 	'wiki' => 0.0,
-);
+];
 
 // Portion of an article's score that decays with time since it's last update.  Defaults to 0
 // meaning don't decay the score at all unless prefer-recent: prefixes the query.
@@ -449,7 +468,7 @@ $wgCirrusSearchPreferRecentDefaultHalfLife = 160;
 // Configuration parameters passed to more_like_this queries.
 // Note: these values can be configured at runtime by editing the System
 // message cirrussearch-morelikethis-settings
-$wgCirrusSearchMoreLikeThisConfig = array(
+$wgCirrusSearchMoreLikeThisConfig = [
 	// Minimum number of documents (per shard) that need a term for it to be considered
 	'min_doc_freq' => 2,
 
@@ -477,12 +496,8 @@ $wgCirrusSearchMoreLikeThisConfig = array(
 
 	// Percent of terms to match
 	// High value will increase precision but can prevent small docs to match against large ones
-	'percent_terms_to_match' => 0.3,
-
-	// replaces percent_terms_to_match but only supported by elasticsearch 1.5+
-	// @todo: when ES-1.6 is the minimal requirement we have to move to this new parameter
-	// 'minimum_should_match' => '30%',
-);
+	'minimum_should_match' => '30%',
+];
 
 
 // Hard limit to the max_query_terms parameter of more like this queries.
@@ -490,17 +505,17 @@ $wgCirrusSearchMoreLikeThisConfig = array(
 $wgCirrusSearchMoreLikeThisMaxQueryTermsLimit = 100;
 
 // Set the default field used by the More Like This algorithm
-$wgCirrusSearchMoreLikeThisFields = array( 'text' );
+$wgCirrusSearchMoreLikeThisFields = [ 'text' ];
 
 // List of fields allowed for the more like this queries.
-$wgCirrusSearchMoreLikeThisAllowedFields = array(
+$wgCirrusSearchMoreLikeThisAllowedFields = [
 	'title',
 	'text',
 	'auxiliary_text',
 	'opening_text',
 	'headings',
 	'all'
-);
+];
 
 // When set to false cirrus will use the text content to build the query
 // and search on the field listed in $wgCirrusSearchMoreLikeThisFields
@@ -511,10 +526,16 @@ $wgCirrusSearchMoreLikeThisAllowedFields = array(
 // be retrieved by elasticsearch.
 $wgCirrusSearchMoreLikeThisUseFields = false;
 
-// More like this is a very expensive query. This allows redirecting queries
-// to a separate cluster configured in $wgCirrusSearchClusters. When set
-// to a falsy value $wgCirrusSearchDefaultCluster is used.
-$wgCirrusSearchMoreLikeThisCluster = null;
+// This allows redirecting queries to a separate cluster configured
+// in $wgCirrusSearchClusters. Note that queries can use multiple features, in
+// the case multiple features have overrides the first match wins.
+//
+// Example sending more_like queries to codfw and completion to eqiad:
+//   $wgCirrusSearchClusterOverrides = [
+//     'more_like' => 'codfw',
+//     'completion' => 'eqiad',
+//   ];
+$wgCirrusSearchClusterOverrides = [];
 
 // More like this queries can be quite expensive. Set this to > 0 to cache the
 // results for the specified # of seconds into ObjectCache (memcache, redis, or
@@ -527,7 +548,7 @@ $wgCirrusSearchShowNowUsing = false;
 // CirrusSearch interwiki searching
 // Keys are the interwiki prefix, values are the index to search
 // Results are cached.
-$wgCirrusSearchInterwikiSources = array();
+$wgCirrusSearchInterwikiSources = [];
 
 // How long to cache interwiki search results for (in seconds)
 $wgCirrusSearchInterwikiCacheTime = 7200;
@@ -547,15 +568,15 @@ $wgCirrusSearchRefreshInterval = 1;
 // many of the secondary changes from template edits into a single update.
 // Note that this does not work with every job queue implementation.  It works
 // with JobQueueRedis but is ignored with JobQueueDB.
-$wgCirrusSearchUpdateDelay = array(
+$wgCirrusSearchUpdateDelay = [
 	'prioritized' => 0,
 	'default' => 0,
-);
+];
 
 // List of plugins that Cirrus should ignore when it scans for plugins.  This
 // will cause the plugin not to be used by updateSearchIndexConfig.php and
 // friends.
-$wgCirrusSearchBannedPlugins = array();
+$wgCirrusSearchBannedPlugins = [];
 
 // Number of times to instruct Elasticsearch to retry updates that fail on
 // version conflicts.  While we do have a version for each page in mediawiki
@@ -576,7 +597,7 @@ $wgCirrusSearchMainPageCacheWarmer = true;
 
 // Other cache warmers.  Form is index name => array(searches).  See examples
 // commented out below.
-$wgCirrusSearchCacheWarmers = array();
+$wgCirrusSearchCacheWarmers = [];
 // $wgCirrusSearchCacheWarmers[ 'content' ][] = 'foo bar';
 // $wgCirrusSearchCacheWarmers[ 'content' ][] = 'batman';
 // $wgCirrusSearchCacheWarmers[ 'general' ][] = 'template:noble pipe';
@@ -599,18 +620,18 @@ $wgCirrusSearchBoostLinks = true;
 // or _host it requires you to configure the host keys/values on your server(s)
 //
 // http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/index-modules-allocation.html
-$wgCirrusSearchIndexAllocation = array(
-	'include' => array(),
-	'exclude' => array(),
-	'require' => array(),
-);
+$wgCirrusSearchIndexAllocation = [
+	'include' => [],
+	'exclude' => [],
+	'require' => [],
+];
 
 // Dumpable config parameters.  These are known not to include any private
 // information and thus safe to include in the config dump.  To disable the
 // config dump entirely add this to your configuration after including:
 // CirrusSearch.php:
 // $wgApiModules['cirrus-config-dump'] = 'ApiDisabled';
-$wgCirrusSearchConfigDumpWhiteList = array(
+$wgCirrusSearchConfigDumpWhiteList = [
 	'servers',
 	'connectionAttempts',
 	'shardCount',
@@ -634,6 +655,7 @@ $wgCirrusSearchConfigDumpWhiteList = array(
 	'phraseSuggestMaxErrors',
 	'phraseSuggestConfidence',
 	'phraseSuggestUseText',
+	'phraseSuggestUseOpeningText',
 	'indexedRedirects',
 	'linkedArticlesToUpdate',
 	'unlikedArticlesToUpdate',
@@ -661,47 +683,33 @@ $wgCirrusSearchConfigDumpWhiteList = array(
 	'cacheWarmers',
 	'boostLinks',
 	'indexAllocation',
-);
+];
 
 // Pool Counter key. If you use the PoolCounter extension, this can help segment your wiki's
 // traffic into separate queues. This has no effect in vanilla MediaWiki and most people can
 // just leave this as it is.
 $wgCirrusSearchPoolCounterKey = '_elasticsearch';
 
-/**
- * Allow failures of the per-user Pool Counter to continue through. This
- * still runs the error callbacks to trigger logging of failures, but does
- * not prevent the search from running. Used to tune the per-user pool counter
- * settings before enabling it fully and blocking queries.
- */
-$wgCirrusSearchBypassPerUserFailure = false;
-
-/**
- * List of CIDR a.b.c.d/n ranges for which the per-user pool counter is
- * always active, regardless of wgCirrusSearchBypassPerUserFailure setting.
- */
-$wgCirrusSearchForcePerUserPoolCounter = array();
-
 // Merge configuration for the indices.  See
 // http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/index-modules-merge.html
 // for the meanings.
-$wgCirrusSearchMergeSettings = array(
-	'content' => array(
+$wgCirrusSearchMergeSettings = [
+	'content' => [
 		// Aggressive settings to try to keep the content index more optimized
 		// because it is searched more frequently.
 		'max_merge_at_once' => 5,
 		'segments_per_tier' => 5,
 		'reclaim_deletes_weight' => 3.0,
 		'max_merged_segment' => '25g',
-	),
-	'general' => array(
+	],
+	'general' => [
 		// The Elasticsearch defaults for this less frequently searched index.
 		'max_merge_at_once' => 10,
 		'segments_per_tier' => 10,
 		'reclaim_deletes_weight' => 2.0,
 		'max_merged_segment' => '5g',
-	),
-);
+	],
+];
 
 /**
  * Whether search events should be logged in the client side.
@@ -746,15 +754,13 @@ $wgCirrusSearchWriteBackoffExponent = 6;
  * Configuration of individual a/b tests being run. See CirrusSearch\UserTesting
  * for more information.
  */
-$wgCirrusSearchUserTesting = array();
+$wgCirrusSearchUserTesting = [];
 
 /**
  * Profile for search as you type suggestion (completion suggestion)
  * (see profiles/SuggestProfiles.php for more details.)
- *
- * NOTE: This is an experimental API
  */
-$wgCirrusSearchCompletionSettings = $wgCirrusSearchCompletionProfiles['default'];
+$wgCirrusSearchCompletionSettings = 'fuzzy';
 
 /**
  * Enable ICU Folding instead of the default ASCII Folding.
@@ -785,6 +791,38 @@ $wgCirrusSearchCompletionDefaultScore = 'quality';
  *   no   - Don't use completion suggester
  */
 $wgCirrusSearchUseCompletionSuggester = 'no';
+
+/**
+ * Tell the completion suggest to build and use an
+ * extra field built with subphrases suggestions.
+ * 2 types of subphrases are supported:
+ * - subpages: generate subphrase suggestions based on subpages
+ * - anywords: generate subphrase suggestions starting with any words in the
+ *   title
+ * limit: limits the number of subphrases generated
+ */
+$wgCirrusSearchCompletionSuggesterSubphrases = [
+	'build' => false,
+	'use' => false,
+	'type' => 'anywords',
+	'limit' => 10,
+];
+
+/**
+ * Use defaultsort as an additional title suggestion
+ * Useful in case the title does not start with a representative
+ * name ( e.g. Republic of Ireland ) or for names where defaultsort
+ * often contains the phrase surname, firstname.
+ * NOTE: Experimental
+ */
+$wgCirrusSearchCompletionSuggesterUseDefaultSort = false;
+
+/**
+ * Builds extra fst with a geo context.
+ * Can generate a very large in-memory FST
+ * NOTE: Experimental, no API endpoints are available yet.
+ */
+$wgCirrusSearchCompletionSuggesterGeoContext = ['build' => false];
 
 /**
  * Maximum number of results to ask from the elasticsearch completion
@@ -830,7 +868,7 @@ $wgCirrusSearchEnableAltLanguage = false;
  * $wgCirrusSearchWikiToNameMap['ru'] = 'ruwiki';
  * to link interwiki to the wiki DB name.
  */
-$wgCirrusSearchLanguageToWikiMap = array();
+$wgCirrusSearchLanguageToWikiMap = [];
 
 /**
  * Map of interwiki link -> wiki name
@@ -838,22 +876,7 @@ $wgCirrusSearchLanguageToWikiMap = array();
  * FIXME: we really should already have this information, also we're possibly
  * duplicating $wgCirrusSearchInterwikiSources. This needs to be fixed.
  */
-$wgCirrusSearchWikiToNameMap = array();
-
-/**
- * Enable common terms query.
- * This query is enabled only if the query string does not contain any special
- * syntax and the number of terms is greater than one defined in the profile
- * NOTE: CommonTermsQuery can be more restrictive in some cases if the all
- * field is disabled (see $wgCirrusSearchAllFields).
- */
-$wgCirrusSearchUseCommonTermsQuery = false;
-
-/**
- * Set the Common terms query profile to default.
- * see profiles/CommonTermsQueryProfiles.php for more info.
- */
-$wgCirrusSearchCommonTermsQueryProfile = $wgCirrusSearchCommonTermsQueryProfiles['default'];
+$wgCirrusSearchWikiToNameMap = [];
 
 /**
  * If set to non-empty string, interwiki results will have ?wprov=XYZ parameter added.
@@ -864,9 +887,7 @@ $wgCirrusSearchInterwikiProv = false;
  * Set the rescore profile to default.
  * see profile/RescoreProfiles.php for more info
  */
-$wgCirrusSearchRescoreProfile = $wgCirrusSearchRescoreProfiles['default'];
-$wgCirrusSearchPrefixSearchRescoreProfile = $wgCirrusSearchRescoreProfiles['default'];
-$wgCirrusSearchMoreLikeRescoreProfile = $wgCirrusSearchRescoreProfiles['default'];
+$wgCirrusSearchRescoreProfile = 'classic';
 
 /**
  * If current wiki has less than this number of results, try to search other language wikis.
@@ -888,7 +909,7 @@ $wgCirrusSearchInterwikiThreshold = 3;
  * CirrusSearch\LanguageDetector\ElasticSearch - uses the elasticsearch lang-detect plugin
  * CirrusSearch\LanguageDetector\TextCat - uses TextCat library
  */
-$wgCirrusSearchLanguageDetectors = array();
+$wgCirrusSearchLanguageDetectors = [];
 
 /**
  * Directory where TextCat detector should look for language model
@@ -909,11 +930,88 @@ $wgCirrusSearchTextcatModel = false;
 $wgCirrusSearchMasterTimeout = '30s';
 
 /**
- * Allow runtime creation of the frozen index. This can cause race conditions if many
- * things are writing in parallel and is not suggested. This is a temporary fix and
- * will be removed post-haste.
+ * Activate/Deactivate continuous sanity check.
+ * The process will scan and check discrepancies between mysql and
+ * elasticsearch for all possible ids in the database.
+ * Settings will be automatically chosen according to wiki size (see
+ * profiles/SaneitizeProfiles.php)
+ * The script responsible for pushing sanitization jobs is saneitizeJobs.php.
+ * It needs to be scheduled by cron, default settings provided are suited
+ * for a bi-hourly schedule (--refresh-freq=7200).
+ * Setting $wgCirrusSearchSanityCheck to false will prevent the script from
+ * pushing new jobs even if it's still scheduled by cron.
  */
-$wgCirrusSearchCreateFrozenIndex = true;
+$wgCirrusSearchSanityCheck = true;
+
+/**
+ * The base name of indexes used on this wiki. This value must be
+ * unique across all wiki's sharing an elasticsearch cluster unless
+ * $wgCirrusSearchMultiWikiIndices is set to true.
+ */
+$wgCirrusSearchIndexBaseName = wfWikiID();
+
+/**
+ * Treat question marks in simple queries as question marks, not
+ * wildcard characters, especially at the end of a query. If the
+ * query doesn't use insource: and there is no escape character,
+ * remove ? from the end of the query, before a word boundary, or
+ * everywhere; also de-escape all escaped question marks.
+ *
+ * Valid values, all unknown values map to 'no':
+ *   final - only strip trailing question marks and white space
+ *   break - strip non-final question marks followed by a word boundary
+ *   all   - strip all question marks (and replace them with spaces)
+ *   no    - don't strip question marks
+ */
+$wgCirrusSearchStripQuestionMarks = 'all';
+
+/**
+ * Elasticsearch QueryBuilder to use when when building
+ * FullText queries
+ */
+$wgCirrusSearchFullTextQueryBuilderProfile = 'default';
+
+/**
+ * Transitionary flag for converting between older style
+ * doc ids (page ids) to the newer style ids (wikiid|pageid).
+ * Changing this from false to true requires first turning
+ * this on, then performing an in-place reindex. There may
+ * be some duplicate/outdated results while the inplace
+ * reindex is running.
+ */
+$wgCirrusSearchPrefixIds = false;
+
+
+/**
+ * Adds an artificial backend latency in miroseconds.
+ * Only useful for testing.
+ */
+$wgCirrusSearchExtraBackendLatency = 0;
+
+/**
+ * Configure default boost-templates
+ * Can be overridden on wiki and System messages.
+ *
+ * $wgCirrusSearchBoostTemplates = [
+ * 	'Template:Featured article' => 2.0,
+ * ];
+ */
+$wgCirrusSearchBoostTemplates = [];
+
+/**
+ * Disable customization of boot templates on wiki
+ * Set to true to disable onwiki config.
+ */
+$wgCirrusSearchIgnoreOnWikiBoostTemplates = false;
+
+/**
+ * CirrusSearch development options:
+ * - morelike_collect_titles_from_elastic: first pass collection from elastic
+ * - ignore_missing_rev: ignore missing revisions
+ *
+ * NOTE: never activate any of these on a production site
+ */
+$wgCirrusSearchDevelOptions = [];
 
 $includes = __DIR__ . "/includes/";
 $apiDir = $includes . 'Api/';
@@ -936,7 +1034,6 @@ if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
 /**
  * Hooks
  */
-$wgHooks[ 'CirrusSearchBuildDocumentFinishBatch'][] = 'CirrusSearch\BuildDocument\RedirectsAndIncomingLinks::finishBatch';
 $wgHooks[ 'CirrusSearchBuildDocumentLinks'][] = 'CirrusSearch\BuildDocument\RedirectsAndIncomingLinks::buildDocument';
 $wgHooks[ 'AfterImportPage' ][] = 'CirrusSearch\Hooks::onAfterImportPage';
 $wgHooks[ 'ApiBeforeMain' ][] = 'CirrusSearch\Hooks::onApiBeforeMain';
@@ -956,6 +1053,8 @@ $wgHooks[ 'ShowSearchHitTitle' ][] = 'CirrusSearch\Hooks::onShowSearchHitTitle';
 $wgHooks[ 'GetBetaFeaturePreferences' ][] = 'CirrusSearch\Hooks::getBetaFeaturePreferences';
 $wgHooks[ 'APIAfterExecute' ][] = 'CirrusSearch\Hooks::onAPIAfterExecute';
 $wgHooks[ 'SpecialSearchResults' ][] = 'CirrusSearch\Hooks::onSpecialSearchResults';
+$wgHooks[ 'GetPreferences' ][] = 'CirrusSearch\Hooks::onGetPreferences';
+$wgHooks[ 'UserGetDefaultOptions' ][] = 'CirrusSearch\Hooks::onUserGetDefaultOptions';
 
 /**
  * i18n
@@ -972,6 +1071,7 @@ $wgJobClasses[ 'cirrusSearchLinksUpdatePrioritized' ] = 'CirrusSearch\Job\LinksU
 $wgJobClasses[ 'cirrusSearchMassIndex' ] = 'CirrusSearch\Job\MassIndex';
 $wgJobClasses[ 'cirrusSearchOtherIndex' ] = 'CirrusSearch\Job\OtherIndex';
 $wgJobClasses[ 'cirrusSearchElasticaWrite' ] = 'CirrusSearch\Job\ElasticaWrite';
+$wgJobClasses[ 'cirrusSearchCheckerJob' ] = 'CirrusSearch\Job\CheckerJob';
 
 /**
  * Actions
@@ -993,20 +1093,43 @@ $wgConfigRegistry['CirrusSearch'] = 'CirrusSearch\SearchConfig::newFromGlobals';
 /**
  * JavaScript served to all SERP's
  */
-$wgResourceModules += array(
-	"ext.cirrus.serp" => array(
-		'scripts' => array(
+$wgResourceModules += [
+	"ext.cirrus.serp" => [
+		'scripts' => [
 			'resources/ext.cirrus.serp.js',
-		),
-		'dependencies' => array(
+		],
+		'dependencies' => [
 			'mediawiki.Uri'
-		),
-		'styles' => array(),
-		'messages' => array(),
+		],
+		'styles' => [],
+		'messages' => [],
 		'remoteExtPath' => 'CirrusSearch',
 		'localBasePath' => __DIR__,
-	),
-);
+	],
+];
+
+/**
+ * Mapping of result types to CirrusSearch classes.
+ */
+$wgCirrusSearchFieldTypes = [
+	SearchIndexField::INDEX_TYPE_TEXT => \CirrusSearch\Search\TextIndexField::class,
+	SearchIndexField::INDEX_TYPE_KEYWORD => \CirrusSearch\Search\KeywordIndexField::class,
+	SearchIndexField::INDEX_TYPE_INTEGER => \CirrusSearch\Search\IntegerIndexField::class,
+	SearchIndexField::INDEX_TYPE_NUMBER => \CirrusSearch\Search\NumberIndexField::class,
+	SearchIndexField::INDEX_TYPE_DATETIME => \CirrusSearch\Search\DatetimeIndexField::class,
+	SearchIndexField::INDEX_TYPE_BOOL => \CirrusSearch\Search\BooleanIndexField::class,
+	SearchIndexField::INDEX_TYPE_NESTED => \CirrusSearch\Search\NestedIndexField::class,
+	SearchIndexField::INDEX_TYPE_SHORT_TEXT => \CirrusSearch\Search\ShortTextIndexField::class,
+];
+
+/**
+ * Customize certain fields with a specific implementation.
+ * Useful to apply CirrusSearch specific config to fields
+ * controlled by MediaWiki core.
+ */
+$wgCirrusSearchFieldTypeOverrides = [
+	'opening_text' => \CirrusSearch\Search\OpeningTextIndexField::class,
+];
 
 /**
  * Jenkins configuration required to get all the browser tests passing cleanly.

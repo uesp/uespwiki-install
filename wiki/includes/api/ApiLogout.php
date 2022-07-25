@@ -61,25 +61,13 @@ class ApiLogout extends ApiBase {
 		Hooks::run( 'UserLogoutComplete', [ &$user, &$injected_html, $oldName ] );
 	}
 
-	public function mustBePosted() {
-		return true;
-	}
-
-	public function needsToken() {
-		return 'csrf';
-	}
-
-	protected function getWebUITokenSalt( array $params ) {
-		return 'logoutToken';
-	}
-
 	public function isReadMode() {
 		return false;
 	}
 
 	protected function getExamplesMessages() {
 		return [
-			'action=logout&token=123ABC'
+			'action=logout'
 				=> 'apihelp-logout-example-logout',
 		];
 	}

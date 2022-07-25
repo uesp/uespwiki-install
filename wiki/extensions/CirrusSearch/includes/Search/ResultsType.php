@@ -50,14 +50,16 @@ interface ResultsType {
 	function getHighlightingConfiguration( array $highlightSource );
 
 	/**
-	 * @param string[] $suggestPrefixes
-	 * @param string[] $suggestSuffixes
+	 * @param SearchContext $context
 	 * @param \Elastica\ResultSet $result
-	 * @param bool $searchContainedSyntax
 	 * @return mixed Set of search results, the types of which vary by implementation.
 	 */
-	function transformElasticsearchResult( array $suggestPrefixes, array $suggestSuffixes,
-		\Elastica\ResultSet $result, $searchContainedSyntax );
+	function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $result );
+
+	/**
+	 * @return mixed Empty set of search results
+	 */
+	function createEmptyResult();
 }
 
 /**
@@ -68,7 +70,7 @@ class TitleResultsType implements ResultsType {
 	 * @return false|string|array corresponding to Elasticsearch source filtering syntax
 	 */
 	public function getSourceFiltering() {
-		return array( 'namespace', 'title' );
+		return [ 'namespace', 'title' ];
 	}
 
 	/**
@@ -87,19 +89,23 @@ class TitleResultsType implements ResultsType {
 	}
 
 	/**
-	 * @param string[] $suggestPrefixes
-	 * @param string[] $suggestSuffixes
+	 * @param SearchContext $context
 	 * @param \Elastica\ResultSet $resultSet
-	 * @param bool $searchContainedSyntax
 	 * @return array
 	 */
-	public function transformElasticsearchResult( array $suggestPrefixes, array $suggestSuffixes,
-		\Elastica\ResultSet $resultSet, $searchContainedSyntax ) {
-		$results = array();
+	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
+		$results = [];
 		foreach( $resultSet->getResults() as $r ) {
 			$results[] = Title::makeTitle( $r->namespace, $r->title );
 		}
 		return $results;
+	}
+
+	/**
+	 * @return array
+	 */
+	public function createEmptyResult() {
+		return [];
 	}
 }
 
@@ -131,62 +137,59 @@ class FancyTitleResultsType extends TitleResultsType {
 			// This is much less esoteric then the plain highlighter based
 			// invocation but does the same thing.  The magic is that the none
 			// fragmenter still fragments on multi valued fields.
-			$entireValue = array(
+			$entireValue = [
 				'type' => 'experimental',
 				'fragmenter' => 'none',
 				'number_of_fragments' => 1,
-			);
-			$manyValues = array(
+			];
+			$manyValues = [
 				'type' => 'experimental',
 				'fragmenter' => 'none',
 				'order' => 'score',
-			);
+			];
 		} else {
 			// This is similar to the FullTextResults type but against the near_match and
 			// with the plain highlighter.  Near match because that is how the field is
 			// queried.  Plain highlighter because we don't want to add the FVH's space
 			// overhead for storing extra stuff and we don't need it for combining fields.
-			$entireValue = array(
+			$entireValue = [
 				'type' => 'plain',
 				'number_of_fragments' => 0,
-			);
-			$manyValues = array(
+			];
+			$manyValues = [
 				'type' => 'plain',
 				'fragment_size' => 10000,   // We want the whole value but more than this is crazy
 				'order' => 'score',
-			);
+			];
 		}
 		$manyValues[ 'number_of_fragments' ] = 30;
-		return array(
-			'pre_tags' => array( Searcher::HIGHLIGHT_PRE ),
-			'post_tags' => array( Searcher::HIGHLIGHT_POST ),
-			'fields' => array(
+		return [
+			'pre_tags' => [ Searcher::HIGHLIGHT_PRE ],
+			'post_tags' => [ Searcher::HIGHLIGHT_POST ],
+			'fields' => [
 				"title.$this->matchedAnalyzer" => $entireValue,
 				"title.{$this->matchedAnalyzer}_asciifolding" => $entireValue,
 				"redirect.title.$this->matchedAnalyzer" => $manyValues,
 				"redirect.title.{$this->matchedAnalyzer}_asciifolding" => $manyValues,
-			),
-		);
+			],
+		];
 	}
 
 	/**
 	 * Convert the results to titles.
 	 *
-	 * @param string[] $suggestPrefixes
-	 * @param string[] $suggestSuffixes
+	 * @param SearchContext $context
 	 * @param \Elastica\ResultSet $resultSet
-	 * @param bool $searchContainedSyntax
 	 * @return array[] Array of arrays, each with optional keys:
 	 *   titleMatch => a title if the title matched
 	 *   redirectMatches => an array of redirect matches, one per matched redirect
 	 */
-	public function transformElasticsearchResult( array $suggestPrefixes, array $suggestSuffixes,
-			\Elastica\ResultSet $resultSet, $searchContainedSyntax ) {
-		$results = array();
+	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
+		$results = [];
 		foreach( $resultSet->getResults() as $r ) {
 			$title = Title::makeTitle( $r->namespace, $r->title );
 			$highlights = $r->getHighlights();
-			$resultForTitle = array();
+			$resultForTitle = [];
 
 			// Now we have to use the highlights to figure out whether it was the title or the redirect
 			// that matched.  It is kind of a shame we can't really give the highlighting to the client
@@ -196,7 +199,7 @@ class FancyTitleResultsType extends TitleResultsType {
 			} else if ( isset( $highlights[ "title.{$this->matchedAnalyzer}_asciifolding" ] ) ) {
 				$resultForTitle[ 'titleMatch' ] = $title;
 			}
-			$redirectHighlights = array();
+			$redirectHighlights = [];
 
 			if ( isset( $highlights[ "redirect.title.$this->matchedAnalyzer" ] ) ) {
 				$redirectHighlights = $highlights[ "redirect.title.$this->matchedAnalyzer" ];
@@ -231,6 +234,13 @@ class FancyTitleResultsType extends TitleResultsType {
 			$results[] = $resultForTitle;
 		}
 		return $results;
+	}
+
+	/**
+	 * @return array
+	 */
+	public function createEmptyResult() {
+		return [];
 	}
 }
 
@@ -276,7 +286,12 @@ class FullTextResultsType implements ResultsType {
 	 * @return false|string|array corresponding to Elasticsearch source filtering syntax
 	 */
 	public function getSourceFiltering() {
-		return array( 'id', 'title', 'namespace', 'redirect.*', 'timestamp', 'text_bytes' );
+		$fields = [ 'id', 'title', 'namespace', 'redirect.*', 'timestamp', 'text_bytes' ];
+		if ( $this->prefix ) {
+			$fields[] = 'namespace_text';
+		}
+
+		return $fields;
 	}
 
 	/**
@@ -301,34 +316,34 @@ class FullTextResultsType implements ResultsType {
 			$wgCirrusSearchFragmentSize;
 
 		if ( $wgCirrusSearchUseExperimentalHighlighter ) {
-			$entireValue = array(
+			$entireValue = [
 				'type' => 'experimental',
 				'fragmenter' => 'none',
 				'number_of_fragments' => 1,
-			);
-			$redirectAndHeading = array(
+			];
+			$redirectAndHeading = [
 				'type' => 'experimental',
 				'fragmenter' => 'none',
 				'order' => 'score',
 				'number_of_fragments' => 1,
-				'options' => array(
+				'options' => [
 					'skip_if_last_matched' => true,
-				)
-			);
-			$remainingText = array(
+				]
+			];
+			$remainingText = [
 				'type' => 'experimental',
 				'number_of_fragments' => 1,
 				'fragmenter' => 'scan',
 				'fragment_size' => $wgCirrusSearchFragmentSize,
-				'options' => array(
+				'options' => [
 					'top_scoring' => true,
-					'boost_before' => array(
+					'boost_before' => [
 						// Note these values are super arbitrary right now.
 						'20' => 2,
 						'50' => 1.8,
 						'200' => 1.5,
 						'1000' => 1.2,
-					),
+					],
 					// We should set a limit on the number of fragments we try because if we
 					// don't then we'll hit really crazy documents, say 10MB of "d d".  This'll
 					// keep us from scanning more then the first couple thousand of them.
@@ -336,8 +351,8 @@ class FullTextResultsType implements ResultsType {
 					// contains common words.
 					'max_fragments_scored' => 5000,
 					'skip_if_last_matched' => true,
-				),
-			);
+				],
+			];
 			if ( !( $this->highlightingConfig & self::HIGHLIGHT_WITH_DEFAULT_SIMILARITY ) ) {
 				$entireValue[ 'options' ][ 'default_similarity' ] = false;
 				$redirectAndHeading[ 'options' ][ 'default_similarity' ] = false;
@@ -347,23 +362,23 @@ class FullTextResultsType implements ResultsType {
 				$redirectAndHeading[ 'options' ][ 'hit_source' ] = 'analyze';
 			}
 		} else {
-			$entireValue = array(
+			$entireValue = [
 				'number_of_fragments' => 0,
 				'type' => 'fvh',
 				'order' => 'score',
-			);
-			$redirectAndHeading = array(
+			];
+			$redirectAndHeading = [
 				'number_of_fragments' => 1, // Just one of the values in the list
 				'fragment_size' => 10000,   // We want the whole value but more than this is crazy
 				'type' => 'fvh',
 				'order' => 'score',
-			);
-			$remainingText = array(
+			];
+			$remainingText = [
 				'number_of_fragments' => 1, // Just one fragment
 				'fragment_size' => $wgCirrusSearchFragmentSize,
 				'type' => 'fvh',
 				'order' => 'score',
-			);
+			];
 		}
 		// If there isn't a match just return a match sized chunk from the beginning of the page.
 		$text = $remainingText;
@@ -372,21 +387,17 @@ class FullTextResultsType implements ResultsType {
 			unset( $text[ 'options' ][ 'skip_if_last_matched' ] );
 		}
 
-		$config =  array(
-			'pre_tags' => array( Searcher::HIGHLIGHT_PRE ),
-			'post_tags' => array( Searcher::HIGHLIGHT_POST ),
-			'fields' => array(),
-		);
+		$config =  [
+			'pre_tags' => [ Searcher::HIGHLIGHT_PRE ],
+			'post_tags' => [ Searcher::HIGHLIGHT_POST ],
+			'fields' => [],
+		];
 
 		if ( count( $highlightSource ) ) {
-			if ( !$wgCirrusSearchUseExperimentalHighlighter ) {
-				throw new \RuntimeException( 'regex is only supported with $wgCirrusSearchUseExperimentalHighlighter = true' );
-			}
-			$config[ 'fields' ][ 'source_text.plain' ] = $text;
-			$this->configureHighlightingForSource( $config, $highlightSource );
+			$this->configureHighlightingForSource( $config, $highlightSource, $text );
 			return $config;
 		}
-		$experimental = array();
+		$experimental = [];
 		if ( $this->highlightingConfig & self::HIGHLIGHT_TITLE ) {
 			$config[ 'fields' ][ 'title' ] = $entireValue;
 		}
@@ -439,15 +450,25 @@ class FullTextResultsType implements ResultsType {
 	}
 
 	/**
-	 * @param string[] $suggestPrefixes
-	 * @param string[] $suggestSuffixes
+	 * @param SearchContext $context
 	 * @param \Elastica\ResultSet $result
-	 * @param bool $searchContainedSyntax
 	 * @return ResultSet
 	 */
-	public function transformElasticsearchResult( array $suggestPrefixes, array $suggestSuffixes,
-			\Elastica\ResultSet $result, $searchContainedSyntax ) {
-		return new ResultSet( $suggestPrefixes, $suggestSuffixes, $result, $searchContainedSyntax, $this->prefix );
+	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $result ) {
+		return new ResultSet(
+			$context->getSuggestPrefixes(),
+			$context->getSuggestSuffixes(),
+			$result,
+			$context->isSyntaxUsed(),
+			$this->prefix
+		);
+	}
+
+	/**
+	 * @return EmptyResultSet
+	 */
+	public function createEmptyResult() {
+		return new EmptyResultSet();
 	}
 
 	/**
@@ -456,7 +477,7 @@ class FullTextResultsType implements ResultsType {
 	 */
 	private function addMatchedFields( $fields ) {
 		foreach ( array_keys( $fields ) as $name ) {
-			$fields[$name]['matched_fields'] =  array( $name, "$name.plain" );
+			$fields[$name]['matched_fields'] =  [ $name, "$name.plain" ];
 		}
 		return $fields;
 	}
@@ -464,10 +485,12 @@ class FullTextResultsType implements ResultsType {
 	/**
 	 * @param array &$config
 	 * @param array $highlightSource
+	 * @param array $options various options
 	 */
-	private function configureHighlightingForSource( array &$config, array $highlightSource ) {
-		global $wgCirrusSearchRegexMaxDeterminizedStates;
-		$patterns = array();
+	private function configureHighlightingForSource( array &$config, array $highlightSource, array $options ) {
+		global $wgCirrusSearchRegexMaxDeterminizedStates,
+			$wgCirrusSearchUseExperimentalHighlighter;
+		$patterns = [];
 		$locale = null;
 		$caseInsensitive = false;
 		foreach ( $highlightSource as $part ) {
@@ -477,15 +500,18 @@ class FullTextResultsType implements ResultsType {
 				$caseInsensitive |= $part[ 'insensitive' ];
 			}
 		}
-		if ( count( $patterns ) ) {
-			$options = array(
+		if ( count( $patterns ) && $wgCirrusSearchUseExperimentalHighlighter ) {
+			// highlight for regex queries is only supported by the experimental
+			// highlighter.
+			$config['fields']['source_text.plain'] = $options;
+			$options = [
 				'regex' => $patterns,
 				'locale' => $locale,
 				'regex_flavor' => 'lucene',
 				'skip_query' => true,
 				'regex_case_insensitive' => (boolean)$caseInsensitive,
 				'max_determinized_states' => $wgCirrusSearchRegexMaxDeterminizedStates,
-			);
+			];
 			if ( isset( $config['fields']['source_text.plain']['options'] ) ) {
 				$config[ 'fields' ][ 'source_text.plain' ][ 'options' ] = array_merge(
 					$config[ 'fields' ][ 'source_text.plain' ][ 'options' ],
@@ -495,13 +521,14 @@ class FullTextResultsType implements ResultsType {
 				$config[ 'fields' ][ 'source_text.plain' ][ 'options' ] = $options;
 			}
 		} else {
-			$queryStrings = array();
+			$queryStrings = [];
 			foreach ( $highlightSource as $part ) {
 				if ( isset( $part[ 'query' ] ) ) {
 					$queryStrings[] = $part[ 'query' ];
 				}
 			}
 			if ( count( $queryStrings ) ) {
+				$config['fields']['source_text.plain'] = $options;
 				$bool = new \Elastica\Query\BoolQuery();
 				foreach ( $queryStrings as $queryString ) {
 					$bool->addShould( $queryString );
@@ -525,19 +552,23 @@ class IdResultsType extends TitleResultsType {
 	}
 
 	/**
-	 * @param string[] $suggestPrefixes
-	 * @param string[] $suggestSuffixes
+	 * @param SearchContext $context
 	 * @param \Elastica\ResultSet $resultSet
-	 * @param bool $searchContainedSyntax
 	 * @return string[]
 	 */
-	public function transformElasticsearchResult( array $suggestPrefixes, array $suggestSuffixes,
-		\Elastica\ResultSet $resultSet, $searchContainedSyntax ) {
-		$results = array();
+	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
+		$results = [];
 		foreach( $resultSet->getResults() as $r ) {
 			$results[] = $r->getId();
 		}
 		return $results;
+	}
+
+	/**
+	 * @return string[]
+	 */
+	public function createEmptyResult() {
+		return [];
 	}
 }
 
@@ -557,14 +588,25 @@ class InterwikiResultsType implements ResultsType {
 	}
 
 	/**
-	 * @param string[] $suggestPrefixes
-	 * @param string[] $suggestSuffixes
+	 * @param SearchContext $context
 	 * @param \Elastica\ResultSet $result
-	 * @param bool $searchContainedSyntax
 	 * @return ResultSet
 	 */
-	public function transformElasticsearchResult( array $suggestPrefixes, array $suggestSuffixes, \Elastica\ResultSet $result, $searchContainedSyntax ) {
-		return new ResultSet( $suggestPrefixes, $suggestSuffixes, $result, $searchContainedSyntax, $this->prefix );
+	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $result ) {
+		return new ResultSet(
+			$context->getSuggestPrefixes(),
+			$context->getSuggestSuffixes(),
+			$result,
+			$context->isSyntaxUsed(),
+			$this->prefix
+		);
+	}
+
+	/**
+	 * @return EmptyResultSet
+	 */
+	public function createEmptyResult() {
+		return new EmptyResultSet();
 	}
 
 	/**
@@ -579,7 +621,7 @@ class InterwikiResultsType implements ResultsType {
 	 * @return false|string|array corresponding to Elasticsearch source filtering syntax
 	 */
 	public function getSourceFiltering() {
-		return array( 'namespace', 'namespace_text', 'title' );
+		return [ 'namespace', 'namespace_text', 'title' ];
 	}
 
 	/**

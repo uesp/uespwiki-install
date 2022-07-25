@@ -4,10 +4,8 @@ namespace CirrusSearch\Job;
 
 use CirrusSearch\Connection;
 use CirrusSearch\DataSender;
-use CirrusSearch\SearchConfig;
 use JobQueueGroup;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\MediaWikiServices;
 use Status;
 use Title;
 
@@ -38,12 +36,12 @@ class ElasticaWrite extends Job {
 	 * @param array $params
 	 */
 	public function __construct( $title, $params ) {
-		parent::__construct( $title, $params + array(
+		parent::__construct( $title, $params + [
 			'createdAt' => time(),
 			'errorCount' => 0,
 			'retryCount' => 0,
 			'cluster' => null,
-		) );
+		] );
 	}
 
 	/**
@@ -62,105 +60,36 @@ class ElasticaWrite extends Job {
 		return false;
 	}
 
-	/**
-	 * @return Connection[]
-	 */
-	protected function decideClusters() {
-		$config = MediaWikiServices::getInstance()
-			->getConfigFactory()
-			->makeConfig( 'CirrusSearch' );
-		if ( $this->params['cluster'] !== null && !$this->canWriteToCluster( $config, $this->params['cluster'] ) ) {
-			// Just in case a job is present in the queue but its cluster
-			// has been removed from the config file.
-			$cluster = $this->params['cluster'];
-			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
-				"Received job {method} for unwritable cluster {cluster} {diff}s after insertion",
-				array(
-					'method' => $this->params['method'],
-					'arguments' => $this->params['arguments'],
-					'diff' => time() - $this->params['createdAt'],
-					'cluster' =>  $cluster
-				)
-			);
-			// this job does not allow retries so we just need to throw an exception
-			throw new \RuntimeException( "Received job for unwritable cluster $cluster." );
-		}
-		if ( $this->params['cluster'] !== null ) {
-			// parent::__construct initialized the correct connection
-			$name = $this->connection->getClusterName();
-			return array( $name => $this->connection );
-		}
-
-		if( $config->has( 'CirrusSearchWriteClusters' ) ) {
-			$clusters = $config->get( 'CirrusSearchWriteClusters' );
-			if( is_null( $clusters ) ) {
-				$clusters = array_keys( $config->get( 'CirrusSearchClusters' ) );
-			}
-		} else {
-			$clusters = array_keys( $config->get( 'CirrusSearchClusters' ) );
-		}
-		$connections = array();
-		foreach ( $clusters as $name ) {
-			$connections[$name] = Connection::getPool( $config, $name );
-		}
-		return $connections;
-	}
-
-	/**
-	 * @param SearchConfig $config
-	 * @param string $cluster
-	 * @return bool True is cluster is writable
-	 */
-	private function canWriteToCluster( SearchConfig $config, $cluster ) {
-		if ( $config->getElement( 'CirrusSearchClusters', $cluster ) === null ) {
-			// No definition for the cluster
-			return false;
-		}
-		if ( $config->has( 'CirrusSearchWriteClusters' ) ) {
-			$clusters = $config->get( 'CirrusSearchWriteClusters' );
-			if ( !is_null ( $clusters ) ) {
-				// Check if the cluster is allowed for writing
-				return in_array( $cluster, $clusters );
-			}
-		}
-		return true;
-	}
-
 	protected function doJob() {
-
 		$connections = $this->decideClusters();
 		$clusterNames = implode( ', ', array_keys( $connections ) );
 		LoggerFactory::getInstance( 'CirrusSearch' )->debug(
 			"Running {method} on cluster $clusterNames {diff}s after insertion",
-			array(
+			[
 				'method' => $this->params['method'],
 				'arguments' => $this->params['arguments'],
 				'diff' => time() - $this->params['createdAt'],
 				'clusters' => array_keys( $connections ),
-			)
+			]
 		);
-		$retry = array();
-		$error = array();
+		$retry = [];
+		$error = [];
 		foreach ( $connections as $clusterName => $conn ) {
-			if ( $this->params['clientSideTimeout'] ) {
-				$conn->setTimeout( $this->params['clientSideTimeout'] );
-			}
-
-			$sender = new DataSender( $conn );
+			$sender = new DataSender( $conn, $this->searchConfig );
 			try {
 				$status = call_user_func_array(
-					array( $sender, $this->params['method'] ),
+					[ $sender, $this->params['method'] ],
 					$this->params['arguments']
 				);
 			} catch ( \Exception $e ) {
 				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
 					"Exception thrown while running DataSender::{method} in cluster {cluster}: {errorMessage}",
-					array(
+					[
 						'method' => $this->params['method'],
 						'cluster' => $clusterName,
 						'errorMessage' => $e->getMessage(),
 						'exception' => $e,
-					)
+					]
 				);
 				$status = Status::newFatal( 'cirrussearch-send-failure' );
 			}
@@ -198,11 +127,11 @@ class ElasticaWrite extends Job {
 		if ( $diff > $dropTimeout ) {
 			LoggerFactory::getInstance( 'CirrusSearchChangeFailed' )->warning(
 				"Dropping delayed ElasticaWrite job for DataSender::{method} in cluster {cluster} after waiting {diff}s",
-				array(
+				[
 					'method' => $this->params['method'],
 					'cluster' => $conn->getClusterName(),
 					'diff' => $diff,
-				)
+				]
 			);
 		} else {
 			$delay = self::backoffDelay( $this->params['retryCount'] );
@@ -212,10 +141,10 @@ class ElasticaWrite extends Job {
 			$job->setDelay( $delay );
 			LoggerFactory::getInstance( 'CirrusSearch' )->debug(
 				"ElasticaWrite job reported frozen on cluster {cluster}. Requeueing job with delay of {delay}s",
-				array(
+				[
 					'cluster' => $conn->getClusterName(),
 					'delay' => $delay
-				)
+				]
 			);
 			JobQueueGroup::singleton()->push( $job );
 		}
@@ -231,10 +160,10 @@ class ElasticaWrite extends Job {
 		if ( $this->params['errorCount'] >= self::MAX_ERROR_RETRY ) {
 			LoggerFactory::getInstance( 'CirrusSearchChangeFailed' )->warning(
 				"Dropping failing ElasticaWrite job for DataSender::{method} in cluster {cluster} after repeated failure",
-				array(
+				[
 					'method' => $this->params['method'],
 					'cluster' => $conn->getClusterName(),
-				)
+				]
 			);
 		} else {
 			$delay = self::backoffDelay( $this->params['errorCount'] );
@@ -245,23 +174,12 @@ class ElasticaWrite extends Job {
 			// Individual failures should have already logged specific errors,
 			LoggerFactory::getInstance( 'CirrusSearch' )->info(
 				"ElasticaWrite job reported failure on cluster {cluster}. Requeueing job with delay of {delay}.",
-				array(
+				[
 					'cluster' => $conn->getClusterName(),
 					'delay' => $delay
-				)
+				]
 			);
 			JobQueueGroup::singleton()->push( $job );
 		}
-	}
-
-	/**
-	 * @param int $retryCount The number of times the job has errored out.
-	 * @return int Number of seconds to delay. With the default minimum exponent
-	 *  of 6 the possible return values are  64, 128, 256, 512 and 1024 giving a
-	 *  maximum delay of 17 minutes.
-	 */
-	public static function backoffDelay( $retryCount ) {
-		global $wgCirrusSearchWriteBackoffExponent;
-		return ceil( pow( 2, $wgCirrusSearchWriteBackoffExponent + rand(0, min( $retryCount, 4 ) ) ) );
 	}
 }

@@ -2,6 +2,9 @@
 
 namespace CirrusSearch\Maintenance;
 
+use CirrusSearch\SearchConfig;
+use MediaWiki\MediaWikiServices;
+
 /**
  * Builds elasticsearch mapping configuration arrays for the suggester index.
  *
@@ -27,58 +30,82 @@ class SuggesterMappingConfigBuilder {
 	 * and change the minor version when it changes but isn't
 	 * incompatible
 	 */
-	const VERSION = '1.0';
+	const VERSION = '1.1';
+
+	/** @var SearchConfig */
+	private $config;
+
+	/**
+	 * Constructor
+	 * @param SearchConfig $config
+	 */
+	public function __construct( SearchConfig $config = null ) {
+		if ( is_null( $config ) ) {
+			$config =
+				MediaWikiServices::getInstance()->getConfigFactory()->makeConfig( 'CirrusSearch' );
+		}
+		$this->config = $config;
+	}
 
 	/**
 	 * @return array[]
 	 */
 	public function buildConfig() {
-		$geoContext = array(
-			'location' => array(
+		$geoContext = [
+			'location' => [
 				'type' => 'geo',
-				'precision' => array( 6, 4, 3 ), // ~ 1km, 10km, 100km
+				'precision' => [ 6, 4, 3 ], // ~ 1km, 10km, 100km
 				'neighbors' => true,
-			)
-		);
-		$suggest = array(
+			]
+		];
+		$suggest = [
 			'dynamic' => false,
-			'_all' => array( 'enabled' => false ),
-			'_source' => array('enabled' => false ),
-			'properties' => array(
-				'batch_id' => array( 'type' => 'long' ),
-				'suggest' => array(
+			'_all' => [ 'enabled' => false ],
+			'_source' => ['enabled' => false ],
+			'properties' => [
+				'batch_id' => [ 'type' => 'long' ],
+				'suggest' => [
 					'type' => 'completion',
-					'index_analyzer' => 'plain',
+					'analyzer' => 'plain',
 					'search_analyzer' => 'plain_search',
 					'payloads' => false
-				),
-				'suggest-stop' => array(
+				],
+				'suggest-stop' => [
 					'type' => 'completion',
-					'index_analyzer' => 'stop_analyzer',
+					'analyzer' => 'stop_analyzer',
 					'search_analyzer' => 'stop_analyzer_search',
 					'preserve_separators' => false,
 					'preserve_position_increments' => false,
 					'payloads' => false
-				),
-				'suggest-geo' => array(
+				],
+				'suggest-geo' => [
 					'type' => 'completion',
-					'index_analyzer' => 'plain',
+					'analyzer' => 'plain',
 					'search_analyzer' => 'plain_search',
 					'payloads' => false,
 					'context' => $geoContext
-				),
-				'suggest-stop-geo' => array(
+				],
+				'suggest-stop-geo' => [
 					'type' => 'completion',
-					'index_analyzer' => 'stop_analyzer',
+					'analyzer' => 'stop_analyzer',
 					'search_analyzer' => 'stop_analyzer_search',
 					'preserve_separators' => false,
 					'preserve_position_increments' => false,
 					'payloads' => false,
 					'context' => $geoContext
-				)
-			)
-		);
-		return array( \CirrusSearch\Connection::TITLE_SUGGEST_TYPE_NAME => $suggest );
+				]
+			]
+		];
+		if ( $this->config->getElement( 'CirrusSearchCompletionSuggesterSubphrases', 'build' ) ) {
+			$suggest['properties']['suggest-subphrases'] = [
+				'type' => 'completion',
+				'analyzer' => 'subphrases',
+				'search_analyzer' => 'subphrases_search',
+				'payloads' => false
+			];
+
+		}
+		return [ \CirrusSearch\Connection::TITLE_SUGGEST_TYPE_NAME => $suggest ];
 	}
 
 }

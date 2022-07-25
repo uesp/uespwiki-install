@@ -77,7 +77,7 @@ $wgResourceModules['ext.EsoBuildData.editor.mobilestyles'] = array(
 
 $wgResourceModules['ext.EsoBuildData.editor.scripts'] = array(
 	'position' => 'top',
-	'scripts' => array( 'json2.js', 'esoEditBuild.js', 'esoBuildCombat.js' ),
+	'scripts' => array( 'json2.js', 'esoBuildCombat.js', 'esoEditBuild.js' ),
 	'localBasePath' => '/home/uesp/www/esobuilddata/resources/',
 	'remoteBasePath' => '//esobuilds-static.uesp.net/resources/',
 	'targets' => array( 'desktop', 'mobile' ),

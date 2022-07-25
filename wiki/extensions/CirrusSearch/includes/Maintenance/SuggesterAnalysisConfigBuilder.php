@@ -25,7 +25,7 @@ use CirrusSearch\SearchConfig;
  */
 
 class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
-	const VERSION = "1.1";
+	const VERSION = "1.2";
 
 	/**
 	 * @param string $langCode The language code to build config for
@@ -48,11 +48,11 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 			// Use ICU Folding if the plugin is available and activated in the config
 			$folding_type = 'icu_folding';
 		}
-		$defaults = array(
-			'char_filter' => array(
-				'word_break_helper' => array(
+		$defaults = [
+			'char_filter' => [
+				'word_break_helper' => [
 					'type' => 'mapping',
-					'mappings' => array(
+					'mappings' => [
 						'_=>\u0020', // a space for mw
 						',=>\u0020', // useful for "Lastname, Firstname"
 						'"=>\u0020', // " certainly phrase search?
@@ -78,72 +78,94 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 						'{=>\u0020',
 						'}=>\u0020',
 						'\\\\=>\u0020'
-					),
-				),
-			),
-			'filter' => array(
-				"stop_filter" => array(
+					],
+				],
+			],
+			'filter' => [
+				"stop_filter" => [
 					"type" => "stop",
 					"stopwords" => "_none_",
 					"remove_trailing" => "true"
-				),
-				"asciifolding" => array(
+				],
+				"asciifolding" => [
 					"type" => $folding_type,
-				),
-				"icu_normalizer" => array(
+				],
+				"icu_normalizer" => [
 					"type" => "icu_normalizer",
 					"name" => "nfkc_cf"
-				),
-				"token_limit" => array(
+				],
+				"token_limit" => [
 					"type" => "limit",
 					"max_token_count" => "20"
-				)
-			),
-			'analyzer' => array(
-				"stop_analyzer" => array(
+				]
+			],
+			'analyzer' => [
+				"stop_analyzer" => [
 					"type" => "custom",
-					"filter" => array(
+					"filter" => [
 						"standard",
 						"lowercase",
 						"stop_filter",
 						"asciifolding",
 						"token_limit"
-					),
+					],
 					"tokenizer" => "standard"
-				),
+				],
 				// We do not remove stop words when searching,
 				// this leads to extremely weird behaviors while
 				// writing "to be or no to be"
-				"stop_analyzer_search" => array(
+				"stop_analyzer_search" => [
 					"type" => "custom",
-					"filter" => array(
+					"filter" => [
 						"standard",
 						"lowercase",
 						"asciifolding",
 						"token_limit"
-					),
+					],
 					"tokenizer" => "standard"
-				),
-				"plain" => array(
+				],
+				"plain" => [
 					"type" => "custom",
-					"char_filter" => array( 'word_break_helper' ),
-					"filter" => array(
+					"char_filter" => [ 'word_break_helper' ],
+					"filter" => [
 						"token_limit",
 						"lowercase"
-					),
+					],
 					"tokenizer" => "whitespace"
-				),
-				"plain_search" => array(
+				],
+				"plain_search" => [
 					"type" => "custom",
-					"char_filter" => array( 'word_break_helper' ),
-					"filter" => array(
+					"char_filter" => [ 'word_break_helper' ],
+					"filter" => [
 						"token_limit",
 						"lowercase"
-					),
+					],
 					"tokenizer" => "whitespace"
-				)
-			),
-		);
+				],
+			],
+		];
+		if ( $this->config->getElement( 'CirrusSearchCompletionSuggesterSubphrases', 'build' ) ) {
+			$defaults['analyzer']['subphrases'] = [
+				"type" => "custom",
+				"filter" => [
+					"standard",
+					"lowercase",
+					"asciifolding",
+					"token_limit"
+				],
+				"tokenizer" => "standard"
+			];
+			$defaults['analyzer']['subphrases_search'] = [
+				"type" => "custom",
+				"filter" => [
+					"standard",
+					"lowercase",
+					"asciifolding",
+					"token_limit"
+				],
+				"tokenizer" => "standard"
+			];
+		}
 		return $defaults;
 	}
 
@@ -154,6 +176,25 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 	private function customize( array $config ) {
 		$defaultStopSet = $this->getDefaultStopSet( $this->getLanguage() );
 		$config['filter']['stop_filter']['stopwords'] = $defaultStopSet;
+
+		switch ( $this->getDefaultTextAnalyzerType() ) {
+		// Please add languages in alphabetical order.
+		case 'russian':
+			// T102298 ignore combining acute / stress accents
+			$config[ 'char_filter' ][ 'word_break_helper' ][ 'mappings' ][] = '\u0301=>';
+
+			// The Russian analyzer is also used for Ukrainian and Rusyn for now, so processing that's
+			// very specific to Russian should be separated out
+			if ($this->getLanguage() == 'ru') {
+				// T124592 fold ё=>е and Ё=>Е, precomposed or with combining diacritic
+				$config[ 'char_filter' ][ 'word_break_helper' ][ 'mappings' ][] = '\u0451=>\u0435';
+				$config[ 'char_filter' ][ 'word_break_helper' ][ 'mappings' ][] = '\u0401=>\u0415';
+				$config[ 'char_filter' ][ 'word_break_helper' ][ 'mappings' ][] = '\u0435\u0308=>\u0435';
+				$config[ 'char_filter' ][ 'word_break_helper' ][ 'mappings' ][] = '\u0415\u0308=>\u0415';
+			}
+			break;
+		}
+
 		if ( $this->isIcuAvailable() ) {
 			foreach ( $config[ 'analyzer' ] as $k => &$analyzer ) {
 				if ( $k != "stop_analyzer" && $k != "stop_analyzer_search" ) {
@@ -184,7 +225,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 	}
 
 	/** @var string[] */
-	private static $stopwords = array(
+	private static $stopwords = [
 		'ar' => '_arabic_',
 		'hy' =>  '_armenian_',
 		'eu' => '_basque_',
@@ -206,9 +247,10 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 		'hi' => '_hindi_',
 		'hu' => '_hungarian_',
 		'id' => '_indonesian_',
+		'lt' => '_lithuanian_',
+		'lv' => '_latvian_',
 		'ga' => '_irish_',
 		'it' => '_italian_',
-		'lv' => '_latvian_',
 		'nb' => '_norwegian_',
 		'nn' => '_norwegian_',
 		'fa' => '_persian_',
@@ -220,7 +262,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 		'sv' => '_swedish_',
 		'th' => '_thai_',
 		'tr' => '_turkish_'
-	);
+	];
 
 	/**
 	 * @param string $lang

@@ -1,5 +1,8 @@
 <?php
 
+use MediaWiki\Logger\LoggerFactory;
+use MediaWiki\MediaWikiServices;
+
 /**
  * This class contains most of the business logic of AbuseFilter. It consists of mostly
  * static functions that handle activities such as parsing edits, applying filters,
@@ -7,12 +10,14 @@
  */
 class AbuseFilter {
 	public static $statsStoragePeriod = 86400;
-	public static $tokenCache = array();
-	public static $modifyCache = array();
 	public static $condLimitEnabled = true;
+
+	/** @var array Map of (filter ID => stdClass) */
+	private static $filterCache = [];
+
 	public static $condCount = 0;
-	public static $filters = array();
-	public static $tagsToSet = array();
+	public static $tagsToSet = array(); // FIXME: avoid global state here
+
 	public static $history_mappings = array(
 		'af_pattern' => 'afh_pattern',
 		'af_user' => 'afh_user',
@@ -86,6 +91,8 @@ class AbuseFilter {
 			'edit_diff' => 'diff',
 			'new_size' => 'newsize',
 			'old_size' => 'oldsize',
+			'new_content_model' => 'new-content-model',
+			'old_content_model' => 'old-content-model',
 			'removed_lines' => 'removedlines',
 			'summary' => 'summary',
 			'article_articleid' => 'article-id',
@@ -177,7 +184,7 @@ class AbuseFilter {
 				$msgName = $msgOverrides[$name];
 			}
 
-			$msg = wfMessage( $msgName )->parse();
+			$msg = $context->msg( $msgName )->parse();
 			$title = Title::newFromText( $page );
 
 			if ( $name == $pageType ) {
@@ -187,8 +194,8 @@ class AbuseFilter {
 			}
 		}
 
-		$linkStr = wfMessage( 'parentheses', $context->getLanguage()->pipeList( $links ) )->text();
-		$linkStr = wfMessage( 'abusefilter-topnav' )->parse() . " $linkStr";
+		$linkStr = $context->msg( 'parentheses', $context->getLanguage()->pipeList( $links ) )->text();
+		$linkStr = $context->msg( 'abusefilter-topnav' )->parse() . " $linkStr";
 
 		$linkStr = Xml::tags( 'div', array( 'class' => 'mw-abusefilter-navigation' ), $linkStr );
 
@@ -440,10 +447,10 @@ class AbuseFilter {
 	/**
 	 * Returns an associative array of filters which were tripped
 	 *
-	 * @param $vars array
+	 * @param $vars AbuseFilterVariableHolder
 	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 *
-	 * @return array
+	 * @return bool[] Map of (integer filter ID => bool)
 	 */
 	public static function checkAllFilters( $vars, $group = 'default' ) {
 		global $wgAbuseFilterCentralDB, $wgAbuseFilterIsCentral;
@@ -532,7 +539,7 @@ class AbuseFilter {
 		}
 
 		// Store the row somewhere convenient
-		self::$filters[$filterID] = $row;
+		self::$filterCache[$filterID] = $row;
 
 		// Check conditions...
 		$pattern = trim( $row->af_pattern );
@@ -730,7 +737,7 @@ class AbuseFilter {
 	 *
 	 * @param $filters array
 	 * @param $title Title
-	 * @param $vars array
+	 * @param $vars AbuseFilterVariableHolder
 	 * @return Status returns the operation's status. $status->isOK() will return true if
 	 *         there were no actions taken, false otherwise. $status->getValue() will return
 	 *         an array listing the actions taken. $status-getErrors(), etc, will provide
@@ -748,7 +755,8 @@ class AbuseFilter {
 		foreach ( $actionsByFilter as $filter => $actions ) {
 			// Special-case handling for warnings.
 			$parsed_public_comments = $wgOut->parseInline(
-				self::$filters[$filter]->af_public_comments );
+				self::getFilter( $filter )->af_public_comments
+			);
 
 			$global_filter = ( preg_match( '/^global-/', $filter ) == 1 );
 
@@ -819,8 +827,11 @@ class AbuseFilter {
 			// Do the rest of the actions
 			foreach ( $actions as $action => $info ) {
 				$newMsg = self::takeConsequenceAction(
-					$action, $info['parameters'], $title, $vars,
-					self::$filters[$filter]->af_public_comments,
+					$action,
+					$info['parameters'],
+					$title,
+					$vars,
+					self::getFilter( $filter )->af_public_comments,
 					$filter
 				);
 
@@ -843,17 +854,12 @@ class AbuseFilter {
 	 * @param array[] $messages a list if arrays, where each array contains a message key
 	 *                followed by any message parameters.
 	 *
-	 * @todo: change this to accept Message objects. This is only possible from 1.21 onward,
-	 *        because before that, Status::fatal does not accept Message objects.
-	 *
 	 * @return Status
 	 */
 	protected static function buildStatus( array $actionsTaken, array $messages ) {
 		$status = Status::newGood( $actionsTaken );
 
 		foreach ( $messages as $msg ) {
-			// Since MW 1.21, we could just pass Message objects, but in 1.20,
-			// we still have to rely on arrays.
 			call_user_func_array( array( $status, 'fatal' ), $msg );
 		}
 
@@ -865,15 +871,19 @@ class AbuseFilter {
 	 * @param $title Title
 	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
 	 * @param User $user The user performing the action; defaults to $wgUser
+	 * @param string $mode Use 'execute' to run filters and log or 'stash' to only cache matches
 	 * @return Status
 	 */
-	public static function filterAction( $vars, $title, $group = 'default', $user = null ) {
+	public static function filterAction(
+		$vars, $title, $group = 'default', $user = null, $mode = 'execute'
+	) {
 		global $wgUser, $wgTitle, $wgRequest;
 
 		$context = RequestContext::getMain();
 		$oldContextTitle = $context->getTitle();
 
 		$oldWgTitle = $wgTitle;
+
 		if ( !$wgTitle ) {
 			$wgTitle = SpecialPage::getTitleFor( 'AbuseFilter' );
 		}
@@ -882,26 +892,59 @@ class AbuseFilter {
 			$user = $wgUser;
 		}
 
+		$logger = LoggerFactory::getInstance( 'StashEdit' );
+		$statsd = MediaWikiServices::getInstance()->getStatsdDataFactory();
+
 		// Add vars from extensions
 		Hooks::run( 'AbuseFilter-filterAction', array( &$vars, $title ) );
-
-		// Set context
 		$vars->setVar( 'context', 'filter' );
 		$vars->setVar( 'timestamp', time() );
 
-		$dbr = wfGetDB( DB_SLAVE );
+		// Get the stash key based on the relevant "input" variables
+		$cache = ObjectCache::getLocalClusterInstance();
+		$stashKey = self::getStashKey( $cache, $vars, $group );
+		$isForEdit = ( $vars->getVar( 'action' )->toString() === 'edit' );
 
-		$filter_matched = self::checkAllFilters( $vars, $group );
+		$filter_matched = false;
+		if ( $mode === 'execute' && $isForEdit ) {
+			// Check the filter edit stash results first
+			$cacheData = $cache->get( $stashKey );
+			if ( $cacheData ) {
+				$filter_matched = $cacheData['matches'];
+				// Merge in any tags to apply to recent changes entries
+				self::bufferTagsToSetByAction( $cacheData['tags'] );
+			}
+		}
+
+		if ( is_array( $filter_matched ) ) {
+			if ( $isForEdit && $mode !== 'stash' ) {
+				$logger->info( __METHOD__ . ": cache hit for '$title' (key $stashKey)." );
+				$statsd->increment( 'abusefilter.check-stash.hit' );
+			}
+		} else {
+			$filter_matched = self::checkAllFilters( $vars, $group );
+			if ( $isForEdit && $mode !== 'stash' ) {
+				$logger->info( __METHOD__ . ": cache miss for '$title' (key $stashKey)." );
+				$statsd->increment( 'abusefilter.check-stash.miss' );
+			}
+		}
+
+		if ( $mode === 'stash' ) {
+			// Save the filter stash result and do nothing further
+			$cacheData = [ 'matches' => $filter_matched, 'tags' => self::$tagsToSet ];
+			$cache->set( $stashKey, $cacheData, $cache::TTL_MINUTE );
+			$logger->debug( __METHOD__ . ": cache store for '$title' (key $stashKey)." );
+			$statsd->increment( 'abusefilter.check-stash.store' );
+
+			return Status::newGood();
+		}
 
 		$matched_filters = array_keys( array_filter( $filter_matched ) );
 
 		if ( count( $matched_filters ) == 0 ) {
 			$status = Status::newGood();
 		} else {
-			wfProfileIn( __METHOD__ . '-block' );
-
-			$status = self::executeFilterActions(
-				$matched_filters, $title, $vars );
+			$status = self::executeFilterActions( $matched_filters, $title, $vars );
 
 			$actions_taken = $status->value; // getValue() was introduced only in 1.20
 
@@ -915,7 +958,7 @@ class AbuseFilter {
 			$log_template = array(
 				'afl_user' => $user->getId(),
 				'afl_user_text' => $user->getName(),
-				'afl_timestamp' => $dbr->timestamp( wfTimestampNow() ),
+				'afl_timestamp' => wfGetDB( DB_SLAVE )->timestamp( wfTimestampNow() ),
 				'afl_namespace' => $title->getNamespace(),
 				'afl_title' => $title->getDBkey(),
 				'afl_ip' => $wgRequest->getIP()
@@ -927,8 +970,6 @@ class AbuseFilter {
 			}
 
 			self::addLogEntries( $actions_taken, $log_template, $action, $vars, $group );
-
-			wfProfileOut( __METHOD__ . '-block' );
 		}
 
 		// Bug 53498: If we screwed around with $wgTitle, reset it so the title
@@ -943,6 +984,65 @@ class AbuseFilter {
 		}
 
 		return $status;
+	}
+
+	/**
+	 * @param string $id Filter ID (integer or "global-<integer>")
+	 * @return stdClass|null DB row
+	 */
+	public static function getFilter( $id ) {
+		global $wgAbuseFilterCentralDB;
+
+		if ( !isset( self::$filterCache[$id] ) ) {
+			$m = [];
+			if ( preg_match( '/^global-(\d+)$/', $id, $m ) ) {
+				// Global wiki filter
+				if ( !$wgAbuseFilterCentralDB ) {
+					return null; // not enabled
+				}
+
+				$id = $m[1];
+				$lb = wfGetLB( $wgAbuseFilterCentralDB );
+				$dbr = $lb->getConnectionRef( DB_SLAVE, array(), $wgAbuseFilterCentralDB );
+			} else {
+				// Local wiki filter
+				$dbr = wfGetDB( DB_SLAVE );
+			}
+
+			$row = $dbr->selectRow( 'abuse_filter', '*', [ 'af_id' => $id ], __METHOD__ );
+			self::$filterCache[$id] = $row ?: null;
+		}
+
+		return self::$filterCache[$id];
+	}
+
+	/**
+	 * @param BagOStuff $cache
+	 * @param $vars AbuseFilterVariableHolder
+	 * @param string $group The filter's group (as defined in $wgAbuseFilterValidGroups)
+	 *
+	 * @return string
+	 */
+	private static function getStashKey(
+		BagOStuff $cache, AbuseFilterVariableHolder $vars, $group
+	) {
+		$inputVars = $vars->exportNonLazyVars();
+		// Exclude noisy fields that have superficial changes
+		unset( $inputVars['old_html'] );
+		unset( $inputVars['new_html'] );
+		unset( $inputVars['user_age'] );
+		unset( $inputVars['timestamp'] );
+		unset( $inputVars['_VIEWS'] );
+		ksort( $inputVars );
+		$hash = md5( serialize( $inputVars ) );
+
+		return ObjectCache::getLocalClusterInstance()->makeKey(
+			'abusefilter',
+			'check-stash',
+			$group,
+			$hash,
+			'v1'
+		);
 	}
 
 	/**
@@ -1384,14 +1484,7 @@ class AbuseFilter {
 					$vars->getVar( 'ACTION' )->toString()
 				) );
 
-				if ( !isset( AbuseFilter::$tagsToSet[$actionID] ) ) {
-					AbuseFilter::$tagsToSet[$actionID] = $parameters;
-				} else {
-					AbuseFilter::$tagsToSet[$actionID] = array_merge(
-						AbuseFilter::$tagsToSet[$actionID],
-						$parameters
-					);
-				}
+				self::bufferTagsToSetByAction( [ $actionID => $parameters ] );
 				break;
 			default:
 				if ( isset( $wgAbuseFilterCustomActionsHandlers[$action] ) ) {
@@ -1416,6 +1509,19 @@ class AbuseFilter {
 		}
 
 		return $message;
+	}
+
+	/**
+	 * @param array[] $tagsByAction Map of (integer => string[])
+	 */
+	private static function bufferTagsToSetByAction( array $tagsByAction ) {
+		foreach ( $tagsByAction as $actionID => $tags ) {
+			if ( !isset( self::$tagsToSet[$actionID] ) ) {
+				self::$tagsToSet[$actionID] = $tags;
+			} else {
+				self::$tagsToSet[$actionID] = array_merge( self::$tagsToSet[$actionID], $tags );
+			}
+		}
 	}
 
 	/**
@@ -1677,7 +1783,7 @@ class AbuseFilter {
 			$matchCount++;
 
 			// Figure out if the filter is subject to being deleted.
-			$filter_age = wfTimestamp( TS_UNIX, self::$filters[$filter]->af_timestamp );
+			$filter_age = wfTimestamp( TS_UNIX, self::getFilter( $filter )->af_timestamp );
 			$throttle_exempt_time = $filter_age + $emergencyDisableAge;
 
 			if ( $total && $throttle_exempt_time > time()
@@ -1687,15 +1793,19 @@ class AbuseFilter {
 				// More than $wgAbuseFilterEmergencyDisableCount matches,
 				// constituting more than $emergencyDisableThreshold
 				// (a fraction) of last few edits. Disable it.
-				$method = __METHOD__;
-				$dbw = wfGetDB( DB_MASTER );
-				$dbw->onTransactionIdle( function () use ( $dbw, $filter, $method ) {
-					$dbw->update( 'abuse_filter',
-						array( 'af_throttled' => 1 ),
-						array( 'af_id' => $filter ),
-						$method
-					);
-				} );
+				DeferredUpdates::addUpdate(
+					new AutoCommitUpdate(
+						wfGetDB( DB_MASTER ),
+						__METHOD__,
+						function ( IDatabase $dbw, $fname ) use ( $filter ) {
+							$dbw->update( 'abuse_filter',
+								array( 'af_throttled' => 1 ),
+								array( 'af_id' => $filter ),
+								$fname
+							);
+						}
+					)
+				);
 			}
 		}
 	}
@@ -1840,10 +1950,11 @@ class AbuseFilter {
 				) + $noTestAttrib );
 		}
 
-		if ( $addResultDiv )
+		if ( $addResultDiv ) {
 			$rules .= Xml::element( 'div',
 				array( 'id' => 'mw-abusefilter-syntaxresult', 'style' => 'display: none;' ),
 				'&#160;' );
+		}
 
 		// Add script
 		$wgOut->addModules( 'ext.abuseFilter.edit' );
@@ -2026,7 +2137,6 @@ class AbuseFilter {
 
 		$vars->setVar( 'ACTION', 'edit' );
 		$vars->setVar( 'SUMMARY', $row->rc_comment );
-		$vars->setVar( 'minor_edit', $row->rc_minor );
 
 		$vars->setLazyLoadVar( 'new_wikitext', 'revision-text-by-id',
 			array( 'revid' => $row->rc_this_oldid ) );
@@ -2153,10 +2263,11 @@ class AbuseFilter {
 	}
 
 	/**
-	 * @param $vars AbuseFilterVariableHolder
+	 * @param AbuseFilterVariableHolder $vars
+	 * @param IContextSource $context
 	 * @return string
 	 */
-	public static function buildVarDumpTable( $vars ) {
+	public static function buildVarDumpTable( $vars, IContextSource $context ) {
 		// Export all values
 		if ( $vars instanceof AbuseFilterVariableHolder ) {
 			$vars = $vars->exportAllVars();
@@ -2176,8 +2287,8 @@ class AbuseFilter {
 			"\n";
 
 		$header =
-			Xml::element( 'th', null, wfMessage( 'abusefilter-log-details-var' )->text() ) .
-			Xml::element( 'th', null, wfMessage( 'abusefilter-log-details-val' )->text() );
+			Xml::element( 'th', null, $context->msg( 'abusefilter-log-details-var' )->text() ) .
+			Xml::element( 'th', null, $context->msg( 'abusefilter-log-details-val' )->text() );
 		$output .= Xml::tags( 'tr', null, $header ) . "\n";
 
 		if ( !count( $vars ) ) {
@@ -2192,14 +2303,15 @@ class AbuseFilter {
 
 			if ( !empty( $variableMessageMappings[$key] ) ) {
 				$mapping = $variableMessageMappings[$key];
-				$keyDisplay = wfMessage( "abusefilter-edit-builder-vars-$mapping" )->parse() .
-					' ' . Xml::element( 'code', null, wfMessage( 'parentheses', $key )->text() );
+				$keyDisplay = $context->msg( "abusefilter-edit-builder-vars-$mapping" )->parse() .
+					' ' . Xml::element( 'code', null, $context->msg( 'parentheses', $key )->text() );
 			} else {
 				$keyDisplay = Xml::element( 'code', null, $key );
 			}
 
-			if ( is_null( $value ) )
+			if ( is_null( $value ) ) {
 				$value = '';
+			}
 			$value = Xml::element( 'div', array( 'class' => 'mw-abuselog-var-value' ), $value, false );
 
 			$trow =

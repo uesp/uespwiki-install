@@ -1,4 +1,4 @@
-@chrome @en.m.wikipedia.beta.wmflabs.org @firefox @skip @test2.m.wikipedia.org @vagrant
+@chrome @en.m.wikipedia.beta.wmflabs.org @firefox @integration @test2.m.wikipedia.org @vagrant
 Feature: Search
 
   Background:
@@ -48,6 +48,7 @@ Feature: Search
     And I type into search box "Main Page"
     Then search results should contain "Main Page"
 
+  @login
   Scenario: Clicking on a watchstar toggles the watchstar
     Given I am logged into the mobile website
       And the page "Selenium search test" exists

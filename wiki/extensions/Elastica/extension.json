@@ -19,7 +19,8 @@
 	},
 	"AutoloadClasses": {
 		"ElasticaConnection": "ElasticaConnection.php",
-		"ElasticaHttpTransportCloser": "ElasticaConnection.php"
+		"ElasticaHttpTransportCloser": "ElasticaConnection.php",
+		"MWElasticUtils": "ElasticaConnection.php"
 	},
 	"load_composer_autoloader": true,
 	"manifest_version": 1

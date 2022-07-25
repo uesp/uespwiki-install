@@ -12,7 +12,7 @@ window.CreateEsoItemLinkPopup = function()
 }
 
 
-window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSummary, intLevel, intType, itemLink, setCount, questId, collectId, enchantId, enchantIntLevel, enchantIntType, enchantFactor, potionData, extraData, version, extraArmor, trait, antiquityId)
+window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSummary, intLevel, intType, itemLink, setCount, questId, collectId, enchantId, enchantIntLevel, enchantIntType, enchantFactor, potionData, extraData, version, extraArmor, trait, antiquityId, weaponTraitFactor)
 {
 	EsoItemLinkPopup_LastElement = parent;
 	
@@ -37,6 +37,7 @@ window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSumm
 	if (extraArmor) linkSrc += "&extraarmor=" + extraArmor;
 	if (version) linkSrc += "&version=" + version;
 	if (trait) linkSrc += "&trait=" + trait;
+	if (weaponTraitFactor) linkSrc += "&weapontraitfactor=" + weaponTraitFactor;
 	if (showSummary) linkSrc += "&summary";
 	if (setCount != null && setCount >= 0) linkSrc += "&setcount=" + setCount;
 	
@@ -85,6 +86,7 @@ window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSumm
 	if (extraData) cacheId += "-EX" + extraData.toString();
 	if (extraArmor) cacheId += "-AR" + extraArmor.toString();
 	if (trait) cacheId += "-TR" + trait.toString();
+	if (weaponTraitFactor) cacheId += "-WT" + weaponTraitFactor.toString();
 	
 	if (enchantId)
 	{
@@ -214,7 +216,8 @@ window.OnEsoItemLinkEnter = function()
 			$this.attr('summary'), $this.attr('intlevel'), $this.attr('inttype'), $this.attr('itemlink'), $this.attr('setcount'),
 			$this.attr('questid'), $this.attr('collectid'), $this.attr('enchantid'), $this.attr('enchantintlevel'),
 			$this.attr('enchantinttype'), $this.attr('enchantfactor'), $this.attr('potiondata'), $this.attr('extradata'),
-			$this.attr('version'), $this.attr('extraarmor'), $this.attr('trait'), $this.attr('antiquityid'));
+			$this.attr('version'), $this.attr('extraarmor'), $this.attr('trait'), $this.attr('antiquityid'),
+			$this.attr('weapontraitfactor'));
 }
 
 

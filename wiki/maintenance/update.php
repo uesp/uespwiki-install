@@ -25,7 +25,6 @@
  * @ingroup Maintenance
  */
 
-$wgUseMasterForMaintenance = true;
 require_once __DIR__ . '/Maintenance.php';
 
 /**
@@ -81,13 +80,6 @@ class UpdateMediaWiki extends Maintenance {
 				"and can cause hidden data corruption in MediaWiki and other web apps.\n" .
 				"Upgrade to libxml2 2.7.3 or later.\n" .
 				"ABORTING (see https://bugs.php.net/bug.php?id=45996).\n",
-				true );
-		}
-
-		if ( !function_exists( 'mb_strlen' ) ) {
-			$this->error(
-				"MediaWiki now requires the mbstring PHP extension, your system doesn't have it.\n"
-				. "ABORTING.\n",
 				true );
 		}
 	}
@@ -153,6 +145,7 @@ class UpdateMediaWiki extends Maintenance {
 
 		$this->output( "Going to run database updates for " . wfWikiID() . "\n" );
 		if ( $db->getType() === 'sqlite' ) {
+			/** @var Database|DatabaseSqlite $db */
 			$this->output( "Using SQLite file: '{$db->getDbFilePath()}'\n" );
 		}
 		$this->output( "Depending on the size of your database this may take a while!\n" );
@@ -167,11 +160,9 @@ class UpdateMediaWiki extends Maintenance {
 
 		$badPhpUnit = dirname( __DIR__ ) . '/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php';
 		if ( file_exists( $badPhpUnit ) ) {
-			// @codingStandardsIgnoreStart Generic.Files.LineLength.TooLong
 			// Bad versions of the file are:
 			// https://raw.githubusercontent.com/sebastianbergmann/phpunit/c820f915bfae34e5a836f94967a2a5ea5ef34f21/src/Util/PHP/eval-stdin.php
 			// https://raw.githubusercontent.com/sebastianbergmann/phpunit/3aaddb1c5bd9b9b8d070b4cf120e71c36fd08412/src/Util/PHP/eval-stdin.php
-			// @codingStandardsIgnoreEnd
 			$md5 = md5_file( $badPhpUnit );
 			if ( $md5 === '120ac49800671dc383b6f3709c25c099'
 				|| $md5 === '28af792cb38fc9a1b236b91c1aad2876'

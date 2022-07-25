@@ -418,12 +418,12 @@ class FormatMetadata extends ContextSource {
 
 					case 'Flash':
 						$flashDecode = [
-							'fired' => $val & bindec( '00000001' ),
-							'return' => ( $val & bindec( '00000110' ) ) >> 1,
-							'mode' => ( $val & bindec( '00011000' ) ) >> 3,
-							'function' => ( $val & bindec( '00100000' ) ) >> 5,
-							'redeye' => ( $val & bindec( '01000000' ) ) >> 6,
-// 						'reserved' => ($val & bindec( '10000000' )) >> 7,
+							'fired' => $val & 0b00000001,
+							'return' => ( $val & 0b00000110 ) >> 1,
+							'mode' => ( $val & 0b00011000 ) >> 3,
+							'function' => ( $val & 0b00100000 ) >> 5,
+							'redeye' => ( $val & 0b01000000 ) >> 6,
+							// 'reserved' => ( $val & 0b10000000 ) >> 7,
 						];
 						$flashMsgs = [];
 						# We do not need to handle unknown values since all are used.
@@ -1041,7 +1041,7 @@ class FormatMetadata extends ContextSource {
 
 		if ( !is_array( $vals ) ) {
 			return $vals; // do nothing if not an array;
-		} elseif ( count( $vals ) === 1 && $type !== 'lang' && isset( $vals[0] ) ) {
+		} elseif ( count( $vals ) === 1 && $type !== 'lang' ) {
 			return $vals[0];
 		} elseif ( count( $vals ) === 0 ) {
 			wfDebug( __METHOD__ . " metadata array with 0 elements!\n" );

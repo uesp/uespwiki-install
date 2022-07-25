@@ -4,6 +4,7 @@ namespace CirrusSearch\Maintenance;
 
 use CirrusSearch\Connection;
 use CirrusSearch\ClusterSettings;
+use CirrusSearch\SearchConfig;
 use MediaWiki\MediaWikiServices;
 
 /**
@@ -68,10 +69,8 @@ class CopySearchIndex extends Maintenance {
 	}
 
 	public function execute() {
-		global $wgCirrusSearchMaintenanceTimeout;
-
 		$this->indexType = $this->getOption( 'indexType' );
-		$this->indexBaseName = $this->getOption( 'baseName', wfWikiID() );
+		$this->indexBaseName = $this->getOption( 'baseName', $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME ) );
 
 		$reindexChunkSize = $this->getOption( 'reindexChunkSize', 100 );
 		$reindexRetryAttempts = $this->getOption( 'reindexRetryAttempts', 5 );
@@ -84,10 +83,7 @@ class CopySearchIndex extends Maintenance {
 		if ( $sourceConnection->getClusterName() == $targetConnection->getClusterName() ) {
 			$this->error("Target cluster should be different from current cluster.", 1);
 		}
-		$config = MediaWikiServices::getInstance()
-			->getConfigFactory()
-			->makeConfig( 'CirrusSearch' );
-		$clusterSettings = new ClusterSettings( $config, $targetConnection->getClusterName() );
+		$clusterSettings = new ClusterSettings( $this->getSearchConfig(), $targetConnection->getClusterName() );
 
 		$targetIndexName = $targetConnection->getIndexName( $this->indexBaseName, $this->indexType );
 		$utils = new ConfigUtils( $targetConnection->getClient(), $this );
@@ -95,17 +91,17 @@ class CopySearchIndex extends Maintenance {
 				 $targetIndexName );
 
 		$reindexer = new Reindexer(
+				$this->getSearchConfig(),
 				$sourceConnection,
 				$targetConnection,
 				// Target Index
-				array( $targetConnection->getIndex( $this->indexBaseName, $this->indexType,
+				[ $targetConnection->getIndex( $this->indexBaseName, $this->indexType,
 						$indexIdentifier )->getType( Connection::PAGE_TYPE_NAME )
-				),
+				],
 				// Source Index
-				array( $this->getConnection()->getPageType( $this->indexBaseName, $this->indexType ) ),
+				[ $this->getConnection()->getPageType( $this->indexBaseName, $this->indexType ) ],
 				$clusterSettings->getShardCount( $this->indexType ),
 				$clusterSettings->getReplicaCount( $this->indexType ),
-				$wgCirrusSearchMaintenanceTimeout,
 				$this->getMergeSettings(),
 				$this->getMappingConfig(),
 				$this
@@ -149,5 +145,5 @@ class CopySearchIndex extends Maintenance {
 
 }
 
-$maintClass = 'CirrusSearch\Maintenance\CopySearchIndex';
+$maintClass = CopySearchIndex::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

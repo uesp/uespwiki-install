@@ -11,11 +11,6 @@ class ApiBlockTest extends ApiTestCase {
 	protected function setUp() {
 		parent::setUp();
 		$this->doLogin();
-
-		$this->setMwGlobals( 'wgBlockCIDRLimit', [
-			'IPv4' => 16,
-			'IPv6' => 19,
-		] );
 	}
 
 	protected function getTokens() {

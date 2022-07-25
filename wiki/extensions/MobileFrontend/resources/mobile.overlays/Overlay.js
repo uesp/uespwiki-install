@@ -6,7 +6,7 @@
 		Button = M.require( 'mobile.startup/Button' ),
 		Anchor = M.require( 'mobile.startup/Anchor' ),
 		icons = M.require( 'mobile.startup/icons' ),
-		browser = M.require( 'mobile.browser/browser' ),
+		browser = M.require( 'mobile.browser/Browser' ).getSingleton(),
 		$window = $( window );
 
 	/**
@@ -65,6 +65,7 @@
 		 * @cfg {String} defaults.backButton HTML of the back button.
 		 * @cfg {String} defaults.headerButtonsListClassName A comma separated string of class
 		 * names of the wrapper of the header buttons.
+		 * @cfg {Boolean} defaults.headerChrome Whether the header has chrome.
 		 * @cfg {Boolean} defaults.fixedHeader Whether the header is fixed.
 		 * @cfg {String} defaults.spinner HTML of the spinner icon.
 		 * @cfg {Object} [defaults.footerAnchor] options for an optional Anchor that can appear in the footer
@@ -73,7 +74,7 @@
 			saveMsg: mw.msg( 'mobile-frontend-editor-save' ),
 			cancelButton: new Icon( {
 				tagName: 'button',
-				name: 'close',
+				name: 'overlay-close',
 				additionalClassNames: 'cancel',
 				label: mw.msg( 'mobile-frontend-overlay-close' )
 			} ).toHtmlString(),
@@ -84,6 +85,7 @@
 				label: mw.msg( 'mobile-frontend-overlay-close' )
 			} ).toHtmlString(),
 			headerButtonsListClassName: '',
+			headerChrome: true,
 			fixedHeader: true,
 			spinner: icons.spinner().toHtmlString()
 		},

@@ -35,11 +35,13 @@ class Dump extends FormlessAction {
 		$config = MediaWikiServices::getInstance()
 			->getConfigFactory()
 			->makeConfig( 'CirrusSearch' );
+		/** @suppress PhanTypeMismatchArgument $config is actually a SearchConfig */
 		$conn = new Connection( $config );
-		$searcher = new Searcher( $conn, 0, 0, null, array(), $this->getUser() );
+		$searcher = new Searcher( $conn, 0, 0, null, [], $this->getUser() );
 
-		$id = $this->getTitle()->getArticleID();
-		$esSources = $searcher->get( array( $id ), true );
+		/** @suppress PhanUndeclaredMethod Phan doesn't know $config is a SearchConfig */
+		$docId = $config->makeId( $this->getTitle()->getArticleID() );
+		$esSources = $searcher->get( [ $docId ], true );
 		if ( !$esSources->isOK() ) {
 			// Exception has been logged
 			echo '{}';
@@ -47,15 +49,15 @@ class Dump extends FormlessAction {
 		}
 		$esSources = $esSources->getValue();
 
-		$result = array();
+		$result = [];
 		foreach ( $esSources as $esSource ) {
-			$result[] = array(
+			$result[] = [
 				'_index' => $esSource->getIndex(),
 				'_type' => $esSource->getType(),
 				'_id' => $esSource->getId(),
 				'_version' => $esSource->getVersion(),
 				'_source' => $esSource->getData(),
-			);
+			];
 		}
 		echo json_encode( $result );
 	}

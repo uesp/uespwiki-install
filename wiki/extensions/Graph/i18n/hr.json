@@ -5,7 +5,7 @@
 		]
 	},
 	"graph-tracking-category": "Stranice koje sadrže grafikone",
-	"graph-tracking-category-desc": "Ova stranica sadrži oznaku <code><nowiki><graph></nowiki></code>.",
+	"graph-tracking-category-desc": "Stranica s oznakom <code><nowiki><graph></nowiki></code>.",
 	"graph-ve-dialog-button-tooltip": "Grafikon",
 	"graph-ve-dialog-edit-field-graph-type": "Vrsta grafikona",
 	"graph-ve-dialog-edit-field-raw-json": "Neobrađena JSON specifikacija",
@@ -20,6 +20,8 @@
 	"graph-ve-dialog-edit-page-data": "Podatci",
 	"graph-ve-dialog-edit-page-general": "Opće",
 	"graph-ve-dialog-edit-page-raw": "Neobrađeni podatci",
+	"graph-ve-dialog-edit-size-fieldset": "Veličina",
+	"graph-ve-dialog-edit-size-table-unit": "Piksela",
 	"graph-ve-dialog-edit-table-row-delete": "Ukloni stupac",
 	"graph-ve-dialog-edit-title": "Uredi grafikon",
 	"graph-ve-dialog-edit-type-area": "Površinski grafikon",

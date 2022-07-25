@@ -41,7 +41,7 @@ class MediaFunctions {
 	public static function mediasize( $parser, $name = '' ) {
 		if ( ( $file = self::resolve( $name ) ) instanceof File ) {
 			$parser->mOutput->addImage( $file->getTitle()->getDBkey() );
-			return Linker::formatSize( $file->getSize() );
+			return htmlspecialchars( $parser->getTargetLanguage()->formatSize( $file->getSize() ) );
 		}
 		return self::error( $file, $name );
 	}

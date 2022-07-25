@@ -4,6 +4,11 @@ class AbuseFilterVariableHolder {
 
 	public static $varBlacklist = array( 'context' );
 
+	public function __construct() {
+		// Backwards-compatibility (unused now)
+		$this->setVar( 'minor_edit', false );
+	}
+
 	/**
 	 * @param $variable
 	 * @param $datum
@@ -90,14 +95,31 @@ class AbuseFilterVariableHolder {
 	/**
 	 * Export all variables stored in this object as string
 	 *
-	 * @return array
+	 * @return string[]
 	 */
 	function exportAllVars() {
-		$allVarNames = array_keys( $this->mVars );
-		$exported = array();
-
-		foreach ( $allVarNames as $varName ) {
+		$exported = [];
+		foreach ( array_keys( $this->mVars ) as $varName ) {
 			if ( !in_array( $varName, self::$varBlacklist ) ) {
+				$exported[$varName] = $this->getVar( $varName )->toString();
+			}
+		}
+
+		return $exported;
+	}
+
+	/**
+	 * Export all non-lazy variables stored in this object as string
+	 *
+	 * @return string[]
+	 */
+	function exportNonLazyVars() {
+		$exported = [];
+		foreach ( $this->mVars as $varName => $data ) {
+			if (
+				!( $data instanceof AFComputedVariable )
+				&& !in_array( $varName, self::$varBlacklist )
+			) {
 				$exported[$varName] = $this->getVar( $varName )->toString();
 			}
 		}
@@ -216,7 +238,7 @@ class AFComputedVariable {
 	}
 
 	/**
-	 * It's like Article::prepareTextForEdit, but not for editing (old wikitext usually)
+	 * It's like Article::prepareContentForEdit, but not for editing (old wikitext usually)
 	 *
 	 *
 	 * @param string $wikitext
@@ -268,7 +290,7 @@ class AFComputedVariable {
 		}
 
 		if ( $user instanceof User ) {
-			self::$userCache[$username] = $user;
+			$userCache[$username] = $user;
 			return $user;
 		}
 
@@ -453,9 +475,9 @@ class AFComputedVariable {
 				if ( $article->getContentModel() === CONTENT_MODEL_WIKITEXT ) {
 					$textVar = $parameters['wikitext-var'];
 
-					// XXX: Use prepareContentForEdit. But we need a Content object for that.
 					$new_text = $vars->getVar( $textVar )->toString();
-					$editInfo = $article->prepareTextForEdit( $new_text );
+					$content = ContentHandler::makeContent( $new_text, $article->getTitle() );
+					$editInfo = $article->prepareContentForEdit( $content );
 					if ( isset( $parameters['pst'] ) && $parameters['pst'] ) {
 						$result = $editInfo->pstContent->serialize( $editInfo->format );
 					} else {

@@ -40,7 +40,7 @@ class FreezeWritesToCluster extends Maintenance {
 	}
 
 	public function execute() {
-		$sender = new DataSender( $this->getConnection() );
+		$sender = new DataSender( $this->getConnection(), $this->getSearchConfig() );
 		if ( $this->hasOption( 'thaw' ) ) {
 			$sender->thawIndexes();
 			$this->output( "Thawed any existing cluster-wide freeze\n\n" );
@@ -51,5 +51,5 @@ class FreezeWritesToCluster extends Maintenance {
 	}
 }
 
-$maintClass = 'CirrusSearch\Maintenance\FreezeWritesToCluster';
+$maintClass = FreezeWritesToCluster::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

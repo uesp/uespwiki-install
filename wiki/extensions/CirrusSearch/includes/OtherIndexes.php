@@ -28,13 +28,13 @@ class OtherIndexes extends Updater {
 	private $localSite;
 
 	/**
-	 * Constructor
 	 * @param Connection $connection
+	 * @param SearchConfig $config
 	 * @param array $flags
 	 * @param string $localSite
 	 */
-	public function __construct( Connection $connection, array $flags, $localSite) {
-		parent::__construct( $connection, $flags );
+	public function __construct( Connection $connection, SearchConfig $config, array $flags, $localSite) {
+		parent::__construct( $connection, $config, $flags );
 		$this->localSite = $localSite;
 	}
 
@@ -47,7 +47,7 @@ class OtherIndexes extends Updater {
 		global $wgCirrusSearchExtraIndexes;
 		$namespace = $title->getNamespace();
 		return isset( $wgCirrusSearchExtraIndexes[ $namespace ] )
-			? $wgCirrusSearchExtraIndexes[ $namespace ] : array();
+			? $wgCirrusSearchExtraIndexes[ $namespace ] : [];
 	}
 
 	/**
@@ -57,7 +57,7 @@ class OtherIndexes extends Updater {
 	 */
 	public static function getExtraIndexesForNamespaces( array $namespaces ) {
 		global $wgCirrusSearchExtraIndexes;
-		$extraIndexes = array();
+		$extraIndexes = [];
 		if ( $wgCirrusSearchExtraIndexes ) {
 			foreach( $wgCirrusSearchExtraIndexes as $namespace => $indexes ) {
 				if ( in_array( $namespace, $namespaces ) ) {
@@ -81,33 +81,35 @@ class OtherIndexes extends Updater {
 		}
 
 
-		$updates = array();
+		$updates = [];
 
 		// Build multisearch to find ids to update
 		$findIdsMultiSearch = new \Elastica\Multi\Search( $this->connection->getClient() );
-		$findIdsClosures = array();
+		$findIdsClosures = [];
 		foreach ( $titles as $title ) {
 			foreach ( OtherIndexes::getExternalIndexes( $title ) as $otherIndex ) {
 				if ( $otherIndex === null ) {
 					continue;
 				}
 				$type = $this->connection->getPageType( $otherIndex );
-				$bool = new \Elastica\Filter\BoolFilter();
+
+				$bool = new \Elastica\Query\BoolQuery();
 				// Note that we need to use the keyword indexing of title so the analyzer gets out of the way.
-				$bool->addMust( new \Elastica\Filter\Term( array( 'title.keyword' => $title->getText() ) ) );
-				$bool->addMust( new \Elastica\Filter\Term( array( 'namespace' => $title->getNamespace() ) ) );
-				$filtered = new \Elastica\Query\Filtered( new \Elastica\Query\MatchAll(), $bool );
-				$query = new \Elastica\Query( $filtered );
-				$query->setFields( array() ); // We only need the _id so don't load the _source
+				$bool->addFilter( new \Elastica\Query\Term( [ 'title.keyword' => $title->getText() ] ) );
+				$bool->addFilter( new \Elastica\Query\Term( [ 'namespace' => $title->getNamespace() ] ) );
+
+				$query = new \Elastica\Query( $bool );
+				$query->setFields( [] ); // We only need the _id so don't load the _source
 				$query->setSize( 1 );
+
 				$findIdsMultiSearch->addSearch( $type->createSearch( $query ) );
-				$findIdsClosures[] = function( $id ) use
+				$findIdsClosures[] = function( $docId ) use
 						( $otherIndex, &$updates, $title ) {
-					$updates[$otherIndex][] = array(
-						'id' => $id,
+					$updates[$otherIndex][] = [
+						'docId' => $docId,
 						'ns' => $title->getNamespace(),
 						'dbKey' => $title->getDBkey(),
-					);
+					];
 				};
 			}
 		}
@@ -118,9 +120,11 @@ class OtherIndexes extends Updater {
 		}
 
 		// Look up the ids and run all closures to build the list of updates
-		$this->start( "searching for {numIds} ids in other indexes", array(
-			'numIds' => $findIdsClosuresCount,
-			'queryType' => 'other_idx_lookup',
+		$this->start( new MultiSearchRequestLog(
+			$this->connection->getClient(),
+			'searching for {numIds} ids in other indexes',
+			'other_idx_lookup',
+			[ 'numIds' => $findIdsClosuresCount ]
 		) );
 		$findIdsMultiSearchResult = $findIdsMultiSearch->search();
 		try {
@@ -146,12 +150,11 @@ class OtherIndexes extends Updater {
 		// being frozen doesn't block updates to other indexes
 		// in the same update.
 		foreach ( $updates as $indexName => $actions ) {
-			$job = new Job\ElasticaWrite( reset( $titles ), array(
-				'clientSideTimeout' => false,
+			$job = new Job\ElasticaWrite( reset( $titles ), [
 				'method' => 'sendOtherIndexUpdates',
-				'arguments' => array( $this->localSite, $indexName, $actions ),
+				'arguments' => [ $this->localSite, $indexName, $actions ],
 				'cluster' => $this->writeToClusterName,
-			) );
+			] );
 			$job->run();
 		}
 	}

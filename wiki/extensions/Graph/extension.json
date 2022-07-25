@@ -17,9 +17,10 @@
 	"AutoloadClasses": {
 		"Graph\\ApiGraph": "includes/ApiGraph.php",
 		"Graph\\DataModule": "includes/DataModule.php",
-		"Graph\\Singleton": "includes/Graph.body.php",
+		"Graph\\ParserTag": "includes/ParserTag.php",
 		"Graph\\Sandbox": "includes/Sandbox.php",
-		"Graph\\Content": "includes/Graph.body.php",
+		"Graph\\Store": "includes/Store.php",
+		"Graph\\Content": "includes/Content.php",
 		"Graph\\Hooks": "includes/Graph.hooks.php"
 	},
 	"APIModules": {
@@ -54,8 +55,6 @@
 			"scripts": [
 				"lib/d3.js",
 				"lib/d3-global.js",
-				"lib/topojson.js",
-				"lib/topojson-global.js",
 				"lib/vega1/vega.js",
 				"modules/graph1.js"
 			],
@@ -72,8 +71,7 @@
 			"scripts": [
 				"lib/d3.js",
 				"lib/d3-global.js",
-				"lib/topojson.js",
-				"lib/topojson-global.js",
+				"lib/d3.layout.cloud.js",
 				"lib/vega2/vega.js",
 				"lib/graph2.compiled.js"
 			],
@@ -88,11 +86,12 @@
 		},
 		"ext.graph.sandbox": {
 			"scripts": [
-				"lib/jquery.splitter-0.18.0.js",
+				"lib/jquery.splitter/jquery.splitter.js",
 				"modules/graph.sandbox.js"
 			],
 			"styles": [
-				"styles/jquery.splitter.css"
+				"lib/jquery.splitter/jquery.splitter.css",
+				"styles/sandbox.css"
 			],
 			"dependencies": [
 				"jquery.throttle-debounce",
@@ -100,7 +99,7 @@
 				"ext.codeEditor",
 				"ext.graph.vega2"
 			],
-			"messages": [ "ok", "editwarning-warning" ],
+			"messages": [ "editwarning-warning" ],
 			"targets": [ "desktop" ]
 		},
 		"ext.graph.visualEditor": {
@@ -166,14 +165,11 @@
 		"remoteExtPath": "Graph"
 	},
 	"Hooks": {
-		"ContentHandlerDefaultModelFor": [
-			"Graph\\Singleton::onContentHandlerDefaultModelFor"
-		],
 		"ParserFirstCallInit": [
-			"Graph\\Singleton::onParserFirstCallInit"
+			"Graph\\Hooks::onParserFirstCallInit"
 		],
 		"ParserAfterParse": [
-			"Graph\\Singleton::onParserAfterParse"
+			"Graph\\Hooks::onParserAfterParse"
 		],
 		"ResourceLoaderTestModules": [
 			"Graph\\Hooks::onResourceLoaderTestModules"
@@ -184,7 +180,7 @@
 	],
 	"config": {
 		"GraphAllowedDomains": {},
-		"GraphDefaultVegaVer": 1,
+		"GraphDefaultVegaVer": 2,
 		"GraphIsTrusted": false,
 		"GraphImgServiceUrl": false
 	},
@@ -199,5 +195,8 @@
 	"ExtensionMessagesFiles": {
 		"GraphAliases": "Graph.alias.php"
 	},
+	"ParserTestFiles": [
+		"tests/parserTests.txt"
+	],
 	"manifest_version": 1
 }

@@ -4,15 +4,13 @@
  */
 
 /**
- * Extends ResourceLoaderUserModule (Module for user-specific site customizations).
- * This differs from the user module as we currently do not load User's
- * common.js or user common.css as these predate Minerva and may be broken.
+ * Alternative of ResourceLoaderUserModule for mobile web.
+ * Differs from the user module by not loading common.js,
+ * which predate Minerva and may be incompatible.
  */
 class MobileUserModule extends ResourceLoaderUserModule {
-	/** @var array Sets the target for the module (e.g. desktop and mobile).
-	 * Note this is mobile only as core already has an instance of ResourceLoaderUserModule
-	 */
-	protected $targets = array( 'mobile' );
+	// Should not be enabled on desktop which loads 'user' instead
+	protected $targets = [ 'mobile' ];
 
 	/**
 	 * Gets list of pages used by this module.
@@ -21,10 +19,9 @@ class MobileUserModule extends ResourceLoaderUserModule {
 	 */
 	protected function getPages( ResourceLoaderContext $context ) {
 		$pages = parent::getPages( $context );
-		// Remove $userpage/common.js and $userpage/common.css since those are typically
-		// intended for non-mobile interfaces.
+		// Remove $userpage/common.js
 		foreach ( array_keys( $pages ) as $key ) {
-			if ( preg_match( '/common\.(js|css)/', $key ) ) {
+			if ( preg_match( '/common\.js/', $key ) ) {
 				unset( $pages[$key] );
 			}
 		}

@@ -7,8 +7,8 @@
 		WatchstarPageList = M.require( 'mobile.pagelist.scripts/WatchstarPageList' ),
 		SEARCH_DELAY = 300,
 		$html = $( 'html' ),
-		router = M.require( 'mobile.startup/router' ),
-		feedbackLink = mw.config.get( 'wgCirrusSearchFeedbackLink' );
+		feedbackLink = mw.config.get( 'wgCirrusSearchFeedbackLink' ),
+		isBeta = M.require( 'mobile.context/context' ).isBetaGroupMember();
 
 	/**
 	 * Overlay displaying search results
@@ -23,25 +23,28 @@
 		this.api = options.api;
 		this.gateway = new options.gatewayClass( this.api );
 
+		this.router = options.router;
 		// FIXME: Remove when search registers route with overlay manager
 		// we need this because of the focus/delay hack in search.js
-		router.once( 'route', function () {
+		this.router.once( 'route', function () {
 			self._hideOnRoute();
 		} );
 	}
 
 	OO.mfExtend( SearchOverlay, Overlay, {
+		isBorderBox: false,
 		templatePartials: $.extend( {}, Overlay.prototype.templatePartials, {
-			anchor: Anchor.prototype.template,
+			header: mw.template.get( 'mobile.search', 'header.hogan' ),
+			content: mw.template.get( 'mobile.search', 'content.hogan' ),
 			icon: Icon.prototype.template
 		} ),
 		className: 'overlay search-overlay',
-		template: mw.template.get( 'mobile.search', 'SearchOverlay.hogan' ),
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
 		 * @cfg {SearchGateway} defaults.gatewayClass The class to use to setup an API gateway.
 		 *  FIXME: Should be removed when wikidata descriptions in stable (T101719)
+		 * @cfg {Router} defaults.router instance
 		 * @cfg {Object} defaults.clearIcon options for the button that clears the search text.
 		 * @cfg {Object} defaults.searchContentIcon options for the button that allows you to search within content
 		 * @cfg {String} defaults.searchTerm Search text.
@@ -61,6 +64,7 @@
 			clearIcon: new Icon( {
 				tagName: 'button',
 				name: 'clear',
+				isSmall: true,
 				label: mw.msg( 'mobile-frontend-clear-search' ),
 				additionalClassNames: 'clear'
 			} ).options,
@@ -80,7 +84,8 @@
 					href: feedbackLink
 				} ).options,
 				prompt: mw.msg( 'mobile-frontend-search-feedback-prompt' )
-			}
+			},
+			isBeta: isBeta
 		} ),
 		/**
 		 * @inheritdoc
@@ -104,7 +109,7 @@
 		 */
 		_hideOnRoute: function () {
 			var self = this;
-			router.once( 'route', function ( ev ) {
+			this.router.once( 'route', function ( ev ) {
 				if ( !self.hide() ) {
 					ev.preventDefault();
 					self._hideOnRoute();
@@ -133,7 +138,6 @@
 		 * are displayed.)
 		 */
 		onInputInput: function () {
-			this.$( '.overlay-header-container' ).css( 'top', 0 );
 			this.performSearch();
 			this.$clear.toggle( this.$input.val() !== '' );
 		},
@@ -145,6 +149,9 @@
 			this.$input.val( '' ).focus();
 			this.performSearch();
 			this.$clear.hide();
+			// In beta the clear button is on top of the search input.
+			// Stop propagation so that the input doesn't receive the click.
+			return false;
 		},
 
 		/**
@@ -221,21 +228,15 @@
 
 			// FIXME: ugly hack that removes search from browser history when navigating to search results
 			ev.preventDefault();
-			router.back().done( function () {
+			this.router.back().done( function () {
 				window.location.href = $link.attr( 'href' );
 			} );
 		},
 
 		/** @inheritdoc */
 		postRender: function () {
-			var self = this;
-
-			// Make sure search overlay lines up with search header when the overlay is
-			// rendered. This is necessary to prevent bug 67140 while sitenotices are
-			// displayed.
-			this.$( '.overlay-header-container' ).css( 'top', $( '.header' ).offset().top );
-			// No search happening by default
-			this.$( '.spinner' ).hide();
+			var self = this,
+				timer;
 
 			Overlay.prototype.postRender.call( this );
 
@@ -243,6 +244,41 @@
 			this.$clear = this.$( '.clear' );
 			this.$searchContent = this.$( '.search-content' ).hide();
 			this.$searchFeedback = this.$( '.search-feedback' ).hide();
+			this.$resultContainer = this.$( '.results' );
+
+			/**
+			 * Hide the spinner and abort timed spinner shows.
+			 * @ignore
+			 */
+			function clearSearch() {
+				self.$spinner.hide();
+				clearTimeout( timer );
+			}
+
+			if ( isBeta ) {
+				// Show a spinner on top of search results
+				this.$spinner = this.$( '.spinner-container' );
+				M.on( 'search-start', function ( searchData ) {
+					if ( timer ) {
+						clearSearch();
+					}
+					timer = setTimeout( function () {
+						self.$spinner.show();
+					}, 2000 - searchData.delay );
+				} );
+				M.on( 'search-results', clearSearch );
+			} else {
+				// Show a spinner in place search results
+				this.$spinner = this.$( '.spinner' );
+				M.on( 'search-start', function () {
+					self.resetSearch();
+					self.$spinner.show();
+				} );
+				M.on( 'search-results', function () {
+					self.$searchFeedback.show();
+					self.$spinner.hide();
+				} );
+			}
 
 			// Hide the clear button if the search input is empty
 			if ( self.$input.val() === '' ) {
@@ -296,7 +332,7 @@
 				api = this.api,
 				pageList,
 				query = this.$input.val(),
-				$resultContainer = this.$( '.results' );
+				delay = this.gateway.isCached( query ) ? 0 : SEARCH_DELAY;
 
 			// it seems the input event can be fired when virtual keyboard is closed
 			// (Chrome for Android)
@@ -305,43 +341,39 @@
 					self._pendingQuery.abort();
 				}
 				clearTimeout( this.timer );
-				self.$searchContent.hide();
-				self.$searchFeedback.hide();
-				$resultContainer.empty();
 
 				if ( query.length ) {
-					this.$( '.spinner' ).show();
-
 					this.timer = setTimeout( function () {
-
-						// FIXME: The query might be useful here, bit it ain't necessary right now.
 						/**
 						 * @event search-start Fired immediately before the search API request is
 						 *  sent
+						 * @property {Object} data related to the current search
 						 */
-						M.emit( 'search-start' );
+						M.emit( 'search-start', {
+							query: query,
+							delay: delay
+						} );
 
 						self._pendingQuery = self.gateway.search( query ).done( function ( data ) {
 							// check if we're getting the rights response in case of out of
 							// order responses (need to get the current value of the input)
 							if ( data.query === self.$input.val() ) {
 								self.$el.toggleClass( 'no-results', data.results.length === 0 );
-								self.$searchFeedback.show();
 								self.$searchContent
 									.show()
 									.find( 'p' )
 									.hide()
 									.filter( data.results.length ? '.with-results' : '.without-results' )
 									.show();
-								self.$( '.spinner' ).hide();
+
 								pageList = new WatchstarPageList( {
 									api: api,
 									funnel: 'search',
 									pages: data.results,
-									el: $resultContainer
+									el: self.$resultContainer
 								} );
 
-								self.$results = $resultContainer.find( 'li' );
+								self.$results = self.$resultContainer.find( 'li' );
 
 								/**
 								 * @event search-results Fired when search API returns results
@@ -354,13 +386,24 @@
 								} );
 							}
 						} );
-					}, this.gateway.isCached( query ) ? 0 : SEARCH_DELAY );
+					}, delay );
 				} else {
-					self.$( '.spinner' ).hide();
+					self.resetSearch();
 				}
 
 				this.lastQuery = query;
 			}
+		},
+		/**
+		 * Clear results
+		 *
+		 * @private
+		 */
+		resetSearch: function () {
+			this.$spinner.hide();
+			this.$searchContent.hide();
+			this.$searchFeedback.hide();
+			this.$resultContainer.empty();
 		}
 	} );
 

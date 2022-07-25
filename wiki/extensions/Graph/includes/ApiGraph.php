@@ -47,28 +47,28 @@ class ApiGraph extends ApiBase {
 	}
 
 	public function getAllowedParams() {
-		return array(
-			'hash' => array(
+		return [
+			'hash' => [
 				ApiBase::PARAM_TYPE => 'string',
-			),
-			'title' => array(
+			],
+			'title' => [
 				ApiBase::PARAM_TYPE => 'string',
-			),
-			'text' => array(
+			],
+			'text' => [
 				ApiBase::PARAM_TYPE => 'string',
-			),
-		);
+			],
+		];
 	}
 
 	protected function getExamplesMessages() {
-		return array(
+		return [
 			'formatversion=2&action=graph&title=Extension%3AGraph%2FDemo&hash=1533aaad45c733dcc7e07614b54cbae4119a6747'
 				=> 'apihelp-graph-example',
-		);
+		];
 	}
 
 	/**
-	 * Get graph definition with title and hash
+	 * Parse graph definition that may contain wiki markup into pure json
 	 * @param string $text
 	 * @return string
 	 */
@@ -78,7 +78,15 @@ class ApiGraph extends ApiBase {
 		$text = $wgParser->getFreshParser()->preprocess( $text, $title, new ParserOptions() );
 		$st = FormatJson::parse( $text );
 		if ( !$st->isOK() ) {
-			$this->dieUsage( 'Graph is not valid.', 'invalidtext' );
+			// Sometimes we get <graph ...> {...} </graph> as input. Try to strip <graph> tags
+			$count = 0;
+			$text = preg_replace( '/^\s*<graph[^>]*>(.*)<\/graph>\s*$/s', '$1', $text, 1, $count );
+			if ( $count === 1 ) {
+				$st = FormatJson::parse( $text );
+			}
+			if ( !$st->isOK() ) {
+				$this->dieUsage( 'Graph is not valid.', 'invalidtext' );
+			}
 		}
 		return $st->getValue();
 	}
@@ -90,22 +98,20 @@ class ApiGraph extends ApiBase {
 	 * @return string
 	 */
 	private function getFromStorage( $title, $hash ) {
-		/** @var $wgMemc \BagOStuff */
-		global $wgMemc;
-		$graph = $wgMemc->get( Singleton::makeCacheKey( $hash ) );
-		// NOTE: Very strange wgMemc feature: Even though we store the data structure into wgMemc
-		// by JSON-encoding and gzip-ing it, when we get it out it is already in the original form.
 
+		// NOTE: Very strange wgMemc feature: Even though we store the data structure into memcached
+		// by JSON-encoding and gzip-ing it, when we get it out it is already in the original form.
+		$graph = Store::getFromCache( $hash );
 		if ( !$graph ) {
 			$title = Title::newFromText( $title );
 			if ( !$title || !$title->exists() || !$title->userCan( 'read', $this->getUser() ) ) {
 				$this->dieUsage( 'Invalid title given.', 'invalidtitle' );
 			}
 
-			$ppValue = $this->getDB()->selectField( 'page_props', 'pp_value', array(
+			$ppValue = $this->getDB()->selectField( 'page_props', 'pp_value', [
 				'pp_page' => $title->getArticleID(),
 				'pp_propname' => 'graph_specs',
-			), __METHOD__ );
+			], __METHOD__ );
 
 			if ( $ppValue ) {
 				// Copied from TemplateDataBlob.php:newFromDatabase()

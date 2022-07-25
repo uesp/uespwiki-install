@@ -1,0 +1,5 @@
+.uesp_gamemap_iframe {
+	width: 100%;
+	height: calc(100vh - (150px));
+	min-height: 400px;
+}

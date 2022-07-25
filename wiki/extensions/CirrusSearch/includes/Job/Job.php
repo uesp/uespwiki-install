@@ -4,8 +4,10 @@ namespace CirrusSearch\Job;
 
 use CirrusSearch\Connection;
 use CirrusSearch\Updater;
+use CirrusSearch\SearchConfig;
 use Job as MWJob;
 use JobQueueGroup;
+use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use Title;
 
@@ -34,6 +36,11 @@ abstract class Job extends MWJob {
 	protected $connection;
 
 	/**
+	 * @var SearchConfig
+	 */
+	protected $searchConfig;
+
+	/**
 	 * @var bool should we retry if this job failed
 	 */
 	private $allowRetries = true;
@@ -45,9 +52,9 @@ abstract class Job extends MWJob {
 	 * @param array $params
 	 */
 	public function __construct( $title, $params ) {
-		$params += array( 'cluster' => null );
+		$params += [ 'cluster' => null ];
 		// eg: DeletePages -> cirrusSearchDeletePages
-		$jobName = 'cirrusSearch' . str_replace( 'CirrusSearch\\Job\\', '', get_class( $this ) );
+		$jobName = 'cirrusSearch' . str_replace( 'CirrusSearch\\Job\\', '', static::class );
 		parent::__construct( $jobName, $title, $params );
 
 		// All CirrusSearch jobs are reasonably expensive.  Most involve parsing and it
@@ -56,13 +63,13 @@ abstract class Job extends MWJob {
 		// data.  Luckily, this is how the JobQueue implementations work.
 		$this->removeDuplicates = true;
 
-		$config = MediaWikiServices::getInstance()
+		$this->searchConfig = MediaWikiServices::getInstance()
 			->getConfigFactory()
 			->makeConfig( 'CirrusSearch' );
 		// When the 'cluster' parameter is provided the job must only operate on
 		// the specified cluster, take special care to ensure nested jobs get the
 		// correct cluster set.  When set to null all clusters should be written to.
-		$this->connection = Connection::getPool( $config, $params['cluster'] );
+		$this->connection = Connection::getPool( $this->searchConfig, $params['cluster'] );
 	}
 
 	public function setConnection( Connection $connection ) {
@@ -87,11 +94,13 @@ abstract class Job extends MWJob {
 			unset( $wgPoolCounterConf['CirrusSearch-Search'] );
 		}
 
-		$ret = $this->doJob();
-
-		// Restore the pool counter settings in case other jobs need them
-		if ( $backupPoolCounterSearch ) {
-			$wgPoolCounterConf['CirrusSearch-Search'] = $backupPoolCounterSearch;
+		try {
+			$ret = $this->doJob();
+		} finally {
+			// Restore the pool counter settings in case other jobs need them
+			if ( $backupPoolCounterSearch ) {
+				$wgPoolCounterConf['CirrusSearch-Search'] = $backupPoolCounterSearch;
+			}
 		}
 
 		return $ret;
@@ -128,11 +137,11 @@ abstract class Job extends MWJob {
 	 * @return Updater
 	 */
 	protected function createUpdater() {
-		$flags = array();
+		$flags = [];
 		if ( isset( $this->params['cluster'] ) ) {
 			$flags[] = 'same-cluster';
 		}
-		return new Updater( $this->connection, $flags );
+		return new Updater( $this->connection, $this->searchConfig, $flags );
 	}
 
 	/**
@@ -152,5 +161,52 @@ abstract class Job extends MWJob {
 	 */
 	protected function setAllowRetries( $allowRetries ) {
 		$this->allowRetries = $allowRetries;
+	}
+
+	/**
+	 * @param int $retryCount The number of times the job has errored out.
+	 * @return int Number of seconds to delay. With the default minimum exponent
+	 *  of 6 the possible return values are  64, 128, 256, 512 and 1024 giving a
+	 *  maximum delay of 17 minutes.
+	 */
+	public static function backoffDelay( $retryCount ) {
+		global $wgCirrusSearchWriteBackoffExponent;
+		return ceil( pow( 2, $wgCirrusSearchWriteBackoffExponent + rand(0, min( $retryCount, 4 ) ) ) );
+	}
+
+	/**
+	 * Construct the list of connections suited for this job.
+	 * NOTE: only suited for jobs that work on multiple clusters by
+	 * inspecting the 'cluster' job param
+	 *
+	 * @return Connection[] indexed by cluster name
+	 */
+	protected function decideClusters() {
+		$cluster = isset ( $this->params['cluster'] ) ? $this->params['cluster'] : null;
+		if ( $cluster === null ) {
+			$conns = Connection::getWritableClusterConnections( $this->searchConfig );
+		} else {
+			if ( !$this->searchConfig->canWriteToCluster( $cluster ) ) {
+				// Just in case a job is present in the queue but its cluster
+				// has been removed from the config file.
+				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
+					"Received {command} job for unwritable cluster {cluster}",
+					[
+						'command' => $this->command,
+						'cluster' =>  $cluster
+					]
+				);
+				// this job does not allow retries so we just need to throw an exception
+				throw new \RuntimeException( "Received {$this->command} job for an unwritable cluster $cluster." );
+			}
+			$conns = [ $cluster => Connection::getPool( $this->searchConfig, $cluster ) ];
+		}
+
+		$timeout = $this->searchConfig->get( 'CirrusSearchClientSideUpdateTimeout' );
+		foreach ( $conns as $connection ) {
+			$connection->setTimeout( $timeout );
+		}
+
+		return $conns;
 	}
 }

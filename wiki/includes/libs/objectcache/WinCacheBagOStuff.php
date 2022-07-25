@@ -51,11 +51,7 @@ class WinCacheBagOStuff extends BagOStuff {
 		return true;
 	}
 
-	public function merge( $key, $callback, $exptime = 0, $attempts = 10, $flags = 0 ) {
-		if ( !is_callable( $callback ) ) {
-			throw new InvalidArgumentException( "Got invalid callback." );
-		}
-
+	public function merge( $key, callable $callback, $exptime = 0, $attempts = 10, $flags = 0 ) {
 		if ( wincache_lock( $key ) ) { // optimize with FIFO lock
 			$ok = $this->mergeViaLock( $key, $callback, $exptime, $attempts, $flags );
 			wincache_unlock( $key );

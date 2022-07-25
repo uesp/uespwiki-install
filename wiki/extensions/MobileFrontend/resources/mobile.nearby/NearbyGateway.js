@@ -1,7 +1,8 @@
 ( function ( M, $ ) {
 	var limit = 50,
 		Page = M.require( 'mobile.startup/Page' ),
-		ns = mw.config.get( 'wgMFContentNamespace' );
+		ns = mw.config.get( 'wgMFContentNamespace' ),
+		extendSearchParams = M.require( 'mobile.search.util/extendSearchParams' );
 
 	/**
 	 * FIXME: Api should surely know this and return it in response to save us the hassle
@@ -59,14 +60,13 @@
 		 * @return {String} message stating how far the user is from the point of interest.
 		 */
 		_distanceMessage: function ( d ) {
-			var msg = 'mobile-frontend-nearby-distance';
 			if ( d < 1 ) {
 				d *= 100;
 				d = Math.ceil( d ) * 10;
 				if ( d === 1000 ) {
 					d = 1;
 				} else {
-					msg = 'mobile-frontend-nearby-distance-meters';
+					return mw.msg( 'mobile-frontend-nearby-distance-meters', mw.language.convertNumber( d ) );
 				}
 			} else {
 				if ( d > 2 ) {
@@ -79,7 +79,7 @@
 					d = d.toFixed( 2 );
 				}
 			}
-			return mw.msg( msg, mw.language.convertNumber( d ) );
+			return mw.msg( 'mobile-frontend-nearby-distance', mw.language.convertNumber( d ) );
 		},
 		/**
 		 * Returns a list of pages around a given point
@@ -122,16 +122,15 @@
 				d = $.Deferred(),
 				self = this;
 
-			requestParams = {
+			requestParams = extendSearchParams( 'nearby', {
 				colimit: 'max',
-				prop: [ 'coordinates' ].concat( mw.config.get( 'wgMFQueryPropModules' ) ),
+				prop: [ 'coordinates' ],
 				generator: 'geosearch',
 				ggsradius: range,
 				ggsnamespace: ns,
 				ggslimit: limit,
 				formatversion: 2
-			};
-			$.extend( requestParams, params, mw.config.get( 'wgMFSearchAPIParams' ) );
+			}, params );
 
 			this.api.ajax( requestParams ).then( function ( resp ) {
 				var pages;

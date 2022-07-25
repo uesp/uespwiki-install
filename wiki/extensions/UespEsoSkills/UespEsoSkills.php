@@ -82,11 +82,10 @@ $wgResourceModules['ext.EsoSkills.styles'] = array(
 $wgResourceModules['ext.EsoSkills.scripts'] = array(
 	'position' => 'top',
 	//'scripts' => array( 'jquery-ui.min.js', 'jquery.ui.touch-punch.min.js', 'esoskills.js', 'esocp_simple.js' ),
-	'scripts' => array( 'esoskills.js', 'esocp_simple.js' ),
+	'scripts' => array( 'esoskills.js', 'esocp_simple.js', 'esoSkillTooltips.js' ),
 	'localBasePath' => '/home/uesp/esolog.static/resources/',
 	'remoteBasePath' => '//esolog-static.uesp.net/resources/',
 	'targets' => array( 'desktop', 'mobile' ),
-	//'dependencies' => array ('jquery.ui.core', 'jquery.ui.mouse', 'jquery.ui.draggable', 'jquery.ui.touchPunch', 'jquery.ui.droppable'),
 	'dependencies' => array ('ext.EsoSkills.baseScripts'),
 );
 
@@ -114,7 +113,7 @@ function UespEsoSkillsParserInit(Parser $parser)
 	
 	$wgOut->addModules( array( 'ext.EsoSkills.scripts', 'ext.EsoSkills.scripts2', 'ext.EsoSkills.baseScripts' ) );
 	$wgOut->addModuleStyles( array( 'ext.EsoSkills.styles', 'ext.EsoSkills.styles2', 'ext.EsoSkills.baseStyles' ) );
-			
+	
 	$parser->setHook('esoskill', 'uespRenderEsoSkillTooltip');
 	return true;
 }
@@ -157,6 +156,7 @@ function uespRenderEsoSkillTooltip($input, array $args, Parser $parser, PPFrame 
 	$skillStamina = "";
 	$skillSpellDamage = "";
 	$skillWeaponDamage = "";
+	$skillShowThumb = "";
 	$skillShowAll = "1";
 	
 	foreach ($args as $name => $value)
@@ -206,6 +206,10 @@ function uespRenderEsoSkillTooltip($input, array $args, Parser $parser, PPFrame 
 			case "showall":
 				$skillShowAll = trim($value);
 				if ($skillShowAll == "") $skillShowAll = "1";
+				break;
+			case "thumb":
+				$skillShowThumb = trim($value);
+				if ($skillShowThumb == "" || $skillShowThumb == null) $skillShowThumb = "1";
 				break;
 		}
 	
@@ -284,6 +288,12 @@ function uespRenderEsoSkillTooltip($input, array $args, Parser $parser, PPFrame 
 	{
 		$attributes .= "showall='$skillShowAll' ";
 		$params .= "&showall=$skillShowAll";
+	}
+	
+	if ($skillShowThumb != "") 
+	{
+		$attributes .= "thumb='$skillShowThumb' ";
+		$params .= "&thumb=$skillShowThumb";
 	}
 	
 	$url = "/wiki/Special:EsoSkills?$params";

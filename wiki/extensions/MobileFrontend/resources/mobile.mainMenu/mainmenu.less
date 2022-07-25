@@ -1,16 +1,19 @@
 // Component of ui.less
 // FIXME: Move to components/
-@import "minerva.variables";
-@import "minerva.mixins";
+@import 'minerva.variables';
+@import 'minerva.mixins';
+
+/* stylelint-disable no-descending-specificity */
 
 /* Left menu */
-@menuBorder: 12px;
+@menuSectionPadding: 22px;
 @menuBorderColor: #252525;
-@menuLinkLineHeight: 22px;
+@menuLinkLineHeight: 24px;
 @menuItemFontSize: 1.2em;
+@menuItemBackgroundColor: @colorGray4;
 
 @pageLeftListDarkBorderColor: #3e3e3e;
-@pageLeftListMediumBorderColor: #5C5C5C;
+@pageLeftListMediumBorderColor: #5c5c5c;
 @pageLeftListLightBorderColor: #717171;
 
 #mw-mf-viewport {
@@ -26,22 +29,18 @@
 .main-menu-button {
 	&.indicator-circle {
 		overflow: initial;
-		&::after {
+		&:after {
 			content: '';
 			background-color: @colorProgressive;
-		  width: .65em;
-		  height: .65em;
-		  position: absolute;
-		  top: -0.4em;
-		  right: .6em;
-		  border-radius: .5em;
-		  border: solid .2em white;
+			width: 0.65em;
+			height: 0.65em;
+			position: absolute;
+			top: -0.4em;
+			right: 0.6em;
+			border: solid 0.2em #fff;
+			border-radius: 0.5em;
 		}
 	}
-}
-
-nav {
-	float: left;
 }
 
 // needs to be more specific than .overlay rules
@@ -50,70 +49,67 @@ nav {
 
 	height: 100%;
 	width: auto;
-	box-shadow: -5px 0 0 0 rgba(0, 0, 0, 0.3);
+	box-shadow: -5px 0 0 0 rgba( 0, 0, 0, 0.3 );
 }
 
 nav {
+	background-color: @primaryNavBackgroundColor;
+	float: left;
 	font-size: 90%;
 	min-height: 100%;
-	background: @mainMenuBackgroundColor;
-	border-left: solid @menuBorder @menuBorderColor;
-
 
 	.client-js & {
 		.secondary-action {
-			border: none;
+			border: 0;
 			position: absolute;
 			right: 0;
 			top: 0;
 			bottom: 0;
 			padding-right: 0;
-			border-left: 1px solid @colorGray7;
+			border-left: 1px solid @colorGray6;
 		}
 
 		.primary-action {
 			// 1px for the logout icon border-left
-			margin-right: @menuLinkLineHeight * 2 + 1;
+			margin-right: @iconSize + @iconGutterWidth * 2;
 		}
 	}
 
 	ul {
-		&:first-child {
-			border-bottom: @menuBorder solid @menuBorderColor;
+		padding-bottom: @menuSectionPadding;
 
+		&:first-child {
 			li:first-child {
-				border-top: none;
+				border-top: 0;
 			}
 		}
 
 		li {
 			position: relative; // ensure the logout link in beta can be position absolute
 			font-size: @menuItemFontSize;
-			border-top: 1px solid @colorGray7;
+			border-top: 1px solid @colorGray6;
+			// offset the border for the icon by 1px
+			margin-top: -1px;
+			background-color: @menuItemBackgroundColor;
 
-			&:hover {
-				background-color: @colorGray5;
-				margin-left: -@menuBorder;
-				a {
-					border-left: solid @menuBorder #3366BB;
-				}
-			}
-			&:last-child {
-				border-bottom: 1px solid @colorGray7;
+			&:first-child {
+				border-top: 0;
 			}
 
 			a {
-				color: white;
+				color: #fff;
 				display: block;
-				padding: @menuLinkLineHeight / 2 10px @menuLinkLineHeight / 2 9px;
+				padding: @menuLinkLineHeight / 2 10px @menuLinkLineHeight / 2 15px;
 
 				&:hover {
+					background-color: @colorGray5;
+					box-shadow: inset 4px 0 0 0 @colorProgressive;
 					text-decoration: none;
 				}
 
 				&:visited,
 				&:active {
-					color: white;
+					color: #fff;
 				}
 			}
 		}
@@ -122,13 +118,18 @@ nav {
 			li {
 				font-size: 0.8em;
 				margin: 0;
-				border: none;
+				border: 0;
+				background-color: transparent;
 
 				a {
 					color: @colorGray12;
-					border: none;
-					padding: .7em 12px;
+					border: 0;
+					padding: 0.7em 12px;
 					margin-left: 0;
+
+					&:hover {
+						box-shadow: none;
+					}
 				}
 			}
 		}
@@ -155,7 +156,7 @@ body.navigation-enabled {
 		left: @menuWidth;
 		// set border here (nav doesn't expand height)
 		border-left: solid 1px #000;
-		box-shadow: -5px 0 0 0 rgba(0, 0, 0, 0.1);
+		box-shadow: -1px 0 3px 0 rgba( 0, 0, 0, 0.3 );
 	}
 
 	.navigation-drawer,
@@ -170,14 +171,7 @@ body.navigation-enabled {
 }
 
 .primary-navigation-enabled {
-	// set background and border here (nav doesn't expand height
-	// and #mw-mf-viewport has overflow: hidden and clips blue hover borders)
-	border-left: solid @menuBorder @menuBorderColor;
-	background: @mainMenuBackgroundColor;
-
-	#mw-mf-viewport {
-		margin-left: -@menuBorder;
-	}
+	background-color: @primaryNavBackgroundColor;
 
 	nav {
 		width: @menuWidth;
@@ -189,7 +183,7 @@ body.navigation-enabled {
 	}
 }
 
-@media all and (min-width: @deviceWidthTablet) {
+@media all and ( min-width: @deviceWidthTablet ) {
 	@rightDrawerLeftOffset: 100% - @rightDrawerWidth;
 	.secondary-navigation-enabled {
 		#mw-mf-page-center {
@@ -208,27 +202,23 @@ body.navigation-enabled {
 }
 
 // animated version
-@duration: .25s;
+@duration: 0.25s;
 @easing: ease-in-out;
 
 // FIXME: Cleanup animation css
 .animations {
-
 	#mw-mf-page-center {
 		min-height: 100%;
-		// We need to ensure the content has a white background - otherwise it will
-		// overlap the menu during the main menu reveal/hide animation
-		background-color: #fff;
 
 		// *2 to avoid weird glitch of left nav flickering after closing
-		@transition: @duration @easing, height 0s (@duration*2);
-		.transition-transform(@transition);
+		@transition: @duration @easing, height 0s ( @duration * 2 );
+		.transition-transform( @transition );
 	}
 
 	nav {
 		width: @menuWidth;
 
-		.transition(visibility 0s @duration);
+		.transition( visibility 0s @duration );
 	}
 
 	// FIXME: Make animations a conditional class on the drawer itself
@@ -236,21 +226,20 @@ body.navigation-enabled {
 		display: block;
 
 		// +2% to accommodate for the border/box-shadow
-		.transform(translate(102%, 0));
-		.transition-transform(@duration @easing, visibility 0s @duration;);
+		.transform( translate( 102%, 0 ) );
+		.transition-transform( @duration @easing, visibility 0s @duration; );
 
 		&.visible {
-			.transform(translate(0, 0));
+			.transform( translate( 0, 0 ) );
 		}
 	}
 }
-
 
 .navigation-enabled.animations {
 	// FIXME: Menu shouldn't need to know about drawers but a cta drawer might be open
 	.drawer .position-fixed,
 	#mw-mf-page-center {
-		.transition-transform(@duration @easing);
+		.transition-transform( @duration @easing );
 	}
 }
 
@@ -260,14 +249,14 @@ body.navigation-enabled {
 	#mw-mf-page-center {
 		// override non-animated version
 		left: 0 !important;
-		.transform(translate(@menuWidth, 0));
+		.transform( translate( @menuWidth, 0 ) );
 	}
 
 	nav {
 		// make menu scrollable when open (on small screens)
 		position: static;
 
-		.transition(none);
+		.transition( none );
 	}
 }
 
@@ -275,7 +264,7 @@ body.navigation-enabled {
 	#mw-mf-page-center {
 		// override non-animated version
 		left: 0 !important;
-		.transform(translate(-@rightDrawerWidth, 0));
+		.transform( translate( -@rightDrawerWidth, 0 ) );
 		width: 100%;
 	}
 }
@@ -284,10 +273,10 @@ body.navigation-enabled {
 	// FIXME: Make animations a conditional class on the drawer itself
 	.animations .notifications-overlay.navigation-drawer {
 		// +2% to accommodate for the border/box-shadow
-		.transform(translate(-102%, 0));
+		.transform( translate( -102%, 0 ) );
 
 		&.visible {
-			.transform(translate(0, 0));
+			.transform( translate( 0, 0 ) );
 		}
 	}
 
@@ -295,13 +284,13 @@ body.navigation-enabled {
 		// FIXME: Menu shouldn't need to know about drawers
 		.drawer .position-fixed,
 		#mw-mf-page-center {
-			.transform(translate(-@menuWidth, 0));
+			.transform( translate( -@menuWidth, 0 ) );
 		}
 	}
 
 	&.secondary-navigation-enabled.animations {
 		#mw-mf-page-center {
-			.transform(translate(@rightDrawerWidth, 0));
+			.transform( translate( @rightDrawerWidth, 0 ) );
 		}
 	}
 }

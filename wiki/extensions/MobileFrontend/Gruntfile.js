@@ -1,12 +1,13 @@
 // jscs:disable jsDoc
 /*jshint node:true, strict:false */
 module.exports = function ( grunt ) {
-	grunt.loadNpmTasks( 'grunt-contrib-jshint' );
-	grunt.loadNpmTasks( 'grunt-jsonlint' );
-	grunt.loadNpmTasks( 'grunt-jscs' );
-	grunt.loadNpmTasks( 'grunt-contrib-watch' );
-	grunt.loadNpmTasks( 'grunt-notify' );
 	grunt.loadNpmTasks( 'grunt-banana-checker' );
+	grunt.loadNpmTasks( 'grunt-contrib-jshint' );
+	grunt.loadNpmTasks( 'grunt-contrib-watch' );
+	grunt.loadNpmTasks( 'grunt-jscs' );
+	grunt.loadNpmTasks( 'grunt-jsonlint' );
+	grunt.loadNpmTasks( 'grunt-notify' );
+	grunt.loadNpmTasks( 'grunt-stylelint' );
 
 	grunt.initConfig( {
 		jshint: {
@@ -23,6 +24,10 @@ module.exports = function ( grunt ) {
 			}
 		},
 		jscs: {
+			options: {
+				config: '.jscsrc',
+				fix: true
+			},
 			main: [
 				'**/*.js',
 				'!tests/qunit/**'
@@ -35,6 +40,15 @@ module.exports = function ( grunt ) {
 					src: 'tests/qunit/**/*.js'
 				}
 			}
+		},
+		stylelint: {
+			options: {
+				syntax: 'less'
+			},
+			all: [
+				'minerva.less/**/*.less',
+				'resources/**/*.less'
+			]
 		},
 		watch: {
 			lint: {
@@ -64,7 +78,7 @@ module.exports = function ( grunt ) {
 		}
 	} );
 
-	grunt.registerTask( 'lint', [ 'jshint', 'jscs', 'jsonlint', 'banana' ] );
+	grunt.registerTask( 'lint', [ 'jshint', 'jscs', 'jsonlint', 'stylelint', 'banana' ] );
 	grunt.registerTask( 'test', [ 'lint' ] );
 
 	grunt.registerTask( 'default', [ 'test' ] );

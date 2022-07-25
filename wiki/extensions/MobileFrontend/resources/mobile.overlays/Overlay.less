@@ -1,11 +1,11 @@
-@import "minerva.variables";
-@import "minerva.mixins";
-@import "mediawiki.ui/variables";
+@import 'minerva.variables';
+@import 'minerva.mixins';
+@import 'mediawiki.ui/variables';
 
-@contentHeaderBorderColor: #e2e2e2;
+/* stylelint-disable no-descending-specificity */
 
 .mw-ui-icon-back {
-	.m-background-image('back-ltr.png');
+	.m-background-image( 'back-ltr.png' );
 }
 
 .content-overlay {
@@ -97,7 +97,7 @@
 //          <li><button class="cancel icon">Close</button></li>
 //         </ul>
 //         <div class="overlay-title"><h2>Overlay</h2></div>
-//         <div class="overlay-action"><button class="submit">Submit</button></div>
+//         <div class="header-action"><button class="submit">Submit</button></div>
 //       </div>
 //     </div>
 //     <div class="content">Overlay with completion action.</div>
@@ -120,20 +120,20 @@
 	}
 
 	input, textarea {
-		padding: .5em;
+		padding: 0.5em;
 	}
 
 	// FIXME: Use generic class for these input fields - can't use .panel currently due to LanguageOverlay
 	.captcha-word,
 	.summary {
-		margin: 0 0 .7em;
+		margin: 0 0 0.7em;
 		width: 100%;
 	}
 
 	.wikitext-editor {
 		min-height: 50%;
 		line-height: 1.5;
-		border: none;
+		border: 0;
 	}
 
 	.panel {
@@ -142,9 +142,9 @@
 	}
 
 	.license {
-		font-size: .9em;
+		font-size: 0.9em;
 		color: @grayMedium;
-		margin-top: .5em;
+		margin-top: 0.5em;
 		line-height: 1.4;
 	}
 
@@ -160,8 +160,8 @@
 	// Appears before the content providing an explanation of what follows
 	// Only used on overlays in beta (nearby pages)- may not want to push to stable
 	.content-header {
-		background: @searchBoxColorTo;
-		border-bottom: 1px solid @contentHeaderBorderColor;
+		background-color: @colorGray15;
+		border-bottom: 1px solid @colorGray14;
 		padding: 20px @contentMargin;
 		line-height: inherit;
 	}
@@ -186,29 +186,20 @@
 		> * {
 			position: absolute;
 			top: 50%;
-			margin-top: -50%
+			margin-top: -50%;
 		}
 	}
 }
 
 .overlay-header {
-	display: table;
-	width: 100%;
-	border-spacing: 0;
-	border-collapse: collapse;
 
 	.overlay-title {
 		// Expand the title as wide as possible to limit the size of the
-		// overlay-action. (Both are displayed as table-cells.)
+		// header-action. (Both are displayed as table-cells.)
 		width: 100%;
 	}
 
-	.overlay-title,
-	.overlay-search {
-		padding: .15em @headerTitlePaddingH 0;
-	}
-
-	.overlay-action {
+	.header-action {
 		a,
 		button {
 			display: table-cell;
@@ -230,18 +221,22 @@
 			}
 
 			&[disabled] {
-				opacity: .5;
+				opacity: 0.5;
+			}
+
+			&:focus {
+				outline: 0;
 			}
 		}
 	}
 
 	.continue {
-		color: white;
+		color: #fff;
 		background-color: @colorProgressive;
 	}
 
 	.submit {
-		color: white;
+		color: #fff;
 		background-color: @colorConstructive;
 	}
 
@@ -255,7 +250,7 @@
 			width: 1em;
 			display: table-cell;
 			// padding instead of spaces between words
-			padding-right: .4em;
+			padding-right: 0.4em;
 		}
 
 		span {
@@ -279,14 +274,6 @@
 	> ul, button {
 		width: @headerHeight;
 	}
-
-	.overlay-action a,
-	button {
-		min-height: @headerHeight;
-		&:focus {
-			outline: 0;
-		}
-	}
 }
 
 .overlay-header-container,
@@ -308,15 +295,19 @@
 
 .overlay-header-container {
 	top: 0;
-	border-bottom: 1px solid @grayLight;
+	border-bottom-color: @chromeContentSeparator;
+
+	&.header-chrome {
+		background-color: @chromeColor;
+	}
 }
 
 .overlay-footer-container {
-	background-color: #FFF;
+	background-color: #fff;
 	bottom: 0;
 	border-top: 1px solid @grayLight;
 
-	& a {
+	a {
 		display: block;
 		// The 1em bottom whitespace is applied as padding since Chrome and Safari ignore
 		// it otherwise. The 10px padding corresponds with the icon margin.
@@ -376,7 +367,7 @@
 	}
 }
 
-@media all and (min-width: @deviceWidthTablet) {
+@media all and ( min-width: @deviceWidthTablet ) {
 	.overlay {
 		.panel {
 			padding: 12px @contentPaddingTablet;
@@ -384,16 +375,10 @@
 	}
 }
 
-@media all and (min-width: @wgMFDeviceWidthDesktop) {
+@media all and ( min-width: @wgMFDeviceWidthDesktop ) {
 	.overlay-header {
-		.cancel {
-			// so that the icon image is aligned with the content
-			left: -@iconGutterWidth;
-		}
-		// Search input in the header
-		input.search {
-			// because we're pulling .main-menu-button to the left too (see above)
-			margin-left: -@iconGutterWidth;
-		}
+		// Make sure the close button and secondary button icon images are aligned
+		// with the content.
+		max-width: @contentMaxWidthTablet + ( 2 * @iconGutterWidth );
 	}
 }

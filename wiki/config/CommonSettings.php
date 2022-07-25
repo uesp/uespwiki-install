@@ -42,7 +42,7 @@ $wgSVGConverters['ImageMagick'] = '$path/convert -background "#ffffff00" -thumbn
 # $wgSVGConverters['ImageMagick'] = $wgImageMagickConvertCommand . ' -background "#ffffff00" -thumbnail $widthx$height\! $input PNG:$output';
 
 $wgHashedUploadDirectory = true;
-array_push($wgFileExtensions, 'ogg', 'zip', 'bmp', 'pcx', 'tga', 'svg', 'webm', 'webp');
+array_push($wgFileExtensions, 'ogg', 'zip', 'bmp', 'pcx', 'tga', 'apng', 'svg', 'webm', 'webp');
 $wgThumbnailEpoch = '20090624000000';
 $wgUseSharedUploads = false;
 
@@ -81,7 +81,7 @@ $wgDefaultSkin = 'uespmonobook';
 $wgDefaultUserOptions['thumbsize'] = 3; // thumb size 200
 $wgGalleryOptions['imageWidth'] = 200;
 $wgGalleryOptions['imageHeight'] = 200;
-// $wgGalleryOptions['mode'] = 'nolines';
+$wgGalleryOptions['mode'] = 'packed';
 
 $wgRightsPage = "UESPWiki:Copyright_and_Ownership";
 $wgRightsUrl = "http://creativecommons.org/licenses/by-sa/2.5/";
@@ -97,7 +97,7 @@ $wgFooterIcons['copyright']['copyright'] = array(
 $wgDiff3 = "/usr/bin/diff3";
 $wgExternalDiffEngine = "wikidiff2";
 
-$wgAccountCreationThrottle = 1;
+$wgAccountCreationThrottle = 2; // Workaround for possible 1.27 issue; can be reset to 1 for 1.28+.
 $wgAjaxSearch = true;
 $wgAllowUserCss = true;
 $wgAllowUserJs  = true;
@@ -107,6 +107,7 @@ $wgAutoConfirmCount = 10;
 $wgBlockAllowsUTEdit = true;
 $wgCookieDomain = ".uesp.net";
 $wgCookiePrefix = "uesp_net_wiki5"; # Don't change as it affects the session name used
+$wgObjectCacheSessionExpiry = 7*3600;
 $wgDisableCounters = true;
 $wgShowIPinHeader = false;
 $wgExpensiveParserFunctionLimit = 1000;
@@ -155,3 +156,4 @@ if ($uespIsDev)
 {
 	$wgUploadPath = "//dev.uesp.net/w/images";
 }
+

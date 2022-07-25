@@ -1,7 +1,7 @@
 <?php
 
 class TimedMediaTransformOutput extends MediaTransformOutput {
-	protected static $serial = 0;
+	private static $serial = 0;
 
 	// Video file sources object lazy init in getSources()
 	// TODO these vars should probably be private
@@ -14,6 +14,7 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	public $start;
 	public $end;
 	public $fillwindow;
+	protected $playerClass;
 
 	// The prefix for player ids
 	const PLAYER_ID_PREFIX = 'mwe_player_';
@@ -21,7 +22,7 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	function __construct( $conf ) {
 		$options = [ 'file', 'dstPath', 'sources', 'thumbUrl', 'start', 'end',
 			'width', 'height', 'length', 'offset', 'isVideo', 'path', 'fillwindow',
-			'sources', 'disablecontrols' ];
+			'sources', 'disablecontrols', 'playerClass' ];
 		foreach ( $options as $key ) {
 			if ( isset( $conf[ $key ] ) ) {
 				$this->$key = $conf[$key];
@@ -123,8 +124,6 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	 * @throws Exception
 	 */
 	function toHtml( $options = [] ) {
-		global $wgTmhWebPlayer;
-
 		if ( count( func_get_args() ) == 2 ) {
 			throw new Exception( __METHOD__ .' called in the old style' );
 		}
@@ -138,7 +137,7 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 			$this->width = $options['override-width'];
 		}
 
-		if ( $this->useImagePopUp() && $wgTmhWebPlayer === 'mwembed' ) {
+		if ( $this->useImagePopUp() && TimedMediaHandlerHooks::activePlayerMode() === 'mwembed' ) {
 			$res = $this->getImagePopUp();
 		} else {
 			$res = $this->getHtmlMediaTagOutput();
@@ -188,11 +187,8 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	function getImagePopUp() {
 		// pop up videos set the autoplay attribute to true:
 		$autoPlay = true;
-		$id = TimedMediaTransformOutput::$serial;
-		TimedMediaTransformOutput::$serial++;
-
 		return Xml::tags( 'div', [
-				'id' => self::PLAYER_ID_PREFIX . $id,
+				'id' => self::PLAYER_ID_PREFIX . TimedMediaTransformOutput::$serial++,
 				'class' => 'PopUpMediaTransform',
 				'style' => "width:" . $this->getPlayerWidth() . "px;",
 				'videopayload' => $this->getHtmlMediaTagOutput( $this->getPopupPlayerSize(), $autoPlay ),
@@ -289,14 +285,16 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 
 	/**
 	 * Call mediaWiki xml helper class to build media tag output from
-	 * supplied arrays
+	 * supplied arrays.
+	 *
+	 * This function is also called by the Score extension, in which case
+	 * there is no connection to a file object.
+	 *
 	 * @param $sizeOverride array
 	 * @param $autoPlay boolean sets the autoplay attribute
 	 * @return string
 	 */
 	function getHtmlMediaTagOutput( $sizeOverride = [], $autoPlay = false ) {
-		global $wgTmhWebPlayer;
-
 		// Try to get the first source src attribute ( usually this should be the source file )
 		$mediaSources = $this->getMediaSources();
 		reset( $mediaSources ); // do not rely on auto-resetting of arrays under HHVM
@@ -321,12 +319,26 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 			'framerate',
 			'disablecontrols',
 			'transcodekey',
+			'label',
+			'res',
 		];
 		foreach ( $mediaSources as &$source ) {
 			foreach ( $source as $attr => $val ) {
 				if ( in_array( $attr, $prefixedSourceAttr ) ) {
 					$source[ 'data-' . $attr ] = $val;
 					unset( $source[ $attr ] );
+				}
+			}
+		}
+		$mediaTracks = $this->file ? $this->getTextHandler()->getTracks() : [];
+		foreach ( $mediaTracks as &$track ) {
+			foreach ( $track as $attr => $val ) {
+				if ( $attr === 'title' || $attr === 'provider' ) {
+					$track[ 'data-mw' . $attr ] = $val;
+					unset( $track[ $attr ] );
+				} elseif ( $attr === 'dir' ) {
+					$track[ 'data-' . $attr ] = $val;
+					unset( $track[ $attr ] );
 				}
 			}
 		}
@@ -338,42 +350,24 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 			$width .= 'px';
 		}
 
-		if ( $wgTmhWebPlayer === 'videojs' ) {
-			// Build the video tag output:
-			$s = Html::rawElement( $this->getTagName(), $this->getMediaAttr( $sizeOverride, $autoPlay ),
-				// The set of media sources:
-				self::htmlTagSet( 'source', $mediaSources ) .
+		// Build the video tag output:
+		$s = Html::rawElement( $this->getTagName(), $this->getMediaAttr( $sizeOverride, $autoPlay ),
+			// The set of media sources:
+			self::htmlTagSet( 'source', $mediaSources ) .
 
-				// Timed text:
-				self::htmlTagSet( 'track',
-					$this->file ? $this->getTextHandler()->getTracks() : null ) .
+			// Timed text:
+			self::htmlTagSet( 'track', $mediaTracks )
+		);
 
-				// Fallback text displayed for browsers without js and without video tag support:
-				/// XXX note we may want to replace this with an image and download link play button
-				wfMessage( 'timedmedia-no-player-js', $firstSource['src'] )->text()
-			);
+		if ( TimedMediaHandlerHooks::activePlayerMode() === 'videojs' ) {
 			return $s;
 		} // else mwEmbed player
 
 		// Build the video tag output:
-		$s = Xml::tags( 'div', [
-				'class' => 'mediaContainer',
-				'style' => 'width:'. $width
-			],
-			Html::rawElement( $this->getTagName(), $this->getMediaAttr( $sizeOverride, $autoPlay ),
-				// The set of media sources:
-				self::htmlTagSet( 'source', $mediaSources ) .
-
-				// Timed text:
-				self::htmlTagSet( 'track',
-					$this->file ? $this->getTextHandler()->getTracks() : null ) .
-
-				// Fallback text displayed for browsers without js and without video tag support:
-				/// XXX note we may want to replace this with an image and download link play button
-				wfMessage( 'timedmedia-no-player-js', $firstSource['src'] )->text()
-			)
-		);
-		return $s;
+		return Xml::tags( 'div', [
+			'class' => 'mediaContainer',
+			'style' => 'width:'. $width
+		], $s );
 	}
 
 	/**
@@ -402,7 +396,7 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 	 * @return array
 	 */
 	function getMediaAttr( $sizeOverride = false, $autoPlay = false ) {
-		global $wgVideoPlayerSkin, $wgTmhWebPlayer;
+		global $wgVideoPlayerSkin;
 
 		// Normalize values
 		$length = floatval( $this->length );
@@ -410,9 +404,6 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 
 		$width = $sizeOverride ? $sizeOverride[0] : $this->getPlayerWidth();
 		$height = $sizeOverride ? $sizeOverride[1]: $this->getPlayerHeight();
-
-		// The poster url:
-		$posterUrl = $this->getUrl( $sizeOverride );
 
 		if ( $this->fillwindow ) {
 			$width = '100%';
@@ -422,12 +413,10 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 			$height .= 'px';
 		}
 
-		$id = TimedMediaTransformOutput::$serial;
-		TimedMediaTransformOutput::$serial++;
 		$mediaAttr = [
-			'id' => self::PLAYER_ID_PREFIX . $id,
+			'id' => self::PLAYER_ID_PREFIX . TimedMediaTransformOutput::$serial++,
 			// Get the correct size:
-			'poster' => $posterUrl,
+			'poster' => $this->getUrl( $sizeOverride ),
 
 			// Note we set controls to true ( for no-js players ) when mwEmbed rewrites the interface
 			// it updates the controls attribute of the embed video
@@ -441,18 +430,23 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 			$mediaAttr['autoplay'] = 'true';
 		}
 
-		if ( $wgTmhWebPlayer === 'videojs' ) {
-			$mediaAttr['class'] = 'video-js ' . $wgVideoPlayerSkin;
-			$mediaAttr['width'] = intval( $width );
+		if ( !$this->isVideo ) {
+			// audio element doesn't have poster attribute
+			unset( $mediaAttr[ 'poster' ] );
+		}
+
+		if ( TimedMediaHandlerHooks::activePlayerMode() === 'videojs' ) {
+			// Note: do not add 'video-js' class before the runtime transform!
+			$mediaAttr['class'] = $wgVideoPlayerSkin;
+			$mediaAttr['width'] = $this->fillwindow ? '100%' : intval( $width );
 			if ( $this->isVideo ) {
-				$mediaAttr['height'] = intval( $height );
+				$mediaAttr['height'] = $this->fillwindow ? '100%' : intval( $height );
 			} else {
 				unset( $mediaAttr['height'] );
-				unset( $mediaAttr['poster'] );
 			}
-
-			if ( $this->disablecontrols ) {
-				$mediaAttr[ 'controls' ] = false;
+			if ( $this->fillwindow ) {
+				$mediaAttr[ 'class' ] .= ' vjs-fluid';
+				$mediaAttr[ 'data-player' ] = 'fillwindow';
 			}
 		} else {
 			$mediaAttr['style'] = "width:{$width}";
@@ -463,10 +457,16 @@ class TimedMediaTransformOutput extends MediaTransformOutput {
 
 			// MediaWiki uses the kSkin class
 			$mediaAttr['class'] = 'kskin';
+		}
 
-			if ( $this->disablecontrols ) {
-				$mediaAttr[ 'data-disablecontrols' ] = $this->disablecontrols;
-			}
+		// Used by Score extension and to disable specific controls from wikicode
+		if ( $this->disablecontrols ) {
+			$mediaAttr[ 'data-disablecontrols' ] = $this->disablecontrols;
+		}
+
+		// Additional class-name provided by Transform caller
+		if ( $this->playerClass ) {
+			$mediaAttr[ 'class' ] .= ' ' . $this->playerClass;
 		}
 
 		if ( $this->file ) {

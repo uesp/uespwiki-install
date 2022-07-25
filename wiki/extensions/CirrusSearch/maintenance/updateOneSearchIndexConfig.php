@@ -3,7 +3,9 @@
 namespace CirrusSearch\Maintenance;
 
 use CirrusSearch\Connection;
-use CirrusSearch\ElasticsearchIntermediary;
+use CirrusSearch\ElasticaErrorHandler;
+use CirrusSearch\Maintenance\Metastore;
+use CirrusSearch\SearchConfig;
 use CirrusSearch\Util;
 use Elastica;
 
@@ -152,6 +154,8 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 
 	/**
 	 * @param Maintenance $maintenance
+	 * @suppress PhanAccessMethodProtected Phan incorrectly thinks we can't call protected methods
+	 *  on other Maintenance classes.
 	 */
 	public static function addSharedOptions( $maintenance ) {
 		$maintenance->addOption( 'startOver', 'Blow away the identified index and rebuild it with ' .
@@ -190,12 +194,13 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		$maintenance->addOption( 'justAllocation', 'Just validate the shard allocation settings.  Use ' .
 			"when you need to apply new cache warmers but want to be sure that you won't apply any other " .
 			'changes at an inopportune time.' );
+		$maintenance->addOption( 'fieldsToDelete', 'List of of comma separated field names to delete ' .
+			'while reindexing documents (defaults to empty)', false, true );
 		$maintenance->addOption( 'justMapping', 'Just try to update the mapping.' );
 	}
 
 	public function execute() {
-		global $wgPoolCounterConf,
-			$wgLanguageCode,
+		global $wgLanguageCode,
 			$wgCirrusSearchPhraseSuggestUseText,
 			$wgCirrusSearchPrefixSearchStartsWithAnyWord,
 			$wgCirrusSearchBannedPlugins,
@@ -204,17 +209,13 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 			$wgCirrusSearchRefreshInterval,
 			$wgCirrusSearchMasterTimeout;
 
-		// Make sure we don't flood the pool counter
-		unset( $wgPoolCounterConf['CirrusSearch-Search'] );
-
-		// Set the timeout for maintenance actions
-		$this->setConnectionTimeout();
+		$this->disablePoolCountersAndLogging();
 
 		$utils = new ConfigUtils( $this->getConnection()->getClient(), $this );
 
 		$this->indexType = $this->getOption( 'indexType' );
 		$this->startOver = $this->getOption( 'startOver', false );
-		$this->indexBaseName = $this->getOption( 'baseName', wfWikiID() );
+		$this->indexBaseName = $this->getOption( 'baseName', $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME ) );
 		$this->reindexAndRemoveOk = $this->getOption( 'reindexAndRemoveOk', false );
 		$this->reindexProcesses = $this->getOption( 'reindexProcesses', wfIsWindows() ? 1 : 5 );
 		$this->reindexAcceptableCountDeviation = Util::parsePotentialPercent(
@@ -271,8 +272,9 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 			$this->error( "Http error communicating with Elasticsearch:  $message.\n", 1 );
 		} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 			$type = get_class( $e );
-			$message = ElasticsearchIntermediary::extractMessage( $e );
-			$trace = $this->getExceptionTraceAsString( $e );
+			$message = ElasticaErrorHandler::extractMessage( $e );
+			/** @suppress PhanUndeclaredMethod ExceptionInterface has no methods */
+			$trace = $e->getTraceAsString();
 			$this->output( "\nUnexpected Elasticsearch failure.\n" );
 			$this->error( "Elasticsearch failed in an unexpected way.  This is always a bug in CirrusSearch.\n" .
 				"Error type: $type\n" .
@@ -291,9 +293,9 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	 *  maint class is being created
 	 */
 	private function updateVersions() {
-		$child = $this->runChild( 'CirrusSearch\Maintenance\UpdateVersionIndex' );
-		$child->mOptions['baseName'] = $this->indexBaseName;
-		$child->mOptions['update'] = true;
+		$child = $this->runChild( Metastore::class );
+		$child->mOptions['index-version-basename'] = $this->indexBaseName;
+		$child->mOptions['update-index-version'] = true;
 		$child->execute();
 		$child->done();
 	}
@@ -362,7 +364,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	 * @return \CirrusSearch\Maintenance\Validators\Validator[]
 	 */
 	private function getIndexSettingsValidators() {
-		$validators = array();
+		$validators = [];
 		$validators[] = new \CirrusSearch\Maintenance\Validators\NumberOfShardsValidator( $this->getIndex(), $this->getShardCount(), $this );
 		$validators[] = new \CirrusSearch\Maintenance\Validators\ReplicaRangeValidator( $this->getIndex(), $this->getReplicaCount(), $this );
 		$validators[] = $this->getShardAllocationValidator();
@@ -396,7 +398,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 			$this->optimizeIndexForExperimentalHighlighter,
 			$this->availablePlugins,
 			$this->getMappingConfig(),
-			array( 'page' => $this->getPageType(), 'namespace' => $this->getNamespaceType() ),
+			[ 'page' => $this->getPageType(), 'namespace' => $this->getNamespaceType() ],
 			$this
 		);
 		$validator->printDebugCheckConfig( $this->printDebugCheckConfig );
@@ -418,21 +420,20 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	 * Validate the alias that is just for this index's type.
 	 */
 	private function validateSpecificAlias() {
-		global $wgCirrusSearchMaintenanceTimeout;
-
 		$connection = $this->getConnection();
 
 		$reindexer = new Reindexer(
+			$this->getSearchConfig(),
 			$connection,
 			$connection,
-			array( $this->getPageType() ),
-			array( $this->getOldPageType() ),
+			[ $this->getPageType() ],
+			[ $this->getOldPageType() ],
 			$this->getShardCount(),
 			$this->getReplicaCount(),
-			$wgCirrusSearchMaintenanceTimeout,
 			$this->getMergeSettings(),
 			$this->getMappingConfig(),
-			$this
+			$this,
+			explode( ',', $this->getOption( 'fieldsToDelete', '' ) )
 		);
 
 		$validator = new \CirrusSearch\Maintenance\Validators\SpecificAliasValidator(
@@ -441,7 +442,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 			$this->getSpecificIndexName(),
 			$this->startOver,
 			$reindexer,
-			array( $this->reindexProcesses, $this->refreshInterval, $this->reindexRetryAttempts, $this->reindexChunkSize, $this->reindexAcceptableCountDeviation ),
+			[ $this->reindexProcesses, $this->refreshInterval, $this->reindexRetryAttempts, $this->reindexChunkSize, $this->reindexAcceptableCountDeviation ],
 			$this->getIndexSettingsValidators(),
 			$this->reindexAndRemoveOk,
 			$this->tooFewReplicas,
@@ -472,7 +473,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		if ( $wgCirrusSearchMainPageCacheWarmer ) {
 			$wgCirrusSearchCacheWarmers['content'][] = \Title::newMainPage()->getText();
 		}
-		$cacheWarmers = isset( $wgCirrusSearchCacheWarmers[$this->indexType] ) ? $wgCirrusSearchCacheWarmers[$this->indexType] : array();
+		$cacheWarmers = isset( $wgCirrusSearchCacheWarmers[$this->indexType] ) ? $wgCirrusSearchCacheWarmers[$this->indexType] : [];
 
 		$warmers = new \CirrusSearch\Maintenance\Validators\CacheWarmersValidator( $this->indexType, $this->getPageType(), $cacheWarmers, $this );
 		$status = $warmers->validate();
@@ -502,7 +503,7 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	 * @param array $availablePlugins
 	 * @return AnalysisConfigBuilder
 	 */
-	private function pickAnalyzer( $langCode, array $availablePlugins = array() ) {
+	private function pickAnalyzer( $langCode, array $availablePlugins = [] ) {
 		$analysisConfigBuilder = new \CirrusSearch\Maintenance\AnalysisConfigBuilder( $langCode, $availablePlugins );
 		$this->outputIndented( 'Picking analyzer...' .
 			$analysisConfigBuilder->getDefaultTextAnalyzerType() . "\n" );
@@ -577,11 +578,6 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 		return $this->getConnection()->getPageType( $this->indexBaseName, $this->indexType );
 	}
 
-	protected function setConnectionTimeout() {
-		global $wgCirrusSearchMaintenanceTimeout;
-		$this->getConnection()->setTimeout( $wgCirrusSearchMaintenanceTimeout );
-	}
-
 	/**
 	 * Get the merge settings for this index.
 	 * @return array
@@ -611,5 +607,5 @@ class UpdateOneSearchIndexConfig extends Maintenance {
 	}
 }
 
-$maintClass = "CirrusSearch\Maintenance\UpdateOneSearchIndexConfig";
+$maintClass = UpdateOneSearchIndexConfig::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

@@ -726,23 +726,18 @@ class TitlePermissionTest extends MediaWikiLangTestCase {
 	}
 
 	public function testUserBlock() {
-		$this->setMwGlobals( [
-			'wgEmailConfirmToEdit' => true,
-			'wgEmailAuthentication' => true,
-		] );
+		global $wgEmailConfirmToEdit, $wgEmailAuthentication;
+		$wgEmailConfirmToEdit = true;
+		$wgEmailAuthentication = true;
 
 		$this->setUserPerm( [ "createpage", "move" ] );
 		$this->setTitle( NS_HELP, "test page" );
 
-		# $wgEmailConfirmToEdit only applies to 'edit' action
-		$this->assertEquals( [],
+		# $short
+		$this->assertEquals( [ [ 'confirmedittext' ] ],
 			$this->title->getUserPermissionsErrors( 'move-target', $this->user ) );
-		$this->assertContains( [ 'confirmedittext' ],
-			$this->title->getUserPermissionsErrors( 'edit', $this->user ) );
-
-		$this->setMwGlobals( 'wgEmailConfirmToEdit', false );
-		$this->assertNotContains( [ 'confirmedittext' ],
-			$this->title->getUserPermissionsErrors( 'edit', $this->user ) );
+		$wgEmailConfirmToEdit = false;
+		$this->assertEquals( true, $this->title->userCan( 'move-target', $this->user ) );
 
 		# $wgEmailConfirmToEdit && !$user->isEmailConfirmed() && $action != 'createaccount'
 		$this->assertEquals( [],

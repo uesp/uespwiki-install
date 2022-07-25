@@ -127,12 +127,4 @@ abstract class WantedQueryPage extends QueryPage {
 		$label = $this->msg( 'nlinks' )->numParams( $result->value )->escaped();
 		return Linker::link( $wlh, $label );
 	}
-	
-	function getOrderFields() {
-		return [ 'value DESC', 'namespace', 'title' ];
-	}
-	
-	function sortDescending() {
-		return false;
-	}
 }

@@ -1,0 +1,13 @@
+{
+    "@metadata": {
+        "authors": []
+    },
+    "riven-tracking-arg": "Riven-Pages using arg",
+    "riven-tracking-arg-desc": "(Tracking Only) The page uses the {{#arg}} function.",
+    "riven-tracking-pickfrom": "Riven-Pages using pickfrom",
+    "riven-tracking-pickfrom-desc": "(Tracking Only) The page uses the {{#pickfrom}} function.",
+    "riven-tracking-rand": "Riven-Pages using rand",
+    "riven-tracking-rand-desc": "(Tracking Only) The page uses the {{#rand}} function.",
+    "riven-tracking-skinname": "Riven-Pages using skinname",
+    "riven-tracking-skinname-desc": "(Tracking Only) The page uses the {{SKINNAME}} variable."
+}

@@ -1,4 +1,7 @@
 <?php
+
+use MediaWiki\MediaWikiServices;
+
 class CheckUserHooks {
 	/**
 	 * Hook function for RecentChange_save
@@ -138,9 +141,13 @@ class CheckUserHooks {
 	 */
 	public static function updateCUEmailData( $to, $from, $subject, $text ) {
 		global $wgSecretKey, $wgRequest, $wgCUPublicKey;
+
 		if ( !$wgSecretKey || $from->name == $to->name ) {
 			return true;
+		} elseif ( wfReadOnly() ) {
+			return true;
 		}
+
 		$userFrom = User::newFromName( $from->name );
 		$userTo = User::newFromName( $to->name );
 		$hash = md5( $userTo->getEmail() . $userTo->getId() . $wgSecretKey );
@@ -293,6 +300,13 @@ class CheckUserHooks {
 		$ipchain = array_map( 'trim', explode( ',', $xff ) );
 		$ipchain = array_reverse( $ipchain );
 
+		if ( class_exists( ProxyLookup::class ) ) { // MW 1.28+
+			$proxyLookup = MediaWikiServices::getInstance()->getProxyLookup();
+		} else {
+			// This is kind of sketch, but is good enough for back-compat
+			$proxyLookup = new IP();
+		}
+
 		$client = null; // best guess of the client IP
 		$isSquidOnly = false; // all proxy servers where site Squid/Varnish servers?
 		# Step through XFF list and find the last address in the list which is a
@@ -304,7 +318,7 @@ class CheckUserHooks {
 			if ( $curIP === null ) {
 				break; // not a valid IP address
 			}
-			$curIsSquid = IP::isConfiguredProxy( $curIP );
+			$curIsSquid = $proxyLookup->isConfiguredProxy( $curIP );
 			if ( $client === null ) {
 				$client = $curIP;
 				$isSquidOnly = $curIsSquid;
@@ -328,42 +342,57 @@ class CheckUserHooks {
 		return array( $client, $isSquidOnly );
 	}
 
-	public static function checkUserSchemaUpdates( DatabaseUpdater $updater ) {
-		$base = dirname( __FILE__ );
+	public static function onLoadExtensionSchemaUpdates( DatabaseUpdater $updater ) {
+		$base = __DIR__;
+		$dbType = $updater->getDB()->getType();
+		$isCUInstalled = $updater->tableExists( 'cu_changes' );
 
-		$updater->addExtensionUpdate( array( 'CheckUserHooks::checkUserCreateTables' ) );
-		if ( $updater->getDB()->getType() == 'mysql' ) {
-			$updater->addExtensionUpdate( array( 'addIndex', 'cu_changes',
-				'cuc_ip_hex_time', "$base/archives/patch-cu_changes_indexes.sql", true ) );
-			$updater->addExtensionUpdate( array( 'addIndex', 'cu_changes',
-				'cuc_user_ip_time', "$base/archives/patch-cu_changes_indexes2.sql", true ) );
+		$updater->addExtensionTable(
+			'cu_changes', self::getTableFileName( $dbType, 'cu_changes' )
+		);
+		$updater->addExtensionTable(
+			'cu_log', self::getTableFileName( $dbType, 'cu_log' )
+		);
+
+		if ( $dbType === 'mysql' ) {
+			$updater->addExtensionIndex(
+				'cu_changes',
+				'cuc_ip_hex_time',
+				"$base/archives/patch-cu_changes_indexes.sql"
+			);
+			$updater->addExtensionIndex(
+				'cu_changes',
+				'cuc_user_ip_time',
+				"$base/archives/patch-cu_changes_indexes2.sql"
+			);
 			$updater->addExtensionField(
-				'cu_changes', 'cuc_private', "$base/archives/patch-cu_changes_privatedata.sql" );
-		} elseif ( $updater->getDB()->getType() == 'postgres' ) {
+				'cu_changes',
+				'cuc_private',
+				"$base/archives/patch-cu_changes_privatedata.sql"
+			);
+		} elseif ( $dbType === 'postgres' ) {
 			$updater->addExtensionUpdate(
-				array( 'addPgField', 'cu_changes', 'cuc_private', 'BYTEA' ) );
+				array( 'addPgField', 'cu_changes', 'cuc_private', 'BYTEA' )
+			);
 		}
 
-		return true;
+		if ( !$isCUInstalled ) {
+			// First time so populate cu_changes with recentchanges data.
+			// Note: We cannot completely rely on updatelog here for old entries
+			// as populateCheckUserTable.php doesn't check for duplicates
+			$updater->addPostDatabaseUpdateMaintenance( 'PopulateCheckUserTable' );
+		}
 	}
 
-	public static function checkUserCreateTables( DatabaseUpdater $updater ) {
-		$base = dirname( __FILE__ );
-
-		$db = $updater->getDB();
-		if ( $db->tableExists( 'cu_changes' ) ) {
-			$updater->output( "...cu_changes table already exists.\n" );
-		} else {
-			require_once "$base/install.inc";
-			create_cu_changes( $db );
-		}
-
-		if ( $db->tableExists( 'cu_log' ) ) {
-			$updater->output( "...cu_log table already exists.\n" );
-		} else {
-			require_once "$base/install.inc";
-			create_cu_log( $db );
-		}
+	/**
+	 * @param string $type DB type
+	 * @param string $name Table name
+	 */
+	private static function getTableFileName( $type, $name ) {
+		$file = __DIR__ . '/' . $name;
+		return $type === 'postgres'
+			? $file . '.pg.sql'
+			: $file . '.sql';
 	}
 
 	/**
@@ -462,11 +491,15 @@ class CheckUserHooks {
 	 * @return bool
 	 */
 	public static function onRenameUserSQL( RenameuserSQL $renameUserSQL ) {
-		$renameUserSQL->tables['cu_changes'] = array( 'cuc_user_text', 'cuc_user' );
+		$renameUserSQL->tablesJob['cu_changes'] = [
+			RenameuserSQL::NAME_COL => 'cuc_user_text',
+			RenameuserSQL::UID_COL  => 'cuc_user',
+			RenameuserSQL::TIME_COL => 'cuc_timestamp',
+			'uniqueKey'    => 'cuc_id'
+		];
+
 		$renameUserSQL->tables['cu_log'] = array( 'cul_user_text', 'cul_user' );
 
 		return true;
 	}
-
-
 }

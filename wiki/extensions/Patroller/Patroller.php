@@ -22,7 +22,7 @@ if ( function_exists( 'wfLoadExtension' ) ) {
 	return true;
 }
 
-$wgExtensionCredits['specialpage'][] = array(
+$wgExtensionCredits['specialpage'][] = [
 	'path'				=> __FILE__,
 	'name'				=> 'Patroller',
 	'descriptionmsg'	=> 'patrol-desc',
@@ -30,7 +30,7 @@ $wgExtensionCredits['specialpage'][] = array(
 	'version'			=> '2.0',
 	'url'				=> 'https://www.mediawiki.org/wiki/Extension:Patroller',
 	'licence-name'		=> 'GPL-2.0'
-);
+];
 
 # Register hooks
 $wgAutoloadClasses['PatrollerHooks']			= __DIR__ . '/Patroller.hooks.php';

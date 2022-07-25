@@ -87,7 +87,6 @@ class WebVideoTranscode {
 				'videoBitrate'               => '160',
 				'framerate'                  => '15',
 				'audioQuality'               => '-1',
-				'samplerate'                 => '44100',
 				'channels'                   => '2',
 				'noUpscaling'                => 'true',
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
@@ -102,7 +101,6 @@ class WebVideoTranscode {
 				'maxSize'                    => '426x240',
 				'videoBitrate'               => '512',
 				'audioQuality'               => '0',
-				'samplerate'                 => '44100',
 				'channels'                   => '2',
 				'noUpscaling'                => 'true',
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
@@ -117,7 +115,6 @@ class WebVideoTranscode {
 				'maxSize'                    => '640x360',
 				'videoBitrate'               => '1024',
 				'audioQuality'               => '1',
-				'samplerate'                 => '44100',
 				'channels'                   => '2',
 				'noUpscaling'                => 'true',
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
@@ -132,7 +129,6 @@ class WebVideoTranscode {
 				'maxSize'                    => '854x480',
 				'videoBitrate'               => '2048',
 				'audioQuality'               => '2',
-				'samplerate'                 => '44100',
 				'channels'                   => '2',
 				'noUpscaling'                => 'true',
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
@@ -638,7 +634,7 @@ class WebVideoTranscode {
 	 * @return array|mixed
 	 */
 	public static function getSources( &$file , $options = [] ) {
-		if ( $file->isLocal() || $file->repo instanceof ForeignDBViaLBRepo ) {
+		if ( $file->isLocal() || $file->repo instanceof ForeignDBRepo ) {
 			return self::getLocalSources( $file, $options );
 		} else {
 			return self::getRemoteSources( $file, $options );
@@ -680,6 +676,12 @@ class WebVideoTranscode {
 			'viprop' => 'derivatives',
 			'titles' => MWNamespace::getCanonicalName( NS_FILE ) .':'. $file->getTitle()->getText()
 		];
+		
+			//UESP Fix for error
+		if (!method_exists($file->repo, "fetchImageQuery"))
+		{
+			return [ self::getPrimarySourceAttributes( $file, [ $dataPrefix ] ) ];
+		}
 
 		$data = $file->repo->fetchImageQuery( $query );
 
@@ -1110,6 +1112,9 @@ class WebVideoTranscode {
 				);
 			}
 		}
+
+		// Remove from local WebVideoTranscode cache:
+		self::clearTranscodeCache( $fileName );
 	}
 
 	/**

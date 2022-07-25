@@ -28,3 +28,28 @@ $wgAutoloadClasses['RecentPopularPagesPage'] = $dir . '/RecentPopularPages_body.
 $wgExtensionMessagesFiles['recentpopularpages'] = $dir . 'RecentPopularPages.i18n.php';
 $wgExtensionMessagesFiles['recentpopularpagesAlias'] = $dir . 'RecentPopularPages.alias.php';
 
+# Hooks
+$wgHooks['LoadExtensionSchemaUpdates'][] = 'CRecentPopularPagesHooks::onLoadExtensionSchemaUpdates';
+
+
+class CRecentPopularPagesHooks
+{
+	
+	public static function onLoadExtensionSchemaUpdates( DatabaseUpdater $updater )
+	{
+			$updater->addExtensionTable(
+					'popularPageCounts',
+					 __DIR__ . '/sql/popularPageCounts_createTable.sql'
+			);
+			
+			$updater->addExtensionTable(
+					'popularPageSummaries',
+					 __DIR__ . '/sql/popularPageSummaries_createTable.sql'
+			);
+			
+			$updater->addExtensionTable(
+					'popularPageInfo',
+					 __DIR__ . '/sql/popularPageInfo_createTable.sql'
+			);
+	}
+}

@@ -4,7 +4,7 @@ namespace CirrusSearch\Elastica;
 
 use Elastica\Transport\Http;
 use MediaWiki\Logger\LoggerFactory;
-use RequestContext;
+use MediaWiki\MediaWikiServices;
 
 /**
  * Implements cross-request connection pooling via hhvm's built in
@@ -68,7 +68,7 @@ class PooledHttp extends Http {
 			if ( $ch === null ) {
 				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
 					"Elastic connection pool cannot init: Unknown pool {pool}. Did you configure curl.namedPools?",
-					array( 'pool' => $pool )
+					[ 'pool' => $pool ]
 				);
 			}
 		}
@@ -89,7 +89,7 @@ class PooledHttp extends Http {
 		// second i wonder if a couple servers having issues with their pools will by lost in
 		// the noise. Another option could be recording per-server stats and including gethostname()
 		// in the key?
-		RequestContext::getMain()->getStats()->timing(
+		MediaWikiServices::getInstance()->getStatsdDataFactory()->timing(
 			'CirrusSearch.connectionPool.initMs',
 			intval( 1000 * $tookS )
 		);

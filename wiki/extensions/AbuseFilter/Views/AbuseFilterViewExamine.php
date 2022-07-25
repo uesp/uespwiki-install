@@ -84,16 +84,6 @@ class AbuseFilterViewExamine extends AbuseFilterView {
 			return;
 		}
 
-		$bitfield = 0;
-		$bitfield |= Revision::DELETED_TEXT;
-		$bitfield |= Revision::DELETED_COMMENT;
-		$bitfield |= Revision::DELETED_USER;
-		$bitfield |= Revision::DELETED_RESTRICTED;
-		if ( !ChangesList::userCan( RecentChange::newFromRow( $row ), $bitfield ) ) {
-			$out->addWikiMsg( 'abusefilter-log-details-hidden-implicit' );
-			return;
-		}
-
 		self::$examineType = 'rc';
 		self::$examineId = $rcid;
 
@@ -126,18 +116,6 @@ class AbuseFilterViewExamine extends AbuseFilterView {
 			return;
 		}
 
-		$bitfield = 0;
-		$bitfield |= Revision::DELETED_TEXT;
-		$bitfield |= Revision::DELETED_COMMENT;
-		$bitfield |= Revision::DELETED_USER;
-		$bitfield |= Revision::DELETED_RESTRICTED;
-		if ( SpecialAbuseLog::isHidden( $row ) === 'implicit' ) {
-			$rev = Revision::newFromId( $row->afl_rev_id );
-			if ( !$rev->userCan( $bitfield, $this->getUser() ) ) {
-				$out->addWikiMsg( 'abusefilter-log-details-hidden-implicit' );
-				return;
-			}
-		}
 		$vars = AbuseFilter::loadVarDump( $row->afl_var_dump );
 		$out->addJsConfigVars( 'wgAbuseFilterVariables', $vars->dumpAllVars( true ) );
 		$this->showExaminer( $vars );
@@ -206,7 +184,7 @@ class AbuseFilterViewExamine extends AbuseFilterView {
 			null,
 			$this->msg( 'abusefilter-examine-vars', 'parseinline' )->parse()
 		);
-		$html .= AbuseFilter::buildVarDumpTable( $vars );
+		$html .= AbuseFilter::buildVarDumpTable( $vars, $this->getContext() );
 
 		$output->addHTML( $html );
 	}
@@ -279,6 +257,7 @@ class AbuseFilterExaminePager extends ReverseChronologicalPager {
 	}
 
 	function formatRow( $row ) {
+		# Incompatible stuff.
 		$rc = RecentChange::newFromRow( $row );
 		$rc->counter = $this->mPage->mCounter++;
 		return $this->mChangesList->recentChangesLine( $rc, false );

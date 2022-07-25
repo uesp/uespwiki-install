@@ -39,7 +39,7 @@ else
 				'password' => $uespWikiPW,
 				'type' => "mysql",
 				'flag' => DBO_DEFAULT,
-				'load' => 1,
+				'load' => 1, 
 		),
 		array(          # db2 - Primary Read
 				'host' => $UESP_SERVER_DB2,
@@ -51,7 +51,7 @@ else
 				'load' => 10,
 				'max lag' => 1000,
 		)
-	);
+	); 
 	
 			/* Don't include by default as backup lag can affect production servers */
 	$uespBackup1Db = 

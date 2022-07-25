@@ -23,8 +23,6 @@
  * @file
  */
 
-use MediaWiki\MediaWikiServices;
-
 class LogEventsList extends ContextSource {
 	const NO_ACTION_LINK = 1;
 	const NO_EXTRA_USER_LINKS = 2;
@@ -312,7 +310,7 @@ class LogEventsList extends ContextSource {
 			return '';
 		}
 		$html = '';
-		$html .= xml::label( wfMessage( 'log-action-filter-' . $types[0] )->text(),
+		$html .= Xml::label( wfMessage( 'log-action-filter-' . $types[0] )->text(),
 			'action-filter-' .$types[0] ) . "\n";
 		$select = new XmlSelect( 'subtype' );
 		$select->addOption( wfMessage( 'log-action-filter-all' )->text(), '' );
@@ -321,7 +319,7 @@ class LogEventsList extends ContextSource {
 			$select->addOption( wfMessage( $msgKey )->text(), $value );
 		}
 		$select->setDefault( $action );
-		$html .= $select->getHtml();
+		$html .= $select->getHTML();
 		return $html;
 	}
 
@@ -487,7 +485,7 @@ class LogEventsList extends ContextSource {
 
 	/**
 	 * Determine if the current user is allowed to view a particular
-	 * field of this log row, if it's marked as deleted and/or restricted log type.
+	 * field of this log row, if it's marked as deleted.
 	 *
 	 * @param stdClass $row Row
 	 * @param int $field
@@ -495,8 +493,7 @@ class LogEventsList extends ContextSource {
 	 * @return bool
 	 */
 	public static function userCan( $row, $field, User $user = null ) {
-		return self::userCanBitfield( $row->log_deleted, $field, $user ) &&
-			self::userCanViewLogType( $row->log_type, $user );
+		return self::userCanBitfield( $row->log_deleted, $field, $user );
 	}
 
 	/**
@@ -528,27 +525,6 @@ class LogEventsList extends ContextSource {
 
 	/**
 	 * @param stdClass $row Row
-	 * Determine if the current user is allowed to view a particular
-	 * field of this log row, if it's marked as restricted log type.
-	 *
-	 * @param stdClass $type
-	 * @param User|null $user User to check, or null to use $wgUser
-	 * @return bool
-	 */
-	public static function userCanViewLogType( $type, User $user = null ) {
-		if ( $user === null ) {
-			global $wgUser;
-			$user = $wgUser;
-		}
-		$logRestrictions = MediaWikiServices::getInstance()->getMainConfig()->get( 'LogRestrictions' );
-		if ( isset( $logRestrictions[$type] ) && !$user->isAllowed( $logRestrictions[$type] ) ) {
-			return false;
-		}
-		return true;
-	}
-
-	/**
-	 * @param stdClass $row
 	 * @param int $field One of DELETED_* bitfield constants
 	 * @return bool
 	 */
@@ -577,6 +553,7 @@ class LogEventsList extends ContextSource {
 	 * - flags Integer display flags (NO_ACTION_LINK,NO_EXTRA_USER_LINKS)
 	 * - useRequestParams boolean Set true to use Pager-related parameters in the WebRequest
 	 * - useMaster boolean Use master DB
+	 * - extraUrlParams array|bool Additional url parameters for "full log" link (if it is shown)
 	 * @return int Number of total log items (not limited by $lim)
 	 */
 	public static function showLogExtract(
@@ -591,6 +568,7 @@ class LogEventsList extends ContextSource {
 			'flags' => 0,
 			'useRequestParams' => false,
 			'useMaster' => false,
+			'extraUrlParams' => false,
 		];
 		# The + operator appends elements of remaining keys from the right
 		# handed array to the left handed, whereas duplicated keys are NOT overwritten.
@@ -602,6 +580,8 @@ class LogEventsList extends ContextSource {
 		$msgKey = $param['msgKey'];
 		$wrap = $param['wrap'];
 		$flags = $param['flags'];
+		$extraUrlParams = $param['extraUrlParams'];
+
 		$useRequestParams = $param['useRequestParams'];
 		if ( !is_array( $msgKey ) ) {
 			$msgKey = [ $msgKey ];
@@ -688,7 +668,11 @@ class LogEventsList extends ContextSource {
 				$urlParam['type'] = $types[0];
 			}
 
-			$s .= Linker::link(
+			if ( $extraUrlParams !== false ) {
+				$urlParam = array_merge( $urlParam, $extraUrlParams );
+			}
+
+			$s .= Linker::linkKnown(
 				SpecialPage::getTitleFor( 'Log' ),
 				$context->msg( 'log-fulllog' )->escaped(),
 				[],

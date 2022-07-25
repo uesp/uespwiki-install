@@ -81,12 +81,20 @@ class MetaTemplateSaveData {
 			                $conds,
 			                __METHOD__);
 		if ($result) {
+			$doCommit = true;
+			
+			try {
+				$dbw->begin();
+			} catch ( DBUnexpectedError $e ) {
+				 $doCommit = false;
+			}
+			
 			while( $row=$dbw->fetchRow( $result ) ) {
 			       $rowconds = array('mt_save_id='.$row['mt_set_id']);
 			       $dbw->delete('mt_save_data', $rowconds);
-			       $dbw->commit();
 			}
-		}		
+			if ($doCommit) $dbw->commit();
+		}
 //		$dbw->deleteJoin( 'mt_save_data', 'mt_save_set', 'mt_save_id', 'mt_set_id', $conds );
 		$dbw->delete( 'mt_save_set', $conds );
 		

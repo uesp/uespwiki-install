@@ -7,13 +7,13 @@
 		VegaWrapper = require( 'graph-shared' );
 
 	wrapper = new VegaWrapper(
-		vg.util.load, true,
+		vg.util, true,
 		mw.config.get( 'wgGraphIsTrusted' ),
 		mw.config.get( 'wgGraphAllowedDomains' ),
 		false,
 		function ( warning ) {
 			mw.log.warn( warning );
-		}, $.extend, function ( opt ) {
+		}, function ( opt ) {
 			// Parse URL
 			var uri = new mw.Uri( opt.url );
 			// reduce confusion, only keep expected values
@@ -24,6 +24,10 @@
 			// If url begins with   protocol:///...  mark it as having relative host
 			if ( /^[a-z]+:\/\/\//.test( opt.url ) ) {
 				uri.isRelativeHost = true;
+			}
+			if ( uri.protocol ) {
+				// All other libs use trailing colon in the protocol field
+				uri.protocol += ':';
 			}
 			// Node's path includes the query, whereas pathname is without the query
 			// Standardizing on pathname
@@ -43,11 +47,15 @@
 					// but playing on the safer side.
 					opt.headers = { 'Treat-as-Untrusted': 1 };
 				}
-			} else if ( opt.isApiCall ) {
+			} else if ( opt.addCorsOrigin ) {
 				// All CORS api calls require origin parameter.
 				// It would be better to use location.origin,
 				// but apparently it's not universal yet.
 				uri.query.origin = location.protocol + '//' + location.host;
+			}
+
+			if ( uri.protocol[ uri.protocol.length - 1 ] === ':' ) {
+				uri.protocol = uri.protocol.substring( 0, uri.protocol.length - 1 );
 			}
 
 			return uri.toString();

@@ -46,7 +46,7 @@ class ResultSet extends SearchResultSet {
 	private $suggestionQuery;
 
 	/**
-	 * @var string
+	 * @var string|null
 	 */
 	private $suggestionSnippet;
 
@@ -63,7 +63,7 @@ class ResultSet extends SearchResultSet {
 	/**
 	 * @var array
 	 */
-	private $interwikiResults = array();
+	private $interwikiResults = [];
 
 	/**
 	 * @var string|null
@@ -162,8 +162,8 @@ class ResultSet extends SearchResultSet {
 			$suggestionHighlightPostEscaped =
 				htmlspecialchars( Searcher::SUGGESTION_HIGHLIGHT_POST );
 		}
-		return str_replace( array( $suggestionHighlightPreEscaped, $suggestionHighlightPostEscaped ),
-			array( Searcher::SUGGESTION_HIGHLIGHT_PRE, Searcher::SUGGESTION_HIGHLIGHT_POST ),
+		return str_replace( [ $suggestionHighlightPreEscaped, $suggestionHighlightPostEscaped ],
+			[ Searcher::SUGGESTION_HIGHLIGHT_PRE, Searcher::SUGGESTION_HIGHLIGHT_POST ],
 			htmlspecialchars( $suggestion ) );
 	}
 
@@ -227,7 +227,7 @@ class ResultSet extends SearchResultSet {
 	}
 
 	/**
-	 * @return string
+	 * @return string|null
 	 */
 	public function getSuggestionQuery() {
 		return $this->suggestionQuery;
@@ -247,7 +247,9 @@ class ResultSet extends SearchResultSet {
 		$current = $this->result->current();
 		if ( $current ) {
 			$this->result->next();
-			return new Result( $this->result, $current, $this->interwikiPrefix );
+			$result = new Result( $this->result, $current, $this->interwikiPrefix );
+			$this->augmentResult( $result );
+			return $result;
 		}
 		return false;
 	}
@@ -270,7 +272,7 @@ class ResultSet extends SearchResultSet {
 	 * @return SearchResultSet[]
 	 */
 	public function getInterwikiResults( $type = SearchResultSet::SECONDARY_RESULTS ) {
-		return isset($this->interwikiResults[$type]) ? $this->interwikiResults[$type] : array();
+		return isset($this->interwikiResults[$type]) ? $this->interwikiResults[$type] : [];
 	}
 
 	/**
@@ -305,14 +307,14 @@ class ResultSet extends SearchResultSet {
 	}
 
 	/**
-	 * @return string
+	 * @return string|null
 	 */
 	public function getQueryAfterRewrite() {
 		return $this->rewrittenQuery;
 	}
 
 	/**
-	 * @return string
+	 * @return string|null
 	 */
 	public function getQueryAfterRewriteSnippet() {
 		return $this->rewrittenQuerySnippet;

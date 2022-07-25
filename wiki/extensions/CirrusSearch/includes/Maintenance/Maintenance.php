@@ -5,6 +5,7 @@ namespace CirrusSearch\Maintenance;
 use CirrusSearch\Connection;
 use CirrusSearch\SearchConfig;
 use MediaWiki\MediaWikiServices;
+use CirrusSearch\UserTesting;
 
 /**
  * Cirrus helpful extensions to Maintenance.
@@ -35,9 +36,55 @@ abstract class Maintenance extends \Maintenance {
 	 */
 	private $connection;
 
+	/**
+	 * @var SearchConfig
+	 */
+	private $searchConfig;
+
 	public function __construct() {
 		parent::__construct();
 		$this->addOption( 'cluster', 'Perform all actions on the specified elasticsearch cluster', false, true );
+		$this->addOption( 'userTestTrigger', 'Use config var and profiles set in the user testing framework, e.g. --userTestTrigger=trigger', false, true );
+	}
+
+	public function finalSetup() {
+		parent::finalSetup();
+		if ( $this->hasOption( 'userTestTrigger' ) ) {
+			$this->setupUserTest();
+		}
+	}
+
+	/**
+	 * Setup config vars with the UserTest framework
+	 */
+	private function setupUserTest() {
+		// Configure the UserTesting framework
+		// Useful in case an index needs to be built with a
+		// test config that is not meant to be the default.
+		// This is realistically only usefull to test accross
+		// multiple clusters.
+		// Perhaps setting $wgCirrusSearchIndexBaseName to an
+		// alternate value would testing on the same cluster
+		// but this index would not receive updates.
+		$trigger = $this->getOption( 'userTestTrigger' );
+		$ut = UserTesting::getInstance( null, $trigger );
+		if ( !$ut->getActiveTestNames() ) {
+			$this->error( "Unknown user test trigger: $trigger", 1 );
+		}
+	}
+
+	/**
+	 * @param string $maintClass
+	 * @param string|null $classFile
+	 * @return \Maintenance
+	 */
+	public function runChild( $maintClass, $classFile = null ) {
+		$child = parent::runChild( $maintClass, $classFile );
+		if ( $child instanceof self ) {
+			$child->searchConfig = $this->searchConfig;
+		}
+
+		return $child;
 	}
 
 	/**
@@ -46,43 +93,49 @@ abstract class Maintenance extends \Maintenance {
 	 */
 	public function getConnection( $cluster = null ) {
 		if( $cluster ) {
-			$config = MediaWikiServices::getInstance()
-				->getConfigFactory()
-				->makeConfig( 'CirrusSearch' );
-			if ( $config instanceof SearchConfig ) {
-				if (!$config->getElement( 'CirrusSearchClusters', $cluster ) ) {
-					$this->error( 'Unknown cluster.', 1 );
-				}
-				return Connection::getPool( $config, $cluster );
-			} else {
+			if ( !$this->getSearchConfig() instanceof SearchConfig ) {
 				// We shouldn't ever get here ... but the makeConfig type signature returns the parent class of SearchConfig
 				// so just being extra careful...
-				throw new \RuntimeException( 'Expected instanceof CirrusSearch\SearchConfig, but received ' . get_class( $config ) );
+				throw new \RuntimeException( 'Expected instanceof CirrusSearch\SearchConfig, but received ' . get_class( $this->getSearchConfig() ) );
 			}
+			if (!$this->getSearchConfig()->getElement( 'CirrusSearchClusters', $cluster ) ) {
+				$this->error( 'Unknown cluster.', 1 );
+			}
+			$connection = Connection::getPool( $this->getSearchConfig(), $cluster );
+		} else {
+			if ( $this->connection === null ) {
+				$cluster = $this->decideCluster();
+				$this->connection = Connection::getPool( $this->getSearchConfig(), $cluster );
+			}
+			$connection = $this->connection;
 		}
-		if ( $this->connection === null ) {
-			$config = MediaWikiServices::getInstance()
+
+		$connection->setTimeout( $this->getSearchConfig()->get( 'CirrusSearchMaintenanceTimeout' ) );
+
+		return $connection;
+	}
+
+	public function getSearchConfig() {
+		if ( $this->searchConfig == null ) {
+			$this->searchConfig = MediaWikiServices::getInstance()
 				->getConfigFactory()
 				->makeConfig( 'CirrusSearch' );
-			$cluster = $this->decideCluster( $config );
-			$this->connection = Connection::getPool( $config, $cluster );
 		}
-		return $this->connection;
+		return $this->searchConfig;
 	}
 
 	/**
-	 * @param SearchConfig $config
 	 * @return string|null
 	 */
-	private function decideCluster( SearchConfig $config ) {
+	private function decideCluster() {
 		$cluster = $this->getOption( 'cluster', null );
 		if ( $cluster === null ) {
 			return null;
 		}
-		if ( $config->has( 'CirrusSearchServers' ) ) {
+		if ( $this->getSearchConfig()->has( 'CirrusSearchServers' ) ) {
 			$this->error( 'Not configured for cluster operations.', 1 );
 		}
-		$hosts = $config->getElement( 'CirrusSearchClusters', $cluster );
+		$hosts = $this->getSearchConfig()->getElement( 'CirrusSearchClusters', $cluster );
 		if ( $hosts === null ) {
 			$this->error( 'Unknown cluster.', 1 );
 		}
@@ -132,14 +185,22 @@ abstract class Maintenance extends \Maintenance {
 	}
 
 	/**
-	 * Tiny method to restrict phan suppression to this method call.
+	 * Disable all pool counters and cirrus query logs.
+	 * Only useful for maint scripts
 	 *
-	 * @param \Elastica\Exception\ExceptionInterface $e
-	 * @return string
-	 * @suppress PhanUndeclaredMethod ExceptionInterface has no methods
+	 * Ideally this method could be run in the constructor
+	 * but apparently globals are reset just before the
+	 * call to execute()
 	 */
-	protected function getExceptionTraceAsString( \Elastica\Exception\ExceptionInterface $e ) {
-		return $e->getTraceAsString();
-	}
+	protected function disablePoolCountersAndLogging() {
+		global $wgPoolCounterConf, $wgCirrusSearchLogElasticRequests;
 
+		// Make sure we don't flood the pool counter
+		$wgPoolCounterConf = [];
+		unset( $wgPoolCounterConf['CirrusSearch-Search'] );
+
+		// Don't skew the dashboards by logging these requests to
+		// the global request log.
+		$wgCirrusSearchLogElasticRequests = false;
+	}
 }

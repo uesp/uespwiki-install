@@ -2,12 +2,14 @@
 
 namespace CirrusSearch\Maintenance;
 
+use CirrusSearch\SearchConfig;
 use CirrusSearch\Util;
 use Elastica;
 use Elastica\Filter;
 use Elastica\Index;
 use Elastica\JSON;
 use Elastica\Query;
+use MWElasticUtils;
 
 /**
  * Dump an index to stdout
@@ -101,15 +103,10 @@ class DumpIndex extends Maintenance {
 	}
 
 	public function execute() {
-		global $wgPoolCounterConf;
-
-		// Make sure we don't flood the pool counter
-		unset( $wgPoolCounterConf['CirrusSearch-Search'] );
-		// Set the timeout for maintenance actions
-		$this->setConnectionTimeout();
+		$this->disablePoolCountersAndLogging();
 
 		$this->indexType = $this->getOption( 'indexType' );
-		$this->indexBaseName = $this->getOption( 'baseName', wfWikiID() );
+		$this->indexBaseName = $this->getOption( 'baseName', $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME ) );
 
 		$indexTypes = $this->getConnection()->getAllIndexTypes();
 		if ( !in_array( $this->indexType, $indexTypes ) ) {
@@ -121,28 +118,28 @@ class DumpIndex extends Maintenance {
 
 		$filter = null;
 		if ( $this->hasOption( 'filter' ) ) {
-			$filter = new Elastica\Filter\Query(
-				new Elastica\Query\QueryString( $this->getOption( 'filter' ) ) );
+			$filter = new Elastica\Query\QueryString( $this->getOption( 'filter' ) );
 		}
 
 		$limit = (int) $this->getOption( 'limit', 0 );
 
 		$query = new Query();
-		$query->setFields( array( '_id', '_type', '_source' ) );
+		$query->setFields( [ '_id', '_type', '_source' ] );
 		if ( $this->hasOption( 'sourceFields' ) ) {
 			$sourceFields = explode( ',', $this->getOption( 'sourceFields' ) );
-			$query->setSource( array( 'include' => $sourceFields ) );
+			$query->setSource( [ 'include' => $sourceFields ] );
 		}
 		if ( $filter ) {
-			$query->setQuery( new \Elastica\Query\Filtered(
-				new \Elastica\Query\MatchAll(), $filter ) );
+			$bool = new \Elastica\Query\BoolQuery();
+			$bool->addFilter( $filter );
+			$query->setQuery( $bool );
 		}
 
-		$scrollOptions = array(
+		$scrollOptions = [
 			'search_type' => 'scan',
 			'scroll' => "15m",
 			'size' => $this->inputChunkSize
-		);
+		];
 		$index = $this->getIndex();
 
 		$result = $index->search( $query, $scrollOptions );
@@ -155,14 +152,14 @@ class DumpIndex extends Maintenance {
 		$this->logToStderr = true;
 		$this->output( "Dumping $totalDocsToDump documents ($totalDocsInIndex in the index)\n" );
 
-		Util::iterateOverScroll( $index, $result->getResponse()->getScrollId(), '15m',
+		MWElasticUtils::iterateOverScroll( $index, $result->getResponse()->getScrollId(), '15m',
 			function( $results ) use ( &$docsDumped, $totalDocsToDump ) {
 				foreach ( $results as $result ) {
-					$document = array(
+					$document = [
 						'_id' => $result->getId(),
 						'_type' => $result->getType(),
 						'_source' => $result->getSource()
-					);
+					];
 					$this->write( $document );
 					$docsDumped++;
 					$this->outputProgress( $docsDumped, $totalDocsToDump );
@@ -171,20 +168,15 @@ class DumpIndex extends Maintenance {
 		$this->output( "Dump done.\n" );
 	}
 
-	private function setConnectionTimeout() {
-		global $wgCirrusSearchMaintenanceTimeout;
-		$this->getConnection()->setTimeout( $wgCirrusSearchMaintenanceTimeout );
-	}
-
 	/**
 	 * @param array $document Valid elasticsearch document to write to stdout
 	 */
 	public function write( array $document ) {
-		$indexOp = array (
-			'index' => array (
+		$indexOp = [
+			'index' => [
 				'_type' => $document['_type'],
 				'_id' => $document['_id']
-			) );
+			] ];
 
 		// We use Elastica wrapper around json_encode.
 		// Depending on PHP version JSON_ESCAPE_UNICODE will be used
@@ -262,5 +254,5 @@ class DumpIndex extends Maintenance {
 class IndexDumperException extends \Exception {
 }
 
-$maintClass = "CirrusSearch\Maintenance\DumpIndex";
+$maintClass = DumpIndex::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

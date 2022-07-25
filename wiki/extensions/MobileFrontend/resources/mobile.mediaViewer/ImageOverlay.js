@@ -37,7 +37,7 @@
 			cancelButton: new Icon( {
 				tagName: 'button',
 				// Uses a dark theme so swap out the icon
-				name: 'close-gray',
+				name: 'overlay-close-gray',
 				additionalClassNames: 'cancel',
 				label: mw.msg( 'mobile-frontend-overlay-close' )
 			} ).toHtmlString(),
@@ -175,13 +175,14 @@
 				self.adjustDetails();
 			} );
 
-			$( window ).on( 'resize', $.proxy( this, '_positionImage' ) );
+			M.on( 'resize:throttled', $.proxy( this, '_positionImage' ) );
 		},
 
 		/**
 		 * Event handler that toggles the details bar.
 		 */
 		onToggleDetails: function () {
+			this.$( '.cancel, .slider-button' ).toggle();
 			this.$details.toggle();
 			this._positionImage();
 		},

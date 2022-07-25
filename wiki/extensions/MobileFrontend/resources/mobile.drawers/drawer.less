@@ -1,6 +1,5 @@
-@import "minerva.variables";
-@import "minerva.mixins";
-
+@import 'minerva.variables';
+@import 'minerva.mixins';
 
 // Drawers
 //
@@ -29,18 +28,18 @@
 
 	&.text {
 		line-height: 1;
-		font-size: .9em;
+		font-size: 0.9em;
 		text-align: left;
-		padding-top: .5em;
+		padding-top: 0.5em;
 	}
 
 	p {
 		line-height: 1.4;
-		margin-top: .5em;
+		margin-top: 0.5em;
 	}
 
 	p,
-	a:not(:last-child),
+	a:not( :last-child ),
 	.mw-ui-button {
 		margin-bottom: 1em;
 	}
@@ -52,7 +51,7 @@
 }
 
 // When overlays are opened drawers do not look good
-.overlay-enabled  {
+.overlay-enabled {
 	.drawer {
 		// !important to override rules set by animations
 		display: none !important;

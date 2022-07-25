@@ -25,7 +25,7 @@ class MobileFrontendSkinHooks {
 	ns = document.getElementsByTagName( 'noscript' );
 	for ( i = 0; i < ns.length; i++ ) {
 		p = ns[i].nextSibling;
-		if ( p.className.indexOf( 'lazy-image-placeholder' ) > -1 ) {
+		if ( p && p.className && p.className.indexOf( 'lazy-image-placeholder' ) > -1 ) {
 			img = document.createElement( 'img' );
 			img.setAttribute( 'src', p.getAttribute( 'data-src' ) );
 			img.setAttribute( 'width', p.getAttribute( 'data-width' ) );
@@ -56,7 +56,7 @@ JAVASCRIPT;
 
 		return Html::element(
 			'a',
-			array( 'href' => Skin::makeInternalOrExternalUrl( $url ) ),
+			[ 'href' => Skin::makeInternalOrExternalUrl( $url ) ],
 			$sk->msg( 'mobile-frontend-terms-text' )->text()
 		);
 	}
@@ -95,7 +95,7 @@ JAVASCRIPT;
 	 * @param array $attribs An associative array of extra HTML attributes to add to the link
 	 * @return array Associative array containing the license text and link
 	 */
-	public static function getLicense( $context, $attribs = array() ) {
+	public static function getLicense( $context, $attribs = [] ) {
 		$config = MobileContext::singleton()->getConfig();
 		$rightsPage = $config->get( 'RightsPage' );
 		$rightsUrl = $config->get( 'RightsUrl' );
@@ -107,7 +107,7 @@ JAVASCRIPT;
 			// for the currently offered strings. Unfortunately, there is no good way to
 			// comprehensively support localized licensing strings since the license (as
 			// stored in LocalSettings.php) is just freeform text, not an i18n key.
-			$commonLicenses = array(
+			$commonLicenses = [
 				'Creative Commons Attribution-Share Alike 3.0' => 'CC BY-SA 3.0',
 				'Creative Commons Attribution Share Alike' => 'CC BY-SA',
 				'Creative Commons Attribution 3.0' => 'CC BY 3.0',
@@ -116,7 +116,7 @@ JAVASCRIPT;
 				'Creative Commons Attribution Non-Commercial Share Alike' => 'CC BY-NC-SA',
 				'Creative Commons Zero (Public Domain)' => 'CC0 (Public Domain)',
 				'GNU Free Documentation License 1.3 or later' => 'GFDL 1.3 or later',
-			);
+			];
 
 			if ( isset( $commonLicenses[$rightsText] ) ) {
 				$rightsText = $commonLicenses[$rightsText];
@@ -135,13 +135,13 @@ JAVASCRIPT;
 
 		// Allow other extensions (for example, WikimediaMessages) to override
 		$msg = 'mobile-frontend-copyright';
-		Hooks::run( 'MobileLicenseLink', array( &$link, $context, $attribs, &$msg ) );
+		Hooks::run( 'MobileLicenseLink', [ &$link, $context, $attribs, &$msg ] );
 
-		return array(
+		return [
 			'msg' => $msg,
 			'link' => $link,
 			'plural' => self::getPluralLicenseInfo( $link )
-		);
+		];
 	}
 
 	/**
@@ -185,7 +185,7 @@ JAVASCRIPT;
 		$mobileViewUrl = $ctx->getMobileUrl( $mobileViewUrl );
 
 		$link = Html::element( 'a',
-			array( 'href' => $mobileViewUrl, 'class' => 'noprint stopMobileRedirectToggle' ),
+			[ 'href' => $mobileViewUrl, 'class' => 'noprint stopMobileRedirectToggle' ],
 			$ctx->msg( 'mobile-frontend-view' )->text()
 		);
 		$tpl->set( 'mobileview', $link );
@@ -205,6 +205,8 @@ JAVASCRIPT;
 	protected static function mobileFooter( Skin $sk, QuickTemplate $tpl, MobileContext $ctx,
 		Title $title, WebRequest $req
 	) {
+		$inBeta = $ctx->isBetaGroupMember();
+
 		$url = $sk->getOutput()->getProperty( 'desktopUrl' );
 		if ( $url ) {
 			$url = wfAppendQuery( $url, 'mobileaction=toggle_view_desktop' );
@@ -213,18 +215,18 @@ JAVASCRIPT;
 				$req->appendQueryValue( 'mobileaction', 'toggle_view_desktop', true )
 			);
 		}
-		$url = htmlspecialchars(
-			$ctx->getDesktopUrl( wfExpandUrl( $url, PROTO_RELATIVE ) )
-		);
+		$desktopUrl = $ctx->getDesktopUrl( wfExpandUrl( $url, PROTO_RELATIVE ) );
 
 		$desktop = $ctx->msg( 'mobile-frontend-view-desktop' )->escaped();
 		$mobile = $ctx->msg( 'mobile-frontend-view-mobile' )->escaped();
-
+		$desktopToggler = Html::element( 'a',
+			[ 'id' => "mw-mf-display-toggle", "href" => $desktopUrl ], $desktop );
 		$sitename = self::getSitename( true );
+		$siteheading = Html::rawElement( 'h2', [], $sitename );
 		$switcherHtml = <<<HTML
-<h2>{$sitename}</h2>
+{$siteheading}
 <ul>
-	<li>{$mobile}</li><li><a id="mw-mf-display-toggle" href="{$url}">{$desktop}</a></li>
+	<li>{$mobile}</li><li>{$desktopToggler}</li>
 </ul>
 HTML;
 
@@ -238,25 +240,37 @@ HTML;
 		}
 
 		// Enable extensions to add links to footer in Mobile view, too - bug 66350
-		Hooks::run( 'MobileSiteOutputPageBeforeExec', array( &$sk, &$tpl ) );
+		Hooks::run( 'MobileSiteOutputPageBeforeExec', [ &$sk, &$tpl ] );
 		// FIXME: Deprecate this hook.
-		Hooks::run( 'SkinMinervaOutputPageBeforeExec', array( &$sk, &$tpl ), '1.26' );
+		Hooks::run( 'SkinMinervaOutputPageBeforeExec', [ &$sk, &$tpl ], '1.26' );
 
 		$tpl->set( 'mobile-switcher', $switcherHtml );
+		$tpl->set( 'footer-site-heading-html', $sitename );
+		$tpl->set( 'desktop-toggle', $desktopToggler );
 		$tpl->set( 'mobile-license', $licenseText );
 		$tpl->set( 'privacy', $sk->footerLink( 'mobile-frontend-privacy-link-text', 'privacypage' ) );
 		$tpl->set( 'terms-use', self::getTermsLink( $sk ) );
 
-		$tpl->set( 'footerlinks', array(
-			'info' => array(
-				'mobile-switcher',
-				'mobile-license',
-			),
-			'places' => array(
-				'terms-use',
-				'privacy',
-			),
-		) );
+		$places = [
+			'terms-use',
+			'privacy',
+		];
+
+		if ( $ctx->getMFConfig()->get( 'MinervaUseFooterV2' ) || $inBeta ) {
+			$places[] = 'desktop-toggle';
+			$footerlinks = [
+				'places' => $places,
+			];
+		} else {
+			$footerlinks = [
+				'info' => [
+					'mobile-switcher',
+					'mobile-license',
+				],
+				'places' => $places,
+			];
+		}
+		$tpl->set( 'footerlinks', $footerlinks );
 		return $tpl;
 	}
 
@@ -281,19 +295,19 @@ HTML;
 		if ( $withPossibleTrademark ) {
 			// Registered trademark
 			if ( $trademarkSymbol === 'registered' ) {
-				$suffix = Html::element( 'sup', array(), '®' );
+				$suffix = Html::element( 'sup', [], '®' );
 			// Unregistered (or unspecified) trademark
 			} elseif ( $trademarkSymbol ) {
-				$suffix = Html::element( 'sup', array(), '™' );
+				$suffix = Html::element( 'sup', [], '™' );
 			}
 		}
 
 		// If there's a custom site logo, use that instead of text
 		if ( isset( $customLogos['copyright'] ) ) {
-			$attributes =  array(
+			$attributes =  [
 				'src' => $customLogos['copyright'],
-				'alt' => $footerSitename . $suffix,
-			);
+				'alt' => $footerSitename,
+			];
 			if ( isset( $customLogos['copyright-height'] ) ) {
 				$attributes['height'] = $customLogos['copyright-height'];
 			}

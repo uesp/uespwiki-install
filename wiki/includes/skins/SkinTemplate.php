@@ -18,6 +18,9 @@
  * @file
  */
 
+use MediaWiki\Auth\AuthManager;
+use MediaWiki\MediaWikiServices;
+
 /**
  * Base class for template-based skins.
  *
@@ -177,6 +180,7 @@ class SkinTemplate extends Skin {
 					'text' => $ilLangName,
 					'title' => $ilTitle,
 					'class' => $class,
+					'link-class' => 'interlanguage-link-target',
 					'lang' => $ilInterwikiCodeBCP47,
 					'hreflang' => $ilInterwikiCodeBCP47,
 				];
@@ -243,7 +247,7 @@ class SkinTemplate extends Skin {
 		$out = $this->getOutput();
 
 		$this->initPage( $out );
-		$tpl = $this->prepareQuickTemplate( $out );
+		$tpl = $this->prepareQuickTemplate();
 		// execute template
 		$res = $tpl->execute();
 
@@ -455,7 +459,6 @@ class SkinTemplate extends Skin {
 		$tpl->set( 'indicators', $out->getIndicators() );
 
 		$tpl->set( 'sitenotice', $this->getSiteNotice() );
-		$tpl->set( 'bottomscripts', $this->bottomScripts() );
 		$tpl->set( 'printfooter', $this->printSource() );
 		// Wrap the bodyText with #mw-content-text element
 		$out->mBodytext = $this->wrapHTML( $title, $out->mBodytext );
@@ -477,6 +480,9 @@ class SkinTemplate extends Skin {
 
 		$tpl->set( 'sidebar', $this->buildSidebar() );
 		$tpl->set( 'nav_urls', $this->buildNavUrls() );
+
+		// Do this last in case hooks above add bottom scripts
+		$tpl->set( 'bottomscripts', $this->bottomScripts() );
 
 		// Set the head scripts near the end, in case the above actions resulted in added scripts
 		$tpl->set( 'headelement', $out->headElement( $this ) );
@@ -573,6 +579,7 @@ class SkinTemplate extends Skin {
 		$title = $this->getTitle();
 		$request = $this->getRequest();
 		$pageurl = $title->getLocalURL();
+		$authManager = AuthManager::singleton();
 
 		/* set up the default links for the personal toolbar */
 		$personal_urls = [];
@@ -587,18 +594,16 @@ class SkinTemplate extends Skin {
 			$page = Title::newFromText( $request->getVal( 'title', '' ) );
 		}
 		$page = $request->getVal( 'returnto', $page );
-		$returnto = [];
+		$a = [];
 		if ( strval( $page ) !== '' ) {
-			$returnto['returnto'] = $page;
+			$a['returnto'] = $page;
 			$query = $request->getVal( 'returntoquery', $this->thisquery );
-			$paramsArray = wfCgiToArray( $query );
-			unset( $paramsArray['logoutToken'] );
-			$query = wfArrayToCgi( $paramsArray );
 			if ( $query != '' ) {
-				$returnto['returntoquery'] = $query;
+				$a['returntoquery'] = $query;
 			}
 		}
 
+		$returnto = wfArrayToCgi( $a );
 		if ( $this->loggedin ) {
 			$personal_urls['userpage'] = [
 				'text' => $this->username,
@@ -653,18 +658,25 @@ class SkinTemplate extends Skin {
 				'href' => $href,
 				'active' => $active
 			];
-			$personal_urls['logout'] = [
-				'text' => $this->msg( 'pt-userlogout' )->text(),
-				'href' => self::makeSpecialUrl( 'Userlogout',
-					// Note: userlogout link must always contain an & character, otherwise we might not be able
-					// to detect a buggy precaching proxy (bug 17790)
-						( $title->isSpecial( 'Preferences' ) ? [] : $returnto )
-						+ [ 'logoutToken' => $this->getUser()->getEditToken( 'logoutToken', $this->getRequest() ) ]
-				),
-				'active' => false
-			];
+
+			// if we can't set the user, we can't unset it either
+			if ( $request->getSession()->canSetUser() ) {
+				$personal_urls['logout'] = [
+					'text' => $this->msg( 'pt-userlogout' )->text(),
+					'href' => self::makeSpecialUrl( 'Userlogout',
+						// userlogout link must always contain an & character, otherwise we might not be able
+						// to detect a buggy precaching proxy (bug 17790)
+						$title->isSpecial( 'Preferences' ) ? 'noreturnto' : $returnto ),
+					'active' => false
+				];
+			}
 		} else {
 			$useCombinedLoginLink = $this->useCombinedLoginLink();
+			if ( !$authManager->canCreateAccounts() || !$authManager->canAuthenticateNow() ) {
+				// don't show combined login/signup link if one of those is actually not available
+				$useCombinedLoginLink = false;
+			}
+
 			$loginlink = $this->getUser()->isAllowed( 'createaccount' ) && $useCombinedLoginLink
 				? 'nav-login-createaccount'
 				: 'pt-login';
@@ -701,11 +713,17 @@ class SkinTemplate extends Skin {
 				];
 			}
 
-			if ( $this->getUser()->isAllowed( 'createaccount' ) && !$useCombinedLoginLink ) {
+			if (
+				$authManager->canCreateAccounts()
+				&& $this->getUser()->isAllowed( 'createaccount' )
+				&& !$useCombinedLoginLink
+			) {
 				$personal_urls['createaccount'] = $createaccount_url;
 			}
 
-			$personal_urls['login'] = $login_url;
+			if ( $authManager->canAuthenticateNow() ) {
+				$personal_urls['login'] = $login_url;
+			}
 		}
 
 		Hooks::run( 'PersonalUrls', [ &$personal_urls, &$title, $this ] );
@@ -737,6 +755,8 @@ class SkinTemplate extends Skin {
 			}
 		}
 
+		$linkClass = MediaWikiServices::getInstance()->getLinkRenderer()->getLinkClasses( $title );
+
 		// wfMessageFallback will nicely accept $message as an array of fallbacks
 		// or just a single key
 		$msg = wfMessageFallback( $message )->setContext( $this->getContext() );
@@ -761,11 +781,16 @@ class SkinTemplate extends Skin {
 			return $result;
 		}
 
-		return [
+		$result = [
 			'class' => implode( ' ', $classes ),
 			'text' => $text,
 			'href' => $title->getLocalURL( $query ),
 			'primary' => true ];
+		if ( $linkClass !== '' ) {
+			$result['link-class'] = $linkClass;
+		}
+
+		return $result;
 	}
 
 	function makeTalkUrlDetails( $name, $urlaction = '' ) {
@@ -891,11 +916,8 @@ class SkinTemplate extends Skin {
 			$content_navigation['namespaces'][$talkId]['context'] = 'talk';
 
 			if ( $userCanRead ) {
-				$isForeignFile = $title->inNamespace( NS_FILE ) && $this->canUseWikiPage() &&
-					$this->getWikiPage() instanceof WikiFilePage && !$this->getWikiPage()->isLocal();
-
-				// Adds view view link
-				if ( $title->exists() || $isForeignFile ) {
+				// Adds "view" view link
+				if ( $title->isKnown() ) {
 					$content_navigation['views']['view'] = $this->tabAction(
 						$isTalk ? $talkPage : $subjectPage,
 						[ "$skname-view-view", 'view' ],
@@ -905,7 +927,11 @@ class SkinTemplate extends Skin {
 					$content_navigation['views']['view']['redundant'] = true;
 				}
 
+				$isForeignFile = $title->inNamespace( NS_FILE ) && $this->canUseWikiPage() &&
+					$this->getWikiPage() instanceof WikiFilePage && !$this->getWikiPage()->isLocal();
+
 				// If it is a non-local file, show a link to the file in its own repository
+				// @todo abstract this for remote content that isn't a file
 				if ( $isForeignFile ) {
 					$file = $this->getWikiPage()->getFile();
 					$content_navigation['views']['view-foreign'] = [
@@ -963,7 +989,7 @@ class SkinTemplate extends Skin {
 							'href' => $title->getLocalURL( 'action=edit&section=new' )
 						];
 					}
-				// Checks if the page has some kind of viewable content
+				// Checks if the page has some kind of viewable source content
 				} elseif ( $title->hasSourceText() ) {
 					// Adds view source view link
 					$content_navigation['views']['viewsource'] = [
@@ -1291,6 +1317,7 @@ class SkinTemplate extends Skin {
 
 			if ( $this->showEmailUser( $user ) ) {
 				$nav_urls['emailuser'] = [
+					'text' => $this->msg( 'tool-link-emailuser', $rootUser )->text(),
 					'href' => self::makeSpecialUrlSubpage( 'Emailuser', $rootUser ),
 					'tooltip-params' => [ $rootUser ],
 				];
@@ -1301,6 +1328,7 @@ class SkinTemplate extends Skin {
 				$sur->setContext( $this->getContext() );
 				if ( $sur->userCanExecute( $this->getUser() ) ) {
 					$nav_urls['userrights'] = [
+						'text' => $this->msg( 'tool-link-userrights', $this->getUser()->getName() )->text(),
 						'href' => self::makeSpecialUrlSubpage( 'Userrights', $rootUser )
 					];
 				}

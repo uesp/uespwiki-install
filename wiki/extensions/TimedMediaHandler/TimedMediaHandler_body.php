@@ -197,24 +197,25 @@ class TimedMediaHandler extends MediaHandler {
 	 * @param $file File
 	 */
 	function parserTransformHook( $parser, $file ) {
-		global $wgTmhWebPlayer;
-
 		$parserOutput = $parser->getOutput();
 		if ( isset( $parserOutput->hasTimedMediaTransform ) ) {
 			return;
 		}
 		$parserOutput->hasTimedMediaTransform = true;
-		if ( $wgTmhWebPlayer == 'mwembed' ) {
+		if ( TimedMediaHandlerHooks::activePlayerMode() === 'mwembed' ) {
 			$parserOutput->addModuleStyles( 'ext.tmh.thumbnail.styles' );
 			$parserOutput->addModules( [
 				'mw.MediaWikiPlayer.loader',
 				'mw.PopUpMediaTransform',
 				'mw.TMHGalleryHook.js',
 			] );
-		} elseif ( $wgTmhWebPlayer === 'videojs' ) {
+		}
+
+		if ( TimedMediaHandlerHooks::activePlayerMode() === 'videojs' ) {
 			$parserOutput->addModuleStyles( 'ext.tmh.player.styles' );
 			$parserOutput->addModules( 'ext.tmh.player' );
 		}
+
 		if ( $parserOutput ) {
 			// Not present when run from outputpage hooks, like File/Category etc...
 			$parserOutput->setExtensionData( 'mw_ext_TMH_hasTimedMediaTransform', true );
@@ -364,24 +365,15 @@ class TimedMediaHandler extends MediaHandler {
 			return new TransformParameterError( $params );
 		}
 
-		$srcWidth = $file->getWidth();
-		$srcHeight = $file->getHeight();
-
-		$params['width'] = isset( $params['width'] ) ? $params['width'] : $srcWidth;
-
-		// if height overtakes width use height as max:
-		$targetWidth = $params['width'];
-		$targetHeight = $srcWidth == 0 ? $srcHeight : round( $params['width'] * $srcHeight / $srcWidth );
-		if ( isset( $params['height'] ) && $targetHeight > $params['height'] ) {
-			$targetHeight = $params['height'];
-			$targetWidth = round( $params['height'] * $srcWidth / $srcHeight );
-		}
 		$options = [
 			'file' => $file,
 			'length' => $this->getLength( $file ),
 			'offset' => $this->getOffset( $file ),
-			'width' => $targetWidth,
-			'height' =>  $targetHeight,
+			// Default thumbnail width and height for audio files is hardcoded to match the dimensions of
+			// the filetype icon, see TimedMediaTransformOutput::getUrl(). Overridden for video below.
+			'width' => isset( $params['width'] ) ? $params['width'] : 120,
+			// Height is ignored for audio files anyway, and $params['height'] might be set to 0
+			'height' => isset( $params['width'] ) ? $params['width'] : 120,
 			'isVideo' => !$this->isAudio( $file ),
 			'thumbtime' => isset(
 				$params['thumbtime']
@@ -396,6 +388,23 @@ class TimedMediaHandler extends MediaHandler {
 		if ( !$options['isVideo'] ) {
 			return new TimedMediaTransformOutput( $options );
 		}
+
+		// We're dealing with a video file now, set width and height
+		$srcWidth = $file->getWidth();
+		$srcHeight = $file->getHeight();
+
+		$params['width'] = isset( $params['width'] ) ? $params['width'] : $srcWidth;
+
+		// if height overtakes width use height as max:
+		$targetWidth = $params['width'];
+		$targetHeight = $srcWidth == 0 ? $srcHeight : round( $params['width'] * $srcHeight / $srcWidth );
+		if ( isset( $params['height'] ) && $targetHeight > $params['height'] ) {
+			$targetHeight = $params['height'];
+			$targetWidth = round( $params['height'] * $srcWidth / $srcHeight );
+		}
+
+		$options[ 'width' ] = $targetWidth;
+		$options[ 'height' ] = $targetHeight;
 
 		// Setup pointer to thumb arguments
 		$options[ 'thumbUrl' ] = $dstUrl;

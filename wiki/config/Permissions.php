@@ -5,14 +5,20 @@
 # It is included by LocalSettings.php.
 #
 
+# Remove redundant checkuser group (all admins have equivalent rights)
+$wgExtensionFunctions[] = function() use ( &$wgGroupPermissions ) {
+    unset( $wgGroupPermissions['checkuser'] );
+};
+
 # Rights to add or remove user groups
-$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller', 'esocartographer' );
-$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'map', 'patroller', 'translator', 'userpatroller', 'esocartographer' );
+$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer' );
+$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer' );
 
 # Removed group rights
 $wgGroupPermissions['*']['createpage'] = false;
 $wgGroupPermissions['*']['mapedit'] = false;
 $wgGroupPermissions['*']['esomapedit'] = false;
+$wgGroupPermissions['*']['trmapedit'] = false;
 $wgGroupPermissions['*']['patroller'] = false;
 
 $wgGroupPermissions['user']['move'] = false;
@@ -38,6 +44,7 @@ $wgGroupPermissions['autopatrolled']['tboverride'] = true;
 $wgGroupPermissions['blockuser']['blocktalk'] = true;
 $wgGroupPermissions['blockuser']['skipcaptcha'] = true;
 
+$wgGroupPermissions['bot']['deletedhistory'] = true;
 $wgGroupPermissions['bot']['editprotected'] = true;
 $wgGroupPermissions['bot']['protect'] = true;
 $wgGroupPermissions['bot']['tboverride'] = true;
@@ -45,14 +52,26 @@ $wgGroupPermissions['bot']['tboverride'] = true;
 $wgGroupPermissions['cartographer']['map'] = true;
 $wgGroupPermissions['cartographer']['mapedit'] = true;
 $wgGroupPermissions['cartographer']['esomapedit'] = true;
+$wgGroupPermissions['cartographer']['trmapedit'] = true;
 
 $wgGroupPermissions['esocartographer']['map'] = true;
 $wgGroupPermissions['esocartographer']['mapedit'] = false;
 $wgGroupPermissions['esocartographer']['esomapedit'] = true;
+$wgGroupPermissions['esocartographer']['trmapedit'] = false;
+
+$wgGroupPermissions['trcartographer']['map'] = true;
+$wgGroupPermissions['trcartographer']['mapedit'] = false;
+$wgGroupPermissions['trcartographer']['esomapedit'] = false;
+$wgGroupPermissions['trcartographer']['trmapedit'] = true;
+
+$wgGroupPermissions['othercartographer']['map'] = true;
+$wgGroupPermissions['othercartographer']['mapedit'] = true;
+$wgGroupPermissions['othercartographer']['esomapedit'] = false;
+$wgGroupPermissions['othercartographer']['trmapedit'] = false;
 
 $wgGroupPermissions['confirmed']['autoconfirmed'] = true;
 
-$wgGroupPermissions['map']['map'] = true;
+//$wgGroupPermissions['map']['map'] = true;
 
 $wgGroupPermissions['patroller']['autopatrol'] = true;
 $wgGroupPermissions['patroller']['editinterface'] = true;
@@ -97,6 +116,11 @@ $wgGroupPermissions['translator']['tboverride'] = true;
 $wgGroupPermissions['translator']['undelete'] = true;
 
 $wgGroupPermissions['userpatroller']['tboverride'] = true;
+
+# Temporary elevation of reupload rights
+$wgGroupPermissions['user']['reupload'] = false;
+$wgGroupPermissions['autoconfirmed']['reupload'] = true;
+$wgGroupPermissions['confirmed']['reupload'] = true;
 
 # Right to create an account via the API (completely disabled for all users)
 $wgAPIModules['createaccount'] = 'ApiDisabled';

@@ -10,6 +10,8 @@ use CirrusSearch\Search\ResultSet;
 use CirrusSearch\SearchConfig;
 use CirrusSearch\Search\FancyTitleResultsType;
 use CirrusSearch\Search\TitleResultsType;
+use CirrusSearch\Search\TextIndexField;
+use CirrusSearch\UserTesting;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 
@@ -35,10 +37,10 @@ use MediaWiki\MediaWikiServices;
  * http://www.gnu.org/copyleft/gpl.html
  */
 class CirrusSearch extends SearchEngine {
-	const MORE_LIKE_THIS_PREFIX = 'morelike:';
-	const MORE_LIKE_THIS_JUST_WIKIBASE_PREFIX = 'morelikewithwikibase:';
-
 	const COMPLETION_SUGGESTER_FEATURE = 'completionSuggester';
+
+	/** @const string name of the prefixsearch fallback profile */
+	const COMPLETION_PREFIX_FALLBACK_PROFILE = 'classic';
 
 	/**
 	 * @var string The last prefix substituted by replacePrefixes.
@@ -46,9 +48,15 @@ class CirrusSearch extends SearchEngine {
 	private $lastNamespacePrefix;
 
 	/**
-	 * @var array metrics about the last thing we searched
+	 * @var array metrics about the last thing we searched sourced from the
+	 *  Searcher instance
 	 */
-	private $lastSearchMetrics;
+	private $lastSearchMetrics = [];
+
+	/**
+	 * @var array additional metrics about the search sourced within this class
+	 */
+	private $extraSearchMetrics = [];
 
 	/**
 	 * @var string
@@ -72,13 +80,29 @@ class CirrusSearch extends SearchEngine {
 	 */
 	private $request;
 
+	/**
+	 * Sets the behaviour for the dump query, dump result, etc debugging features.
+	 * By default echo's and dies. If this is set to false it will be returned
+	 * from Searcher::searchText, which breaks the type signature contracts and should
+	 * only be used from unit tests.
+	 * @var bool
+	 */
+	private $dumpAndDie = true;
+
 	public function __construct( $baseName = null ) {
-		$this->indexBaseName = $baseName === null ? wfWikiID() : $baseName;
+		// Initialize UserTesting before we create a Connection
+		// This is useful to do tests accross multiple clusters
+		UserTesting::getInstance();
 		$this->config = MediaWikiServices::getInstance()
 				->getConfigFactory()
 				->makeConfig( 'CirrusSearch' );
+		$this->indexBaseName = $baseName === null
+			? $this->config->get( SearchConfig::INDEX_BASE_NAME )
+			: $baseName;
 		$this->connection = new Connection( $this->config );
 		$this->request = RequestContext::getMain()->getRequest();
+		// enable interwiki by default
+		$this->features['interwiki'] = true;
 	}
 
 	public function setConnection( Connection $connection ) {
@@ -144,7 +168,7 @@ class CirrusSearch extends SearchEngine {
 				$matches->isQueryRewriteAllowed( $GLOBALS['wgCirrusSearchInterwikiThreshold'] ) ) {
 			$matches = $this->searchTextSecondTry( $term, $matches );
 		}
-		ElasticsearchIntermediary::setResultPages( array( $matches ) );
+		ElasticsearchIntermediary::setResultPages( [ $matches ] );
 
 		return $matches;
 	}
@@ -166,10 +190,10 @@ class CirrusSearch extends SearchEngine {
 			if ( !class_exists( $klass ) ) {
 				LoggerFactory::getInstance( 'CirrusSearch' )->info(
 					"Unknown detector class for {name}: {class}",
-					array(
+					[
 						"name" => $name,
 						"class" => $klass,
-					)
+					]
 				);
 				continue;
 
@@ -178,10 +202,10 @@ class CirrusSearch extends SearchEngine {
 			if( !( $detector instanceof \CirrusSearch\LanguageDetector\Detector ) ) {
 				LoggerFactory::getInstance( 'CirrusSearch' )->info(
 					"Bad detector class for {name}: {class}",
-					array(
+					[
 						"name" => $name,
 						"class" => $klass,
-					)
+					]
 				);
 				continue;
 			}
@@ -192,24 +216,16 @@ class CirrusSearch extends SearchEngine {
 				// log context? It would be inconsistent with the
 				// langdetect => false condition which does not have a next
 				// request though.
-				Searcher::appendLastLogContext( array(
-					'langdetect' => $name,
-				) );
+				Searcher::appendLastLogPayload( 'langdetect', $name );
 				$detected = $wiki;
 				break;
 			}
 		}
 		if ( $detected === null ) {
-			Searcher::appendLastLogContext( array(
-				'langdetect' => 'failed',
-			) );
-		}
-
-		// check whether we have second language functionality enabled.
-		// This comes after the actual detection so we can include the
-		// results of detection in AB test control buckets.
-		if ( !$GLOBALS['wgCirrusSearchEnableAltLanguage'] ) {
-			return null;
+			Searcher::appendLastLogPayload( 'langdetect', 'failed' );
+		} else {
+			// Report language detection with search metrics
+			$this->extraSearchMetrics['wgCirrusSearchAltLanguage'] = $detected;
 		}
 
 		return $detected;
@@ -234,7 +250,7 @@ class CirrusSearch extends SearchEngine {
 			return null;
 		}
 
-		return array( $interwiki, $interWikiId );
+		return [ $interwiki, $interWikiId ];
 	}
 
 	/**
@@ -277,18 +293,26 @@ class CirrusSearch extends SearchEngine {
 			} catch ( MWException $e ) {
 				LoggerFactory::getInstance( 'CirrusSearch' )->info(
 					"Failed to get config for {interwiki}:{dbwiki}",
-					array(
+					[
 						"interwiki" => $altWiki[0],
 						"dbwiki" => $altWiki[1],
 						"exception" => $e
-					)
+					]
 				);
 				$config = null;
 			}
 			if ( $config ) {
-				$matches = $this->searchTextReal( $term, $config );
-				if ( $matches instanceof ResultSet && $matches->numRows() > 0 ) {
-					$oldResult->addInterwikiResults( $matches, SearchResultSet::INLINE_RESULTS, $altWiki[1] );
+				$matches = $this->searchTextReal( $term, $config, true );
+				if ( $matches instanceof ResultSet ) {
+					$numRows = $matches->numRows();
+					$this->extraSearchMetrics['wgCirrusSearchAltLanguageNumResults'] = $numRows;
+					// check whether we have second language functionality enabled.
+					// This comes after the actual query is run so we can collect metrics about
+					// users in the control buckets, and provide them the same latency as users
+					// in the test bucket.
+					if ( $GLOBALS['wgCirrusSearchEnableAltLanguage'] && $numRows > 0) {
+						$oldResult->addInterwikiResults( $matches, SearchResultSet::INLINE_RESULTS, $altWiki[1] );
+					}
 				}
 			}
 		}
@@ -301,11 +325,11 @@ class CirrusSearch extends SearchEngine {
 	 * Do the hard part of the searching - actual Searcher invocation
 	 * @param string $term
 	 * @param SearchConfig $config
+	 * @param boolean $forceLocal set to true to force searching on the
+	 *        local wiki (e.g. avoid searching on commons)
 	 * @return null|Status|ResultSet
 	 */
-	private function searchTextReal( $term, SearchConfig $config = null ) {
-		global $wgCirrusSearchInterwikiSources;
-
+	protected function searchTextReal( $term, SearchConfig $config = null, $forceLocal = false ) {
 		// Convert the unicode character 'ideographic whitespace' into standard
 		// whitespace.  Cirrussearch treats them both as normal whitespace, but
 		// the preceding isn't appropriately trimmed.
@@ -316,7 +340,7 @@ class CirrusSearch extends SearchEngine {
 		}
 
 		if ( $config ) {
-			$this->indexBaseName = $config->getWikiId();
+			$this->indexBaseName = $config->get( SearchConfig::INDEX_BASE_NAME );
 		}
 
 		$searcher = new Searcher( $this->connection, $this->offset, $this->limit, $config, $this->namespaces, null, $this->indexBaseName );
@@ -327,10 +351,19 @@ class CirrusSearch extends SearchEngine {
 			$searcher->addSuggestPrefix( '~' );
 		}
 
+		$searcher->getSearchContext()->setLimitSearchToLocalWiki( $forceLocal );
+
 		// TODO remove this when we no longer have to support core versions without
 		// Ie946150c6796139201221dfa6f7750c210e97166
 		if ( method_exists( $this, 'getSort' ) ) {
 			$searcher->setSort( $this->getSort() );
+		}
+
+		if ( isset( $this->features[SearchEngine::FT_QUERY_INDEP_PROFILE_TYPE] ) ) {
+			$profile = $this->features[SearchEngine::FT_QUERY_INDEP_PROFILE_TYPE];
+			if ( $this->config->getElement( 'CirrusSearchRescoreProfiles', $profile ) !== null ) {
+				$searcher->getSearchContext()->setRescoreProfile( $profile );
+			}
 		}
 
 		$dumpQuery = $this->request && $this->request->getVal( 'cirrusDumpQuery' ) !== null;
@@ -340,86 +373,108 @@ class CirrusSearch extends SearchEngine {
 		$returnExplain = $this->request && $this->request->getVal( 'cirrusExplain' ) !== null;
 		$searcher->setReturnExplain( $returnExplain );
 
-		// Delegate to either searchText or moreLikeThisArticle and dump the result into $status
-		if ( substr( $term, 0, strlen( self::MORE_LIKE_THIS_PREFIX ) ) === self::MORE_LIKE_THIS_PREFIX ) {
-			$term = substr( $term, strlen( self::MORE_LIKE_THIS_PREFIX ) );
-			$status = $this->moreLikeThis( $term, $searcher, Searcher::MORE_LIKE_THESE_NONE );
-		} else if ( substr( $term, 0, strlen( self::MORE_LIKE_THIS_JUST_WIKIBASE_PREFIX ) ) === self::MORE_LIKE_THIS_JUST_WIKIBASE_PREFIX ) {
-			$term = substr( $term, strlen( self::MORE_LIKE_THIS_JUST_WIKIBASE_PREFIX ) );
-			$status = $this->moreLikeThis( $term, $searcher, Searcher::MORE_LIKE_THESE_ONLY_WIKIBASE );
+		if ( $this->lastNamespacePrefix ) {
+			$searcher->addSuggestPrefix( $this->lastNamespacePrefix );
 		} else {
-			# Namespace lookup should not be done for morelike special syntax (T111244)
-			if ( $this->lastNamespacePrefix ) {
-				$searcher->addSuggestPrefix( $this->lastNamespacePrefix );
-			} else {
-				$searcher->updateNamespacesFromQuery( $term );
+			$searcher->updateNamespacesFromQuery( $term );
+		}
+		$highlightingConfig = FullTextResultsType::HIGHLIGHT_ALL;
+		if ( $this->request ) {
+			if ( $this->request->getVal( 'cirrusSuppressSuggest' ) !== null ) {
+				$this->showSuggestion = false;
 			}
-			$highlightingConfig = FullTextResultsType::HIGHLIGHT_ALL;
-			if ( $this->request ) {
-				if ( $this->request->getVal( 'cirrusSuppressSuggest' ) !== null ) {
-					$this->showSuggestion = false;
-				}
-				if ( $this->request->getVal( 'cirrusSuppressTitleHighlight' ) !== null ) {
-					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_TITLE;
-				}
-				if ( $this->request->getVal( 'cirrusSuppressAltTitle' ) !== null ) {
-					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_ALT_TITLE;
-				}
-				if ( $this->request->getVal( 'cirrusSuppressSnippet' ) !== null ) {
-					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_SNIPPET;
-				}
-				if ( $this->request->getVal( 'cirrusHighlightDefaultSimilarity' ) === 'no' ) {
-					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_WITH_DEFAULT_SIMILARITY;
-				}
-				if ( $this->request->getVal( 'cirrusHighlightAltTitleWithPostings' ) === 'no' ) {
-					$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_ALT_TITLES_WITH_POSTINGS;
-				}
+			if ( $this->request->getVal( 'cirrusSuppressTitleHighlight' ) !== null ) {
+				$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_TITLE;
 			}
-			if ( $this->namespaces && !in_array( NS_FILE, $this->namespaces ) ) {
-				$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_FILE_TEXT;
+			if ( $this->request->getVal( 'cirrusSuppressAltTitle' ) !== null ) {
+				$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_ALT_TITLE;
 			}
+			if ( $this->request->getVal( 'cirrusSuppressSnippet' ) !== null ) {
+				$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_SNIPPET;
+			}
+			if ( $this->request->getVal( 'cirrusHighlightDefaultSimilarity' ) === 'no' ) {
+				$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_WITH_DEFAULT_SIMILARITY;
+			}
+			if ( $this->request->getVal( 'cirrusHighlightAltTitleWithPostings' ) === 'no' ) {
+				$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_ALT_TITLES_WITH_POSTINGS;
+			}
+		}
+		if ( $this->namespaces && !in_array( NS_FILE, $this->namespaces ) ) {
+			$highlightingConfig ^= FullTextResultsType::HIGHLIGHT_FILE_TEXT;
+		}
 
-			$searcher->setResultsType( new FullTextResultsType( $highlightingConfig, $config ? $config->getWikiCode() : '') );
-			$status = $searcher->searchText( $term, $this->showSuggestion );
-		}
-		if ( $dumpQuery || $dumpResult ) {
-			// When dumping the query we skip _everything_ but echoing the query.
-			RequestContext::getMain()->getOutput()->disable();
-			if ( $this->request && $this->request->getVal( 'cirrusExplain' ) === 'pretty' ) {
-				$printer = new CirrusSearch\ExplainPrinter();
-				echo $printer->format( $status->getValue() );
-			} else {
-				$this->request->response()->header( 'Content-type: application/json; charset=UTF-8' );
-				if ( $status->getValue() === null ) {
-					echo '{}';
-				} else {
-					echo json_encode( $status->getValue() );
-				}
-			}
-			exit();
-		}
+		$searcher->setResultsType( new FullTextResultsType( $highlightingConfig, $config ? $config->getWikiCode() : '') );
+		$status = $searcher->searchText( $term, $this->showSuggestion );
 
 		$this->lastSearchMetrics = $searcher->getSearchMetrics();
 
-		// Add interwiki results, if we have a sane result
-		// Note that we have no way of sending warning back to the user.  In this case all warnings
-		// are logged when they are added to the status object so we just ignore them here....
-		if ( $status->isOK() && $wgCirrusSearchInterwikiSources && $status->getValue() &&
-				method_exists( $status->getValue(), 'addInterwikiResults' ) ) {
-			// @todo @fixme: This should absolutely be a multisearch. I knew this when I
-			// wrote the code but Searcher needs some refactoring first.
-			foreach ( $wgCirrusSearchInterwikiSources as $interwiki => $index ) {
-				$iwSearch = new InterwikiSearcher( $this->connection, $this->namespaces, null, $index, $interwiki );
-				$interwikiResult = $iwSearch->getInterwikiResults( $term );
-				if ( $interwikiResult ) {
-					$status->getValue()->addInterwikiResults( $interwikiResult, SearchResultSet::SECONDARY_RESULTS, $interwiki );
-				}
-			}
+		if ( !$status->isOK() ) {
+			return $status;
 		}
 
 		// For historical reasons all callers of searchText interpret any Status return as an error
 		// so we must unwrap all OK statuses.  Note that $status can be "good" and still contain null
 		// since that is interpreted as no results.
+		$result = $status->getValue();
+
+		// Add interwiki results, if we have a sane result
+		// Note that we have no way of sending warning back to the user.  In this case all warnings
+		// are logged when they are added to the status object so we just ignore them here....
+		if ( $this->isFeatureEnabled( 'interwiki' ) &&
+			( $dumpQuery || $dumpResult || method_exists( $result, 'addInterwikiResults' ) )
+		) {
+
+			$iwSearch = new InterwikiSearcher( $this->connection, $this->namespaces );
+			$iwSearch->setReturnQuery( $dumpQuery );
+			$iwSearch->setDumpResult( $dumpResult );
+			$iwSearch->setReturnExplain( $returnExplain );
+			$interwikiResults = $iwSearch->getInterwikiResults( $term );
+			if ( $interwikiResults !== null ) {
+				// If we are dumping we need to convert into an array that can be appended to
+				if ( $dumpQuery || $dumpResult ) {
+					$result = [$result];
+				}
+				foreach ( $interwikiResults as $interwiki => $interwikiResult ) {
+					if ( $dumpQuery || $dumpResult ) {
+						$result[] = $interwikiResult;
+					} elseif ( $interwikiResult && $interwikiResult->numRows() > 0 ) {
+						$result->addInterwikiResults(
+							$interwikiResult, SearchResultSet::SECONDARY_RESULTS, $interwiki
+						);
+					}
+				}
+			}
+		}
+
+		if ( $dumpQuery || $dumpResult ) {
+			$header = null;
+			if ( $this->request && $this->request->getVal( 'cirrusExplain' ) === 'pretty' ) {
+				$printer = new CirrusSearch\ExplainPrinter();
+				$result = $printer->format( $result );
+			} else {
+				$header = 'Content-type: application/json; charset=UTF-8';
+				if ( $result === null ) {
+					$result = '{}';
+				} else {
+					$result = json_encode( $result, JSON_PRETTY_PRINT );
+				}
+			}
+
+			if ( $this->dumpAndDie ) {
+				// When dumping the query we skip _everything_ but echoing the query.
+				RequestContext::getMain()->getOutput()->disable();
+				if ( $header !== null ) {
+					$this->request->response()->header( $header );
+				}
+				echo $result;
+				exit();
+			} else {
+				// This breaks the return types and is only used in the fixtures unit tests
+				return $result;
+			}
+		}
+
+
 		return $status->isOK() ? $status->getValue() : $status;
 	}
 
@@ -431,11 +486,20 @@ class CirrusSearch extends SearchEngine {
 	 * @return SearchSuggestionSet Set of suggested names
 	 */
 	protected function getSuggestions( $search, $variants, SearchConfig $config ) {
-		// offset is omitted, searchSuggestion does not support
-		// scrolling results
-		$suggester = new CompletionSuggester( $this->connection, $this->limit,
+		// Inspect features to check if the user selected a specific profile
+		$profile = null;
+		if ( isset( $this->features[SearchEngine::COMPLETION_PROFILE_TYPE] ) ) {
+			$profile = $this->features[SearchEngine::COMPLETION_PROFILE_TYPE];
+		}
+		$clusterOverride = $config->getElement( 'CirrusSearchClusterOverrides', 'completion' );
+		if ( $clusterOverride !== null ) {
+			$connection = Connection::getPool( $config, $clusterOverride );
+		} else {
+			$connection = $this->connection;
+		}
+		$suggester = new CompletionSuggester( $connection, $this->limit,
 				$this->offset, $config, $this->namespaces, null,
-				$this->indexBaseName );
+				$this->indexBaseName, $profile );
 
 		$response = $suggester->suggest( $search, $variants );
 		if ( $response->isOK() ) {
@@ -444,48 +508,6 @@ class CirrusSearch extends SearchEngine {
 		} else {
 			return SearchSuggestionSet::emptySuggestionSet();
 		}
-	}
-
-	/**
-	 * @param string $term
-	 * @param Searcher $searcher
-	 * @param int $options A bitset of Searcher::MORE_LIKE_THESE_*
-	 * @return Status<SearchResultSet>
-	 */
-	private function moreLikeThis( $term, $searcher, $options ) {
-		// Expand titles chasing through redirects
-		$titles = array();
-		$found = array();
-		foreach ( explode( '|', $term ) as $title ) {
-			$title = Title::newFromText( trim( $title ) );
-			while ( true ) {
-				if ( !$title ) {
-					continue 2;
-				}
-				$titleText = $title->getFullText();
-				if ( in_array( $titleText, $found ) ) {
-					continue 2;
-				}
-				$found[] = $titleText;
-				if ( !$title->exists() ) {
-					continue 2;
-				}
-				if ( $title->isRedirect() ) {
-					$page = WikiPage::factory( $title );
-					if ( !$page->exists() ) {
-						continue 2;
-					}
-					$title = $page->getRedirectTarget();
-				} else {
-					break;
-				}
-			}
-			$titles[] = $title;
-		}
-		if ( count( $titles ) ) {
-			return $searcher->moreLikeTheseArticles( $titles, $options );
-		}
-		return Status::newGood( new SearchResultSet( true ) /* empty */ );
 	}
 
 	/**
@@ -520,7 +542,7 @@ class CirrusSearch extends SearchEngine {
 	 * @return string[]
 	 */
 	public function getValidSorts() {
-		return array( 'relevance', 'title_asc', 'title_desc' );
+		return [ 'relevance', 'title_asc', 'title_desc' ];
 	}
 
 	/**
@@ -528,7 +550,8 @@ class CirrusSearch extends SearchEngine {
 	 * @return array
 	 */
 	public function getLastSearchMetrics() {
-		return $this->lastSearchMetrics;
+		/** @suppress PhanTypeMismatchReturn Phan doesn't handle array addition correctly */
+		return $this->lastSearchMetrics + $this->extraSearchMetrics;
 	}
 
 	protected function completionSuggesterEnabled( SearchConfig $config ) {
@@ -572,8 +595,7 @@ class CirrusSearch extends SearchEngine {
 	 * @return SearchSuggestionSet
 	 */
 	protected function completionSearchBackend( $search ) {
-
-		if ( in_array( NS_SPECIAL, $this->namespaces) ) {
+		if ( in_array( NS_SPECIAL, $this->namespaces ) ) {
 			// delegate special search to parent
 			return parent::completionSearchBackend( $search );
 		}
@@ -588,6 +610,13 @@ class CirrusSearch extends SearchEngine {
 		     reset( $this->namespaces ) != NS_MAIN ) {
 			// for now, suggester only works for main namespace
 			return $this->prefixSearch( $search );
+		}
+
+		if ( isset( $this->features[SearchEngine::COMPLETION_PROFILE_TYPE] ) ) {
+			// Fallback to prefixsearch if the classic profile was selected.
+			if ( $this->features[SearchEngine::COMPLETION_PROFILE_TYPE] == self::COMPLETION_PREFIX_FALLBACK_PROFILE ) {
+				return $this->prefixSearch( $search );
+			}
 		}
 
 		// Not really useful, mostly for testing purpose
@@ -661,5 +690,135 @@ class CirrusSearch extends SearchEngine {
 		}
 
 		return SearchSuggestionSet::emptySuggestionSet();
+	}
+
+	/**
+	 * @param string $profileType
+	 * @param User|null $user
+	 * @return array|null
+	 */
+	public function getProfiles( $profileType, User $user = null ) {
+		switch( $profileType ) {
+		case SearchEngine::COMPLETION_PROFILE_TYPE:
+			if ( $this->config->get( 'CirrusSearchUseCompletionSuggester' ) == 'no' ) {
+				// No profile selection if completion suggester is disabled.
+				return [];
+			}
+
+			$userDefault = $this->config->get( 'CirrusSearchCompletionSettings' );
+			$allowedProfiles = $this->getAllowedCompletionProfiles();
+			// Only check user options if the user is logged to avoid loading
+			// default user options.
+			if ( $user !== null && $user->getId() !== 0 &&
+				$user->getOption( 'cirrussearch-pref-completion-profile' ) !== null &&
+				array_key_exists(
+					$user->getOption( 'cirrussearch-pref-completion-profile' ),
+					$allowedProfiles )
+			) {
+
+				$userDefault = $user->getOption( 'cirrussearch-pref-completion-profile' );
+			}
+
+			$profiles = [];
+			foreach( array_keys( $allowedProfiles ) as $name ) {
+				$profiles[] = [
+					'name' => $name,
+					'desc-message' => 'cirrussearch-completion-profile-' . $name,
+					'default' => $userDefault === $name,
+				];
+			}
+			return $profiles;
+		case SearchEngine::FT_QUERY_INDEP_PROFILE_TYPE:
+			$profiles = [];
+			// The Hook should run profiles/RescoreProfiles.php before
+			// any consumer call to getProfiles, so that the default
+			// will be properly set when the curstom request param
+			// cirrusRescoreProfile=profile is set.
+			$cirrusDefault = $this->config->get( 'CirrusSearchRescoreProfile' );
+			$defaultFound = false;
+			foreach( $this->config->get( 'CirrusSearchRescoreProfiles' ) as $name => $profile ) {
+				$default = $cirrusDefault === $name;
+				$defaultFound |= $default;
+				$profiles[] = [
+					'name' => $name,
+					// @todo: decide what to with profiles we declare
+					// in wmf-config with no i18n messages.
+					// Do we want to expose them anyway, or simply
+					// hide them but still allow Api to pass them to us.
+					// It may require a change in core since ApiBase is
+					// strict and won't allow unknown values to be set
+					// here.
+					'desc-message' => isset ( $profile['i18n_msg'] ) ? $profile['i18n_msg'] : null,
+					'default' => $default,
+				];
+			}
+			return $profiles;
+		}
+		return null;
+	}
+
+	/**
+	 * Return the list of completion profiles allowed
+	 * @return array[] list of profiles indexed by profile name
+	 */
+	private function getAllowedCompletionProfiles() {
+		$profiles = [];
+		$allowedFields = [ 'suggest' => true, 'suggest-stop' => true ];
+		// Check that we can use the subphrases FST
+		if ( $this->config->getElement( 'CirrusSearchCompletionSuggesterSubphrases', 'use' ) ) {
+			$allowedFields['suggest-subphrases'] = true;
+		}
+		foreach( $this->config->get( 'CirrusSearchCompletionProfiles' ) as $name => $settings ) {
+			$allowed = true;
+			foreach( $settings as $value ) {
+				if ( !array_key_exists( $value['field'], $allowedFields ) ) {
+					$allowed = false;
+					break;
+				}
+			}
+			if ( !$allowed ) {
+				continue;
+			}
+			$profiles[$name] = $settings;
+		}
+		// Add fallback to prefixsearch
+		$profiles[self::COMPLETION_PREFIX_FALLBACK_PROFILE] = [];
+		return $profiles;
+	}
+
+	/**
+	 * Create a search field definition
+	 * @param string $name
+	 * @param int    $type
+	 * @return SearchIndexField
+	 */
+	public function makeSearchFieldMapping( $name, $type ) {
+		$overrides = $this->config->get( 'CirrusSearchFieldTypeOverrides' );
+		$mappings = $this->config->get( 'CirrusSearchFieldTypes' );
+		if ( !isset( $mappings[$type] ) ) {
+			return new NullIndexField();
+		}
+		$klass = $mappings[$type];
+
+		// Check if a specific class is provided for this field
+		if ( isset( $overrides[$name] ) ) {
+			if ( $klass !== $overrides[$name] && !is_subclass_of( $overrides[$name], $klass ) ) {
+				throw new \Exception( "Specialized class " . $overrides[$name] .
+					" for field $name is not compatible with type class $klass" );
+			}
+			$klass = $overrides[$name];
+		}
+
+		return new $klass( $name, $type, $this->config );
+	}
+
+	/**
+	 * @param bool $dumpAndDie Sets the behaviour for the dump query, dump
+	 *  result, etc debugging features. By default echo's and dies. If this is
+	 *  set to false it will be returned from Searcher::searchText, which breaks
+	 *  the type signature contracts and should only be used from unit tests.
+	 */
+	public function setDumpAndDie( $dumpAndDie ) {
+		$this->dumpAndDie = $dumpAndDie;
 	}
 }

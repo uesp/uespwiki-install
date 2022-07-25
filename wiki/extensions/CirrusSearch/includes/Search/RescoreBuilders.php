@@ -2,9 +2,10 @@
 
 namespace CirrusSearch\Search;
 
+use CirrusSearch\Query\GeoFeature;
 use CirrusSearch\Util;
 use Elastica\Query\FunctionScore;
-use Elastica\Filter\AbstractFilter;
+use Elastica\Query\AbstractQuery;
 use MWNamespace;
 
 /**
@@ -36,11 +37,11 @@ class RescoreBuilder {
 	 *
 	 * @var string[] $rescoreMainParams
 	 */
-	private static $rescoreMainParams = array(
+	private static $rescoreMainParams = [
 		'query_weight',
 		'rescore_query_weight',
 		'score_mode'
-	);
+	];
 
 	const FUNCTION_SCORE_TYPE = "function_score";
 
@@ -56,10 +57,13 @@ class RescoreBuilder {
 
 	/**
 	 * @param SearchContext $context
-	 * @param string $profile
+	 * @param string|null $profile
 	 */
-	public function __construct( SearchContext $context, $profile ) {
+	public function __construct( SearchContext $context, $profile = null ) {
 		$this->context = $context;
+		if ( $profile === null ) {
+			$profile = $context->getRescoreProfile();
+		}
 		if ( is_string( $profile ) ) {
 			$profile = $this->context->getConfig()->getElement( 'CirrusSearchRescoreProfiles', $profile );
 		}
@@ -70,12 +74,12 @@ class RescoreBuilder {
 	 * @return array of rescore queries
 	 */
 	public function build() {
-		$rescores = array();
+		$rescores = [];
 		foreach( $this->profile['rescore'] as $rescoreDef ) {
 			$windowSize = $this->windowSize( $rescoreDef );
-			$rescore = array(
+			$rescore = [
 				'window_size' => $windowSize,
-			);
+			];
 
 			$rescore['query'] = array_intersect_key( $rescoreDef, array_flip( self::$rescoreMainParams ) );
 			$rescoreQuery = $this->buildRescoreQuery( $rescoreDef );
@@ -185,13 +189,13 @@ class FunctionScoreChain {
 	 *
 	 * @var string[]
 	 */
-	private static $functionScoreParams = array(
+	private static $functionScoreParams = [
 		'boost',
 		'boost_mode',
 		'max_boost',
 		'score_mode',
 		'min_score'
-	);
+	];
 
 	/**
 	 * @var SearchContext
@@ -282,6 +286,8 @@ class FunctionScoreChain {
 			return new LogMultFunctionScoreBuilder( $this->context, $weight,  $func['params'] );
 		case 'geomean':
 			return new GeoMeanFunctionScoreBuilder( $this->context, $weight,  $func['params'] );
+		case 'georadius':
+			return new GeoRadiusFunctionScoreBuilder( $this->context, $weight );
 		default:
 			throw new InvalidRescoreProfileException( "Unknown function score type {$func['type']}." );
 		}
@@ -303,11 +309,11 @@ class FunctionScoreDecorator extends FunctionScore {
 	/**
 	 * @param string $functionType
 	 * @param array|float $functionParams
-	 * @param AbstractFilter|null $filter
+	 * @param AbstractQuery|null $filter
 	 * @param float|null $weight
 	 * @return $this
 	 */
-	public function addFunction( $functionType, $functionParams, AbstractFilter $filter = null, $weight = null ) {
+	public function addFunction( $functionType, $functionParams, $filter = null, $weight = null ) {
 		$this->size++;
 		return parent::addFunction( $functionType, $functionParams, $filter, $weight );
 	}
@@ -426,7 +432,8 @@ class BoostTemplatesFunctionScoreBuilder extends FunctionScoreBuilder {
 		// we disable default boost templates.
 		if ( $this->boostTemplates === null ) {
 			// Fallback to default otherwise
-			$this->boostTemplates = Util::getDefaultBoostTemplates();
+			$this->boostTemplates =
+				Util::getDefaultBoostTemplates( $context->getConfig() );
 		}
 	}
 
@@ -437,9 +444,7 @@ class BoostTemplatesFunctionScoreBuilder extends FunctionScoreBuilder {
 		foreach ( $this->boostTemplates as $name => $weight ) {
 			$match = new \Elastica\Query\Match();
 			$match->setFieldQuery( 'template', $name );
-			$filterQuery = new \Elastica\Filter\Query( $match );
-			$filterQuery->setCached( true );
-			$functionScore->addWeightFunction( $weight * $this->weight, $filterQuery );
+			$functionScore->addWeightFunction( $weight * $this->weight, $match );
 		}
 	}
 }
@@ -472,7 +477,7 @@ class NamespacesFunctionScoreBuilder extends FunctionScoreBuilder {
 			// nothing to boost, no need to initialize anything else.
 			return;
 		}
-		$this->normalizedNamespaceWeights = array();
+		$this->normalizedNamespaceWeights = [];
 		$language = $this->context->getConfig()->get( 'ContLang' );
 		foreach ( $this->context->getConfig()->get( 'CirrusSearchNamespaceWeights' ) as $ns => $weight ) {
 			if ( is_string( $ns ) ) {
@@ -521,7 +526,7 @@ class NamespacesFunctionScoreBuilder extends FunctionScoreBuilder {
 
 		// first build the opposite map, this will allow us to add a
 		// single factor function per weight by using a terms filter.
-		$weightToNs = array();
+		$weightToNs = [];
 		foreach( $this->namespacesToBoost as $ns ) {
 			$weight = $this->getBoostForNamespace( $ns ) * $this->weight;
 			$key = (string) $weight;
@@ -531,13 +536,13 @@ class NamespacesFunctionScoreBuilder extends FunctionScoreBuilder {
 				continue;
 			}
 			if ( !isset( $weightToNs[$key] ) ) {
-				$weightToNs[$key] = array( $ns );
+				$weightToNs[$key] = [ $ns ];
 			} else {
 				$weightToNs[$key][] = $ns;
 			}
 		}
 		foreach( $weightToNs as $weight => $namespaces ) {
-			$filter = new \Elastica\Filter\Terms( 'namespace', $namespaces );
+			$filter = new \Elastica\Query\Terms( 'namespace', $namespaces );
 			$functionScore->addWeightFunction( $weight, $filter );
 		}
 	}
@@ -562,11 +567,11 @@ class IncomingLinksFunctionScoreBuilder extends FunctionScoreBuilder {
 		if( !$this->context->isBoostLinks() ) {
 			return;
 		}
-		$functionScore->addFunction( 'field_value_factor', array(
+		$functionScore->addFunction( 'field_value_factor', [
 			'field' => 'incoming_links',
 			'modifier' => 'log2p',
 			'missing' => 0,
-		) );
+		] );
 	}
 }
 
@@ -682,7 +687,7 @@ class LogScaleBoostFunctionScoreBuilder extends FunctionScoreBuilder {
 		}
 		$formula = $this->getScript();
 
-		$functionScore->addScriptScoreFunction( new \Elastica\Script( $formula, null, 'expression' ), null, $this->weight );
+		$functionScore->addScriptScoreFunction( new \Elastica\Script\Script( $formula, null, 'expression' ), null, $this->weight );
 	}
 
 	/**
@@ -746,7 +751,7 @@ class SatuFunctionScoreBuilder extends FunctionScoreBuilder {
 
 	public function append( FunctionScore $functionScore ) {
 		$formula = $this->getScript();
-		$functionScore->addScriptScoreFunction( new \Elastica\Script( $formula, null, 'expression' ), null, $this->weight );
+		$functionScore->addScriptScoreFunction( new \Elastica\Script\Script( $formula, null, 'expression' ), null, $this->weight );
 	}
 
 	/**
@@ -806,7 +811,7 @@ class LogMultFunctionScoreBuilder extends FunctionScoreBuilder {
 
 	public function append( FunctionScore $functionScore ) {
 		$formula = "pow(log10({$this->factor} * doc['{$this->field}'].value + 2), {$this->impact})";
-		$functionScore->addScriptScoreFunction( new \Elastica\Script( $formula, null, 'expression' ), null, $this->weight );
+		$functionScore->addScriptScoreFunction( new \Elastica\Script\Script( $formula, null, 'expression' ), null, $this->weight );
 	}
 }
 
@@ -823,7 +828,7 @@ class GeoMeanFunctionScoreBuilder extends FunctionScoreBuilder {
 	/** @var float */
 	private $impact;
 	/** @var array[] */
-	private $scriptFunctions = array();
+	private $scriptFunctions = [];
 	/** @var float */
 	private $epsilon = 0.0000001;
 
@@ -860,7 +865,7 @@ class GeoMeanFunctionScoreBuilder extends FunctionScoreBuilder {
 			} else {
 				$weight = $this->getOverriddenFactor( $member['weight'] );
 			}
-			$function = array( 'weight' => $weight );
+			$function = [ 'weight' => $weight ];
 			switch( $member['type'] ) {
 			case 'satu':
 				$function['script'] = new SatuFunctionScoreBuilder( $this->context, 1, $member['params'] );
@@ -915,7 +920,7 @@ class GeoMeanFunctionScoreBuilder extends FunctionScoreBuilder {
 	public function append( FunctionScore $functionScore ) {
 		$formula = $this->getScript();
 		if ( $formula != null ) {
-			$functionScore->addScriptScoreFunction( new \Elastica\Script( $formula, null, 'expression' ), null, $this->weight );
+			$functionScore->addScriptScoreFunction( new \Elastica\Script\Script( $formula, null, 'expression' ), null, $this->weight );
 		}
 	}
 }
@@ -932,20 +937,36 @@ class PreferRecentFunctionScoreBuilder extends FunctionScoreBuilder {
 		}
 		// Convert half life for time in days to decay constant for time in milliseconds.
 		$decayConstant = log( 2 ) / $this->context->getPreferRecentHalfLife() / 86400000;
-		$parameters = array(
+		$parameters = [
 			'decayConstant' => $decayConstant,
 			'decayPortion' => $this->context->getPreferRecentDecayPortion(),
 			'nonDecayPortion' => 1 - $this->context->getPreferRecentDecayPortion(),
 			'now' => time() * 1000
-		);
+		];
 
 		// e^ct where t is last modified time - now which is negative
 		$exponentialDecayExpression = "exp(decayConstant * (doc['timestamp'].value - now))";
 		if ( $this->context->getPreferRecentDecayPortion() !== 1.0 ) {
 			$exponentialDecayExpression = "$exponentialDecayExpression * decayPortion + nonDecayPortion";
 		}
-		$functionScore->addScriptScoreFunction( new \Elastica\Script( $exponentialDecayExpression,
+		$functionScore->addScriptScoreFunction( new \Elastica\Script\Script( $exponentialDecayExpression,
 			$parameters, 'expression' ), null, $this->weight );
+	}
+}
+
+/**
+ * Builds a boost for documents based on geocoordinates.
+ * Reads its params from SearchContext::geoBoost. Initialized
+ * by special syntax in user query.
+ */
+class GeoRadiusFunctionScoreBuilder extends FunctionScoreBuilder {
+	public function append( FunctionScore $functionScore ) {
+		foreach ( $this->context->getGeoBoosts() as $config ) {
+			$functionScore->addWeightFunction(
+				$this->weight * $config['weight'],
+				GeoFeature::createQuery( $config['coord'], $config['radius'] )
+			);
+		}
 	}
 }
 
@@ -992,7 +1013,7 @@ class LangWeightFunctionScoreBuilder extends FunctionScoreBuilder {
 		if ( $this->userWeight ) {
 			$functionScore->addWeightFunction(
 				$this->userWeight * $this->weight,
-				new \Elastica\Filter\Term( array( 'language' => $this->userLang ) )
+				new \Elastica\Query\Term( [ 'language' => $this->userLang ] )
 			);
 		}
 
@@ -1000,7 +1021,7 @@ class LangWeightFunctionScoreBuilder extends FunctionScoreBuilder {
 		if ( $this->wikiWeight && $this->userLang != $this->wikiLang ) {
 			$functionScore->addWeightFunction(
 				$this->wikiWeight * $this->weight,
-				new \Elastica\Filter\Term( array( 'language' => $this->wikiLang ) )
+				new \Elastica\Query\Term( [ 'language' => $this->wikiLang ] )
 			);
 		}
 	}
@@ -1029,7 +1050,7 @@ class ScriptScoreFunctionScoreBuilder extends FunctionScoreBuilder {
 
 	public function append( FunctionScore $functionScore ) {
 		$functionScore->addScriptScoreFunction(
-			new \Elastica\Script( $this->script, null, 'expression' ),
+			new \Elastica\Script\Script( $this->script, null, 'expression' ),
 			null, $this->weight );
 	}
 }

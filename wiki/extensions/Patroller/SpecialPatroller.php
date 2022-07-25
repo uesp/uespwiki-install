@@ -61,16 +61,16 @@ class SpecialPatroller extends SpecialPage {
 						RecentChange::markPatrolled( $rcid );
 						$wgOut->setSubtitle( wfMessages( 'patrol-endorsed-ok' )->escaped() );
 					} else {
-						$wgOut->setSubtitle( wgMessages( 'patrol-endorsed-failed' )->escaped() );
+						$wgOut->setSubtitle( wfMessages( 'patrol-endorsed-failed' )->escaped() );
 					}
 				} elseif ( $wgRequest->getCheck( 'wpPatrolRevert' ) ) {
 					# Revert the change
 					$edit = $this->loadChange( $rcid );
 					$msg = $this->revert( $edit, $this->revertReason( $wgRequest ) ) ? 'ok' : 'failed';
-					$wgOut->setSubtitle( wgMessage( 'patrol-reverted-' . $msg )->escaped() );
+					$wgOut->setSubtitle( wfMessage( 'patrol-reverted-' . $msg )->escaped() );
 				} elseif ( $wgRequest->getCheck( 'wpPatrolSkip' ) ) {
 					# Do nothing
-					$wgOut->setSubtitle( wgMessage( 'patrol-skipped-ok' )->escaped() );
+					$wgOut->setSubtitle( wfMessage( 'patrol-skipped-ok' )->escaped() );
 				}
 			}
 		}
@@ -83,9 +83,9 @@ class SpecialPatroller extends SpecialPage {
 			$link = Linker::link(
 				$self,
 				wfMessage( 'patrol-resume' )->escaped(),
-				array(),
-				array(),
-				array( 'known' )
+				[],
+				[],
+				[ 'known' ]
 			);
 			$wgOut->addHTML( wfMessage( 'patrol-stopped', $link )->escaped() );
 			return;
@@ -158,24 +158,24 @@ class SpecialPatroller extends SpecialPage {
 	private function showControls( &$edit ) {
 		global $wgUser, $wgOut;
 		$self = SpecialPage::getTitleFor( 'Patrol' );
-		$form = Html::openElement( 'form', array(
-			'method' => 'post', 'action' => $self->getLocalUrl() )
+		$form = Html::openElement( 'form', [
+			'method' => 'post', 'action' => $self->getLocalUrl() ]
 		);
 		$form .= Html::openElement( 'table' );
 		$form .= Html::openElement( 'tr' );
-		$form .= Html::openElement( 'td', array( 'align' => 'right' ) );
+		$form .= Html::openElement( 'td', [ 'align' => 'right' ] );
 		$form .= Html::submitButton(
 			wfMessage( 'patrol-endorse' )->escaped(),
-			array( 'name' => 'wpPatrolEndorse' )
+			[ 'name' => 'wpPatrolEndorse' ]
 		);
 		$form .= Html::closeElement( 'td' );
 		$form .= Html::openElement( 'td' ) . Html::closeElement( 'td' );
 		$form .= Html::closeElement( 'tr' );
 		$form .= Html::openElement( 'tr' );
-		$form .= Html::openElement( 'td', array( 'align' => 'right' ) );
+		$form .= Html::openElement( 'td', [ 'align' => 'right' ] );
 		$form .= Html::submitButton(
 			wfMessage( 'patrol-revert' )->escaped(),
-			array( 'name' => 'wpPatrolRevert' )
+			[ 'name' => 'wpPatrolRevert' ]
 		);
 		$form .= Html::closeElement( 'td' );
 		$form .= Html::openElement( 'td' );
@@ -184,10 +184,10 @@ class SpecialPatroller extends SpecialPage {
 		$form .= Html::closeElement( 'td' );
 		$form .= Html::closeElement( 'tr' );
 		$form .= Html::openElement( 'tr' );
-		$form .= Html::openElement( 'td', array( 'align' => 'right' ) );
+		$form .= Html::openElement( 'td', [ 'align' => 'right' ] );
 		$form .= Html::submitButton(
 			wfMessage( 'patrol-skip' )->escaped(),
-			array( 'name' => 'wpPatrolSkip' )
+			[ 'name' => 'wpPatrolSkip' ]
 		);
 		$form .= Html::closeElement( 'td' );
 		$form .= Html::closeElement( 'tr' );
@@ -245,7 +245,7 @@ class SpecialPatroller extends SpecialPage {
 	 */
 	private function loadChange( $rcid ) {
 		$dbr = wfGetDB( DB_SLAVE );
-		$res = $dbr->select( 'recentchanges', '*', array( 'rc_id' => $rcid ), 'Patroller::loadChange' );
+		$res = $dbr->select( 'recentchanges', '*', [ 'rc_id' => $rcid ], 'Patroller::loadChange' );
 		if ( $dbr->numRows( $res ) > 0 ) {
 			$row = $dbr->fetchObject( $res );
 			return RecentChange::newFromRow( $row );
@@ -264,7 +264,7 @@ class SpecialPatroller extends SpecialPage {
 	 */
 	private function assignChange( &$edit ) {
 		$dbw = wfGetDB( DB_MASTER );
-		$val = array( 'ptr_change' => $edit->mAttribs['rc_id'], 'ptr_timestamp' => $dbw->timestamp() );
+		$val = [ 'ptr_change' => $edit->mAttribs['rc_id'], 'ptr_timestamp' => $dbw->timestamp() ];
 		$res = $dbw->insert( 'patrollers', $val, 'Patroller::assignChange', 'IGNORE' );
 		return (bool) $dbw->affectedRows();
 	}
@@ -280,7 +280,7 @@ class SpecialPatroller extends SpecialPage {
 	 */
 	private function unassignChange( $rcid ) {
 		$dbw = wfGetDB( DB_MASTER );
-		$dbw->delete( 'patrollers', array( 'ptr_change' => $rcid ), 'Patroller::unassignChange' );
+		$dbw->delete( 'patrollers', [ 'ptr_change' => $rcid ], 'Patroller::unassignChange' );
 	}
 
 	/**
@@ -295,7 +295,7 @@ class SpecialPatroller extends SpecialPage {
 		$dbw = wfGetDB( DB_MASTER );
 		$dbw->delete(
 			'patrollers',
-			array( 'ptr_timestamp < ' . $dbw->timestamp( time() - 120 ) ),
+			[ 'ptr_timestamp < ' . $dbw->timestamp( time() - 120 ) ],
 			'Patroller::pruneAssignments'
 		);
 	}
@@ -322,7 +322,7 @@ class SpecialPatroller extends SpecialPage {
 			$latest = (int)$dbw->selectField(
 				'page',
 				'page_latest',
-				array( 'page_id' => $title->getArticleID() ),
+				[ 'page_id' => $title->getArticleID() ],
 				__METHOD__
 			);
 			if ( $edit->mAttribs['rc_this_oldid'] == $latest ) {
@@ -351,7 +351,7 @@ class SpecialPatroller extends SpecialPage {
 		if ( $msg == '-' || $msg == '&lt;patrol-reasons&gt;' ) {
 			return '';
 		} else {
-			$reasons = array();
+			$reasons = [];
 			$lines = explode( "\n", $msg );
 			foreach ( $lines as $line ) {
 				if ( substr( $line, 0, 1 ) == '*' ) {
@@ -359,9 +359,9 @@ class SpecialPatroller extends SpecialPage {
 				}
 			}
 			if ( count( $reasons ) > 0 ) {
-				$box = Html::openElement( 'select', array( 'name' => 'wpPatrolRevertReasonCommon' ) );
+				$box = Html::openElement( 'select', [ 'name' => 'wpPatrolRevertReasonCommon' ] );
 				foreach ( $reasons as $reason ) {
-					$box .= Html::element( 'option', array( 'value' => $reason ), $reason );
+					$box .= Html::element( 'option', [ 'value' => $reason ], $reason );
 				}
 				$box .= Html::closeElement( 'select' );
 				return $box;

@@ -46,7 +46,7 @@ class TimedMediaIframeOutput {
 	 * @throws Exception
 	 */
 	static function outputIframe( $title ) {
-		global $wgEnableIframeEmbed, $wgOut, $wgBreakFrames, $wgTmhWebPlayer;
+		global $wgEnableIframeEmbed, $wgOut, $wgBreakFrames;
 
 		if ( !$wgEnableIframeEmbed ) {
 			return false;
@@ -68,37 +68,38 @@ class TimedMediaIframeOutput {
 		$wgOut->allowClickjacking();
 		$wgOut->disallowUserJs();
 
-		if ( $wgTmhWebPlayer == 'mwembed' ) {
+		if ( TimedMediaHandlerHooks::activePlayerMode() === 'mwembed' ) {
 			$wgOut->addModules( [ 'mw.MediaWikiPlayer.loader', 'ext.tmh.embedPlayerIframe' ] );
-		} elseif ( $wgTmhWebPlayer === 'videojs' ) {
-			$wgOut->addModuleStyles( 'ext.tmh.player.styles' );
-			$wgOut->addModules( 'ext.tmh.player' );
+			$wgOut->addModuleStyles( 'embedPlayerIframeStyle' );
 		}
-		$wgOut->addModuleStyles( 'embedPlayerIframeStyle' );
-		$wgOut->sendCacheControl();
-	?>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8" />
-<title><?php echo $title->getText() ?></title>
-	<?php
-		echo implode( "\n", $wgOut->getHeadLinksArray() );
-	?>
-	<?php
-		// In place of buildCssLinks, because we don't want to pull in all the skin CSS etc.
-		$links = $wgOut->makeResourceLoaderLink(
-			'embedPlayerIframeStyle', ResourceLoaderModule::TYPE_STYLES
-		);
-		echo implode( "\n", $links["html"] );
 
-		echo Html::element( 'meta', [ 'name' => 'ResourceLoaderDynamicStyles', 'content' => '' ] );
+		if ( TimedMediaHandlerHooks::activePlayerMode() === 'videojs' ) {
+			$wgOut->addModules( 'ext.tmh.player' );
+			$wgOut->addModuleStyles( 'ext.tmh.player.styles' );
+		}
+
+		$wgOut->sendCacheControl();
+		$rlClient = $wgOut->getRlClient();
+
+		// Stripped-down version of OutputPage::headElement()
+		// No skin modules are enqueued because we never call $wgOut->output()
+		$pieces = [
+			Html::htmlHeader( $rlClient->getDocumentAttributes() ),
+
+			Html::openElement( 'head' ),
+
+			Html::element( 'meta', [ 'charset' => 'UTF-8' ] ),
+			Html::element( 'title', null, $title->getText() ),
+			$wgOut->getRlClient()->getHeadHtml(),
+			implode( "\n", $wgOut->getHeadLinksArray() ),
+
+			Html::closeElement( 'head' ),
+		];
+
+		echo implode( "\n", $pieces );
 	?>
-	<?php echo "\n" . $wgOut->getHeadScripts(); ?>
-	</head>
 <body>
-		<img src="<?php echo $videoTransform->getUrl() ?>" id="bgimage" ></img>
-		<div id="videoContainer" style="visibility:hidden">
+		<div id="videoContainer">
 			<?php echo $videoTransform->toHtml(); ?>
 		</div>
 	<?php echo $wgOut->getBottomScripts(); ?>

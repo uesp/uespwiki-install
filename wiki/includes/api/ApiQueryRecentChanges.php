@@ -48,7 +48,7 @@ class ApiQueryRecentChanges extends ApiQueryGeneratorBase {
 	 * The prototype for a token function is func($pageid, $title, $rc)
 	 * it should return a token or false (permission denied)
 	 * @deprecated since 1.24
-	 * @return array Array(tokenname => function)
+	 * @return array [ tokenname => function ]
 	 */
 	protected function getTokenFunctions() {
 		// Don't call the hooks twice
@@ -150,7 +150,6 @@ class ApiQueryRecentChanges extends ApiQueryGeneratorBase {
 		 * 		AND rc_timestamp < $end AND rc_namespace = $namespace
 		 */
 		$this->addTables( 'recentchanges' );
-		$index = [ 'recentchanges' => 'rc_timestamp' ]; // May change
 		$this->addTimestampWhereRange( 'rc_timestamp', $params['dir'], $params['start'], $params['end'] );
 
 		if ( !is_null( $params['continue'] ) ) {
@@ -200,7 +199,10 @@ class ApiQueryRecentChanges extends ApiQueryGeneratorBase {
 			}
 
 			// Check permissions
-			if ( $this->includesPatrollingFlags( $show ) ) {
+			if ( isset( $show['patrolled'] )
+				|| isset( $show['!patrolled'] )
+				|| isset( $show['unpatrolled'] )
+			) {
 				if ( !$user->useRCPatrol() && !$user->useNPPatrol() ) {
 					$this->dieUsage(
 						'You need patrol or patrolmarks permission to request the patrolled flag',
@@ -243,7 +245,6 @@ class ApiQueryRecentChanges extends ApiQueryGeneratorBase {
 
 		if ( !is_null( $params['user'] ) ) {
 			$this->addWhereFld( 'rc_user_text', $params['user'] );
-			$index['recentchanges'] = 'rc_user_text';
 		}
 
 		if ( !is_null( $params['excludeuser'] ) ) {
@@ -359,11 +360,11 @@ class ApiQueryRecentChanges extends ApiQueryGeneratorBase {
 
 		$this->token = $params['token'];
 		$this->addOption( 'LIMIT', $params['limit'] + 1 );
-		$this->addOption( 'USE INDEX', $index );
 
+		$hookData = [];
 		$count = 0;
 		/* Perform the actual query. */
-		$res = $this->select( __METHOD__ );
+		$res = $this->select( __METHOD__, [], $hookData );
 
 		$revids = [];
 		$titles = [];
@@ -372,6 +373,13 @@ class ApiQueryRecentChanges extends ApiQueryGeneratorBase {
 
 		/* Iterate through the rows, adding data extracted from them to our query result. */
 		foreach ( $res as $row ) {
+			if ( $count === 0 && $resultPageSet !== null ) {
+				// Set the non-continue since the list of recentchanges is
+				// prone to having entries added at the start frequently.
+				$this->getContinuationManager()->addGeneratorNonContinueParam(
+					$this, 'continue', "$row->rc_timestamp|$row->rc_id"
+				);
+			}
 			if ( ++$count > $params['limit'] ) {
 				// We've reached the one extra which shows that there are
 				// additional pages to be had. Stop here...
@@ -384,7 +392,8 @@ class ApiQueryRecentChanges extends ApiQueryGeneratorBase {
 				$vals = $this->extractRowInfo( $row );
 
 				/* Add that row's data to our final output. */
-				$fit = $result->addValue( [ 'query', $this->getModuleName() ], null, $vals );
+				$fit = $this->processRow( $row, $vals, $hookData ) &&
+					$result->addValue( [ 'query', $this->getModuleName() ], null, $vals );
 				if ( !$fit ) {
 					$this->setContinueEnumParameter( 'continue', "$row->rc_timestamp|$row->rc_id" );
 					break;
@@ -576,23 +585,13 @@ class ApiQueryRecentChanges extends ApiQueryGeneratorBase {
 		return $vals;
 	}
 
-	/**
-	 * @param array $flagsArray flipped array (string flags are keys)
-	 * @return bool
-	 */
-	private function includesPatrollingFlags( array $flagsArray ) {
-		return isset( $flagsArray['patrolled'] ) ||
-			isset( $flagsArray['!patrolled'] ) ||
-			isset( $flagsArray['unpatrolled'] ) ||
-			isset( $flagsArray['autopatrolled'] ) ||
-			isset( $flagsArray['!autopatrolled'] );
-	}
-
 	public function getCacheMode( $params ) {
-		if ( isset( $params['show'] ) &&
-			$this->includesPatrollingFlags( array_flip( $params['show'] ) )
-		) {
-			return 'private';
+		if ( isset( $params['show'] ) ) {
+			foreach ( $params['show'] as $show ) {
+				if ( $show === 'patrolled' || $show === '!patrolled' ) {
+					return 'private';
+				}
+			}
 		}
 		if ( isset( $params['token'] ) ) {
 			return 'private';

@@ -3,6 +3,7 @@
 namespace CirrusSearch\Maintenance;
 
 use CirrusSearch;
+use CirrusSearch\SearchConfig;
 use CirrusSearch\Search\ResultSet;
 use RequestContext;
 use SearchSuggestionSet;
@@ -59,20 +60,11 @@ class RunSearch extends Maintenance {
 	}
 
 	public function execute() {
-		global $wgPoolCounterConf, $wgCirrusSearchLogElasticRequests;
-
-		// Make sure we don't flood the pool counter
-		unset( $wgPoolCounterConf['CirrusSearch-Search'],
-			$wgPoolCounterConf['CirrusSearch-PerUser'] );
-
-		// Don't skew the dashboards by logging these requests to
-		// the global request log.
-		$wgCirrusSearchLogElasticRequests = false;
-
-		$this->indexBaseName = $this->getOption( 'baseName', wfWikiID() );
+		$this->disablePoolCountersAndLogging();
+		$this->indexBaseName = $this->getOption( 'baseName', $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME ) );
 
 		$this->applyGlobals();
-		$callback = array( $this, 'consume' );
+		$callback = [ $this, 'consume' ];
 		$forks = $this->getOption( 'fork', false );
 		$forks = ctype_digit( $forks ) ? intval( $forks ) : 0;
 		$controller = new OrderedStreamingForkController( $forks, $callback, STDIN, STDOUT );
@@ -108,42 +100,42 @@ class RunSearch extends Maintenance {
 		if ( $this->getOption( 'decode' ) ) {
 			$query = urldecode( $query );
 		}
-		$data = array( 'query' => $query );
+		$data = [ 'query' => $query ];
 		$status = $this->searchFor( $query );
 		if ( $status->isOK() ) {
 			$value = $status->getValue();
 			if ( $value instanceof ResultSet ) {
 				// these are prefix or full text results
 				$data['totalHits'] = $value->getTotalHits();
-				$data['rows'] = array();
+				$data['rows'] = [];
 				$result = $value->next();
 				while ( $result ) {
-					$data['rows'][] = array(
+					$data['rows'][] = [
 						// use getDocId() rather than asking the title to allow this script
 						// to work when a production index has been imported to a test es instance
-						'pageId' => $result->getDocId(),
+						'docId' => $result->getDocId(),
 						'title' => $result->getTitle()->getPrefixedText(),
 						'score' => $result->getScore(),
-						'snippets' => array(
-							'text' => $result->getTextSnippet( $query ),
+						'snippets' => [
+							'text' => $result->getTextSnippet( [$query] ),
 							'title' => $result->getTitleSnippet(),
 							'redirect' => $result->getRedirectSnippet(),
 							'section' => $result->getSectionSnippet(),
 							'category' => $result->getCategorySnippet(),
-						),
+						],
 						'explanation' => $result->getExplanation(),
-					);
+					];
 					$result = $value->next();
 				}
 			} elseif ( $value instanceof SearchSuggestionSet ) {
 				// these are suggestion results
 				$data['totalHits'] = $value->getSize();
 				foreach ( $value->getSuggestions() as $suggestion ) {
-					$data['rows'][] = array(
+					$data['rows'][] = [
 						'pageId' => $suggestion->getSuggestedTitleID(),
 						'title' => $suggestion->getSuggestedTitle()->getPrefixedText(),
-						'snippets' => array(),
-					);
+						'snippets' => [],
+					];
 				}
 			} else {
 				throw new \RuntimeException(
@@ -206,5 +198,5 @@ class RunSearch extends Maintenance {
 	}
 }
 
-$maintClass = "CirrusSearch\Maintenance\RunSearch";
+$maintClass = RunSearch::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

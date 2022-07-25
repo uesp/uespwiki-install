@@ -99,9 +99,9 @@ class AbuseFilterViewDiff extends AbuseFilterView {
 		$newSpec = $this->mParams[4];
 		$this->mFilter = $this->mParams[1];
 
-		if ( AbuseFilter::filterHidden( $this->mFilter ) &&
-				!$this->getUser()->isAllowed( 'abusefilter-modify' ) &&
-				!$this->getUser()->isAllowed( 'abusefilter-view-private' ) ) {
+		if ( AbuseFilter::filterHidden( $this->mFilter )
+			&& !$this->getUser()->isAllowedAny( 'abusefilter-modify', 'abusefilter-view-private' )
+		) {
 			$this->getOutput()->addWikiMsg( 'abusefilter-history-error-hidden' );
 			return false;
 		}
@@ -150,8 +150,9 @@ class AbuseFilterViewDiff extends AbuseFilterView {
 		static $dependentSpecs = array( 'prev', 'next' );
 		static $cache = array();
 
-		if ( isset( $cache[$spec] ) )
+		if ( isset( $cache[$spec] ) ) {
 			return $cache[$spec];
+		}
 
 		$dbr = wfGetDB( DB_SLAVE );
 		$row = null;
@@ -410,7 +411,6 @@ class AbuseFilterViewDiff extends AbuseFilterView {
 
 		$diffEngine->showDiffStyle();
 
-		// We can't use $diffEngine->generateDiffBody since it doesn't allow custom formatters
 		$diff = new Diff( $old, $new );
 		$formatter = new TableDiffFormatterFullContext();
 		$formattedDiff = $diffEngine->addHeader( $formatter->format( $diff ), '', '' );

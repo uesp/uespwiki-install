@@ -9,9 +9,15 @@ use HtmlFormatter\HtmlFormatter;
  * Converts HTML into a mobile-friendly version
  */
 class MobileFormatter extends HtmlFormatter {
+	/**
+	 * The current revision id of the Title being worked on
+	 * @var Integer $revId
+	 */
+	private $revId;
+
 	/** @var array $topHeadingTags Array of strings with possible tags,
 		can be recognized as top headings. */
-	public $topHeadingTags = array();
+	public $topHeadingTags = [];
 
 	/**
 	 * Saves a Title Object
@@ -37,6 +43,12 @@ class MobileFormatter extends HtmlFormatter {
 	protected $mainPage = false;
 
 	/**
+	 * Name of the transformation option
+	 * @const string SHOW_FIRST_PARAGRAPH_BEFORE_INFOBOX
+	 */
+	const SHOW_FIRST_PARAGRAPH_BEFORE_INFOBOX = 'showFirstParagraphBeforeInfobox';
+
+	/**
 	 * Constructor
 	 *
 	 * @param string $html Text to process
@@ -46,6 +58,7 @@ class MobileFormatter extends HtmlFormatter {
 		parent::__construct( $html );
 
 		$this->title = $title;
+		$this->revId = $title->getLatestRevID();
 		$this->topHeadingTags = MobileContext::singleton()
 			->getMFConfig()->get( 'MFMobileFormatterHeadings' );
 	}
@@ -109,10 +122,13 @@ class MobileFormatter extends HtmlFormatter {
 	 * @param bool $removeDefaults Whether default settings at $wgMFRemovableClasses should be used
 	 * @param bool $removeReferences Whether to remove references from the output
 	 * @param bool $removeImages Whether to move images into noscript tags
+	 * @param bool $showFirstParagraphBeforeInfobox Whether the first paragraph from the lead
+	 *  section should be shown before all infoboxes that come earlier.
 	 * @return array
 	 */
 	public function filterContent(
-		$removeDefaults = true, $removeReferences = false, $removeImages = false
+		$removeDefaults = true, $removeReferences = false, $removeImages = false,
+		$showFirstParagraphBeforeInfobox = false
 	) {
 		$ctx = MobileContext::singleton();
 		$config = $ctx->getMFConfig();
@@ -130,15 +146,15 @@ class MobileFormatter extends HtmlFormatter {
 			$this->remove( $removableClasses );
 		}
 
-		if ( $removeReferences ) {
-			$this->doRewriteReferencesForLazyLoading();
-		}
-
 		if ( $this->removeMedia ) {
 			$this->doRemoveImages();
 		}
 
-		$transformOptions = array( 'images' => $removeImages );
+		$transformOptions = [
+			'images' => $removeImages,
+			'references' => $removeReferences,
+			self::SHOW_FIRST_PARAGRAPH_BEFORE_INFOBOX => $showFirstParagraphBeforeInfobox
+		];
 		// Sectionify the content and transform it if necessary per section
 		if ( !$this->mainPage && $this->expandableSections ) {
 			list( $headings, $subheadings ) = $this->getHeadings( $doc );
@@ -147,6 +163,9 @@ class MobileFormatter extends HtmlFormatter {
 		} else {
 			// Otherwise apply the per-section transformations to the document as a whole
 			$this->filterContentInSection( $doc, $doc, 0, $transformOptions );
+		}
+		if ( $transformOptions['references'] ) {
+			$this->doRewriteReferencesLinksForLazyLoading( $doc );
 		}
 
 		return parent::filterContent();
@@ -160,44 +179,169 @@ class MobileFormatter extends HtmlFormatter {
 	 * @param array $options options about the transformations per section
 	 */
 	private function filterContentInSection(
-		$el, DOMDocument $doc, $sectionNumber, $options = array()
+		$el, DOMDocument $doc, $sectionNumber, $options = []
 	) {
 		if ( !$this->removeMedia && $options['images'] && $sectionNumber > 0 ) {
 			$this->doRewriteImagesForLazyLoading( $el, $doc );
 		}
+		if ( $options['references'] ) {
+			$this->doRewriteReferencesListsForLazyLoading( $el, $doc );
+		}
+	}
+
+	/*
+	 * Move the first paragraph in the lead section above the infobox
+	 *
+	 * In order for a paragraph to be moved the following conditions must be met:
+	 *   - the lead section contains at least one infobox;
+	 *   - the paragraph doesn't already appear before the first infobox
+	 *     if any in the DOM;
+	 *   - the paragraph contains text content, e.g. no <p></p>;
+	 *   - the paragraph doesn't contain coordinates, i.e. span#coordinates.
+	 *
+	 * Note that the first paragraph is not moved before hatnotes, or mbox or other
+	 * elements that are not infoboxes.
+	 *
+	 * @param DOMElement $leadSectionBody
+	 * @param DOMDocument $doc Document to which the section belongs
+	 */
+	private function moveFirstParagraphBeforeInfobox( $leadSectionBody, $doc ) {
+		$xPath = new DOMXPath( $doc );
+		// Find infoboxes and paragraphs that have text content, i.e. paragraphs
+		// that are not empty nor are wrapper paragraphs that contain span#coordinates.
+		$infoboxAndParagraphs = $xPath->query(
+			'.//table[contains(@class,"infobox")] | .//p[string-length(text()) > 0]',
+			$leadSectionBody
+		);
+		// We need both an infobox and a paragraph and the first element of our query result
+		// ought to be an infobox.
+		if ( $infoboxAndParagraphs->length >= 2 &&
+			$infoboxAndParagraphs->item( 0 )->nodeName == 'table'
+		) {
+			$firstP = null;
+			for ( $i = 1; $i < $infoboxAndParagraphs->length; $i++ ) {
+				if ( $infoboxAndParagraphs->item( $i )->nodeName == 'p' ) {
+					$firstP = $infoboxAndParagraphs->item( $i );
+					break;
+				}
+			}
+			if ( $firstP ) {
+				$leadSectionBody->insertBefore( $firstP, $infoboxAndParagraphs->item( 0 ) );
+			}
+		}
 	}
 
 	/**
-	 * Replaces any references list with a link to Special:References
+	 * Replaces any references links with a link to Special:MobileCite
+	 *
+	 * @param DOMDocument $doc Document to create and replace elements in
 	 */
-	private function doRewriteReferencesForLazyLoading() {
-		$doc = $this->getDoc();
+	private function doRewriteReferencesLinksForLazyLoading( DOMDocument $doc ) {
+		$citePath = "$this->revId";
+
+		$xPath = new DOMXPath( $doc );
+		$nodes = $xPath->query(
+			// sup.reference > a
+			'//sup[contains(concat(" ", normalize-space(./@class), " "), " reference ")]/a[1]' );
+
+		foreach ( $nodes as $node ) {
+			$fragment = $node->getAttribute( 'href' );
+			$node->setAttribute(
+				'href',
+				SpecialPage::getTitleFor( 'MobileCite', $citePath )->getLocalUrl() . $fragment
+			);
+		}
+	}
+
+	/**
+	 * Replaces any references list with a link to Special:MobileCite
+	 *
+	 * @param DOMElement|DOMDocument $el Element or document to rewrite references in.
+	 * @param DOMDocument $doc Document to create elements in
+	 */
+	private function doRewriteReferencesListsForLazyLoading( $el, DOMDocument $doc ) {
+		$prefixedTitle = $this->title->getPrefixedText();
+		$citePath = "$this->revId";
+		$isReferenceSection = false;
+
 		// Accessing by tag is cheaper than class
-		$nodes = $doc->getElementsByTagName( 'ol' );
+		$nodes = $el->getElementsByTagName( 'ol' );
 		// PHP's DOM classes are recursive
 		// but since we are manipulating the DOMList we have to
 		// traverse it backwards
 		// see http://php.net/manual/en/class.domnodelist.php
-		$listId = $nodes->length - 1;
-		for ( $i = $listId; $i >= 0; $i-- ) {
+		for ( $i = $nodes->length - 1; $i >= 0; $i-- ) {
 			$list = $nodes->item( $i );
 
 			// Use class to decide it is a list of references
 			if ( strpos( $list->getAttribute( 'class' ), 'references' ) !== false ) {
+
+				// Only mark the section as a reference container if we're transforming a section, not the
+				// document.
+				$isReferenceSection = $el instanceof DOMElement;
+
 				$parent = $list->parentNode;
 				$placeholder = $doc->createElement( 'a',
 					wfMessage( 'mobile-frontend-references-list' ) );
 				$placeholder->setAttribute( 'class', 'mf-lazy-references-placeholder' );
-				// Note to render a reference we need to know its listId and title.
-				// Note: You can have multiple <references> tag on the same page
-				$citePath = "$listId/" . $this->title->getPrefixedText();
-				// FIXME: Currently a broken link see https://phabricator.wikimedia.org/T125897
+				// Note to render a reference we need to know only its reference
+				// Note: You can have multiple <references> tag on the same page, we render all of these in
+				// the special page together.
 				$placeholder->setAttribute( 'href',
-					SpecialPage::getTitleFor( 'Cite', $citePath )->getLocalUrl() );
+					SpecialPage::getTitleFor( 'MobileCite', $citePath )->getLocalUrl() );
 				$parent->replaceChild( $placeholder, $list );
-				$listId -= 1;
 			}
 		}
+
+		// Mark section as having references
+		if ( $isReferenceSection ) {
+			$el->setAttribute( 'data-is-reference-section', '1' );
+		}
+	}
+
+	/**
+	 * @see MobileFormatter#getImageDimensions
+	 *
+	 * @param DOMElement $img
+	 * @param string $dimension Either "width" or "height"
+	 * @return string|null
+	 */
+	private function getImageDimension( DOMElement $img, $dimension ) {
+		$style = $img->getAttribute( 'style' );
+		$numMatches = preg_match( "/.*?{$dimension} *\: *([^;]*)/", $style, $matches );
+
+		if ( !$numMatches && !$img->hasAttribute( $dimension ) ) {
+			return null;
+		}
+
+		return $numMatches
+			? trim( $matches[1] )
+			: $img->getAttribute( $dimension ) . 'px';
+	}
+
+	/**
+	 * Determine the user perceived width and height of an image element based on `style`, `width`,
+	 * and `height` attributes.
+	 *
+	 * As in the browser, the `style` attribute takes precedence over the `width` and `height`
+	 * attributes. If the image has no `style`, `width` or `height` attributes, then the image is
+	 * dimensionless.
+	 *
+	 * @param DOMElement $img
+	 * @return array with width and height parameters if dimensions are found
+	 */
+	public function getImageDimensions( DOMElement $img ) {
+		$result = [];
+
+		foreach ( [ 'width', 'height' ] as $dimensionName ) {
+			$dimension = $this->getImageDimension( $img, $dimensionName );
+
+			if ( $dimension ) {
+				$result[$dimensionName] = $dimension;
+			}
+		}
+
+		return $result;
 	}
 
 	/**
@@ -210,10 +354,10 @@ class MobileFormatter extends HtmlFormatter {
 
 		foreach ( $el->getElementsByTagName( 'img' ) as $img ) {
 			$parent = $img->parentNode;
-			$width = $img->getAttribute( 'width' );
-			$height = $img->getAttribute( 'height' );
-			$dimensionsStyle = ( $width ? "width: {$width}px;" : '' ) .
-				( $height ? "height: {$height}px;" : '' );
+			$dimensions = $this->getImageDimensions( $img );
+
+			$dimensionsStyle = ( isset( $dimensions['width'] ) ? "width: {$dimensions['width']};" : '' ) .
+				( isset( $dimensions['height'] ) ? "height: {$dimensions['height']};" : '' );
 
 			// HTML only clients
 			$noscript = $doc->createElement( 'noscript' );
@@ -230,6 +374,10 @@ class MobileFormatter extends HtmlFormatter {
 			// Assume data saving and remove srcset attribute from the non-js experience
 			$img->removeAttribute( 'srcset' );
 
+			// T145222: Add a non-breaking space inside placeholders to ensure that they do not report
+			// themselves as invisible when inline.
+			$imgPlaceholder->appendChild( $doc->createEntityReference( 'nbsp' ) );
+
 			// Set the placeholder where the original image was
 			$parent->replaceChild( $imgPlaceholder, $img );
 			// Add the original image to the HTML only markup
@@ -244,7 +392,7 @@ class MobileFormatter extends HtmlFormatter {
 	 */
 	private function doRemoveImages() {
 		$doc = $this->getDoc();
-		$domElemsToReplace = array();
+		$domElemsToReplace = [];
 		foreach ( $doc->getElementsByTagName( 'img' ) as $element ) {
 			$domElemsToReplace[] = $element;
 		}
@@ -302,7 +450,7 @@ class MobileFormatter extends HtmlFormatter {
 		$elements = $xpath->query( '//*[starts-with(@id, "mf-")]' );
 
 		// These elements will be handled specially
-		$commonAttributes = array( 'mp-tfa', 'mp-itn' );
+		$commonAttributes = [ 'mp-tfa', 'mp-itn' ];
 
 		// Start building the new Main Page content in the $content var
 		$content = $mainPage->createElement( 'div' );
@@ -364,6 +512,7 @@ class MobileFormatter extends HtmlFormatter {
 
 	/**
 	 * Splits the body of the document into sections demarcated by the $headings elements.
+	 * Also moves the first paragraph in the lead section above the infobox.
 	 *
 	 * All member elements of the sections are added to a <code><div></code> so
 	 * that the section bodies are clearly defined (to be "expandable" for
@@ -412,14 +561,19 @@ class MobileFormatter extends HtmlFormatter {
 				// Insert the previous section body and reset it for the new section
 				$body->insertBefore( $sectionBody, $node );
 
-				if ( $sectionNumber === 0 && $this->isTOCEnabled ) {
-					// Insert table of content placeholder which will be progressively enhanced via JS
-					$toc = $doc->createElement( 'div' );
-					$toc->setAttribute( 'id', 'toc' );
-					$toc->setAttribute( 'class', 'toc-mobile' );
-					$tocHeading = $doc->createElement( 'h2', wfMessage( 'toc' )->text() );
-					$toc->appendChild( $tocHeading );
-					$sectionBody->appendChild( $toc );
+				if ( $sectionNumber === 0 ) {
+					if ( $this->isTOCEnabled ) {
+						// Insert table of content placeholder which will be progressively enhanced via JS
+						$toc = $doc->createElement( 'div' );
+						$toc->setAttribute( 'id', 'toc' );
+						$toc->setAttribute( 'class', 'toc-mobile' );
+						$tocHeading = $doc->createElement( 'h2', wfMessage( 'toc' )->text() );
+						$toc->appendChild( $tocHeading );
+						$sectionBody->appendChild( $toc );
+					}
+					if ( $transformOptions[ self::SHOW_FIRST_PARAGRAPH_BEFORE_INFOBOX ] ) {
+						$this->moveFirstParagraphBeforeInfobox( $sectionBody, $doc );
+					}
 				}
 				$sectionNumber += 1;
 				$sectionBody = $doc->createElement( 'div' );
@@ -431,6 +585,11 @@ class MobileFormatter extends HtmlFormatter {
 			// If it is not a top level heading, keep appending the nodes to the
 			// section body container.
 			$sectionBody->appendChild( $node );
+		}
+
+		// If the document had the lead section only:
+		if ( $sectionNumber == 0 && $transformOptions[ self::SHOW_FIRST_PARAGRAPH_BEFORE_INFOBOX ] ) {
+			$this->moveFirstParagraphBeforeInfobox( $sectionBody, $doc );
 		}
 
 		if ( $sectionBody->hasChildNodes() ) {
@@ -474,8 +633,8 @@ class MobileFormatter extends HtmlFormatter {
 	 *  rank headings and the second is all other headings
 	 */
 	private function getHeadings( DOMDocument $doc ) {
-		$result = array();
-		$headings = $subheadings = array();
+		$result = [];
+		$headings = $subheadings = [];
 
 		foreach ( $this->topHeadingTags as $tagName ) {
 			$elements = $doc->getElementsByTagName( $tagName );
@@ -497,6 +656,6 @@ class MobileFormatter extends HtmlFormatter {
 			}
 		}
 
-		return array( $headings, $subheadings );
+		return [ $headings, $subheadings ];
 	}
 }

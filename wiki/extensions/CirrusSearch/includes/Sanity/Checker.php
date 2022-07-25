@@ -2,9 +2,11 @@
 
 namespace CirrusSearch\Sanity;
 
+use ArrayObject;
 use CirrusSearch\Connection;
+use CirrusSearch\SearchConfig;
 use CirrusSearch\Searcher;
-use Status;
+use MediaWiki\MediaWikiServices;
 use Title;
 use WikiPage;
 
@@ -29,6 +31,11 @@ use WikiPage;
 
 class Checker {
 	/**
+	 * @var SearchConfig
+	 */
+	private $searchConfig;
+
+	/**
 	 * @var Connection
 	 */
 	private $connection;
@@ -49,77 +56,281 @@ class Checker {
 	private $logSane;
 
 	/**
+	 * @var bool inspect WikiPage::isRedirect() instead of WikiPage::getContent()->isRedirect()
+	 * Faster since it does not need to fetch the content but inconsistent in some cases.
+	 */
+	private $fastRedirectCheck;
+
+	/**
+	 * A cache for pages loaded with loadPagesFromDB( $pageIds ). This is only
+	 * useful when multiple Checker are run to check different elastic clusters.
+	 * @var ArrayObject|null
+	 */
+	private $pageCache;
+
+	/**
 	 * Build the checker.
+	 * @param SearchConfig $config
 	 * @param Connection $connection
 	 * @param Remediator $remediator the remediator to which to send titles
 	 *   that are insane
 	 * @param Searcher $searcher searcher to use for fetches
 	 * @param bool $logSane should we log sane ids
+	 * @param bool $fastRedirectCheck fast but inconsistent redirect check
+	 * @param ArrayObject|null $pageCache cache for WikiPage loaded from db
 	 */
-	public function __construct( Connection $connection, Remediator $remediator, Searcher $searcher, $logSane ) {
+	public function __construct( SearchConfig $config, Connection $connection, Remediator $remediator, Searcher $searcher, $logSane, $fastRedirectCheck, ArrayObject $pageCache = null ) {
+		$this->searchConfig = $config;
 		$this->connection = $connection;
 		$this->remediator = $remediator;
 		$this->searcher = $searcher;
 		$this->logSane = $logSane;
+		$this->fastRedirectCheck = $fastRedirectCheck;
+		$this->pageCache = $pageCache;
 	}
 
 	/**
 	 * Check if a title is insane.
 	 *
-	 * @param int $pageId page to check
-	 * @return Status status of the operation
+	 * @param int[] $pageIds page to check
+	 * @return int the number of pages updated
 	 */
-	public function check( $pageId ) {
-		$status = $this->searcher->get( array( $pageId ), array( 'namespace', 'title' ) );
-		if ( !$status->isOK() ) {
-			return $status;
-		}
-		$fromIndex = $status->getValue();
+	public function check( array $pageIds ) {
+		$docIds = array_map( [ $this->searchConfig, 'makeId' ], $pageIds );
 
+		$pagesFromDb = $this->loadPagesFromDB( $pageIds );
+		$pagesFromIndex = $this->loadPagesFromIndex( $docIds );
+		$nbPagesFixed = 0;
+		foreach( array_combine( $pageIds, $docIds ) as $pageId => $docId ) {
+			$fromIndex = [];
+			if ( isset( $pagesFromIndex[$docId] ) ) {
+				$fromIndex = $pagesFromIndex[$docId];
+			}
+
+			$updated = false;
+			if ( isset ( $pagesFromDb[$pageId] ) ) {
+				$page = $pagesFromDb[$pageId];
+				$updated = $this->checkExisitingPage( $docId, $pageId, $page, $fromIndex );
+			} else {
+				$updated = $this->checkInexistentPage( $docId, $pageId, $fromIndex );
+			}
+			if( $updated ) {
+				$nbPagesFixed++;
+			}
+		}
+		$clusterName = $this->connection->getClusterName();
+		$stats = MediaWikiServices::getInstance()->getStatsdDataFactory();
+		$stats->updateCount( "CirrusSearch.$clusterName.sanitization.fixed", $nbPagesFixed );
+		$stats->updateCount( "CirrusSearch.$clusterName.sanitization.checked", count( $pageIds ) );
+		return $nbPagesFixed;
+	}
+
+	/**
+	 * Check that an existing page is properly indexed:
+	 * - index it if missing in the index
+	 * - delete it if it's a redirect
+	 * - verify it if found in the index
+	 *
+	 * @param string $docId
+	 * @param int $pageId
+	 * @param WikiPage $page
+	 * @param \Elastica\Result[] $fromIndex
+	 * @return bool true if a modification was needed
+	 */
+	private function checkExisitingPage( $docId, $pageId, $page, $fromIndex ) {
 		$inIndex = count( $fromIndex ) > 0;
-		$page = WikiPage::newFromID( $pageId );
-
-		if ( $page !== null && $page->exists() ) {
-			if ( $page->isRedirect() ) {
-				if ( $inIndex ) {
-					$this->remediator->redirectInIndex( $page );
-				} else {
-					$this->sane( $pageId, 'Redirect not in index' );
-				}
-			} else {
-				if ( $inIndex ) {
-					$foundInsanityInIndex = false;
-					$expectedType = $this->connection->getIndexSuffixForNamespace( $page->getTitle()->getNamespace() );
-					/** @var IndexInfo $indexInfo */
-					foreach ( $fromIndex as $indexInfo ) {
-						$matches = array();
-						if ( !preg_match( '/_(.+)_.+$/', $indexInfo->getIndex(), $matches ) ) {
-							return Status::newFatal( "Can't parse index name:  " . $indexInfo->getIndex() );
-						}
-						$type = $matches[ 1 ];
-						if ( $type !== $expectedType ) {
-							// Got to grab the index type from the index name....
-							$this->remediator->pageInWrongIndex( $page, $type );
-							$foundInsanityInIndex = true;
-						}
-					}
-					if ( !$foundInsanityInIndex ) {
-						$this->sane( $pageId, 'Page in index' );
-					}
-				} else {
-					$this->remediator->pageNotInIndex( $page );
-				}
-			}
-		} else {
+		if ( $this->checkIfRedirect( $page ) ) {
 			if ( $inIndex ) {
-				$r = $fromIndex[ 0 ];
+				$this->remediator->redirectInIndex( $page );
+				return true;
+			}
+			$this->sane( $pageId, 'Redirect not in index' );
+			return false;
+		}
+		if ( $inIndex ) {
+			return $this->checkPageInIndex( $docId, $pageId, $page, $fromIndex );
+		}
+		$this->remediator->pageNotInIndex( $page );
+		return true;
+	}
+
+	/**
+	 * Check if the page is a redirect
+	 * @param WikiPage $page the page
+	 * @return bool true if $page is a redirect
+	 */
+	private function checkIfRedirect( $page ) {
+		if ( $this->fastRedirectCheck ) {
+			return $page->isRedirect();
+		}
+
+		$content = $page->getContent();
+		if ( $content == null ) {
+			return false;
+		}
+		if( is_object ( $content ) ) {
+			return $content->isRedirect();
+		}
+		return false;
+	}
+
+	/**
+	 * Check that an inexistent page is not present in the index
+	 * and delete it if found
+	 *
+	 * @param string $docId
+	 * @param int $pageId
+	 * @param \Elastica\Result[] $fromIndex
+	 * @return bool true if a modification was needed
+	 */
+	private function checkInexistentPage( $docId, $pageId, $fromIndex ) {
+		$inIndex = count( $fromIndex ) > 0;
+		if ( $inIndex ) {
+			foreach( $fromIndex as $r ) {
 				$title = Title::makeTitle( $r->namespace, $r->title );
-				$this->remediator->ghostPageInIndex( $pageId, $title );
-			} else {
-				$this->sane( $pageId, 'No ghost' );
+				$this->remediator->ghostPageInIndex( $docId, $title );
+			}
+			return true;
+		}
+		$this->sane( $pageId, 'No ghost' );
+		return false;
+	}
+
+	/**
+	 * Check that a page present in the db and in the index
+	 * is in the correct index with the latest version.
+	 *
+	 * @param string $docId
+	 * @param int $pageId
+	 * @param WikiPage $page
+	 * @param \Elastica\Result[] $fromIndex
+	 * @return bool true if a modification was needed
+	 */
+	private function checkPageInIndex( $docId, $pageId, WikiPage $page, array $fromIndex ) {
+		$insane = $this->checkIndexMismatch( $docId, $pageId, $page, $fromIndex );
+		if ( !$insane ) {
+			$insane = $this->checkIndexedVersion( $docId, $pageId, $page, $fromIndex );
+		}
+
+		if ( !$insane ) {
+			$this->sane( $pageId, 'Page in index with latest version' );
+		}
+
+		return $insane;
+	}
+
+	/**
+	 * Check that a page present in the db and in the index
+	 * is properly indexed to the appropriate index by checking its
+	 * namespace.
+	 *
+	 * @param string $docId
+	 * @param int $pageId
+	 * @param WikiPage $page
+	 * @param \Elastica\Result[] $fromIndex
+	 * @return bool true if a modification was needed
+	 */
+	private function checkIndexMismatch( $docId, $pageId, WikiPage $page, array $fromIndex ) {
+		$foundInsanityInIndex = false;
+		$expectedType = $this->connection->getIndexSuffixForNamespace( $page->getTitle()->getNamespace() );
+		foreach ( $fromIndex as $indexInfo ) {
+			$type = $this->connection->extractIndexSuffix( $indexInfo->getIndex() );
+			if ( $type !== $expectedType ) {
+				// Got to grab the index type from the index name....
+				$this->remediator->pageInWrongIndex( $docId, $page, $type );
+				$foundInsanityInIndex = true;
 			}
 		}
-		return Status::newGood();
+
+		if ( $foundInsanityInIndex ) {
+			return true;
+		}
+
+		return false;
+	}
+
+
+	/**
+	 * Check that the indexed version of the page is the
+	 * latest version in the database.
+	 *
+	 * @param string $docId
+	 * @param int $pageId
+	 * @param WikiPage $page
+	 * @param \Elastica\Result[] $fromIndex
+	 * @return bool true if a modification was needed
+	 */
+	private function checkIndexedVersion( $docId, $pageId, WikiPage $page, array $fromIndex ) {
+		$latest = $page->getLatest();
+		$foundInsanityInIndex = false;
+		foreach ( $fromIndex as $indexInfo ) {
+			$version = isset( $indexInfo->getSource()['version'] ) ? $indexInfo->getSource()['version'] : -1;
+			if ( $version < $latest ) {
+				$type = $this->connection->extractIndexSuffix( $indexInfo->getIndex() );
+				$this->remediator->oldVersionInIndex( $docId, $page, $type );
+
+				$foundInsanityInIndex = true;
+			}
+		}
+
+		return $foundInsanityInIndex;
+	}
+
+	/**
+	 * @param int[] $pageIds page ids
+	 * @return WikiPage[] the list of wiki pages indexed in page id
+	 */
+	private function loadPagesFromDB( array $pageIds ) {
+		// If no cache object is constructed we build a new one.
+		// Building it in the constructor would cause memleaks because
+		// there is no automatic prunning of old entries. If a cache
+		// object is provided the owner of this Checker instance must take
+		// care of the cleaning.
+		$cache = $this->pageCache ?: new ArrayObject();
+		$pageIds = array_diff( $pageIds, array_keys( $cache->getArrayCopy() ) );
+		if ( empty( $pageIds ) ) {
+			return $cache->getArrayCopy();
+		}
+		$dbr = $this->getDB();
+		$where = 'page_id IN (' . $dbr->makeList( $pageIds ) . ')';
+		$res = $dbr->select(
+			[ 'page' ],
+			WikiPage::selectFields(),
+			$where,
+			__METHOD__
+		);
+		foreach ( $res as $row ) {
+			$page = WikiPage::newFromRow( $row );
+			$cache->offsetSet( $page->getId(), $page );
+		}
+		return $cache->getArrayCopy();
+	}
+
+	/**
+	 * @return \IDatabase
+	 */
+	private function getDB() {
+		return wfGetDB( DB_REPLICA );
+	}
+
+	/**
+	 * @param string[] $docIds document ids
+	 * @return \Elastica\Result[][] search results indexed by page id
+	 * @throws \Exception if an error occurred
+	 */
+	private function loadPagesFromIndex( array $docIds ) {
+		$status = $this->searcher->get( $docIds, [ 'namespace', 'title', 'version' ] );
+		if ( !$status->isOK() ) {
+			throw new \Exception( 'Cannot fetch ids from index' );
+		}
+		/** @var \Elastica\ResultSet $dataFromIndex */
+		$dataFromIndex = $status->getValue();
+
+		$indexedPages = [];
+		foreach ( $dataFromIndex as $indexInfo ) {
+			$indexedPages[$indexInfo->getId()][] = $indexInfo;
+		}
+		return $indexedPages;
 	}
 
 	private function sane( $pageId, $reason ) {

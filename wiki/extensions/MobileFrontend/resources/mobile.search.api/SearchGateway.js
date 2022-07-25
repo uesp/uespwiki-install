@@ -1,5 +1,6 @@
 ( function ( M, $ ) {
-	var Page = M.require( 'mobile.startup/Page' );
+	var Page = M.require( 'mobile.startup/Page' ),
+		extendSearchParams = M.require( 'mobile.search.util/extendSearchParams' );
 
 	/**
 	 * @class SearchGateway
@@ -17,7 +18,7 @@
 		 * The namespace to search in.
 		 * @type {Number}
 		 */
-		searchNamespace: '0|102|104|106|108|110|112|114|116|118|120|122|124|126|128|130|132|134|136|138|140|142|144|146|148|150|152|154|156|158|160|162|164|166',
+		searchNamespace: '0|102|104|106|108|110|112|114|116|118|120|122|124|126|128|130|132|134|136|138|140|142|144|146|148|150|152|154|156|158|160|162|164|166|168|170|172|174|176|178',
 
 		/**
 		 * Get the data used to do the search query api call.
@@ -27,10 +28,11 @@
 		 */
 		getApiData: function ( query ) {
 			var prefix = this.generator.prefix,
-				data = $.extend( {
-					generator: this.generator.name,
-					prop: mw.config.get( 'wgMFQueryPropModules' )
-				}, mw.config.get( 'wgMFSearchAPIParams' ) );
+				data = extendSearchParams( 'search', {
+					generator: this.generator.name
+				} );
+
+			data.redirects = '';
 
 			data['g' + prefix + 'search'] = query;
 			data['g' + prefix + 'namespace'] = this.searchNamespace;

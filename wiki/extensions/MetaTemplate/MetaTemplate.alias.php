@@ -3,5 +3,6 @@ $specialPageAliases = array();
  
 /** English */
 $specialPageAliases['en'] = array(
-    'MetaTemplate' => array( 'MetaTemplate' ),
+    'MetaVarsOnPage' => array( 'MetaVarsOnPage' ),
+	'SpecialPagesWithMetaVar' => array( 'SpecialPagesWithMetaVar' ),
 );

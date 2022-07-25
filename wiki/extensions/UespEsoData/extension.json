@@ -1,0 +1,39 @@
+{
+	"name": "UespEsoData",
+	"version": "0.1",
+	"author": "Daveh",
+	"url": "https://en.uesp.net/wiki/User:Daveh",
+	"description": "Added various ESO data to a page.",
+	"type": "other",
+	"ExtensionFunctions": [
+	],
+	"ExtensionMessagesFiles": {
+	},
+	"AutoloadClasses": {
+		"CUespEsoData" : "UespEsoData.php"
+	},
+	"Hooks": {
+		"ParserFirstCallInit" : "CUespEsoData::onParserInit"
+	},
+	"ResourceModules": {
+		"ext.UespEsoData.resources": {
+			"position": "top",
+			"scripts": [
+				"uespEsoData.js"
+			],
+			"styles": [
+				"uespEsoData.css"
+			],
+			"localBasePath": "modules",
+			"remoteExtPath": "UespEsoData/modules",
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		}
+	},
+	"ExtensionMessagesFiles": {
+		"UespEsoData": "i18n/UespEsoData.magic.php"
+	},
+	"manifest_version": 1
+}

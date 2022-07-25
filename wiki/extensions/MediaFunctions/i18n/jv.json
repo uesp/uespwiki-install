@@ -1,9 +1,10 @@
 {
 	"@metadata": {
 		"authors": [
-			"Meursault2004"
+			"Meursault2004",
+			"NoiX180"
 		]
 	},
-	"mediafunctions-invalid-title": "\"$1\" iku dudu irah-irahan absah",
+	"mediafunctions-invalid-title": "\"$1\" dudu sesirah sing sah",
 	"mediafunctions-not-exist": "\"$1\" ora ana"
 }

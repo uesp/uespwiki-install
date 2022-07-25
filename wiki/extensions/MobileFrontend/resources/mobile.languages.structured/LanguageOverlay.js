@@ -20,8 +20,8 @@
 		);
 		options.allLanguages = languages.all;
 		options.allLanguagesCount = languages.all.length;
-		options.preferredLanguages = languages.preferred;
-		options.preferredLanguagesCount = languages.preferred.length;
+		options.suggestedLanguages = languages.suggested;
+		options.suggestedLanguagesCount = languages.suggested.length;
 
 		Overlay.call( this, options );
 	}
@@ -29,12 +29,19 @@
 	OO.mfExtend( LanguageOverlay, Overlay, {
 		/** @inheritdoc */
 		className: Overlay.prototype.className + ' language-overlay',
+		/**
+		 * @inheritdoc
+		 * @cfg {Object} defaults
+		 * @cfg {Object[]} defaults.languages each object has keys as
+		 *  returned by the langlink API https://www.mediawiki.org/wiki/API:Langlinks
+		 */
 		defaults: $.extend( {}, Overlay.prototype.defaults, {
 			heading: mw.msg( 'mobile-frontend-language-heading' ),
 			inputPlaceholder: mw.msg( 'mobile-frontend-languages-structured-overlay-search-input-placeholder' ),
 			// we can't rely on CSS only to uppercase the headings. See https://stackoverflow.com/questions/3777443/css-text-transform-not-working-properly-for-turkish-characters
 			allLanguagesHeader: mw.msg( 'mobile-frontend-languages-structured-overlay-all-languages-header' ).toLocaleUpperCase(),
-			preferredLanguagesHeader: mw.msg( 'mobile-frontend-languages-structured-overlay-preferred-languages-header' ).toLocaleUpperCase()
+			suggestedLanguagesHeader: mw.msg( 'mobile-frontend-languages-structured-overlay-suggested-languages-header' ).toLocaleUpperCase(),
+			headerChrome: false
 		} ),
 		/** @inheritdoc */
 		templatePartials: $.extend( {}, Overlay.prototype.templatePartials, {
@@ -50,27 +57,9 @@
 			Overlay.prototype.postRender.apply( this );
 
 			// cache
-			this.$searchInput = this.$( 'input.search' );
 			this.$siteLinksList = this.$( '.site-link-list' );
 			this.$languageItems = this.$siteLinksList.find( 'a' );
 			this.$subheaders = this.$( 'h3' );
-
-			mw.track( 'mf.schemaMobileWebLanguageSwitcher', {
-				event: 'languageListLoaded',
-				languageOverlayVersion: 'structured-overlay',
-				languageCount: this.$languageItems.length
-			} );
-		},
-		/** @inheritdoc */
-		onExit: function () {
-			mw.track( 'mf.schemaMobileWebLanguageSwitcher', {
-				event: 'exitModal',
-				exitModal: 'dismissed',
-				searchInputHasQuery: this.$searchInput.val().length > 0,
-				languageCount: this.$siteLinksList.children( ':visible' ).length
-			} );
-
-			Overlay.prototype.onExit.apply( this, arguments );
 		},
 		/**
 		 * Article link click event handler
@@ -79,7 +68,6 @@
 		onLinkClick: function ( ev ) {
 			var $link = this.$( ev.currentTarget ),
 				lang = $link.attr( 'lang' ),
-				searchInputHasQuery = this.$searchInput.val().length > 0,
 				$visibleLanguageLinks = this.$languageItems.filter( ':visible' ),
 				index;
 
@@ -92,15 +80,6 @@
 					return false;
 				}
 			} );
-
-			mw.track( 'mf.schemaMobileWebLanguageSwitcher', {
-				event: 'exitModal',
-				exitModal: 'tapped-on-result',
-				languageTapped: lang,
-				positionOfLanguageTapped: index,
-				searchInputHasQuery: searchInputHasQuery,
-				languageCount: $visibleLanguageLinks.length
-			} );
 		},
 
 		/**
@@ -109,14 +88,6 @@
 		 */
 		onSearchInput: function ( ev ) {
 			this.filterLanguages( $( ev.target ).val().toLowerCase() );
-
-			// log when the first search character is entered
-			if ( !this.hasFirstSearchBeenLogged ) {
-				mw.track( 'mf.schemaMobileWebLanguageSwitcher', {
-					event: 'startLanguageSearch'
-				} );
-				this.hasFirstSearchBeenLogged = true;
-			}
 		},
 
 		/**
@@ -129,8 +100,10 @@
 
 			if ( val ) {
 				$.each( this.options.languages, function ( i, language ) {
+					var langname = language.langname;
 					// search by language code or language name
 					if ( language.autonym.toLowerCase().indexOf( val ) > -1 ||
+							( langname && langname.toLowerCase().indexOf( val ) > -1 ) ||
 							language.lang.toLowerCase().indexOf( val ) > -1
 					) {
 						filteredList.push( language.lang );

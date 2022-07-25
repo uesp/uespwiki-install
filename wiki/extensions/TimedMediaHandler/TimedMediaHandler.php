@@ -17,6 +17,10 @@ $wgAutoloadClasses['WebVideoTranscode'] = "$timedMediaDir/WebVideoTranscode/WebV
 $wgAvailableRights[] = 'transcode-reset';
 $wgAvailableRights[] = 'transcode-status';
 
+// Controls weather to enable videojs beta feature
+// Requires the BetaFeature extension be installed.
+$wgTmhUseBetaFeatures = false;
+
 // Configure the webplayer. Allowed values: mwembed, videojs
 $wgTmhWebPlayer = 'mwembed';
 
@@ -172,6 +176,14 @@ $wgEnabledTranscodeSet = [
 	// High-bitrate Ogg stream
 	WebVideoTranscode::ENC_OGV_480P,
 
+	// Variable-bitrate HD Ogg stream
+	// for ogv.js on reasonably speedy machines
+	WebVideoTranscode::ENC_OGV_720P,
+
+	// Variable-bitrate HD Ogg stream
+	// for ogv.js on reasonably speedy machines
+	WebVideoTranscode::ENC_OGV_1080P,
+
 /*
 	// MP4 H.264/AAC
 	// Primary format for the Apple/Microsoft world
@@ -265,11 +277,6 @@ $wgAutoloadClasses['File_Ogg_Theora'] =
 $wgAutoloadClasses['File_Ogg_Vorbis'] =
 	"$timedMediaDir/handlers/OggHandler/File_Ogg/File/Ogg/Vorbis.php";
 
-// getID3 provides metadata for mp4 and webm files:
-$wgAutoloadClasses['getID3'] = "$timedMediaDir/libs/getid3/getid3.php";
-$wgAutoloadClasses['getid3_exception'] = "$timedMediaDir/libs/getid3/getid3.php";
-$wgAutoloadClasses['getid3_handler'] = "$timedMediaDir/libs/getid3/getid3.php";
-
 // ID3 Metadata Handler
 $wgAutoloadClasses['ID3Handler'] = "$timedMediaDir/handlers/ID3Handler/ID3Handler.php";
 // Mp4 / h264 Handler
@@ -282,8 +289,6 @@ $wgAutoloadClasses['FLACHandler'] = "$timedMediaDir/handlers/FLACHandler/FLACHan
 $wgAutoloadClasses['WAVHandler'] = "$timedMediaDir/handlers/WAVHandler/WAVHandler.php";
 
 // Text handler
-$wgAutoloadClasses['ForeignApiQueryAllPages'] =
-	"$timedMediaDir/handlers/TextHandler/TextHandler.php";
 $wgAutoloadClasses['TextHandler'] = "$timedMediaDir/handlers/TextHandler/TextHandler.php";
 $wgAutoloadClasses['TimedTextPage'] = "$timedMediaDir/TimedTextPage.php";
 
@@ -314,6 +319,10 @@ $wgMessagesDirs['MwEmbed.TimedText'] = __DIR__ . '/MwEmbedModules/TimedText/i18n
 // Special Pages
 $wgAutoloadClasses['SpecialTimedMediaHandler'] = "$timedMediaDir/SpecialTimedMediaHandler.php";
 $wgAutoloadClasses['SpecialOrphanedTimedText'] = "$timedMediaDir/SpecialOrphanedTimedText.php";
+
+$wgHooks['GetBetaFeaturePreferences'][] = 'TimedMediaHandlerHooks::onGetBetaFeaturePreferences';
+
+$wgHooks['PageRenderingHash'][] = 'TimedMediaHandlerHooks::changePageRenderingHash';
 
 // This way if you set a variable like $wgTimedTextNS in LocalSettings.php
 // after you include TimedMediaHandler we can still read the variable values
@@ -349,3 +358,7 @@ $wgExtensionCredits['media'][] = [
 	'version' => '0.5.0',
 	'license-name' => 'GPL-2.0+',
 ];
+
+if ( is_readable( __DIR__ . '/vendor/autoload.php' ) ) {
+	require_once __DIR__ . '/vendor/autoload.php';
+}

@@ -49,9 +49,9 @@ class ConfigUtils {
 		}
 		$result = $result[ 'version' ][ 'number' ];
 		$this->output( "$result..." );
-		if ( !preg_match( '/^1./', $result ) ) {
+		if ( !preg_match( '/^2./', $result ) ) {
 			$this->output( "Not supported!\n" );
-			$this->error( "Only Elasticsearch 1.x is supported.  Your version: $result.", 1 );
+			$this->error( "Only Elasticsearch 2.x is supported.  Your version: $result.", 1 );
 		} else {
 			$this->output( "ok\n" );
 		}
@@ -79,7 +79,7 @@ class ConfigUtils {
 			if ( count( $found ) > 1 ) {
 				$this->output( "error\n" );
 				$this->error( "Looks like the index has more than one identifier. You should delete all\n" .
-					"but the one of them currently active. Here is the list: " .  implode( $found, ',' ), 1 );
+					"but the one of them currently active. Here is the list: " .  implode( ',', $found ), 1 );
 			}
 			if ( $found ) {
 				$identifier = substr( $found[0], strlen( $typeName ) + 1 );
@@ -105,7 +105,7 @@ class ConfigUtils {
 	 * @return string[] the list of indices
 	 */
 	public function getAllIndicesByType( $typeName ) {
-		$found = array();
+		$found = [];
 		foreach ( $this->client->getStatus()->getIndexNames() as $name ) {
 			if ( substr( $name, 0, strlen( $typeName ) ) === $typeName ) {
 				$found[] = $name;
@@ -115,27 +115,36 @@ class ConfigUtils {
 	}
 
 	/**
-	 * @param string[] $bannedPlugins
-	 * @return string[]
+	 * @param string $what generally plugins or modules
+	 * @return string[] list of modules or plugins
 	 */
-	public function scanAvailablePlugins( array $bannedPlugins = array() ) {
-		$this->outputIndented( "Scanning available plugins..." );
+	private function scanModulesOrPlugins( $what ) {
 		$result = $this->client->request( '_nodes' );
 		$result = $result->getData();
-		$availablePlugins = array();
+		$availables = [];
 		$first = true;
 		foreach ( array_values( $result[ 'nodes' ] ) as $node ) {
-			$plugins = array();
-			foreach ( $node[ 'plugins' ] as $plugin ) {
+			$plugins = [];
+			foreach ( $node[ $what ] as $plugin ) {
 				$plugins[] = $plugin[ 'name' ];
 			}
 			if ( $first ) {
-				$availablePlugins = $plugins;
+				$availables = $plugins;
 				$first = false;
 			} else {
-				$availablePlugins = array_intersect( $availablePlugins, $plugins );
+				$availables = array_intersect( $availables, $plugins );
 			}
 		}
+		return $availables;
+	}
+
+	/**
+	 * @param string[] $bannedPlugins
+	 * @return string[]
+	 */
+	public function scanAvailablePlugins( array $bannedPlugins = [] ) {
+		$this->outputIndented( "Scanning available plugins..." );
+		$availablePlugins = $this->scanModulesOrPlugins( 'plugins' );
 		if ( count( $availablePlugins ) === 0 ) {
 			$this->output( 'none' );
 		}
@@ -149,6 +158,26 @@ class ConfigUtils {
 		}
 
 		return $availablePlugins;
+	}
+
+	/**
+	 * @return string[]
+	 */
+	public function scanAvailableModules() {
+		$this->outputIndented( "Scanning available modules..." );
+		$result = $this->client->request( '_nodes' );
+		$result = $result->getData();
+		$availableModules = $this->scanModulesOrPlugins( 'modules' );
+		if ( count( $availableModules ) === 0 ) {
+			$this->output( 'none' );
+		}
+		$this->output( "\n" );
+		foreach ( array_chunk( $availableModules, 5 ) as $moduleChunk ) {
+			$modules = implode( ', ', $moduleChunk );
+			$this->outputIndented( "\t$modules\n" );
+		}
+
+		return $availableModules;
 	}
 
 	// @todo: bring below options together in some abstract class where Validator & Reindexer also extend from

@@ -2,6 +2,7 @@
 
 namespace CirrusSearch;
 
+use ApiBase;
 use ApiMain;
 use ApiOpenSearch;
 use CirrusSearch;
@@ -11,6 +12,7 @@ use JobQueueGroup;
 use LinksUpdate;
 use OutputPage;
 use MediaWiki\MediaWikiServices;
+use SearchResultSet;
 use SpecialSearch;
 use Title;
 use RecursiveDirectoryIterator;
@@ -45,7 +47,7 @@ class Hooks {
 	/**
 	 * @var string[] Destination of titles being moved (the ->getPrefixedDBkey() form).
 	 */
-	private static $movingTitles = array();
+	private static $movingTitles = [];
 
 	/**
 	 * Hooked to call initialize after the user is set up.
@@ -119,8 +121,8 @@ class Hooks {
 			self::overrideUseExtraPluginForRegex( $request );
 			self::overrideMoreLikeThisOptions( $request );
 			PhraseSuggesterProfiles::overrideOptions( $request );
-			CommonTermsQueryProfiles::overrideOptions( $request );
 			RescoreProfiles::overrideOptions( $request );
+			FullTextQueryBuilderProfiles::overrideOptions( $request );
 			self::overrideSecret( $wgCirrusSearchLogElasticRequests, $wgCirrusSearchLogElasticRequestsSecret, $request, 'cirrusLogElasticRequests', false );
 			self::overrideYesNo( $wgCirrusSearchEnableAltLanguage, $request, 'cirrusAltLanguage' );
 		}
@@ -138,6 +140,18 @@ class Hooks {
 	 */
 	private static function overrideNumeric( &$dest, WebRequest $request, $name, $limit = null, $upperLimit = true ) {
 		Util::overrideNumeric( $dest, $request, $name, $limit, $upperLimit );
+	}
+
+	/**
+	 * @param mixed &$dest
+	 * @param WebRequest $request
+	 * @param string $name
+	 */
+	private static function overrideMinimumShouldMatch( &$dest, WebRequest $request, $name ) {
+		$val = $request->getVal( $name );
+		if ( self::isMinimumShouldMatch( $val ) ) {
+			$dest = $val;
+		}
 	}
 
 	/**
@@ -172,16 +186,13 @@ class Hooks {
 	private static function overrideUseExtraPluginForRegex( WebRequest $request ) {
 		global $wgCirrusSearchWikimediaExtraPlugin;
 
-		$val = $request->getVal( 'cirrusAccelerateRegex' );
-		if ( $val !== null ) {
-			if ( $val === 'yes' ) {
+		if ( $request->getCheck( 'cirrusAccelerateRegex' ) ) {
+			if ( $request->getFuzzyBool( 'cirrusAccelerateRegex' ) ) {
 				$wgCirrusSearchWikimediaExtraPlugin[ 'regex' ][] = 'use';
-			} elseif( $val = 'no' ) {
-				if ( isset( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] ) ) {
-					$useLocation = array_search( 'use', $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] );
-					if ( $useLocation !== false ) {
-						unset( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ][ $useLocation ] );
-					}
+			} elseif ( isset( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] ) ) {
+				$useLocation = array_search( 'use', $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] );
+				if ( $useLocation !== false ) {
+					unset( $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ][ $useLocation ] );
 				}
 			}
 		}
@@ -197,14 +208,14 @@ class Hooks {
 			$wgCirrusSearchMoreLikeThisMaxQueryTermsLimit,
 			$wgCirrusSearchMoreLikeThisFields;
 
-		$cache = \ObjectCache::getLocalServerInstance();
+		$cache = MediaWikiServices::getInstance()->getLocalServerObjectCache();
 		$lines = $cache->getWithSetCallback(
 			$cache->makeKey( 'cirrussearch-morelikethis-settings' ),
 			600,
 			function () {
 				$source = wfMessage( 'cirrussearch-morelikethis-settings' )->inContentLanguage();
 				if ( $source && $source->isDisabled() ) {
-					return array();
+					return [];
 				}
 				return Util::parseSettingsInMessage( $source->plain() );
 			}
@@ -224,14 +235,23 @@ class Hooks {
 			case 'max_word_len':
 				if( is_numeric( $v ) && $v >= 0 ) {
 					$wgCirrusSearchMoreLikeThisConfig[$k] = intval( $v );
-				} else if ( $v === 'null' ) {
+				} elseif ( $v === 'null' ) {
 					unset( $wgCirrusSearchMoreLikeThisConfig[$k] );
 				}
 				break;
 			case 'percent_terms_to_match':
-				if( is_numeric( $v ) && $v > 0 && $v <= 1 ) {
+				// @deprecated Use minimum_should_match now
+				$k = 'minimum_should_match';
+				if ( is_numeric( $v ) && $v > 0 && $v <= 1 ) {
+					$v = ((int) ($v * 100)) . '%';
+				} else {
+					break;
+				}
+				// intentional fall-through
+			case 'minimum_should_match':
+				if ( self::isMinimumShouldMatch( $v ) ) {
 					$wgCirrusSearchMoreLikeThisConfig[$k] = $v;
-				} else if ($v === 'null' ) {
+				} elseif ($v === 'null' ) {
 					unset( $wgCirrusSearchMoreLikeThisConfig[$k] );
 				}
 				break;
@@ -243,7 +263,7 @@ class Hooks {
 			case 'use_fields':
 				if ( $v === 'true' ) {
 					$wgCirrusSearchMoreLikeThisUseFields = true;
-				} else if ( $v === 'false' ) {
+				} elseif ( $v === 'false' ) {
 					$wgCirrusSearchMoreLikeThisUseFields = false;
 				}
 				break;
@@ -252,6 +272,27 @@ class Hooks {
 				$wgCirrusSearchMoreLikeThisConfig['max_query_terms'] = $wgCirrusSearchMoreLikeThisMaxQueryTermsLimit;
 			}
 		}
+	}
+
+	/**
+	 * @param string $v The value to check
+	 * @return bool True if $v is an integer percentage in the domain -100 <= $v <= 100, $v != 0
+	 * @todo minimum_should_match also supports combinations (3<90%) and multiple combinations
+	 */
+	private static function isMinimumShouldMatch( $v ) {
+		// specific integer count > 0
+		if ( ctype_digit( $v ) && $v != 0 ) {
+			return true;
+		}
+		// percentage 0 < x <= 100
+		if ( substr( $v, -1 ) !== '%' ) {
+			return false;
+		}
+		$v = substr( $v, 0, -1 );
+		if ( substr( $v, 0, 1 ) === '-' ) {
+			$v = substr( $v, 1 );
+		}
+		return ctype_digit( $v ) && $v > 0 && $v <= 100;
 	}
 
 	/**
@@ -271,7 +312,7 @@ class Hooks {
 		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['max_query_terms'],
 			$request, 'cirrusMltMaxQueryTerms', $wgCirrusSearchMoreLikeThisMaxQueryTermsLimit );
 		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['min_term_freq'], $request, 'cirrusMltMinTermFreq' );
-		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['percent_terms_to_match'], $request, 'cirrusMltPercentTermsToMatch', 1 );
+		self::overrideMinimumShouldMatch( $wgCirrusSearchMoreLikeThisConfig['minimum_should_match'], $request, 'cirrusMltMinimumShouldMatch' );
 		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['min_word_len'], $request, 'cirrusMltMinWordLength' );
 		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['max_word_len'], $request, 'cirrusMltMaxWordLength' );
 		self::overrideYesNo( $wgCirrusSearchMoreLikeThisUseFields, $request, 'cirrusMltUseFields' );
@@ -300,10 +341,10 @@ class Hooks {
 			// DeferredUpdate so we don't end up racing our own page deletion
 			DeferredUpdates::addCallableUpdate( function() use ( $target ) {
 				JobQueueGroup::singleton()->push(
-					new Job\LinksUpdate( $target, array(
-						'addedLinks' => array(),
-						'removedLinks' => array(),
-					) )
+					new Job\LinksUpdate( $target, [
+						'addedLinks' => [],
+						'removedLinks' => [],
+					] )
 				);
 			} );
 		}
@@ -323,7 +364,9 @@ class Hooks {
 		// Note that we must use the article id provided or it'll be lost in the ether.  The job can't
 		// load it from the title because the page row has already been deleted.
 		JobQueueGroup::singleton()->push(
-			new Job\DeletePages( $page->getTitle(), array( 'id' => $pageId ) )
+			new Job\DeletePages( $page->getTitle(), [
+				'docId' => self::getConfig()->makeId( $pageId )
+			] )
 		);
 		return true;
 	}
@@ -343,7 +386,7 @@ class Hooks {
 		}
 		JobQueueGroup::singleton()->push(
 			Job\MassIndex::build(
-				array( WikiPage::factory( $title ) ),
+				[ WikiPage::factory( $title ) ],
 				Updater::INDEX_EVERYTHING
 			)
 		);
@@ -361,11 +404,11 @@ class Hooks {
 	 */
 	public static function onRevisionDelete( $title ) {
 		JobQueueGroup::singleton()->push(
-			new Job\LinksUpdate( $title, array(
-				'addedLinks' => array(),
-				'removedLinks' => array(),
+			new Job\LinksUpdate( $title, [
+				'addedLinks' => [],
+				'removedLinks' => [],
 				'prioritize' => true
-			) )
+			] )
 		);
 		return true;
 	}
@@ -397,7 +440,7 @@ class Hooks {
 
 		// Prepend our message if needed
 		if ( $wgCirrusSearchShowNowUsing ) {
-			$out->addHTML( Xml::openElement( 'div', array( 'class' => 'cirrussearch-now-using' ) ) .
+			$out->addHTML( Xml::openElement( 'div', [ 'class' => 'cirrussearch-now-using' ] ) .
 				$specialSearch->msg( 'cirrussearch-now-using' )->parse() .
 				Xml::closeElement( 'div' ) );
 		}
@@ -411,8 +454,15 @@ class Hooks {
 		return true;
 	}
 
-	public static function onSpecialSearchResultsAppend( $specialSearch, $out ) {
+	/**
+	 * @param SpecialSearch $specialSearch
+	 * @param OutputPage $out
+	 * @param string $term
+	 * @return bool
+	 */
+	public static function onSpecialSearchResultsAppend( $specialSearch, $out, $term ) {
 		global $wgCirrusSearchFeedbackLink;
+
 		if ( $wgCirrusSearchFeedbackLink ) {
 			self::addSearchFeedbackLink( $wgCirrusSearchFeedbackLink, $specialSearch, $out );
 		}
@@ -427,10 +477,10 @@ class Hooks {
 	private static function addSearchFeedbackLink( $link, SpecialSearch $specialSearch, OutputPage $out ) {
 		$anchor = Xml::element(
 			'a',
-			array( 'href' => $link ),
+			[ 'href' => $link ],
 			$specialSearch->msg( 'cirrussearch-give-feedback' )->text()
 		);
-		$block = Html::rawElement( 'div', array(), $anchor );
+		$block = Html::rawElement( 'div', [], $anchor );
 		$out->addHTML( $block );
 	}
 
@@ -450,12 +500,12 @@ class Hooks {
 			return true;
 		}
 
-		$params = array(
+		$params = [
 			'addedLinks' => self::prepareTitlesForLinksUpdate(
 				$linksUpdate->getAddedLinks(), $wgCirrusSearchLinkedArticlesToUpdate ),
 			'removedLinks' => self::prepareTitlesForLinksUpdate(
 				$linksUpdate->getRemovedLinks(), $wgCirrusSearchUnlinkedArticlesToUpdate ),
-		);
+		];
 		// Prioritize jobs that are triggered from a web process.  This should prioritize
 		// single page update jobs over those triggered by template changes.
 		if ( PHP_SAPI != 'cli' ) {
@@ -488,6 +538,9 @@ class Hooks {
 			}
 		}
 
+		// a bit of a hack...but pull in abstract classes that arn't in the autoloader
+		require_once $dir . '/Query/BaseSimpleKeywordFeatureTest.php';
+
 		return true;
 	}
 
@@ -500,7 +553,7 @@ class Hooks {
 	public static function prefixSearchExtractNamespace( &$namespaces, &$search ) {
 		$searcher = new Searcher( self::getConnection(), 0, 1, null, $namespaces );
 		$searcher->updateNamespacesFromQuery( $search );
-		$namespaces = $searcher->getNamespaces();
+		$namespaces = $searcher->getSearchContext()->getNamespaces();
 		return false;
 	}
 
@@ -520,7 +573,7 @@ class Hooks {
 
 		$user = RequestContext::getMain()->getUser();
 		// Ask for the first 50 results we see.  If there are more than that too bad.
-		$searcher = new Searcher( self::getConnection(), 0, 50, null, array( $title->getNamespace() ), $user );
+		$searcher = new Searcher( self::getConnection(), 0, 50, null, [ $title->getNamespace() ], $user );
 		if ( $title->getNamespace() === NS_MAIN ) {
 			$searcher->updateNamespacesFromQuery( $term );
 		} else {
@@ -580,10 +633,10 @@ class Hooks {
 		if ( $title->getNamespace() !== $newTitle->getNamespace() ) {
 			$conn = self::getConnection();
 			$oldIndexType = $conn->getIndexSuffixForNamespace( $title->getNamespace() );
-			$job = new Job\DeletePages( $title, array(
+			$job = new Job\DeletePages( $title, [
 				'indexType' => $oldIndexType,
-				'id' => $oldId
-			) );
+				'docId' => self::getConfig()->makeId( $oldId )
+			] );
 			// Push the job after DB commit but cancel on rollback
 			wfGetDB( DB_MASTER )->onTransactionIdle( function() use ( $job ) {
 				JobQueueGroup::singleton()->lazyPush( $job );
@@ -602,7 +655,7 @@ class Hooks {
 	 */
 	private static function prepareTitlesForLinksUpdate( $titles, $max ) {
 		$titles = self::pickFromArray( $titles, $max );
-		$dBKeys = array();
+		$dBKeys = [];
 		foreach ( $titles as $title ) {
 			$dBKeys[] = $title->getPrefixedDBkey();
 		}
@@ -620,14 +673,14 @@ class Hooks {
 			return $array;
 		}
 		if ( $num < 1 ) {
-			return array();
+			return [];
 		}
 		$chosen = array_rand( $array, $num );
 		// If $num === 1 then array_rand will return a key rather than an array of keys.
 		if ( !is_array( $chosen ) ) {
-			return array( $array[ $chosen ] );
+			return [ $array[ $chosen ] ];
 		}
-		$result = array();
+		$result = [];
 		foreach ( $chosen as $key ) {
 			$result[] = $array[ $key ];
 		}
@@ -648,22 +701,28 @@ class Hooks {
 		global $wgCirrusSearchEnableSearchLogging,
 			$wgCirrusSearchFeedbackLink;
 
-		$vars += array(
+		$vars += [
 			'wgCirrusSearchEnableSearchLogging' => $wgCirrusSearchEnableSearchLogging,
 			'wgCirrusSearchFeedbackLink' => $wgCirrusSearchFeedbackLink,
-		);
+		];
 
 		return true;
+	}
+
+	/**
+	 * @return SearchConfig
+	 */
+	private static function getConfig() {
+		return MediaWikiServices::getInstance()
+			->getConfigFactory()
+			->makeConfig( 'CirrusSearch' );
 	}
 
 	/**
 	 * @return Connection
 	 */
 	private static function getConnection() {
-		$config = MediaWikiServices::getInstance()
-			->getConfigFactory()
-			->makeConfig( 'CirrusSearch' );
-		return new Connection( $config );
+		return new Connection( self::getConfig() );
 	}
 
 	/**
@@ -675,7 +734,7 @@ class Hooks {
 	 * @param mixed $page
 	 * @param array $query
 	 */
-	public static function onShowSearchHitTitle( Title $title, &$text, $result, $terms, $page, &$query = array() ) {
+	public static function onShowSearchHitTitle( Title $title, &$text, $result, $terms, $page, &$query = [] ) {
 		global $wgCirrusSearchInterwikiProv;
 		if( $wgCirrusSearchInterwikiProv && $title->isExternal() ) {
 			$query["wprov"] = $wgCirrusSearchInterwikiProv;
@@ -696,27 +755,33 @@ class Hooks {
 			return true;
 		}
 
-		$pref['cirrussearch-completionsuggester'] = array(
+		$pref['cirrussearch-completionsuggester'] = [
 			'label-message' => 'cirrussearch-completionsuggester-pref',
 			'desc-message' => 'cirrussearch-completionsuggester-desc',
 			'info-link' => '//mediawiki.org/wiki/Special:MyLanguage/Extension:CirrusSearch/CompletionSuggester',
 			'discussion-link' => '//mediawiki.org/wiki/Special:MyLanguage/Extension_talk:CirrusSearch/CompletionSuggester',
-			'screenshot' => array(
+			'screenshot' => [
 				'ltr' => "$wgExtensionAssetsPath/CirrusSearch/resources/images/cirrus-beta-ltr.svg",
 				'rtl' => "$wgExtensionAssetsPath/CirrusSearch/resources/images/cirrus-beta-rtl.svg",
-			)
-		);
+			]
+		];
 		return true;
 	}
 
+	/**
+	 * @param ApiBase $module
+	 * @return bool
+	 */
 	public static function onAPIAfterExecute( $module ) {
 		if ( !( $module instanceof ApiOpenSearch ) ) {
 			return true;
 		}
+
 		$types = ElasticsearchIntermediary::getQueryTypesUsed();
 		if ( !$types ) {
 			return true;
 		}
+
 		$response = $module->getContext()->getRequest()->response();
 		$response->header( 'X-OpenSearch-Type: ' . implode( ',', $types ) );
 		return true;
@@ -724,21 +789,42 @@ class Hooks {
 
 	/**
 	 * @param string $term
-	 * @param \SearchResultSet &$titleMatches
-	 * @param \SearchResultSet &$textMatches
+	 * @param SearchResultSet|null &$titleMatches
+	 * @param SearchResultSet|null &$textMatches
 	 */
 	public static function onSpecialSearchResults( $term, &$titleMatches, &$textMatches ) {
 		global $wgOut;
 
 		$wgOut->addModules( 'ext.cirrus.serp' );
-		$wgOut->addJsConfigVars( array(
-			'wgCirrusSearchRequestSetToken' => ElasticsearchIntermediary::getRequestSetToken(),
-		) );
+		$wgOut->addJsConfigVars( [
+			'wgCirrusSearchRequestSetToken' => Util::getRequestSetToken(),
+		] );
 
 		// This ignores interwiki results for now...not sure what do do with those
-		ElasticsearchIntermediary::setResultPages( array(
+		ElasticsearchIntermediary::setResultPages( [
 			$titleMatches,
 			$textMatches
-		) );
+		] );
+	}
+
+	public static function onGetPreferences( $user, &$prefs ) {
+		$search = new CirrusSearch();
+		$profiles = $search->getProfiles( \SearchEngine::COMPLETION_PROFILE_TYPE, $user );
+		if ( !empty( $profiles ) && count( $profiles ) > 1 ) {
+			$prefs['cirrussearch-pref-completion-profile'] = [
+				'class' => HTMLCompletionProfileSettings::class,
+				'section' => 'searchoptions/completion',
+				'profiles' => $profiles
+			];
+		}
+		return true;
+	}
+
+	public static function onUserGetDefaultOptions( &$defaultOptions ) {
+		$config = MediaWikiServices::getInstance()
+				->getConfigFactory()
+				->makeConfig( 'CirrusSearch' );
+		$defaultOptions['cirrussearch-pref-completion-profile'] = $config->get( 'CirrusSearchCompletionSettings' );
+		return true;
 	}
 }

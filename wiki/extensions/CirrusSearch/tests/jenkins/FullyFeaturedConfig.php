@@ -27,16 +27,29 @@ $wgSearchType = 'CirrusSearch';
 $wgCirrusSearchUseExperimentalHighlighter = true;
 $wgCirrusSearchOptimizeIndexForExperimentalHighlighter = true;
 $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] = array( 'build', 'use' );
-$wgCirrusSearchWikimediaExtraPlugin[ 'safer' ] = array(
-	'phrase' => array(
-	)
-);
 
 $wgCirrusSearchQueryStringMaxDeterminizedStates = 500;
 $wgCirrusSearchWikimediaExtraPlugin[ 'super_detect_noop' ] = true;
 $wgCirrusSearchWikimediaExtraPlugin[ 'id_hash_mod_filter' ] = true;
+$wgCirrusSearchWikimediaExtraPlugin[ 'documentVersion' ] = true;
 
 $wgCirrusSearchUseCompletionSuggester = 'yes';
+$wgCirrusSearchCompletionSuggesterUseDefaultSort = true;
+$wgCirrusSearchCompletionSuggesterSubphrases = [
+	'use' => true,
+	'build' => true,
+	'type' => 'anywords',
+	'limit' => 10,
+];
+
+$wgCirrusSearchPhraseSuggestReverseField = array(
+	'build' => true,
+	'use' => true,
+);
+
+// Set defaults to BM25 and the new query builder
+$wgCirrusSearchSimilarityProfile = 'bm25_browser_tests';
+$wgCirrusSearchFullTextQueryBuilderProfile = 'browser_tests';
 
 $wgJobQueueAggregator = array(
 	'class'       => 'JobQueueAggregatorRedis',
@@ -46,7 +59,7 @@ $wgJobQueueAggregator = array(
 	),
 );
 
-if ( class_exists( 'PoolCounter_Client' ) ) {
+if ( is_dir( "$IP/extensions/PoolCounter" ) ) {
 	// If the pool counter is around set up prod like pool counter settings
 	$wgPoolCounterConf[ 'CirrusSearch-Search' ] = array(
 		'class' => 'PoolCounter_Client',
@@ -75,13 +88,5 @@ if ( class_exists( 'PoolCounter_Client' ) ) {
 		'timeout' => 5,
 		'workers' => 50,
 		'maxqueue' => 200,
-	);
-	// Limit users to a single concurent search. Note that this also effects
-	// ip address, so shared ip addresses will run into issues.
-	$wgPoolCounterConf[ 'CirrusSearch-PerUser' ] = array(
-		'class' => 'PoolCounter_Client',
-		'timeout' => 0,
-		'workers' => 5,
-		'maxqueue' => 5,
 	);
 }

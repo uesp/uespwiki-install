@@ -45,14 +45,14 @@
 	z-index: 100;
 	font-family: 'EsoFontStyleAlt', 'EsoFontStyle', 'Arial', sans-serif;
 	width: 360px;
-	background-image: url(//esolog.uesp.net/resources/eso_skill_border.png);
+	/*background-image: url(//esolog.uesp.net/resources/eso_skill_border.png);
 	background-size: 100% 100%;
 	color: #C5C29E;
 	line-height: 125%;
 	text-align: left;
     white-space: normal;
 	padding: 10px;
-	display: block;
+	display: block;*/
 }
 
 .esoSkillPopupTooltipDivider {
@@ -118,4 +118,13 @@
 .esoSkillToolBold {
 	font-weight: bold;
 	display: inline;
+}
+
+.esoSkillPopupIcon {
+	display: block;
+	margin-left: 148px;
+	position: absolute;
+	top: -32px;
+	width: 64px;
+	height: 64px;
 }

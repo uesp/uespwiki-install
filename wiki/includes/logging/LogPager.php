@@ -61,11 +61,10 @@ class LogPager extends ReverseChronologicalPager {
 	 * @param int|bool $month The month to start from. Default: false
 	 * @param string $tagFilter Tag
 	 * @param string $action Specific action (subtype) requested
-	 * @param int $logId Log entry ID, to limit to a single log entry.
 	 */
 	public function __construct( $list, $types = [], $performer = '', $title = '',
 		$pattern = '', $conds = [], $year = false, $month = false, $tagFilter = '',
-		$action = '', $logId = false
+		$action = ''
 	) {
 		parent::__construct( $list->getContext() );
 		$this->mConds = $conds;
@@ -78,9 +77,8 @@ class LogPager extends ReverseChronologicalPager {
 		$this->limitAction( $action );
 		$this->getDateCond( $year, $month );
 		$this->mTagFilter = $tagFilter;
-		$this->limitLogId( $logId );
 
-		$this->mDb = wfGetDB( DB_SLAVE, 'logpager' );
+		$this->mDb = wfGetDB( DB_REPLICA, 'logpager' );
 	}
 
 	public function getDefaultQuery() {
@@ -173,6 +171,9 @@ class LogPager extends ReverseChronologicalPager {
 		if ( is_null( $usertitle ) ) {
 			return;
 		}
+		// Normalize username first so that non-existent users used
+		// in maintenance scripts work
+		$name = $usertitle->getText();
 		/* Fetch userid at first, if known, provides awesome query plan afterwards */
 		$userid = User::idFromName( $name );
 		if ( !$userid ) {
@@ -189,7 +190,7 @@ class LogPager extends ReverseChronologicalPager {
 				' != ' . LogPage::SUPPRESSED_USER;
 		}
 
-		$this->performer = $usertitle->getText();
+		$this->performer = $name;
 	}
 
 	/**
@@ -288,17 +289,6 @@ class LogPager extends ReverseChronologicalPager {
 				$this->action = $action;
 			}
 		}
-	}
-
-	/**
-	 * Limit to the (single) specified log ID.
-	 * @param int $logId The log entry ID.
-	 */
-	protected function limitLogId( $logId ) {
-		if ( !$logId ) {
-			return;
-		}
-		$this->mConds['log_id'] = $logId;
 	}
 
 	/**

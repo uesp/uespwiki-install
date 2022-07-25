@@ -2,7 +2,7 @@
 
 namespace CirrusSearch\Maintenance\Validators;
 
-use CirrusSearch\ElasticsearchIntermediary;
+use CirrusSearch\ElasticaErrorHandler;
 use CirrusSearch\Maintenance\Maintenance;
 use Elastica\Exception\ExceptionInterface;
 use Elastica\Index;
@@ -71,17 +71,17 @@ class MappingValidator extends Validator {
 	public function validate() {
 		$this->outputIndented( "Validating mappings..." );
 		if ( $this->optimizeIndexForExperimentalHighlighter &&
-			!in_array( 'experimental highlighter', $this->availablePlugins ) ) {
+			!in_array( 'experimental-highlighter', $this->availablePlugins ) ) {
 			$this->output( "impossible!\n" );
 			return Status::newFatal( new RawMessage(
 				"wgCirrusSearchOptimizeIndexForExperimentalHighlighter is set to true but the " .
-				"'experimental highlighter' plugin is not installed on all hosts." ) );
+				"'experimental-highlighter' plugin is not installed on all hosts." ) );
 		}
 
 		$requiredMappings = $this->mappingConfig;
 		if ( !$this->checkMapping( $requiredMappings ) ) {
 			/** @var Mapping[] $actions */
-			$actions = array();
+			$actions = [];
 
 			// TODO Conflict resolution here might leave old portions of mappings
 			foreach ( $this->types as $typeName => $type ) {
@@ -102,17 +102,17 @@ class MappingValidator extends Validator {
 						'_mapping',
 						Request::PUT,
 						$action->toArray(),
-						array(
+						[
 							'master_timeout' => $this->masterTimeout,
-						)
+						]
 					);
 				}
 				$this->output( "corrected\n" );
 			} catch ( ExceptionInterface $e ) {
 				$this->output( "failed!\n" );
-				$message = ElasticsearchIntermediary::extractMessage( $e );
+				$message = ElasticaErrorHandler::extractMessage( $e );
 				return Status::newFatal( new RawMessage(
-					"Couldn't update mappings.  Here is elasticsearch's error message: $message\n" ) );
+					"Couldn't update existing mappings. You may need to reindex.\nHere is elasticsearch's error message: $message\n" ) );
 			}
 		}
 

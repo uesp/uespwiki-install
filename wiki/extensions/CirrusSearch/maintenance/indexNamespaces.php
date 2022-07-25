@@ -2,6 +2,7 @@
 
 namespace CirrusSearch\Maintenance;
 
+use CirrusSearch\SearchConfig;
 use Elastica\Document;
 use Elastica\Query\MatchAll;
 
@@ -35,27 +36,30 @@ class IndexNamespaces extends Maintenance {
 	public function execute() {
 		global $wgContLang;
 
-		$type = $this->getConnection()->getNamespaceType( wfWikiID() );
+		$type = $this->getConnection()->getNamespaceType( $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME ) );
 
 		$this->outputIndented( "Deleting namespaces..." );
-		$type->deleteByQuery( new MatchAll() );
+		$type->deleteByQuery( \Elastica\Query::create( new MatchAll() ) );
 		$this->output( "done\n" );
 
 		$this->outputIndented( "Indexing namespaces..." );
-		$namesById = array();
-		foreach ( $wgContLang->getNamespaceIds() as $name => $id ) {
+		$namesByNsId = [];
+		foreach ( $wgContLang->getNamespaceIds() as $name => $nsId ) {
 			if ( $name ) {
-				$namesById[ $id ][] = $name;
+				$namesByNsId[$nsId][] = $name;
 			}
 		}
-		$documents = array();
-		foreach ( $namesById as $id => $names ) {
-			$documents[] = new Document( $id, array( 'name' => $names ) );
+		$documents = [];
+		foreach ( $namesByNsId as $nsId => $names ) {
+			$documents[] = new Document( $nsId, [
+				'name' => $names,
+				'wiki' => $this->getSearchConfig()->getWikiId(),
+			] );
 		}
 		$type->addDocuments( $documents );
 		$this->output( "done\n" );
 	}
 }
 
-$maintClass = "CirrusSearch\Maintenance\IndexNamespaces";
+$maintClass = IndexNamespaces::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

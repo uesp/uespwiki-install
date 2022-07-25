@@ -127,6 +127,7 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 	// of my conditions are in effect (filtering by namespace should be much faster with index)
 	// easiest way to "force" that is by setting $opts['namespace'] to a bogus value
 	public function doMainQuery( $conds, $opts ) {
+	//1.29 public function doMainQuery( $tables, $fields, $conds, $query_options, $join_conds, FormOptions $opts ) {
 		global $wgUser;
 		if (($opts['usecustomns'] || $opts['hideuserspace']) && empty($opts['namespace'])) {
 			$opts->setValue('invert', false);
@@ -134,6 +135,7 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 			
 		}
 		$res = parent::doMainQuery( $conds, $opts );
+		//1.29 $res = parent::doMainQuery( $tables, $fields, $conds, $query_options, $join_conds, $opts );
 		$opts->setValue('namespace', NULL);
 		return $res;
 	}

@@ -1,8 +1,34 @@
 ( function ( M, $ ) {
 
-	var browser = M.require( 'mobile.browser/browser' ),
+	var browser = M.require( 'mobile.browser/Browser' ).getSingleton(),
 		View = M.require( 'mobile.view/View' ),
-		Icon = M.require( 'mobile.startup/Icon' );
+		icons = M.require( 'mobile.startup/icons' );
+
+	/**
+	 * Get the id of the section $el belongs to.
+	 * @param {jQuery.Object} $el
+	 * @ignore
+	 */
+	function getSectionId( $el ) {
+		var hSelector = 'h1,h2,h3,h4,h5,h6',
+			// e.g. matches Subheading in
+			// <h2>H</h2><div><h3 id="subheading">Subh</h3><a class="element"></a></div>
+			id = $el.prevAll( hSelector ).eq( 0 )
+				.find( '.mw-headline' ).attr( 'id' );
+
+		// if there's no headline preceding the placeholder then it is inside a section
+		// and the id is of the collapsible heading preceding the section.
+		// e.g. matches heading in
+		// <div id="mw-content-text">
+		//   <h2 id="heading">Heading</h2>
+		//   <div><a class="element"></a></div>
+		// </div>
+		if ( id === undefined ) {
+			id = $el.parents( '#mw-content-text > div' ).prevAll( hSelector ).eq( 0 )
+				.find( '.mw-headline' ).attr( 'id' );
+		}
+		return id;
+	}
 
 	/**
 	 * Representation of the current skin being rendered.
@@ -21,6 +47,7 @@
 		View.call( this, options );
 		// Must be run after merging with defaults as must be defined.
 		this.tabletModules = options.tabletModules;
+		this.referencesGateway = options.referencesGateway;
 
 		/**
 		 * Tests current window size and if suitable loads styles and scripts specific for larger devices
@@ -51,6 +78,10 @@
 				self.loadImages();
 			} );
 		}
+
+		if ( mw.config.get( 'wgMFLazyLoadReferences' ) ) {
+			M.on( 'before-section-toggled', $.proxy( this.lazyLoadReferences, this ) );
+		}
 	}
 
 	OO.mfExtend( Skin, View, {
@@ -65,6 +96,7 @@
 		 * @cfg {Page} defaults.page page the skin is currently rendering
 		 * @cfg {Array} defaults.tabletModules modules to load when in tablet
 		 * @cfg {MainMenu} defaults.mainMenu instance of the mainMenu
+		 * @cfg {ReferencesGateway} defaults.referencesGateway instance of references gateway
 		 */
 		defaults: {
 			page: undefined,
@@ -96,53 +128,12 @@
 		},
 
 		/**
-		 * Setup position fixed emulation using position absolute.
-		 */
-		setupPositionFixedEmulation: function () {
-			var $el = this.$el,
-				// FIXME: Move all the variables below to Browser.js
-				ua = window.navigator.userAgent,
-				isIos = browser.isIos(),
-				isOldIPhone = isIos && /OS [4]_[0-2]|OS [3]_/.test( ua );
-
-			$el.addClass( 'no-position-fixed' );
-			this.on( 'scroll', function () {
-				var scrollTop = $( window ).scrollTop(),
-					windowHeight = $( window ).height(),
-					activeElement = document.activeElement,
-					scrollBottom = scrollTop + windowHeight;
-				if ( isOldIPhone ) {
-					if ( activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT' ) {
-						// add the height of the open soft keyboard
-						scrollBottom -= 120;
-					} else {
-						// add the height of the address bar
-						scrollBottom += 60;
-					}
-				}
-
-				if ( scrollTop === 0 ) {
-					// special case when we're at the beginning of the page and many
-					// browsers (e.g. Android 2.x) return wrong window height because
-					// of the URL bar
-					$el.add( '.overlay' ).height( '100%' );
-				} else {
-					// keep expanding the viewport until the end of the page reached
-					// #notification has bottom: 0 and sticks to the end of the viewport
-					$el.add( '.overlay' ).height( scrollBottom );
-				}
-			} );
-		},
-		/**
 		 * @inheritdoc
 		 */
 		postRender: function () {
 			var $el = this.$el;
 			if ( browser.supportsAnimations() ) {
 				$el.addClass( 'animations' );
-			}
-			if ( !browser.supportsPositionFixed() ) {
-				this.setupPositionFixedEmulation();
 			}
 			if ( browser.supportsTouchEvents() ) {
 				$el.addClass( 'touch-events' );
@@ -168,10 +159,16 @@
 
 		/**
 		 * Load images on demand
+		 * @param {jQuery.Object} [$container] The container that should be
+		 *  searched for image placeholders. Defaults to "#content".
 		 */
-		loadImages: function () {
+		loadImages: function ( $container ) {
 			var self = this,
-				imagePlaceholders = this.$( '#content' ).find( '.lazy-image-placeholder' ).toArray();
+				offset = $( window ).height() * 1.5,
+				imagePlaceholders;
+
+			$container = $container || this.$( '#content' );
+			imagePlaceholders = $container.find( '.lazy-image-placeholder' ).toArray();
 
 			/**
 			 * Load remaining images in viewport
@@ -182,8 +179,10 @@
 					var $placeholder = $( placeholder );
 
 					if (
-						mw.viewport.isElementInViewport( placeholder ) &&
-						$placeholder.is( ':visible' )
+						mw.viewport.isElementCloseToViewport( placeholder, offset ) &&
+						// If a placeholder is an inline element without a height attribute set it will record as hidden
+						// to circumvent this we also need to test the height (see T143768).
+						( $placeholder.is( ':visible' ) || $placeholder.height() === 0 )
 					) {
 						self.loadImage( $placeholder );
 						return false;
@@ -193,16 +192,16 @@
 				} );
 
 				if ( !imagePlaceholders.length ) {
-					M.off( 'scroll', _loadImages );
-					M.off( 'resize', _loadImages );
+					M.off( 'scroll:throttled', _loadImages );
+					M.off( 'resize:throttled', _loadImages );
 					M.off( 'section-toggled', _loadImages );
 					self.off( 'changed', _loadImages );
 				}
 
 			}
 
-			M.on( 'scroll', _loadImages );
-			M.on( 'resize', _loadImages );
+			M.on( 'scroll:throttled', _loadImages );
+			M.on( 'resize:throttled', _loadImages );
 			M.on( 'section-toggled', _loadImages );
 			this.on( 'changed', _loadImages );
 
@@ -217,16 +216,8 @@
 			var
 				width = $placeholder.attr( 'data-width' ),
 				height = $placeholder.attr( 'data-height' ),
-				// Grab the image markup from the HTML only fallback
 				// Image will start downloading
 				$downloadingImage = $( '<img/>' );
-
-			if ( width > 80 && height > 80 ) {
-				new Icon( {
-					name: 'spinner',
-					additionalClassNames: 'loading'
-				} ).appendTo( $placeholder );
-			}
 
 			// When the image has loaded
 			$downloadingImage.on( 'load', function () {
@@ -247,6 +238,97 @@
 				alt: $placeholder.attr( 'data-alt' ),
 				srcset: $placeholder.attr( 'data-srcset' )
 			} );
+		},
+
+		/**
+		* Load the references section content from API if it's not already loaded.
+		*
+		* All references tags content will be loaded per section.
+		*
+		* @param {Object} data Information about the section. It's in the following form:
+		*  {
+		*      @property {String} page,
+		*      @property {Boolean} wasExpanded,
+		*      @property {jQuery.Object} $heading,
+		*      @property {Boolean} isReferenceSection
+		* }
+		* @returns {jQuery.Deferred} rejected when not a reference section.
+		*/
+		lazyLoadReferences: function ( data ) {
+			var $content, $spinner,
+				gateway = this.referencesGateway,
+				self = this;
+
+			// If the section was expanded before toggling, do not load anything as
+			// section is being collapsed now.
+			// Also return early if lazy loading is not required or the section is
+			// not a reference section
+			if (
+				data.wasExpanded ||
+				!data.isReferenceSection
+			) {
+				return;
+			}
+
+			$content = data.$heading.next();
+
+			if ( !$content.data( 'are-references-loaded' ) ) {
+				$content.children().addClass( 'hidden' );
+				$spinner = $( icons.spinner().toHtmlString() ).prependTo( $content );
+
+				// First ensure we retrieve all of the possible lists
+				return gateway.getReferencesLists( data.page )
+					.done( function () {
+						var lastId;
+
+						$content.find( '.mf-lazy-references-placeholder' ).each( function () {
+							var refListIndex = 0,
+								$placeholder = $( this ),
+								// search for id of the collapsible heading
+								id = getSectionId( $placeholder );
+
+							if ( lastId !== id ) {
+								// If the placeholder belongs to a new section reset index
+								refListIndex = 0;
+								lastId = id;
+							} else {
+								// otherwise increment it
+								refListIndex++;
+							}
+
+							if ( id ) {
+								gateway.getReferencesList( data.page, id ).done( function ( refListElements ) {
+									// Note if no section html is provided no substitution will happen so user is
+									// forced to rely on placeholder link.
+									if ( refListElements && refListElements[refListIndex] ) {
+										$placeholder.replaceWith( refListElements[refListIndex] );
+									}
+								} );
+							}
+						} );
+						// Show the section now the references lists have been placed.
+						$spinner.remove();
+						$content.children().removeClass( 'hidden' );
+						/**
+						 * @event references-loaded
+						 * Fired when references list is loaded into the HTML
+						 */
+						self.emit( 'references-loaded', self.page );
+					} )
+					.fail( function () {
+						$spinner.remove();
+						// unhide on a failure
+						$content.children().removeClass( 'hidden' );
+					} )
+					.always( function () {
+						// lazy load images if any
+						self.loadImages( $content );
+						// Do not attempt further loading even if we're unable to load this time.
+						$content.data( 'are-references-loaded', 1 );
+					} );
+			} else {
+				return $.Deferred().reject();
+			}
 		},
 
 		/**
