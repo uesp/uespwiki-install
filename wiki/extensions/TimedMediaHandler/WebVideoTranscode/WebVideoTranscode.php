@@ -88,7 +88,7 @@ class WebVideoTranscode {
 				'framerate'                  => '15',
 				'audioQuality'               => '-1',
 				'channels'                   => '2',
-				'noUpscaling'                => 'true',
+				'noUpscaling'                => 'true', // also caps to source frame rate
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
 				'optimize'                   => 'true',
 				'keyframeInterval'           => '128',
@@ -100,9 +100,10 @@ class WebVideoTranscode {
 			[
 				'maxSize'                    => '426x240',
 				'videoBitrate'               => '512',
+				'framerate'                  => '60', // max to reduce "1000fps bug" problems
 				'audioQuality'               => '0',
 				'channels'                   => '2',
-				'noUpscaling'                => 'true',
+				'noUpscaling'                => 'true', // also caps to source frame rate
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
 				'optimize'                   => 'true',
 				'keyframeInterval'           => '128',
@@ -114,9 +115,10 @@ class WebVideoTranscode {
 			[
 				'maxSize'                    => '640x360',
 				'videoBitrate'               => '1024',
+				'framerate'                  => '60', // max to reduce "1000fps bug" problems
 				'audioQuality'               => '1',
 				'channels'                   => '2',
-				'noUpscaling'                => 'true',
+				'noUpscaling'                => 'true', // also caps to source frame rate
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
 				'optimize'                   => 'true',
 				'keyframeInterval'           => '128',
@@ -128,9 +130,10 @@ class WebVideoTranscode {
 			[
 				'maxSize'                    => '854x480',
 				'videoBitrate'               => '2048',
+				'framerate'                  => '60', // max to reduce "1000fps bug" problems
 				'audioQuality'               => '2',
 				'channels'                   => '2',
-				'noUpscaling'                => 'true',
+				'noUpscaling'                => 'true', // also caps to source frame rate
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
 				'optimize'                   => 'true',
 				'keyframeInterval'           => '128',
@@ -143,8 +146,9 @@ class WebVideoTranscode {
 			[
 				'maxSize'                    => '1280x720',
 				'videoQuality'               => 6,
+				'framerate'                  => '60', // max to reduce "1000fps bug" problems
 				'audioQuality'               => 3,
-				'noUpscaling'                => 'true',
+				'noUpscaling'                => 'true', // also caps to source frame rate
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
 				'optimize'                   => 'true',
 				'keyframeInterval'           => '128',
@@ -156,8 +160,9 @@ class WebVideoTranscode {
 			[
 				'maxSize'                    => '1920x1080',
 				'videoQuality'               => 6,
+				'framerate'                  => '60', // max to reduce "1000fps bug" problems
 				'audioQuality'               => 3,
-				'noUpscaling'                => 'true',
+				'noUpscaling'                => 'true', // also caps to source frame rate
 				'twopass'                    => 'false', // will be overridden by $wgTmhTheoraTwoPassEncoding
 				'optimize'                   => 'true',
 				'keyframeInterval'           => '128',
@@ -171,27 +176,12 @@ class WebVideoTranscode {
 				'maxSize'                    => '288x160',
 				'videoBitrate'               => '128',
 				'audioQuality'               => '-1',
-				'samplerate'                 => '44100',
-				'channels'                   => '2',
 				'noUpscaling'                => 'true',
 				'twopass'                    => 'true',
 				'keyframeInterval'           => '128',
 				'bufDelay'                   => '256',
 				'videoCodec'                 => 'vp8',
-				'type'                       => 'video/webm; codecs="vp8, vorbis"',
-			],
-		WebVideoTranscode::ENC_WEBM_240P =>
-			[
-				'maxSize'                    => '426x240',
-				'videoBitrate'               => '256',
-				'audioQuality'               => '-1',
-				'samplerate'                 => '44100',
-				'channels'                   => '2',
-				'noUpscaling'                => 'true',
-				'twopass'                    => 'true',
-				'keyframeInterval'           => '128',
-				'bufDelay'                   => '256',
-				'videoCodec'                 => 'vp8',
+				'slices'                     => '2',
 				'type'                       => 'video/webm; codecs="vp8, vorbis"',
 			],
 		WebVideoTranscode::ENC_WEBM_240P =>
@@ -199,12 +189,12 @@ class WebVideoTranscode {
 				'maxSize'                    => '426x240',
 				'videoBitrate'               => '256',
 				'audioQuality'               => '1',
-				'samplerate'                 => '44100',
 				'noUpscaling'                => 'true',
 				'twopass'                    => 'true',
 				'keyframeInterval'           => '128',
 				'bufDelay'                   => '256',
 				'videoCodec'                 => 'vp8',
+				'slices'                     => '2',
 				'type'                       => 'video/webm; codecs="vp8, vorbis"',
 			],
 		WebVideoTranscode::ENC_WEBM_360P =>
@@ -212,12 +202,12 @@ class WebVideoTranscode {
 				'maxSize'                    => '640x360',
 				'videoBitrate'               => '512',
 				'audioQuality'               => '1',
-				'samplerate'                 => '44100',
 				'noUpscaling'                => 'true',
 				'twopass'                    => 'true',
 				'keyframeInterval'           => '128',
 				'bufDelay'                   => '256',
 				'videoCodec'                 => 'vp8',
+				'slices'                     => '2',
 				'type'                       => 'video/webm; codecs="vp8, vorbis"',
 			],
 		WebVideoTranscode::ENC_WEBM_480P =>
@@ -225,12 +215,12 @@ class WebVideoTranscode {
 				'maxSize'                    => '854x480',
 				'videoBitrate'               => '1024',
 				'audioQuality'               => '2',
-				'samplerate'                 => '44100',
 				'noUpscaling'                => 'true',
 				'twopass'                    => 'true',
 				'keyframeInterval'           => '128',
 				'bufDelay'                   => '256',
 				'videoCodec'                 => 'vp8',
+				'slices'                     => '4',
 				'type'                       => 'video/webm; codecs="vp8, vorbis"',
 			],
 		WebVideoTranscode::ENC_WEBM_720P =>
@@ -240,6 +230,7 @@ class WebVideoTranscode {
 				'audioQuality'               => 3,
 				'noUpscaling'                => 'true',
 				'videoCodec'                 => 'vp8',
+				'slices'                     => '4',
 				'type'                       => 'video/webm; codecs="vp8, vorbis"',
 			],
 		WebVideoTranscode::ENC_WEBM_1080P =>
@@ -249,6 +240,7 @@ class WebVideoTranscode {
 				'audioQuality'               => 3,
 				'noUpscaling'                => 'true',
 				'videoCodec'                 => 'vp8',
+				'slices'                     => '4',
 				'type'                       => 'video/webm; codecs="vp8, vorbis"',
 			],
 		WebVideoTranscode::ENC_WEBM_1440P =>
@@ -258,6 +250,7 @@ class WebVideoTranscode {
 				'audioQuality'               => 3,
 				'noUpscaling'                => 'true',
 				'videoCodec'                 => 'vp8',
+				'slices'                     => '8',
 				'type'                       => 'video/webm; codecs="vp8, vorbis"',
 			],
 		WebVideoTranscode::ENC_WEBM_2160P =>
@@ -267,6 +260,7 @@ class WebVideoTranscode {
 				'audioQuality'               => 3,
 				'noUpscaling'                => 'true',
 				'videoCodec'                 => 'vp8',
+				'slices'                     => '8',
 				'type'                       => 'video/webm; codecs="vp8, vorbis"',
 			],
 
@@ -308,6 +302,7 @@ class WebVideoTranscode {
 				'bufDelay'                   => '256',
 				'videoCodec'                 => 'vp9',
 				'audioCodec'                 => 'opus',
+				'tileColumns'                => '1',
 				'type'                       => 'video/webm; codecs="vp9, opus"',
 			],
 		WebVideoTranscode::ENC_VP9_480P =>
@@ -321,6 +316,7 @@ class WebVideoTranscode {
 				'bufDelay'                   => '256',
 				'videoCodec'                 => 'vp9',
 				'audioCodec'                 => 'opus',
+				'tileColumns'                => '1',
 				'type'                       => 'video/webm; codecs="vp9, opus"',
 			],
 		WebVideoTranscode::ENC_VP9_720P =>
@@ -538,8 +534,8 @@ class WebVideoTranscode {
 	 * Get the name to use as the base name for the transcode.
 	 *
 	 * Swift has problems where the url-encoded version of
-	 * the path (ie 'filename.ogv/filename.ogv.720p.webm' )
-	 * is greater that > 1024 bytes, so shorten in that case.
+	 * the path (ie '0/00/filename.ogv/filename.ogv.720p.webm' )
+	 * is greater than > 1024 bytes, so shorten in that case.
 	 *
 	 * Future versions might respect FileRepo::$abbrvThreshold.
 	 *
@@ -549,7 +545,8 @@ class WebVideoTranscode {
 	 */
 	public static function getTranscodeFileBaseName( $file, $suffix = '' ) {
 		$name = $file->getName();
-		if ( strlen( urlencode( $name ) ) * 2 + 12 > 1024 ) {
+		$length = strlen( urlencode( '0/00/' . $name . '/' . $name . '.' . $suffix ) );
+		if ( $length > 1024 ) {
 			return 'transcode' . '.' . $suffix;
 		} else {
 			return $name . '.' . $suffix;
@@ -634,7 +631,7 @@ class WebVideoTranscode {
 	 * @return array|mixed
 	 */
 	public static function getSources( &$file , $options = [] ) {
-		if ( $file->isLocal() || $file->repo instanceof ForeignDBRepo ) {
+		if ( $file->isLocal() || $file->repo instanceof ForeignDBViaLBRepo ) {
 			return self::getLocalSources( $file, $options );
 		} else {
 			return self::getRemoteSources( $file, $options );
@@ -676,13 +673,13 @@ class WebVideoTranscode {
 			'viprop' => 'derivatives',
 			'titles' => MWNamespace::getCanonicalName( NS_FILE ) .':'. $file->getTitle()->getText()
 		];
-		
+
 			//UESP Fix for error
 		if (!method_exists($file->repo, "fetchImageQuery"))
 		{
 			return [ self::getPrimarySourceAttributes( $file, [ $dataPrefix ] ) ];
 		}
-
+		
 		$data = $file->repo->fetchImageQuery( $query );
 
 		if ( isset( $data['warnings'] ) && isset( $data['warnings']['query'] )
@@ -1188,15 +1185,20 @@ class WebVideoTranscode {
 				return;
 			}
 
+			// Set the priority
+			$prioritized = self::isTranscodePrioritized( $file, $transcodeKey );
+
 			$job = new WebVideoTranscodeJob( $file->getTitle(), [
 				'transcodeMode' => 'derivative',
 				'transcodeKey' => $transcodeKey,
+				'prioritized' => $prioritized
 			] );
 
-			if ( $job->insert() ) {
+			try {
+				JobQueueGroup::singleton()->push( $job );
 				// Clear the state cache ( now that we have updated the page )
 				self::clearTranscodeCache( $fileName );
-			} else {
+			} catch ( Exception $ex ) {
 				// Adding job failed, update transcode row
 				$db->update(
 					'transcode',
@@ -1212,6 +1214,44 @@ class WebVideoTranscode {
 					[ 'LIMIT' => 1 ]
 				);
 			}
+		}
+	}
+
+	/**
+	 * Check if this transcode belongs to the high-priority queue.
+	 * @param $file File
+	 * @param $transcodeKey string
+	 * @return boolean
+	 */
+	public static function isTranscodePrioritized( File $file, $transcodeKey ) {
+		global $wgTmhPriorityResolutionThreshold, $wgTmhPriorityLengthThreshold;
+
+		$transcodeHeight = 0;
+		$matches = [];
+		if ( preg_match( '/^(\d+)p/', $transcodeKey, $matches ) ) {
+			$transcodeHeight = intval( $matches[0] );
+		}
+		return ( $transcodeHeight <= $wgTmhPriorityResolutionThreshold )
+			&& ( $file->getLength() <= $wgTmhPriorityLengthThreshold );
+	}
+
+	/**
+	 * Return job queue length for the queue that will run this transcode.
+	 * @param $file File
+	 * @param $transcodeKey string
+	 * @return int
+	 */
+	public static function getQueueSize( File $file, $transcodeKey ) {
+		if ( WebVideoTranscode::isTranscodePrioritized( $file, $transcodeKey ) ) {
+			$queue = 'webVideoTranscodePrioritized';
+		} else {
+			$queue = 'webVideoTranscode';
+		}
+		$sizes = JobQueueGroup::singleton()->getQueueSizes();
+		if ( isset( $sizes[$queue] ) ) {
+			return $sizes[$queue];
+		} else {
+			return 0;
 		}
 	}
 

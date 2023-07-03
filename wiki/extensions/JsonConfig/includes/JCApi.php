@@ -2,7 +2,6 @@
 namespace JsonConfig;
 
 use ApiBase;
-use MWNamespace;
 
 /**
  * Allows JsonConfig to be manipulated via API
@@ -11,7 +10,7 @@ class JCApi extends ApiBase {
 
 	private static function addStatusConf( $conf ) {
 		// explicitly list values to avoid accidental exposure of private data
-		$res = array(
+		$res = [
 			'model' => $conf->model,
 			'namespace' => $conf->namespace,
 			'nsName' => $conf->nsName,
@@ -20,21 +19,21 @@ class JCApi extends ApiBase {
 			'cacheExp' => $conf->cacheExp,
 			'cacheKey' => $conf->cacheKey,
 			'flaggedRevs' => $conf->flaggedRevs,
-		);
+		];
 		if ( isset( $conf->remote ) ) {
-			$res['remote'] = array(
+			$res['remote'] = [
 				'url' => $conf->remote->url,
 				'username' => $conf->remote->username !== '', // true or false
 				'password' => $conf->remote->password !== '', // true or false
-			);
+			];
 		}
 		if ( isset( $conf->store ) ) {
-			$res['store'] = array(
+			$res['store'] = [
 				'cacheNewValue' => $conf->store->cacheNewValue,
 				'notifyUrl' => $conf->store->notifyUrl,
 				'notifyUsername' => $conf->store->notifyUsername !== '', // true or false
 				'notifyPassword' => $conf->store->notifyPassword !== '', // true or false
-			);
+			];
 		}
 		return $res;
 	}
@@ -58,9 +57,9 @@ class JCApi extends ApiBase {
 					+ $wgJsonConfigModels
 				);
 
-				$data = array();
+				$data = [];
 				foreach ( JCSingleton::getTitleMap() as $ns => $confs ) {
-					$vals = array();
+					$vals = [];
 					foreach ( $confs as $conf ) {
 						$vals[] = self::addStatusConf( $conf );
 					}
@@ -83,26 +82,56 @@ class JCApi extends ApiBase {
 				$this->getMain()->setCacheMaxAge( 1 ); // seconds
 				$this->getMain()->setCacheMode( 'private' );
 				if ( !$this->getUser()->isAllowed( 'jsonconfig-flush' ) ) {
-					$this->dieUsage( "Must be authenticated with jsonconfig-flush right to use this API",
-						'login', 401 );
+					if ( is_callable( [ $this, 'dieWithError' ] ) ) {
+						// Sigh. Can't use $this->checkUserRightsAny() because
+						// this has to break API conventions by returning 401
+						// (and violate the HTTP RFC by doing so without a
+						// WWW-Authenticate header).
+						$this->dieWithError(
+							[ 'apierror-permissiondenied', $this->msg( "action-jsonconfig-flush" ) ],
+							'permissiondenied', [], 401
+						);
+					} else {
+						$this->dieUsage( "Must be authenticated with jsonconfig-flush right to use this API",
+							'login', 401 );
+					}
 				}
 				if ( !isset( $params['namespace'] ) ) {
-					$this->dieUsage( 'Parameter "namespace" is required for this command', 'badparam-namespace' );
+					if ( is_callable( [ $this, 'dieWithError' ] ) ) {
+						$this->dieWithError(
+							[ 'apierror-jsonconfig-paramrequired', 'namespace' ], 'badparam-namespace'
+						);
+					} else {
+						$this->dieUsage( 'Parameter "namespace" is required for this command', 'badparam-namespace' );
+					}
 				}
 				if ( !isset( $params['title'] ) ) {
-					$this->dieUsage( 'Parameter "title" is required for this command', 'badparam-title' );
+					if ( is_callable( [ $this, 'dieWithError' ] ) ) {
+						$this->dieWithError( [ 'apierror-jsonconfig-paramrequired', 'title' ], 'badparam-title' );
+					} else {
+						$this->dieUsage( 'Parameter "title" is required for this command', 'badparam-title' );
+					}
 				}
 
 				$jct = JCSingleton::parseTitle( $params['title'], $params['namespace'] );
 				if ( !$jct ) {
-					$this->dieUsage( 'The page specified by "namespace" and "title" parameters is either invalid or is not registered in JsonConfig configuration',
-						'badparam-titles' );
+					if ( is_callable( [ $this, 'dieWithError' ] ) ) {
+						$this->dieWithError( 'apierror-jsonconfig-badtitle', 'badparam-titles' );
+					} else {
+						$this->dieUsage( 'The page specified by "namespace" and "title" parameters is either invalid or is not registered in JsonConfig configuration',
+							'badparam-titles' );
+					}
 				}
 
 				if ( isset( $params['content'] ) && $params['content'] !== '' ) {
 					if ( $command !== 'reload ' ) {
-						$this->dieUsage( 'The "content" parameter may only be used with command=reload',
-							'badparam-content' );
+						if ( is_callable( [ $this, 'dieWithError' ] ) ) {
+							$this->dieWithError( [ 'apierror-invalidparammix-mustusewith', 'content', 'command=reload' ],
+								'badparam-content' );
+						} else {
+							$this->dieUsage( 'The "content" parameter may only be used with command=reload',
+								'badparam-content' );
+						}
 					}
 					$content = JCSingleton::parseContent( $jct, $params['content'], true );
 				} else {
@@ -123,34 +152,34 @@ class JCApi extends ApiBase {
 	}
 
 	public function getAllowedParams() {
-		return array(
-			'command' => array(
+		return [
+			'command' => [
 				ApiBase::PARAM_DFLT => 'status',
-				ApiBase::PARAM_TYPE => array(
+				ApiBase::PARAM_TYPE => [
 					'status',
 					'reset',
 					'reload',
-				)
-			),
-			'namespace' => array(
+				]
+			],
+			'namespace' => [
 				ApiBase::PARAM_TYPE => 'integer',
-			),
+			],
 			'title' => '',
 			'content' => '',
-		);
+		];
 	}
 
 	/**
 	 * @see ApiBase::getExamplesMessages()
 	 */
 	protected function getExamplesMessages() {
-		return array(
+		return [
 			'action=jsonconfig&format=jsonfm'
 				=> 'apihelp-jsonconfig-example-1',
-			'api.php?action=jsonconfig&command=reset&namespace=480&title=TEST&format=jsonfm'
+			'action=jsonconfig&command=reset&namespace=480&title=TEST&format=jsonfm'
 				=> 'apihelp-jsonconfig-example-2',
-			'api.php?action=jsonconfig&command=reload&namespace=480&title=TEST&format=jsonfm'
+			'action=jsonconfig&command=reload&namespace=480&title=TEST&format=jsonfm'
 				=> 'apihelp-jsonconfig-example-3',
-		);
+		];
 	}
 }

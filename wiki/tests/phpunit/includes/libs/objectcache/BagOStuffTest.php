@@ -92,12 +92,12 @@ class BagOStuffTest extends MediaWikiTestCase {
 		// merge on non-existing value
 		$merged = $this->cache->merge( $key, $callback, 0 );
 		$this->assertTrue( $merged );
-		$this->assertEquals( $this->cache->get( $key ), 'merged' );
+		$this->assertEquals( 'merged', $this->cache->get( $key ) );
 
 		// merge on existing value
 		$merged = $this->cache->merge( $key, $callback, 0 );
 		$this->assertTrue( $merged );
-		$this->assertEquals( $this->cache->get( $key ), 'mergedmerged' );
+		$this->assertEquals( 'mergedmerged', $this->cache->get( $key ) );
 
 		/*
 		 * Test concurrent merges by forking this process, if:
@@ -275,7 +275,7 @@ class BagOStuffTest extends MediaWikiTestCase {
 	 * @covers BagOStuff::trackDuplicateKeys
 	 */
 	public function testReportDupes() {
-		$logger = $this->getMock( 'Psr\Log\NullLogger' );
+		$logger = $this->createMock( Psr\Log\NullLogger::class );
 		$logger->expects( $this->once() )
 			->method( 'warning' )
 			->with( 'Duplicate get(): "{key}" fetched {count} times', [

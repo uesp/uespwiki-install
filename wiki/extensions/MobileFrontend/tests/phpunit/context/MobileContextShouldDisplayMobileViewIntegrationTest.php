@@ -10,6 +10,7 @@ use MobileContext;
  * `MobileContext#shouldDisplayMobileView` and `#shoudDisplayMobileViewInternal`
  * with no stubbed dependencies.
  *
+ * @group MobileFrontend
  * @group integration
  */
 class MobileContextShouldDisplayMobileViewIntegrationTest extends MediaWikiTestCase {
@@ -68,11 +69,12 @@ class MobileContextShouldDisplayMobileViewIntegrationTest extends MediaWikiTestC
 			// N.B. that the format and the "stop mobile redirect" cookies
 			// ("mf_useformat" and "stopMobileRedirect" respectively) aren't prefix
 			// with MediaWiki's cookie prefix ($wgCookiePrefix).
-			$request->setCookie( 'mf_useformat', $formatCookie, '' );
+			$request->setCookie( MobileContext::USEFORMAT_COOKIE_NAME, $formatCookie, '' );
 		}
 
 		if ( $stopMobileRedirectCookie !== null ) {
-			$request->setCookie( 'stopMobileRedirect', $stopMobileRedirectCookie, '' );
+			$request->setCookie(
+				MobileContext::STOP_MOBILE_REDIRECT_COOKIE_NAME, $stopMobileRedirectCookie, '' );
 		}
 
 		if ( $isMobileUA ) {

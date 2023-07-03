@@ -36,6 +36,11 @@ class AnalysisConfigBuilder {
 	const VERSION = '0.12';
 
 	/**
+	 * Maximum number of characters allowed in keyword terms.
+	 */
+	const KEYWORD_IGNORE_ABOVE = 5000;
+
+	/**
 	 * @var string Language code we're building analysis for
 	 */
 	private $language;
@@ -44,6 +49,16 @@ class AnalysisConfigBuilder {
 	 * @var boolean is the icu plugin available?
 	 */
 	private $icu;
+
+	/**
+	 * @var boolean true if icu folding is requested and available
+	 */
+	protected $icuFolding;
+
+	/**
+	 * @var boolean true if the icu tokenizer is requested and available
+	 */
+	protected $icuTokenizer;
 
 	/**
 	 * @var array Similarity algo (tf/idf, bm25, etc) configuration
@@ -77,7 +92,60 @@ class AnalysisConfigBuilder {
 			'CirrusSearchSimilarityProfiles',
 			$config->get( 'CirrusSearchSimilarityProfile' )
 		);
+
 		$this->config = $config;
+		$this->icuFolding = $this->shouldActivateIcuFolding( $plugins );
+		$this->icuTokenizer = $this->shouldActivateIcuTokenization();
+	}
+
+	/**
+	 * Determine if ascii folding should be used
+	 * @param string[] $plugins list of installed elasticsearch plugins
+	 * @return bool true if icu folding should be enabled
+	 */
+	private function shouldActivateIcuFolding( array $plugins ) {
+		if ( !$this->icu || !in_array( 'extra', $plugins ) ) {
+			// ICU folding requires the icu plugin and the extra plugin
+			return false;
+		}
+		$in_config = $this->config->get( 'CirrusSearchUseIcuFolding' );
+		// BC code, this config var was originally a simple boolean
+		if ( $in_config === true ) {
+			$in_config = 'yes';
+		}
+		if ( $in_config === false ) {
+			$in_config = 'no';
+		}
+		switch( $in_config ) {
+		case 'yes': return true;
+		case 'no': return false;
+		case 'default':
+			if ( isset( $this->languagesWithIcuFolding[$this->language] ) ) {
+				return $this->languagesWithIcuFolding[$this->language];
+			}
+		default: return false;
+		}
+	}
+
+	/**
+	 * Determine if the icu tokenizer can be enabled
+	 * @return bool
+	 */
+	private function shouldActivateIcuTokenization() {
+		if ( !$this->icu ) {
+			// requires the icu plugin
+			return false;
+		}
+		$in_config = $this->config->get( 'CirrusSearchUseIcuTokenizer' );
+		switch( $in_config ) {
+		case 'yes': return true;
+		case 'no': return false;
+		case 'default':
+			if ( isset( $this->languagesWithIcuTokenization[$this->language] ) ) {
+				return $this->languagesWithIcuTokenization[$this->language];
+			}
+		default: return false;
+		}
 	}
 
 	/**
@@ -88,6 +156,13 @@ class AnalysisConfigBuilder {
 	public function buildConfig() {
 		$config = $this->customize( $this->defaults() );
 		Hooks::run( 'CirrusSearchAnalysisConfig', [ &$config ] );
+		if ( $this->icuTokenizer ) {
+			$config = $this->enableICUTokenizer( $config );
+		}
+		if ( $this->icuFolding ) {
+			$config = $this->enableICUFolding( $config );
+		}
+		$config = $this->fixAsciiFolding( $config );
 		return $config;
 	}
 
@@ -101,6 +176,148 @@ class AnalysisConfigBuilder {
 			return $this->similarity['similarity'];
 		}
 		return null;
+	}
+	/**
+	 * replace the standard tokenizer with icu_tokenizer
+	 * @param mixed[] $config
+	 * @return mixed[] update config
+	 */
+	public function enableICUTokenizer( array $config ) {
+		foreach( $config['analyzer'] as $name => &$value ) {
+			if ( isset( $value['type'] ) && $value['type'] != 'custom' ) {
+				continue;
+			}
+			if ( isset( $value['tokenizer'] ) && 'standard' === $value['tokenizer'] ) {
+				$value['tokenizer'] = 'icu_tokenizer';
+			}
+		}
+		return $config;
+	}
+
+	/**
+	 * Activate ICU folding instead of asciifolding
+	 * @param mixed[] $config
+	 * @return mixed[] update config
+	 */
+	public function enableICUFolding( array $config ) {
+		$unicodeSetFilter = $this->getICUSetFilter();
+		$filter = [
+			'type' => 'icu_folding',
+		];
+		if ( !empty( $unicodeSetFilter ) ) {
+			$filter['unicodeSetFilter'] = $unicodeSetFilter;
+		}
+		$config['filter']['icu_folding'] = $filter;
+
+		// Adds a simple nfkc normalizer for cases where
+		// we preserve original but the lowercase filter
+		// is not used before
+		$config['filter']['icu_nfkc_normalization'] = [
+			'type' => 'icu_normalizer',
+			'name' => 'nfkc',
+		];
+
+		$newfilters = [];
+		foreach( $config['analyzer'] as $name => $value ) {
+			if ( isset( $value['type'] ) && $value['type'] != 'custom' ) {
+				continue;
+			}
+			if ( !isset( $value['filter'] ) ) {
+				continue;
+			}
+			if ( in_array( 'asciifolding', $value['filter'] ) ) {
+				$newfilters[$name] = $this->switchFiltersToICUFolding( $value['filter'] );
+			}
+			if ( in_array( 'asciifolding_preserve', $value['filter'] ) ) {
+				$newfilters[$name] = $this->switchFiltersToICUFoldingPreserve( $value['filter'] );
+			}
+		}
+
+		foreach( $newfilters as $name => $filters ) {
+			$config['analyzer'][$name]['filter'] = $filters;
+		}
+		// Explicitly enable icu_folding on plain analyzers if it's not
+		// already enabled
+		foreach( ['plain'] as $analyzer ) {
+			if ( !isset( $config['analyzer'][$analyzer] ) ) {
+				continue;
+			}
+			if ( !isset( $config['analyzer'][$analyzer]['filter'] ) ) {
+				$config['analyzer'][$analyzer]['filter'] = [];
+			}
+			$config['analyzer'][$analyzer]['filter'] =
+				$this->switchFiltersToICUFoldingPreserve(
+					$config['analyzer'][$analyzer]['filter'], true );
+		}
+
+		return $config;
+	}
+
+	/**
+	 * Replace occurrence of asciifolding to icu_folding
+	 * @param string[] $filters
+	 * @return string[] new list of filters
+	 */
+	private function switchFiltersToICUFolding( array $filters ) {
+		return array_replace( $filters,
+			[ array_search( 'asciifolding', $filters ) => 'icu_folding' ] );
+	}
+
+	/**
+	 * Replace occurrence of asciifolding_preserve with a set
+	 * of compatible filters to enable icu_folding
+	 * @param string[] $filters
+	 * @param bool $append append icu_folding even if asciifolding is not present
+	 * @return string[] new list of filters
+	 */
+	private function switchFiltersToICUFoldingPreserve( array $filters, $append = false ) {
+		if ( in_array( 'icu_folding', $filters ) ) {
+			// ICU folding already here
+			return $filters;
+		}
+		$ap_idx = array_search( 'asciifolding_preserve', $filters );
+		if ( $ap_idx === false && $append ) {
+			$ap_idx = count( $filters );
+			// fake an asciifolding_preserve so we can
+			// reuse code that replaces it
+			$filters[] = 'asciifolding_preserve';
+		}
+		if ( $ap_idx === false ) {
+			return $filters;
+		}
+		// with ICU lowercase is replaced by icu_normalizer/nfkc_cf
+		// thus unicode normalization is already done.
+		$lc_idx = array_search( 'icu_normalizer', $filters );
+		$newfilters = [];
+		if ( $lc_idx === false || $lc_idx > $ap_idx ) {
+			// If lowercase is not detected before we
+			// will have to do some icu normalization
+			// this is to prevent preserving "un-normalized"
+			// unicode chars.
+			$newfilters[] = 'icu_nfkc_normalization';
+		}
+		$newfilters[] = 'preserve_original_recorder';
+		$newfilters[] = 'icu_folding';
+		$newfilters[] = 'preserve_original';
+		array_splice( $filters, $ap_idx, 1, $newfilters );
+		return $filters;
+	}
+
+	/**
+	 * Return the list of chars to exclude from ICU folding
+	 * @return string|null
+	 */
+	protected function getICUSetFilter() {
+		if ( $this->config->get( 'CirrusSearchICUFoldingUnicodeSetFilter' ) !== null ) {
+			return $this->config->get( 'CirrusSearchICUFoldingUnicodeSetFilter' );
+		}
+		switch( $this->language ) {
+		// @todo: complete the default filters per language
+		case 'fi': return '[^åäöÅÄÖ]';
+		case 'ru': return '[^йЙ]';
+		case 'sv': return '[^åäöÅÄÖ]';
+		default: return null;
+		}
 	}
 
 	/**
@@ -132,7 +349,7 @@ class AnalysisConfigBuilder {
 					// analyzer is the lack of english stop words.
 					'type' => 'custom',
 					'tokenizer' => 'standard',
-					'filter' => [ 'standard', 'lowercase' ],
+					'filter' => [ 'lowercase' ],
 					'char_filter' => [ 'word_break_helper' ],
 				],
 				'plain_search' => [
@@ -141,7 +358,7 @@ class AnalysisConfigBuilder {
 					// and searches without accents to find both.
 					'type' => 'custom',
 					'tokenizer' => 'standard',
-					'filter' => [ 'standard', 'lowercase' ],
+					'filter' => [ 'lowercase' ],
 					'char_filter' => [ 'word_break_helper' ],
 				],
 				// Used by ShortTextIndexField
@@ -165,24 +382,24 @@ class AnalysisConfigBuilder {
 				'source_text_plain' => [
 					'type' => 'custom',
 					'tokenizer' => 'standard',
-					'filter' => [ 'standard', 'lowercase' ],
+					'filter' => [ 'lowercase' ],
 					'char_filter' => [ 'word_break_helper_source_text' ],
 				],
 				'source_text_plain_search' => [
 					'type' => 'custom',
 					'tokenizer' => 'standard',
-					'filter' => [ 'standard', 'lowercase' ],
+					'filter' => [ 'lowercase' ],
 					'char_filter' => [ 'word_break_helper_source_text' ],
 				],
 				'suggest' => [
 					'type' => 'custom',
 					'tokenizer' => 'standard',
-					'filter' => [ 'standard', 'lowercase', 'suggest_shingle' ],
+					'filter' => [ 'lowercase', 'suggest_shingle' ],
 				],
 				'suggest_reverse' => [
 					'type' => 'custom',
 					'tokenizer' => 'standard',
-					'filter' => [ 'standard', 'lowercase', 'suggest_shingle', 'reverse' ],
+					'filter' => [ 'lowercase', 'suggest_shingle', 'reverse' ],
 				],
 				'token_reverse' => [
 					'type' => 'custom',
@@ -198,7 +415,7 @@ class AnalysisConfigBuilder {
 				'near_match_asciifolding' => [
 					'type' => 'custom',
 					'tokenizer' => 'no_splitting',
-					'filter' => [ 'lowercase', 'asciifolding' ],
+					'filter' => [ 'truncate_keyword', 'lowercase', 'asciifolding' ],
 					'char_filter' => [ 'near_space_flattener' ],
 				],
 				'prefix' => [
@@ -216,12 +433,17 @@ class AnalysisConfigBuilder {
 				'word_prefix' => [
 					'type' => 'custom',
 					'tokenizer' => 'standard',
-					'filter' => [ 'standard', 'lowercase', 'prefix_ngram_filter' ],
+					'filter' => [ 'lowercase', 'prefix_ngram_filter' ],
+				],
+				'keyword' => [
+					'type' => 'custom',
+					'tokenizer' => 'no_splitting',
+					'filter' => [ 'truncate_keyword' ],
 				],
 				'lowercase_keyword' => [
 					'type' => 'custom',
 					'tokenizer' => 'no_splitting',
-					'filter' => [ 'lowercase' ],
+					'filter' => [ 'truncate_keyword', 'lowercase' ],
 				],
 				'trigram' => [
 					'type' => 'custom',
@@ -258,6 +480,14 @@ class AnalysisConfigBuilder {
 				'asciifolding_preserve' => [
 					'type' => 'asciifolding',
 					'preserve_original' => true
+				],
+				// The 'keyword' type in ES seems like a hack
+				// and doesn't allow normalization (like lowercase)
+				// prior to 5.2. Instead we consistently use 'text'
+				// and truncate where necessary.
+				'truncate_keyword' => [
+					'type' => 'truncate',
+					'length' => self::KEYWORD_IGNORE_ABOVE,
 				],
 			],
 			'tokenizer' => [
@@ -316,7 +546,7 @@ class AnalysisConfigBuilder {
 				$analyzer = [
 					'type' => 'custom',
 					'tokenizer' => 'standard',
-					'filter' => [ 'standard', 'lowercase' ],
+					'filter' => [ 'lowercase' ],
 				];
 			}
 		}
@@ -351,7 +581,6 @@ class AnalysisConfigBuilder {
 				'char_filter' => [ 'word_break_helper' ],
 			];
 			$filters = [];
-			$filters[] = 'standard';
 			$filters[] = 'aggressive_splitting';
 			$filters[] = 'possessive_english';
 			$filters[] = 'lowercase';
@@ -478,7 +707,6 @@ STEMMER_RULES
 				'char_filter' => [ 'word_break_helper' ],
 			];
 			$filters = [];
-			$filters[] = 'standard';
 			$filters[] = 'italian_elision';
 			$filters[] = 'aggressive_splitting';
 			$filters[] = 'lowercase';
@@ -506,7 +734,7 @@ STEMMER_RULES
 
 			$config[ 'char_filter' ][ 'near_space_flattener' ][ 'mappings' ][] = '\u0301=>'; // T102298
 
-			// The Russian analyzer is also used for Ukrainian and Rusyn for now, so processing that's
+			// The Russian analyzer is also used for Rusyn for now, so processing that's
 			// very specific to Russian should be separated out
 			if ($this->language == 'ru') {
 				// T124592 fold ё=>е and Ё=>Е, precomposed or with combining diacritic
@@ -519,13 +747,6 @@ STEMMER_RULES
 				$config[ 'char_filter' ][ 'near_space_flattener' ][ 'mappings' ][] = '\u0401=>\u0415';
 				$config[ 'char_filter' ][ 'near_space_flattener' ][ 'mappings' ][] = '\u0435\u0308=>\u0435';
 				$config[ 'char_filter' ][ 'near_space_flattener' ][ 'mappings' ][] = '\u0415\u0308=>\u0415';
-			}
-
-			// Ukrainian uses the Russian analyzer for now, but we want some Ukrainian-specific processing
-			if ($this->language == 'uk') {
-				// T146358 map right quote and modifier letter apostrophe to apostrophe
-				$config[ 'char_filter' ][ 'russian_charfilter' ][ 'mappings' ][] = '\u02BC=>\u0027';
-				$config[ 'char_filter' ][ 'russian_charfilter' ][ 'mappings' ][] = '\u2019=>\u0027';
 			}
 
 			// Drop acute stress marks and fold ё=>е everywhere
@@ -560,6 +781,34 @@ STEMMER_RULES
 			// In Russian text_search is just a copy of text
 			$config[ 'analyzer' ][ 'text_search' ] = $config[ 'analyzer' ][ 'text' ];
 			break;
+		case 'swedish':
+			// Add asciifolding_preserve to filters
+			$config[ 'analyzer' ][ 'lowercase_keyword' ][ 'filter' ][] = 'asciifolding_preserve';
+
+			// Unpack built-in swedish analyzer to add asciifolding_preserve
+			$config['filter']['swedish_stop'] = [
+				'type' => 'stop',
+				'stopwords' => '_swedish_',
+			];
+			$config['filter']['swedish_stemmer'] = [
+				'type' => 'stemmer',
+				'language' => 'swedish',
+			];
+
+			$config['analyzer']['text'] = [
+				'type' => 'custom',
+				'tokenizer' => 'standard',
+				'filter' => [
+					'lowercase',
+					'swedish_stop',
+					'swedish_stemmer',
+					'asciifolding_preserve',
+				],
+			];
+
+			// In Swedish text_search is just a copy of text
+			$config['analyzer']['text_search'] = $config['analyzer']['text'];
+			break;
 		case 'turkish':
 			$config[ 'filter' ][ 'lowercase' ][ 'language' ] = 'turkish';
 			break;
@@ -578,7 +827,6 @@ STEMMER_RULES
 			}
 		}
 
-		$config = $this->fixAsciiFolding( $config );
 		return $config;
 	}
 
@@ -696,6 +944,49 @@ STEMMER_RULES
 		'th' => 'thai',
 	];
 
+	/**
+	 * @var bool[] indexed by language code, languages where ICU folding
+	 * can be enabled by default
+	 */
+	private $languagesWithIcuFolding = [
+		'el' => true,
+		'en' => true,
+		'en-ca' => true,
+		'en-gb' => true,
+		'simple' => true,
+		'fr' => true,
+		'he' => true,
+		'sv' => true,
+	];
+
+	/**
+	 * @var bool[] indexed by language code, languages where ICU tokenization
+	 * can be enabled by default
+	 */
+	private $languagesWithIcuTokenization = [
+		"bo" => true,
+		"dz" => true,
+		"gan" => true,
+		"ja" => true,
+		"km" => true,
+		"lo" => true,
+		"my" => true,
+		"th" => true,
+		"wuu" => true,
+		"zh" => true,
+		"lzh" => true, // zh-classical
+		"zh-classical" => true, // deprecated code fo lzh
+		"yue" => true, // zh-yue
+		"zh-yue" => true, // deprecated code for yue
+		// This list below are languages that may use use mixed scripts
+		"bug" => true,
+		"cdo" => true,
+		"cr" => true,
+		"hak" => true,
+		"jv" => true,
+		"nan" => true, // zh-min-nan
+		"zh-min-nan" => true, // deprecated code for nan
+	];
 
 	/**
 	 * @var array[]
@@ -708,6 +999,7 @@ STEMMER_RULES
 		// current version of elasticsearch:
 		'elasticsearch-analysis-hebrew' => [ 'he' => 'hebrew' ],
 		// TODO Hebrew requires some special query handling....
+		'analysis-ukrainian' => [ 'uk' => 'ukrainian' ],
 	];
 
 	/**
@@ -715,5 +1007,12 @@ STEMMER_RULES
 	 */
 	public function getLanguage() {
 		return $this->language;
+	}
+
+	/**
+	 * @return bool true if ICU Folding is enabled
+	 */
+	public function isIcuFolding() {
+		return $this->icuFolding;
 	}
 }

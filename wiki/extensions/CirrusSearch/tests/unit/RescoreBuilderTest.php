@@ -2,9 +2,13 @@
 
 namespace CirrusSearch\Search;
 
+use CirrusSearch\CirrusTestCase;
 use CirrusSearch\Test\HashSearchConfig;
 
-class RescoreBuilderTest extends \PHPUnit_Framework_TestCase {
+/**
+ * @group CirrusSearch
+ */
+class RescoreBuilderTest extends CirrusTestCase {
 	public function testFunctionScoreDecorator() {
 		$func = new FunctionScoreDecorator();
 		$this->assertTrue( $func->isEmptyFunction() );
@@ -26,7 +30,7 @@ class RescoreBuilderTest extends \PHPUnit_Framework_TestCase {
 
 		$func = new FunctionScoreDecorator();
 		$this->assertTrue( $func->isEmptyFunction() );
-		$func->addScriptScoreFunction( new \Elastica\Script("foo+2") );
+		$func->addScriptScoreFunction( new \Elastica\Script\Script("foo+2") );
 		$this->assertFalse( $func->isEmptyFunction() );
 		$array = $func->toArray();
 		$this->assertEquals( 1, count( $array['function_score']['functions'] ) );
@@ -135,8 +139,8 @@ class RescoreBuilderTest extends \PHPUnit_Framework_TestCase {
 		$this->assertFalse( $fScore->isEmptyFunction() );
 		$array = $fScore->toArray();
 		$this->assertTrue( isset( $array['function_score']['functions'][0]['script_score'] ) );
-		$this->assertEquals( $script, $array['function_score']['functions'][0]['script_score']['script'] );
-		$this->assertEquals( 'expression', $array['function_score']['functions'][0]['script_score']['lang'] );
+		$this->assertEquals( $script, $array['function_score']['functions'][0]['script_score']['script']['inline'] );
+		$this->assertEquals( 'expression', $array['function_score']['functions'][0]['script_score']['script']['lang'] );
 		$this->assertEquals( 2, $array['function_score']['functions'][0]['weight'] );
 	}
 

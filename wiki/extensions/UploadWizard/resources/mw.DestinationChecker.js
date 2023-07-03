@@ -46,9 +46,11 @@
 			var checker = this;
 
 			/**
-			 * Processes result of a TitleBlacklist api call
+			 * Process result of a TitleBlacklist API call.
 			 *
+			 * @private
 			 * @param {Object|boolean} blacklistResult `false` if not blacklisted, object if blacklisted
+			 * @return {Object}
 			 */
 			function blacklistResultProcessor( blacklistResult ) {
 				var result;
@@ -72,16 +74,7 @@
 				return $.Deferred().resolve( this.cachedBlacklist[ title ] );
 			}
 
-			// This shouldn't be needed. T131612
-			function safeUsing( modules ) {
-				try {
-					return mw.loader.using( modules );
-				} catch ( err ) {
-					return $.Deferred().reject( err );
-				}
-			}
-
-			return safeUsing( 'mediawiki.api.titleblacklist' ).then( function () {
+			return mw.loader.using( 'mediawiki.api.titleblacklist' ).then( function () {
 				return checker.api.isBlacklisted( title ).then( blacklistResultProcessor );
 			}, function () {
 				// it's not blacklisted, because the API isn't even available
@@ -111,6 +104,13 @@
 			// Strip namespace and file extension
 			prefix = titleObj.getNameText();
 
+			/**
+			 * Process result of a an imageinfo API call.
+			 *
+			 * @private
+			 * @param {Object} data API result
+			 * @return {Object}
+			 */
 			function checkUniqueProcessor( data ) {
 				var result, protection, pageId, ntitle, ntitleObj, img;
 
@@ -138,6 +138,9 @@
 						}
 					} else {
 						for ( pageId in data.query.pages ) {
+							if ( !data.query.pages.hasOwnProperty( pageId ) ) {
+								continue;
+							}
 							ntitle = data.query.pages[ pageId ].title;
 							ntitleObj = mw.Title.newFromText( ntitle );
 							if ( ntitleObj.getNameText() !== prefix ) {

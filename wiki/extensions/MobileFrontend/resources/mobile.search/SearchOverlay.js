@@ -1,14 +1,14 @@
 ( function ( M, $ ) {
 
 	var
-		Overlay = M.require( 'mobile.overlays/Overlay' ),
+		Overlay = M.require( 'mobile.startup/Overlay' ),
 		Anchor = M.require( 'mobile.startup/Anchor' ),
 		Icon = M.require( 'mobile.startup/Icon' ),
 		WatchstarPageList = M.require( 'mobile.pagelist.scripts/WatchstarPageList' ),
 		SEARCH_DELAY = 300,
+		SEARCH_SPINNER_DELAY = 2000,
 		$html = $( 'html' ),
-		feedbackLink = mw.config.get( 'wgCirrusSearchFeedbackLink' ),
-		isBeta = M.require( 'mobile.context/context' ).isBetaGroupMember();
+		feedbackLink = mw.config.get( 'wgCirrusSearchFeedbackLink' );
 
 	/**
 	 * Overlay displaying search results
@@ -16,11 +16,15 @@
 	 * @extends Overlay
 	 * @uses SearchGateway
 	 * @uses Icon
+	 *
+	 * @constructor
+	 * @param {Object} options Configuration options
 	 */
 	function SearchOverlay( options ) {
 		var self = this;
 		Overlay.call( this, options );
 		this.api = options.api;
+		// eslint-disable-next-line new-cap
 		this.gateway = new options.gatewayClass( this.api );
 
 		this.router = options.router;
@@ -47,20 +51,21 @@
 		 * @cfg {Router} defaults.router instance
 		 * @cfg {Object} defaults.clearIcon options for the button that clears the search text.
 		 * @cfg {Object} defaults.searchContentIcon options for the button that allows you to search within content
-		 * @cfg {String} defaults.searchTerm Search text.
-		 * @cfg {String} defaults.placeholderMsg Search input placeholder text.
-		 * @cfg {String} defaults.clearMsg Tooltip for clear button that appears when you type
+		 * @cfg {string} defaults.searchTerm Search text.
+		 * @cfg {string} defaults.placeholderMsg Search input placeholder text.
+		 * @cfg {string} defaults.clearMsg Tooltip for clear button that appears when you type
 		 * into search box.
-		 * @cfg {String} defaults.searchContentMsg Caption for a button performing full text
+		 * @cfg {string} defaults.searchContentMsg Caption for a button performing full text
 		 * search of a given search query.
-		 * @cfg {String} defaults.noResultsMsg Message informing user that no pages were found
+		 * @cfg {string} defaults.noResultsMsg Message informing user that no pages were found
 		 * for a given query.
-		 * @cfg {String} defaults.searchContentNoResultsMsg Used when no pages with matching
+		 * @cfg {string} defaults.searchContentNoResultsMsg Used when no pages with matching
 		 * titles were found.
-		 * @cfg {String} defaults.action The value of wgScript
+		 * @cfg {string} defaults.action The value of wgScript
 		 * @cfg {Object} defaults.feedback options for the feedback link below the search results
 		 */
 		defaults: $.extend( {}, Overlay.prototype.defaults, {
+			headerChrome: true,
 			clearIcon: new Icon( {
 				tagName: 'button',
 				name: 'clear',
@@ -84,8 +89,7 @@
 					href: feedbackLink
 				} ).options,
 				prompt: mw.msg( 'mobile-frontend-search-feedback-prompt' )
-			},
-			isBeta: isBeta
+			}
 		} ),
 		/**
 		 * @inheritdoc
@@ -144,6 +148,7 @@
 
 		/**
 		 * Initialize the button that clears the search field
+		 * @return {boolean} False to cancel the native event
 		 */
 		onClickClear: function () {
 			this.$input.val( '' ).focus();
@@ -216,7 +221,7 @@
 			 * @type {Object}
 			 * @property {jQuery.Object} result The jQuery-wrapped DOM element that
 			 *  the user clicked
-			 * @property {Number} resultIndex The zero-based index of the
+			 * @property {number} resultIndex The zero-based index of the
 			 *  result in the set of results
 			 * @property {jQuery.Event} originalEvent The original event
 			 */
@@ -244,7 +249,7 @@
 			this.$clear = this.$( '.clear' );
 			this.$searchContent = this.$( '.search-content' ).hide();
 			this.$searchFeedback = this.$( '.search-feedback' ).hide();
-			this.$resultContainer = this.$( '.results' );
+			this.$resultContainer = this.$( '.results-list-container' );
 
 			/**
 			 * Hide the spinner and abort timed spinner shows.
@@ -255,30 +260,17 @@
 				clearTimeout( timer );
 			}
 
-			if ( isBeta ) {
-				// Show a spinner on top of search results
-				this.$spinner = this.$( '.spinner-container' );
-				M.on( 'search-start', function ( searchData ) {
-					if ( timer ) {
-						clearSearch();
-					}
-					timer = setTimeout( function () {
-						self.$spinner.show();
-					}, 2000 - searchData.delay );
-				} );
-				M.on( 'search-results', clearSearch );
-			} else {
-				// Show a spinner in place search results
-				this.$spinner = this.$( '.spinner' );
-				M.on( 'search-start', function () {
-					self.resetSearch();
+			// Show a spinner on top of search results
+			this.$spinner = this.$( '.spinner-container' );
+			M.on( 'search-start', function ( searchData ) {
+				if ( timer ) {
+					clearSearch();
+				}
+				timer = setTimeout( function () {
 					self.$spinner.show();
-				} );
-				M.on( 'search-results', function () {
-					self.$searchFeedback.show();
-					self.$spinner.hide();
-				} );
-			}
+				}, SEARCH_SPINNER_DELAY - searchData.delay );
+			} );
+			M.on( 'search-results', clearSearch );
 
 			// Hide the clear button if the search input is empty
 			if ( self.$input.val() === '' ) {
@@ -330,7 +322,6 @@
 			var
 				self = this,
 				api = this.api,
-				pageList,
 				query = this.$input.val(),
 				delay = this.gateway.isCached( query ) ? 0 : SEARCH_DELAY;
 
@@ -366,7 +357,8 @@
 									.filter( data.results.length ? '.with-results' : '.without-results' )
 									.show();
 
-								pageList = new WatchstarPageList( {
+								// eslint-disable-next-line no-new
+								new WatchstarPageList( {
 									api: api,
 									funnel: 'search',
 									pages: data.results,

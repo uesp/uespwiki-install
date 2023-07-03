@@ -1,11 +1,6 @@
 <?php
-namespace CirrusSearch\Search;
 
-use CirrusSearch\Maintenance\MappingConfigBuilder;
-use SearchIndexField;
-use CirrusSearch\SearchConfig;
-use CirrusSearch\Search\TextIndexField;
-use SearchEngine;
+namespace CirrusSearch\Search;
 
 /**
  * Simple TextIndexField subclass useful to customize COPY_TO_SUGGEST
@@ -15,7 +10,8 @@ class OpeningTextIndexField extends TextIndexField {
 	/**
 	 * Force COPY_TO_SUGGEST if CirrusSearchPhraseSuggestUseOpeningText
 	 * is set.
-	 * {@inheritDoc}
+	 * @param int $mappingFlags
+	 * @return int
 	 */
 	protected function getTextOptions( $mappingFlags ) {
 		$options = parent::getTextOptions( $mappingFlags );

@@ -9,7 +9,7 @@ class MobileContextTest extends MediaWikiTestCase {
 	 * protected and private methods directly through the Reflection API
 	 *
 	 * @param $name string
-	 * @return \ReflectionMethod
+	 * @return ReflectionMethod
 	 */
 	protected static function getMethod( $name ) {
 		$class = new ReflectionClass( 'MobileContext' );
@@ -49,26 +49,6 @@ class MobileContextTest extends MediaWikiTestCase {
 		$instance = unserialize( 'O:13:"MobileContext":0:{}' );
 		$instance->setContext( $context );
 		return $instance;
-	}
-
-	/**
-	 * @dataProvider getBaseDomainProvider
-	 * @covers MobileContext::getBaseDomain
-	 */
-	public function testGetBaseDomain( $server, $baseDomain ) {
-		$this->setMwGlobals( 'wgServer', $server );
-		$this->assertEquals( $baseDomain, $this->makeContext()->getBaseDomain() );
-	}
-
-	public function getBaseDomainProvider() {
-		return [
-			[ 'https://en.wikipedia.org', '.wikipedia.org' ],
-			[ 'http://en.m.wikipedia.org', '.wikipedia.org' ],
-			[ '//en.m.wikipedia.org', '.wikipedia.org' ],
-			[ 'http://127.0.0.1', '127.0.0.1' ],
-			[ 'http://127.0.0.1:8080', '127.0.0.1' ],
-			[ 'http://localhost', 'localhost' ],
-		];
 	}
 
 	/**
@@ -490,11 +470,11 @@ class MobileContextTest extends MediaWikiTestCase {
 	public function optInProvider() {
 		return [
 			[ [], false, true ],
-			[ [ 'optin' => 'beta' ], true, true ],
-			[ [ 'optin' => 'foobar' ], false, true ],
+			[ [ MobileContext::OPTIN_COOKIE_NAME => MobileContext::MODE_BETA ], true, true ],
+			[ [ MobileContext::OPTIN_COOKIE_NAME => 'foobar' ], false, true ],
 			[ [], false, false ],
-			[ [ 'optin' => 'beta' ], false, false ],
-			[ [ 'optin' => 'foobar' ], false, false ],
+			[ [ MobileContext::OPTIN_COOKIE_NAME => MobileContext::MODE_BETA ], false, false ],
+			[ [ MobileContext::OPTIN_COOKIE_NAME => 'foobar' ], false, false ],
 		];
 	}
 
@@ -582,5 +562,46 @@ class MobileContextTest extends MediaWikiTestCase {
 		$this->setMwGlobals( 'wgTitle', null );
 		SpecialPage::getTitleFor( 'Search' );
 		$this->assertTrue( true, 'In case of failure this test just crashes' );
+	}
+
+	/**
+	 * @dataProvider provideGetConfigVariable
+	 * @covers MobileContext::getConfigVariable
+	 */
+	public function testGetConfigVariable(
+		$expected,
+		$madeUpConfigVariable,
+		$mobileMode = MobileContext::MODE_STABLE
+	) {
+		$this->setMwGlobals( [
+			'wgMFEnableBeta' => true,
+			'wgMFMadeUpConfigVariable' => $madeUpConfigVariable
+		] );
+
+		$context = MobileContext::singleton();
+		$context->setMobileMode( $mobileMode );
+
+		$this->assertEquals(
+			$expected,
+			$context->getConfigVariable( 'MFMadeUpConfigVariable' )
+		);
+	}
+
+	public static function provideGetConfigVariable() {
+		$madeUpConfigVariable = [
+			'beta' => 'bar',
+			'base' => 'foo',
+		];
+
+		return [
+			[ 'foo', $madeUpConfigVariable, MobileContext::MODE_STABLE ],
+			[ 'bar', $madeUpConfigVariable, MobileContext::MODE_BETA ],
+
+			[ null, [ 'alpha' => 'baz' ] ],
+
+			// When the config variable isn't an array, then its value is returned
+			// regardless of whether the user is a member of the beta group.
+			[ true, true ],
+		];
 	}
 }

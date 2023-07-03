@@ -26,8 +26,19 @@
  */
 
 $wgCirrusSearchSimilarityProfiles = [
-	// default profile, uses the classic TF/IDF from Lucene
-	'default' => [],
+	// default profile, uses the classic TF/IDF from Lucene.
+	// deprecated the use of the name default is confusing
+	'default' => [
+		'fields' => [
+			'__default__' => 'classic'
+		]
+	],
+	// classic profile, uses the classic TF/IDF from Lucene.
+	'classic' => [
+		'fields' => [
+			'__default__' => 'classic'
+		]
+	],
 	// BM25 with default values for k and a for all fields
 	'bm25_with_defaults' => [
 		'similarity' => [
@@ -97,6 +108,8 @@ $wgCirrusSearchSimilarityProfiles = [
 	'wmf_defaults' => [
 		'similarity' => [
 			'default' => [
+				// Although not referenced, this is necessary
+				// to disable coord
 				'type' => 'BM25',
 			],
 			'arrays' => [
@@ -106,7 +119,7 @@ $wgCirrusSearchSimilarityProfiles = [
 			],
 		],
 		'fields' => [
-			'__default__' => 'default',
+			'__default__' => 'BM25',
 			'category' => 'arrays',
 			'heading' => 'arrays',
 			'redirect.title' => 'arrays',

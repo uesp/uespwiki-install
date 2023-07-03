@@ -107,7 +107,6 @@ class Checker {
 				$fromIndex = $pagesFromIndex[$docId];
 			}
 
-			$updated = false;
 			if ( isset ( $pagesFromDb[$pageId] ) ) {
 				$page = $pagesFromDb[$pageId];
 				$updated = $this->checkExisitingPage( $docId, $pageId, $page, $fromIndex );
@@ -307,7 +306,7 @@ class Checker {
 	}
 
 	/**
-	 * @return \IDatabase
+	 * @return \Wikimedia\Rdbms\IDatabase
 	 */
 	private function getDB() {
 		return wfGetDB( DB_REPLICA );

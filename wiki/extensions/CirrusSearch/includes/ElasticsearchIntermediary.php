@@ -77,7 +77,7 @@ abstract class ElasticsearchIntermediary {
 	 * @param float $slowSeconds how many seconds a request through this
 	 *  intermediary needs to take before it counts as slow.  0 means none count
 	 *  as slow.
-	 * @param float $extraBackendLatency artificial backend latency.
+	 * @param int $extraBackendLatency artificial backend latency.
 	 */
 	protected function __construct( Connection $connection, User $user = null, $slowSeconds, $extraBackendLatency = 0 ) {
 		$this->connection = $connection;
@@ -199,7 +199,7 @@ abstract class ElasticsearchIntermediary {
 		$log = $this->finishRequest();
 		$context = $log->getLogVariables();
 		list( $status, $message ) = ElasticaErrorHandler::extractMessageAndStatus( $exception );
-		$context['message'] = $message;
+		$context['error_message'] = $message;
 
 		$stats = MediaWikiServices::getInstance()->getStatsdDataFactory();
 		$type = ElasticaErrorHandler::classifyError( $exception );
@@ -207,7 +207,7 @@ abstract class ElasticsearchIntermediary {
 		$stats->increment( "CirrusSearch.$clusterName.backend_failure.$type" );
 
 		LoggerFactory::getInstance( 'CirrusSearch' )->warning(
-			"Search backend error during {$log->getDescription()} after {tookMs}: {message}",
+			"Search backend error during {$log->getDescription()} after {tookMs}: {error_message}",
 			$context
 		);
 		return $status;

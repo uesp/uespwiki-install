@@ -32,7 +32,7 @@ class SpecialUespShortLinks extends SpecialPage {
 				'variables' => array(),
 		);
 		
-		$this->db = new DatabaseMysql($params);
+		$this->db = Database::factory("mysql", $params);
 		
 		$this->db->selectDB($uespShortLinkDatabase);
 	}
@@ -49,7 +49,7 @@ class SpecialUespShortLinks extends SpecialPage {
 				'variables' => array(),
 		);
 		
-		$this->db = new DatabaseMysql($params);
+		$this->db = Database::factory("mysql", $params);
 		
 		$this->db->selectDB($uespShortLinkDatabase);
 	}
@@ -94,13 +94,13 @@ class SpecialUespShortLinks extends SpecialPage {
 		
 		$user = $this->getContext()->getUser();
 		if (user == null) return false;
-				
+		
 		return $user->isAllowed('uespShortLinksWrite');
 	}
 
 	
 	public function execute( $parameter ) {
-				
+		
 		$output = $this->getOutput();
 		
 		$output->addModules('ext.UespShortLinks');
@@ -112,6 +112,9 @@ class SpecialUespShortLinks extends SpecialPage {
 		
 		$request = $this->getRequest();
 		$action = $request->getVal('action');
+		
+			//TODO: Shouldn't have to add this manually?
+		$output->addHTML("<h1>UESP Short Links</h1>");
 		
 		switch ($action) {
 			case 'new':
@@ -151,7 +154,7 @@ class SpecialUespShortLinks extends SpecialPage {
 		}
 		
 		$this->initDbWrite();
-				
+		
 		$data = array(
 				'shortLink' => $shortLink,
 				'link' => $link,
@@ -166,7 +169,7 @@ class SpecialUespShortLinks extends SpecialPage {
 			$output->addHTML("Error adding link to database!<p/>");
 			$output->addHTML("<a href=''>Back to All Links</a><p/>");
 			return false;
-		}		
+		}
 		
 		$shortLinkUrl = "<a href='//s.uesp.net/$safeShortLink'>s.uesp.net/$safeShortLink</a>";
 		$linkUrl = "<a href='$safeLink'>$safeLink</a>";

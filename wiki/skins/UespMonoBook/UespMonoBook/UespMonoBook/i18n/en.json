@@ -1,0 +1,6 @@
+{
+	"skinname-uespmonobook": "UESP MonoBook",
+	"uespmonobook-desc": "UESP's version of the classic MediaWiki skin, originally named after the black-and-white photo of a book in the page background",
+	"uespmonobook.css": "/* CSS placed here will affect users of the MonoBook skin */",
+	"uespmonobook.js": "/* Any JavaScript here will be loaded for users using the MonoBook skin */"
+}

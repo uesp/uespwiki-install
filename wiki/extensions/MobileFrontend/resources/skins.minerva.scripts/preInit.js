@@ -13,6 +13,7 @@
 		gateway = new PageGateway( new mw.Api() ),
 		Page = M.require( 'mobile.startup/Page' ),
 		mainMenu = M.require( 'skins.minerva.scripts.top/mainMenu' ),
+		toast = M.require( 'mobile.startup/toast' ),
 		Skin = M.require( 'mobile.startup/Skin' ),
 		ReferencesMobileViewGateway = M.require(
 			'mobile.references.gateway/ReferencesMobileViewGateway'
@@ -27,6 +28,28 @@
 
 	skin = new Skin( skinData );
 	M.define( 'skins.minerva.scripts/skin', skin ).deprecate( 'mobile.startup/skin' );
+
+	( function ( wgRedirectedFrom ) {
+		// If the user has been redirected, then show them a toast message (see
+		// https://phabricator.wikimedia.org/T146596).
+
+		var redirectedFrom;
+
+		if ( wgRedirectedFrom === null ) {
+			return;
+		}
+
+		redirectedFrom = mw.Title.newFromText( wgRedirectedFrom );
+
+		if ( redirectedFrom ) {
+
+			// mw.Title.getPrefixedText includes the human-readable namespace prefix.
+			toast.show( mw.msg(
+				'mobile-frontend-redirected-from',
+				redirectedFrom.getPrefixedText()
+			) );
+		}
+	}( mw.config.get( 'wgRedirectedFrom' ) ) );
 
 	/**
 	 * Given 2 functions, it returns a function that will run both with it's
@@ -86,6 +109,7 @@
 	 *
 	 * @method
 	 * @private
+	 * @return {Page}
 	 * @ignore
 	 */
 	function loadCurrentPage() {
@@ -115,10 +139,12 @@
 	} );
 
 	// Recruit volunteers through the console (note console.log may not be a function so check via apply)
+	/* eslint-disable no-console */
 	if ( window.console && window.console.log && window.console.log.apply &&
 			mw.config.get( 'wgMFEnableJSConsoleRecruitment' ) ) {
 		console.log( mw.msg( 'mobile-frontend-console-recruit' ) );
 	}
+	/* eslint-enable no-console */
 
 	M.define( 'skins.minerva.scripts/overlayManager', overlayManager )
 		.deprecate( 'mobile.startup/overlayManager' );

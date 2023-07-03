@@ -1,4 +1,4 @@
-	( function ( mw, uw, $, OO ) {
+( function ( mw, uw, $, OO ) {
 	/**
 	 * Create an interface fragment corresponding to a file input, suitable for Upload Wizard.
 	 *
@@ -45,7 +45,7 @@
 			icon: 'remove',
 			framed: false
 		} ).on( 'click', function () {
-			ui.upload.remove();
+			ui.emit( 'upload-removed' );
 		} );
 
 		if ( mw.UploadWizard.config.defaults && mw.UploadWizard.config.defaults.objref !== '' ) {
@@ -72,16 +72,6 @@
 	};
 
 	OO.mixinClass( mw.UploadWizardUploadInterface, OO.EventEmitter );
-
-	/**
-	 * Manually fill the file input with a file.
-	 *
-	 * @param {File} providedFile
-	 */
-	mw.UploadWizardUploadInterface.prototype.fill = function ( providedFile ) {
-		this.providedFile = providedFile;
-		this.clearErrors();
-	};
 
 	/**
 	 * Change the graphic indicator at the far end of the row for this file
@@ -125,10 +115,10 @@
 	/**
 	 * Set status line directly with a string
 	 *
-	 * @param {string} s
+	 * @param {string} html
 	 */
-	mw.UploadWizardUploadInterface.prototype.setStatusString = function ( s ) {
-		$( this.div ).find( '.mwe-upwiz-file-status' ).text( s ).show();
+	mw.UploadWizardUploadInterface.prototype.setStatusString = function ( html ) {
+		$( this.div ).find( '.mwe-upwiz-file-status' ).html( html ).show();
 	};
 
 	/**
@@ -179,48 +169,13 @@
 	 * Show that transport has failed
 	 *
 	 * @param {string} code Error code from API
-	 * @param {string|Object} info Extra info
+	 * @param {string} html Error message
 	 * @param {jQuery} [$additionalStatus]
 	 */
-	mw.UploadWizardUploadInterface.prototype.showError = function ( code, info, $additionalStatus ) {
-		var msgKey, args, moreErrorCodes = [
-			'unknown-warning',
-			'abusefilter-disallowed',
-			'abusefilter-warning',
-			'spamblacklist',
-			'parsererror' // Debugging, try to figure out why this happens
-		];
-
+	mw.UploadWizardUploadInterface.prototype.showError = function ( code, html, $additionalStatus ) {
 		this.showIndicator( 'error' );
-		// is this an error that we expect to have a message for?
-
-		if ( code === 'http' && info.textStatus === 'timeout' ) {
-			code = 'timeout';
-		}
-
-		if ( $.inArray( code, mw.Api.errors ) !== -1 || $.inArray( code, moreErrorCodes ) !== -1 ) {
-			msgKey = 'api-error-' + code;
-			args = $.makeArray( info );
-		} else {
-			msgKey = 'api-error-unknown-code';
-			args = [ code ].concat( $.makeArray( info ) );
-		}
-		this.setStatus( msgKey, args );
+		this.setStatusString( html );
 		this.setAdditionalStatus( $additionalStatus );
-	};
-
-	/**
-	 * Get just the filename.
-	 *
-	 * @return {string}
-	 */
-	mw.UploadWizardUploadInterface.prototype.getFilename = function () {
-		if ( this.providedFile.fileName ) {
-			return this.providedFile.fileName;
-		} else {
-			// this property has a different name in FF vs Chrome.
-			return this.providedFile.name;
-		}
 	};
 
 	/**
@@ -230,7 +185,6 @@
 	 *
 	 * @param {Object} imageinfo
 	 * @param {File} file
-	 * @param {boolean} fromURL
 	 */
 	mw.UploadWizardUploadInterface.prototype.fileChangedOk = function ( imageinfo, file ) {
 		var statusItems = [];
@@ -243,7 +197,7 @@
 		}
 
 		if ( file && file.size ) {
-			statusItems.push( mw.units.bytes( file.size ) );
+			statusItems.push( uw.units.bytes( file.size ) );
 		}
 
 		this.clearStatus();
@@ -260,85 +214,11 @@
 		var
 			$preview = $( this.div ).find( '.mwe-upwiz-file-preview' ),
 			deferred = $.Deferred();
-		this.upload.getThumbnail(
-			mw.UploadWizard.config.thumbnailWidth,
-			mw.UploadWizard.config.thumbnailMaxHeight
-		).done( function ( thumb ) {
+		this.upload.getThumbnail().done( function ( thumb ) {
 			mw.UploadWizard.placeThumbnail( $preview, thumb );
 			deferred.resolve();
 		} );
 		return deferred.promise();
-	};
-
-	mw.UploadWizardUploadInterface.prototype.fileChangedError = function ( code, info ) {
-		var filename = this.getFilename();
-
-		this.providedFile = null;
-
-		if ( code === 'ext' ) {
-			this.showBadExtensionError( filename, info );
-		} else if ( code === 'noext' ) {
-			this.showMissingExtensionError( filename );
-		} else if ( code === 'dup' ) {
-			this.showDuplicateError( filename, info );
-		} else if ( code === 'unparseable' ) {
-			this.showUnparseableFilenameError( filename );
-		} else {
-			this.showUnknownError( code, filename );
-		}
-	};
-
-	mw.UploadWizardUploadInterface.prototype.showUnparseableFilenameError = function ( filename ) {
-		this.showFilenameError( mw.message( 'mwe-upwiz-unparseable-filename', filename ).escaped() );
-	};
-
-	mw.UploadWizardUploadInterface.prototype.showBadExtensionError = function ( filename, extension ) {
-		var $errorMessage;
-		// Check if firefogg should be recommended to be installed ( user selects an extension that can be converted)
-		if ( mw.UploadWizard.config.enableFirefogg &&
-			$.inArray( extension.toLowerCase(), mw.UploadWizard.config.transcodeExtensionList ) !== -1
-		) {
-			$errorMessage = $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-extension-video-firefogg',
-					mw.Firefogg.getFirefoggInstallUrl(),
-					'https://commons.wikimedia.org/wiki/Help:Converting_video'
-				);
-		} else {
-			$errorMessage = $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-filename-extension', extension );
-		}
-		this.showFilenameError( $errorMessage );
-	};
-
-	mw.UploadWizardUploadInterface.prototype.showMissingExtensionError = function () {
-		this.showExtensionError( $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-filename-no-extension' ) );
-	};
-
-	mw.UploadWizardUploadInterface.prototype.showExtensionError = function ( $errorMessage ) {
-		this.showFilenameError(
-			$( '<div></div>' ).append(
-				$errorMessage,
-				$( '<p>' ).msg( 'mwe-upwiz-allowed-filename-extensions' ),
-				$( '<blockquote>' ).append( $( '<tt>' ).append(
-					mw.UploadWizard.config.fileExtensions.join( ' ' )
-				) )
-			)
-		);
-	};
-
-	mw.UploadWizardUploadInterface.prototype.showDuplicateError = function ( filename, basename ) {
-		this.showFilenameError( $( '<p>' ).msg( 'mwe-upwiz-upload-error-duplicate-filename-error', basename ) );
-	};
-
-	mw.UploadWizardUploadInterface.prototype.showFilenameError = function ( $text ) {
-		var msgText;
-
-		if ( $text instanceof jQuery ) {
-			msgText = $text.text();
-		} else {
-			msgText = $text;
-		}
-
-		uw.eventFlowLogger.logError( 'file', { code: 'filename', message: msgText } );
-		mw.errorDialog( $text );
 	};
 
 	/**
@@ -351,7 +231,7 @@
 	 */
 	mw.UploadWizardUploadInterface.prototype.updateFilename = function () {
 		var $div,
-			path = this.getFilename();
+			path = this.upload.getFilename();
 
 		// visible filename
 		this.$form.find( '.mwe-upwiz-visible-file-filename-text' )
@@ -361,18 +241,7 @@
 			$div = $( this.div );
 			this.isFilled = true;
 			$div.addClass( 'filled' );
-			this.emit( 'upload-filled' );
-		} else {
-			this.emit( 'filename-accepted' );
 		}
-	};
-
-	/**
-	 * Remove any complaints we had about errors and such
-	 * XXX this should be changed to something Theme compatible
-	 */
-	mw.UploadWizardUploadInterface.prototype.clearErrors = function () {
-		$( this.div ).removeClass( 'mwe-upwiz-upload-error' );
 	};
 
 	/**
@@ -384,15 +253,15 @@
 	*/
 	mw.UploadWizardUploadInterface.prototype.createImagePickerField = function ( index, setDisabled ) {
 		var $fieldContainer = $( '<div>' ).attr( {
-			'class': 'mwe-upwiz-objref-pick-image'
-		} ),
-		attributes = {
-			type: 'checkbox',
-			'class': 'imgPicker',
-			id: 'imgPicker' + index,
-			disabled: false,
-			checked: false
-		};
+				'class': 'mwe-upwiz-objref-pick-image'
+			} ),
+			attributes = {
+				type: 'checkbox',
+				'class': 'imgPicker',
+				id: 'imgPicker' + index,
+				disabled: false,
+				checked: false
+			};
 
 		if ( setDisabled ) {
 			attributes.disabled = 'disabled';

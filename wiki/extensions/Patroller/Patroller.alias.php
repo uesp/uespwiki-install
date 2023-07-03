@@ -3,8 +3,8 @@
  * Patroller
  * Patroller MediaWiki alises
  *
- * @author: Rob Church <robchur@gmail.com>, Kris Blair (Cblair91)
- * @copyright: 2006-2008 Rob Church, 2015 Kris Blair
+ * @author: Rob Church <robchur@gmail.com>, Kris Blair (Developaws)
+ * @copyright: 2006-2008 Rob Church, 2015-2017 Kris Blair
  * @license: GNU General Public Licence 2.0
  * @package: Patroller
  * @link: https://mediawiki.org/wiki/Extension:Patroller
@@ -14,190 +14,190 @@ $specialPageAliases = [];
 
 /** English (English) */
 $specialPageAliases['en'] = [
-	'Patroller' => [ 'Patroller' ],
+	'Patrol' => [ 'Patroller' ],
 ];
 
 /** Arabic (العربية) */
 $specialPageAliases['ar'] = [
-	'Patroller' => [ 'مراجع' ],
+	'Patrol' => [ 'مراجع' ],
 ];
 
 /** Egyptian Spoken Arabic (مصرى) */
 $specialPageAliases['arz'] = [
-	'Patroller' => [ 'نبطشى' ],
+	'Patrol' => [ 'نبطشى' ],
 ];
 
 /** Assamese (অসমীয়া) */
 $specialPageAliases['as'] = [
-	'Patroller' => [ 'পৰিদৰ্শক' ],
+	'Patrol' => [ 'পৰিদৰ্শক' ],
 ];
 
 /** Breton (brezhoneg) */
 $specialPageAliases['br'] = [
-	'Patroller' => [ 'Patrouilher' ],
+	'Patrol' => [ 'Patrouilher' ],
 ];
 
 /** German (Deutsch) */
 $specialPageAliases['de'] = [
-	'Patroller' => [ 'Kontrollierer', 'Prüfer' ],
+	'Patrol' => [ 'Kontrollierer', 'Prüfer' ],
 ];
 
 /** Zazaki (Zazaki) */
 $specialPageAliases['diq'] = [
-	'Patroller' => [ 'Dewriye' ],
+	'Patrol' => [ 'Dewriye' ],
 ];
 
 /** Lower Sorbian (dolnoserbski) */
 $specialPageAliases['dsb'] = [
-	'Patroller' => [ 'Doglědowaŕ' ],
+	'Patrol' => [ 'Doglědowaŕ' ],
 ];
 
 /** Esperanto (Esperanto) */
 $specialPageAliases['eo'] = [
-	'Patroller' => [ 'Patrolanto' ],
+	'Patrol' => [ 'Patrolanto' ],
 ];
 
 /** Persian (فارسی) */
 $specialPageAliases['fa'] = [
-	'Patroller' => [ 'گشت‌زن' ],
+	'Patrol' => [ 'گشت‌زن' ],
 ];
 
 /** Finnish (suomi) */
 $specialPageAliases['fi'] = [
-	'Patroller' => [ 'Muokkausten_tarkistaja' ],
+	'Patrol' => [ 'Muokkausten_tarkistaja' ],
 ];
 
 /** French (français) */
 $specialPageAliases['fr'] = [
-	'Patroller' => [ 'Patrouilleur' ],
+	'Patrol' => [ 'Patrouilleur' ],
 ];
 
 /** Franco-Provençal (arpetan) */
 $specialPageAliases['frp'] = [
-	'Patroller' => [ 'Patrolyor' ],
+	'Patrol' => [ 'Patrolyor' ],
 ];
 
 /** Swiss German (Alemannisch) */
 $specialPageAliases['gsw'] = [
-	'Patroller' => [ 'Fäldhieter' ],
+	'Patrol' => [ 'Fäldhieter' ],
 ];
 
 /** Croatian (hrvatski) */
 $specialPageAliases['hr'] = [
-	'Patroller' => [ 'Patroler' ],
+	'Patrol' => [ 'Patroler' ],
 ];
 
 /** Upper Sorbian (hornjoserbsce) */
 $specialPageAliases['hsb'] = [
-	'Patroller' => [ 'Dohladowar' ],
+	'Patrol' => [ 'Dohladowar' ],
 ];
 
 /** Haitian (Kreyòl ayisyen) */
 $specialPageAliases['ht'] = [
-	'Patroller' => [ 'Siveyan' ],
+	'Patrol' => [ 'Siveyan' ],
 ];
 
 /** Interlingua (interlingua) */
 $specialPageAliases['ia'] = [
-	'Patroller' => [ 'Patruliator' ],
+	'Patrol' => [ 'Patruliator' ],
 ];
 
 /** Indonesian (Bahasa Indonesia) */
 $specialPageAliases['id'] = [
-	'Patroller' => [ 'Pematroli' ],
+	'Patrol' => [ 'Pematroli' ],
 ];
 
 /** Japanese (日本語) */
 $specialPageAliases['ja'] = [
-	'Patroller' => [ 'パトローラー', 'パトローラ' ],
+	'Patrol' => [ 'パトローラー', 'パトローラ' ],
 ];
 
 /** Korean (한국어) */
 $specialPageAliases['ko'] = [
-	'Patroller' => [ '검토자' ],
+	'Patrol' => [ '검토자' ],
 ];
 
 /** Colognian (Ripoarisch) */
 $specialPageAliases['ksh'] = [
-	'Patroller' => [ 'Prööfe', 'Nohloore' ],
+	'Patrol' => [ 'Prööfe', 'Nohloore' ],
 ];
 
 /** Ladino (Ladino) */
 $specialPageAliases['lad'] = [
-	'Patroller' => [ 'Guarddia' ],
+	'Patrol' => [ 'Guarddia' ],
 ];
 
 /** Luxembourgish (Lëtzebuergesch) */
 $specialPageAliases['lb'] = [
-	'Patroller' => [ 'Kontroller' ],
+	'Patrol' => [ 'Kontroller' ],
 ];
 
 /** Macedonian (македонски) */
 $specialPageAliases['mk'] = [
-	'Patroller' => [ 'Патролер' ],
+	'Patrol' => [ 'Патролер' ],
 ];
 
 /** Malayalam (മലയാളം) */
 $specialPageAliases['ml'] = [
-	'Patroller' => [ 'റോന്തുചുറ്റുന്നവർ' ],
+	'Patrol' => [ 'റോന്തുചുറ്റുന്നവർ' ],
 ];
 
 /** Marathi (मराठी) */
 $specialPageAliases['mr'] = [
-	'Patroller' => [ 'गस्तदार' ],
+	'Patrol' => [ 'गस्तदार' ],
 ];
 
 /** Norwegian Bokmål (norsk (bokmål)‎) */
 $specialPageAliases['nb'] = [
-	'Patroller' => [ 'Patruljør' ],
+	'Patrol' => [ 'Patruljør' ],
 ];
 
 /** Nedersaksisch (Nedersaksisch) */
 $specialPageAliases['nds-nl'] = [
-	'Patroller' => [ 'Naokieken' ],
+	'Patrol' => [ 'Naokieken' ],
 ];
 
 /** Dutch (Nederlands) */
 $specialPageAliases['nl'] = [
-	'Patroller' => [ 'Controleren' ],
+	'Patrol' => [ 'Controleren' ],
 ];
 
 /** Occitan (occitan) */
 $specialPageAliases['oc'] = [
-	'Patroller' => [ 'Patrolhaire' ],
+	'Patrol' => [ 'Patrolhaire' ],
 ];
 
 /** Romanian (română) */
 $specialPageAliases['ro'] = [
-	'Patroller' => [ 'Patrulă' ],
+	'Patrol' => [ 'Patrulă' ],
 ];
 
 /** Sanskrit (संस्कृतम्) */
 $specialPageAliases['sa'] = [
-	'Patroller' => [ 'पॅटरोलर' ],
+	'Patrol' => [ 'पॅटरोलर' ],
 ];
 
 /** Slovak (slovenčina) */
 $specialPageAliases['sk'] = [
-	'Patroller' => [ 'Strážca' ],
+	'Patrol' => [ 'Strážca' ],
 ];
 
 /** Albanian (shqip) */
 $specialPageAliases['sq'] = [
-	'Patroller' => [ 'Patrullues' ],
+	'Patrol' => [ 'Patrullues' ],
 ];
 
 /** Swahili (Kiswahili) */
 $specialPageAliases['sw'] = [
-	'Patroller' => [ 'Mwanadoria' ],
+	'Patrol' => [ 'Mwanadoria' ],
 ];
 
 /** Tagalog (Tagalog) */
 $specialPageAliases['tl'] = [
-	'Patroller' => [ 'Tagapatrolya' ],
+	'Patrol' => [ 'Tagapatrolya' ],
 ];
 
 /** Turkish (Türkçe) */
 $specialPageAliases['tr'] = [
-	'Patroller' => [ 'Devriye' ],
+	'Patrol' => [ 'Devriye' ],
 ];

@@ -22,16 +22,18 @@
 		this.savedSerializedData = [];
 
 		for ( metadataType in uw.CopyMetadataWidget.static.copyMetadataTypes ) {
-			defaultStatus = uw.CopyMetadataWidget.static.copyMetadataTypes[ metadataType ];
-			// mwe-upwiz-copy-title, mwe-upwiz-copy-description, mwe-upwiz-copy-date,
-			// mwe-upwiz-copy-categories, mwe-upwiz-copy-location, mwe-upwiz-copy-other
-			copyMetadataMsg = mw.message( 'mwe-upwiz-copy-' + metadataType ).text();
+			if ( uw.CopyMetadataWidget.static.copyMetadataTypes.hasOwnProperty( metadataType ) ) {
+				defaultStatus = uw.CopyMetadataWidget.static.copyMetadataTypes[ metadataType ];
+				// mwe-upwiz-copy-title, mwe-upwiz-copy-description, mwe-upwiz-copy-date,
+				// mwe-upwiz-copy-categories, mwe-upwiz-copy-location, mwe-upwiz-copy-other
+				copyMetadataMsg = mw.message( 'mwe-upwiz-copy-' + metadataType ).text();
 
-			checkboxes.push( new OO.ui.CheckboxMultioptionWidget( {
-				data: metadataType,
-				label: copyMetadataMsg,
-				selected: defaultStatus
-			} ) );
+				checkboxes.push( new OO.ui.CheckboxMultioptionWidget( {
+					data: metadataType,
+					label: copyMetadataMsg,
+					selected: defaultStatus
+				} ) );
+			}
 		}
 
 		this.$success = $( '<span>' );
@@ -179,8 +181,8 @@
 				// number in the title. Note: We ignore numbers with more than three digits, because these
 				// are more likely to be years ("Wikimania 2011 Celebration") or other non-sequence
 				// numbers.
-				/*jshint loopfunc:true */
 				sourceValue.title.title = titleZero.replace( /(\D+)(\d{1,3})(\D*)$/,
+					// eslint-disable-next-line no-loop-func
 					function ( str, m1, m2, m3 ) {
 						var newstr = String( +m2 + i );
 						return m1 + new Array( m2.length + 1 - newstr.length )
@@ -206,4 +208,4 @@
 		}
 	};
 
-} )( mediaWiki, mediaWiki.uploadWizard, jQuery, OO );
+}( mediaWiki, mediaWiki.uploadWizard, jQuery, OO ) );

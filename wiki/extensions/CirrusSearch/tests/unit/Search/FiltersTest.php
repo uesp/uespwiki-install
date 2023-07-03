@@ -2,11 +2,11 @@
 
 namespace CirrusSearch\Search;
 
+use CirrusSearch\CirrusTestCase;
 use Elastica\Query\AbstractQuery;
 use Elastica\Query\BoolQuery;
 use Elastica\Query\Script;
 use Elastica\Query\Term;
-use PHPUnit_Framework_TestCase;
 
 /**
  * Test for filter utilities.
@@ -25,8 +25,10 @@ use PHPUnit_Framework_TestCase;
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @group CirrusSearch
  */
-class FiltersTest extends PHPUnit_Framework_TestCase {
+class FiltersTest extends CirrusTestCase {
 	/**
 	 * @dataProvider unifyTestCases
 	 */

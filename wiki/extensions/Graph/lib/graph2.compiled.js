@@ -4,17 +4,19 @@
 	'use strict';
 	/* global require */
 
-	var wrapper,
-		VegaWrapper = require( 'graph-shared' );
+	var VegaWrapper = require( 'graph-shared' );
 
-	wrapper = new VegaWrapper(
-		vg.util, true,
-		mw.config.get( 'wgGraphIsTrusted' ),
-		mw.config.get( 'wgGraphAllowedDomains' ),
-		false,
-		function ( warning ) {
+	// eslint-disable-next-line no-new
+	new VegaWrapper( {
+		datalib: vg.util,
+		useXhr: true,
+		isTrusted: mw.config.get( 'wgGraphIsTrusted' ),
+		domains: mw.config.get( 'wgGraphAllowedDomains' ),
+		domainMap: false,
+		logger: function ( warning ) {
 			mw.log.warn( warning );
-		}, function ( opt ) {
+		},
+		parseUrl: function ( opt ) {
 			// Parse URL
 			var uri = new mw.Uri( opt.url );
 			// reduce confusion, only keep expected values
@@ -35,7 +37,8 @@
 			uri.pathname = uri.path;
 			delete uri.path;
 			return uri;
-		}, function ( uri, opt ) {
+		},
+		formatUrl: function ( uri, opt ) {
 			// Format URL back into a string
 			// Revert path into pathname
 			uri.path = uri.pathname;
@@ -55,12 +58,12 @@
 				uri.query.origin = location.protocol + '//' + location.host;
 			}
 
-			if ( uri.protocol[ uri.protocol.length - 1 ] === ':' ) {
-				uri.protocol = uri.protocol.substring( 0, uri.protocol.length - 1 );
-			}
+			uri.protocol = VegaWrapper.removeColon( uri.protocol );
 
 			return uri.toString();
-		} );
+		},
+		languageCode: mw.config.get( 'wgUserLanguage' )
+	} );
 
 	/**
 	 * Set up drawing canvas inside the given element and draw graph data
@@ -101,7 +104,7 @@
 
 }( jQuery, mediaWiki, vg ) );
 
-},{"graph-shared":4}],2:[function(require,module,exports){
+},{"graph-shared":3}],2:[function(require,module,exports){
 'use strict';
 
 /**
@@ -132,105 +135,47 @@ module.exports = function makeValidator(domains, allowSubdomains) {
 'use strict';
 /* global module */
 
-module.exports = parseWikidataValue;
-
-/**
- * Given a value object as returned from Wikidata Query Service, returns a simplified value
- * @param {object} value Original object as sent by the Wikidata query service
- * @param {string} value.type SPARQL data type (literal, uri)
- * @param {string} value.datatype XMLSchema data type
- * @param {*} value.value The actual value sent by the Wikidata query service
- * @param {boolean=} ignoreUnknown if false, will return value.value even if it cannot be recognized
- * @return {*}
- */
-function parseWikidataValue(value, ignoreUnknown) {
-    var temp;
-
-    if (!value || !value.type || value.value === undefined) {
-        return undefined;
-    }
-
-    switch (value.type) {
-        case 'literal':
-            switch (value.datatype) {
-                case 'http://www.w3.org/2001/XMLSchema#double':
-                case 'http://www.w3.org/2001/XMLSchema#float':
-                case 'http://www.w3.org/2001/XMLSchema#decimal':
-                case 'http://www.w3.org/2001/XMLSchema#integer':
-                case 'http://www.w3.org/2001/XMLSchema#long':
-                case 'http://www.w3.org/2001/XMLSchema#int':
-                case 'http://www.w3.org/2001/XMLSchema#short':
-                case 'http://www.w3.org/2001/XMLSchema#nonNegativeInteger':
-                case 'http://www.w3.org/2001/XMLSchema#positiveInteger':
-                case 'http://www.w3.org/2001/XMLSchema#unsignedLong':
-                case 'http://www.w3.org/2001/XMLSchema#unsignedInt':
-                case 'http://www.w3.org/2001/XMLSchema#unsignedShort':
-                case 'http://www.w3.org/2001/XMLSchema#nonPositiveInteger':
-                case 'http://www.w3.org/2001/XMLSchema#negativeInteger':
-                    temp = parseFloat(value.value);
-                    if (temp.toString() === value.value) {
-                        // use number only if it is fully round-tripable back to string
-                        // TBD: this might be overcautios, and would cause more problems than solve
-                        return temp;
-                    }
-                    break;
-                case 'http://www.opengis.net/ont/geosparql#wktLiteral':
-                    // Point(-64.2 -36.62)  -- (longitude latitude)
-                    temp = /^Point\(([-0-9.]+) ([-0-9.]+)\)$/.exec(value.value);
-                    if (temp) {
-                        return [parseFloat(temp[1]), parseFloat(temp[2])];
-                    }
-                    break;
-            }
-            break;
-        case 'uri':
-            // "http://www.wikidata.org/entity/Q12345"  ->  "Q12345"
-            temp = /^http:\/\/www\.wikidata\.org\/entity\/(Q[1-9][0-9]*)$/.exec(value.value);
-            if (temp) {
-                return temp[1];
-            }
-            break;
-    }
-    return ignoreUnknown ? undefined : value.value;
-}
-
-
-},{}],4:[function(require,module,exports){
-'use strict';
-/* global module */
-
 var makeValidator = require('domain-validator'),
     parseWikidataValue = require('wd-type-parser');
 
 module.exports = VegaWrapper;
+module.exports.removeColon = removeColon;
+
+/**
+ * Utility function to remove trailing colon from a protocol
+ * @param {string} protocol
+ * @return {string}
+ */
+function removeColon(protocol) {
+    return protocol && protocol.length && protocol[protocol.length - 1] === ':'
+        ? protocol.substring(0, protocol.length - 1) : protocol;
+}
 
 /**
  * Shared library to wrap around vega code
- * @param {Object} datalib Vega's datalib object
- * @param {Object} datalib.load Vega's data loader
- * @param {Function} datalib.load.loader Vega's data loader function
- * @param {Function} datalib.extend similar to jquery's extend()
- * @param {boolean} useXhr true if we should use XHR, false for node.js http loading
- * @param {boolean} isTrusted true if the graph spec can be trusted
- * @param {Object} domains allowed protocols and a list of their domains
- * @param {Object} domainMap domain remapping
- * @param {Function} logger
- * @param {Function} parseUrl
- * @param {Function} formatUrl
+ * @param {Object} wrapperOpts Configuration options
+ * @param {Object} wrapperOpts.datalib Vega's datalib object
+ * @param {Object} wrapperOpts.datalib.load Vega's data loader
+ * @param {Function} wrapperOpts.datalib.load.loader Vega's data loader function
+ * @param {Function} wrapperOpts.datalib.extend similar to jquery's extend()
+ * @param {boolean} wrapperOpts.useXhr true if we should use XHR, false for node.js http loading
+ * @param {boolean} wrapperOpts.isTrusted true if the graph spec can be trusted
+ * @param {Object} wrapperOpts.domains allowed protocols and a list of their domains
+ * @param {Object} wrapperOpts.domainMap domain remapping
+ * @param {Function} wrapperOpts.logger
+ * @param {Function} wrapperOpts.parseUrl
+ * @param {Function} wrapperOpts.formatUrl
+ * @param {string} [wrapperOpts.languageCode]
  * @constructor
  */
-function VegaWrapper(datalib, useXhr, isTrusted, domains, domainMap, logger, parseUrl, formatUrl) {
+function VegaWrapper(wrapperOpts) {
     var self = this;
-    self.isTrusted = isTrusted;
-    self.domains = domains;
-    self.domainMap = domainMap;
-    self.logger = logger;
-    self.objExtender = datalib.extend;
-    self.parseUrl = parseUrl;
-    self.formatUrl = formatUrl;
+    // Copy all options into this object
+    self.objExtender = wrapperOpts.datalib.extend;
+    self.objExtender(self, wrapperOpts);
     self.validators = {};
 
-    datalib.load.loader = function (opt, callback) {
+    self.datalib.load.loader = function (opt, callback) {
         var error = callback || function (e) { throw e; }, url;
 
         try {
@@ -245,21 +190,21 @@ function VegaWrapper(datalib, useXhr, isTrusted, domains, domainMap, logger, par
             return self.dataParser(error, data, opt, callback);
         };
 
-        if (useXhr) {
-            return datalib.load.xhr(url, opt, cb);
+        if (self.useXhr) {
+            return self.datalib.load.xhr(url, opt, cb);
         } else {
-            return datalib.load.http(url, opt, cb);
+            return self.datalib.load.http(url, opt, cb);
         }
     };
 
-    datalib.load.sanitizeUrl = self.sanitizeUrl.bind(self);
+    self.datalib.load.sanitizeUrl = self.sanitizeUrl.bind(self);
 
     // Prevent accidental use
-    datalib.load.file = alwaysFail;
-    if (useXhr) {
-        datalib.load.http = alwaysFail;
+    self.datalib.load.file = alwaysFail;
+    if (self.useXhr) {
+        self.datalib.load.http = alwaysFail;
     } else {
-        datalib.load.xhr = alwaysFail;
+        self.datalib.load.xhr = alwaysFail;
     }
 }
 
@@ -306,15 +251,10 @@ VegaWrapper.prototype.testHost = function testHost(protocol, host) {
  * @private
  */
 VegaWrapper.prototype._getProtocolDomains = function _getProtocolDomains(protocol) {
-    return this.domains[protocol] || this.domains[this.removeColon(protocol)];
+    return this.domains[protocol] || this.domains[removeColon(protocol)];
 };
 
-VegaWrapper.prototype.removeColon = function removeColon(protocol) {
-    return protocol && protocol.length && protocol[protocol.length - 1] === ':'
-    ? protocol.substring(0, protocol.length - 1) : protocol;
-}
-
-/**this
+/**
  * Validate and update urlObj to be safe for client-side and server-side usage
  * @param {Object} opt passed by the vega loader, and will add 'graphProtocol' param
  * @returns {boolean} true on success
@@ -414,24 +354,39 @@ VegaWrapper.prototype.sanitizeUrl = function sanitizeUrl(opt) {
                 break;
 
             case 'wikiraw:':
+            case 'tabular:':
+            case 'map:':
                 // wikiraw:///MyPage/data
-                // Get raw content of a wiki page, where the path is the title
+                // Get content of a wiki page, where the path is the title
                 // of the page with an additional leading '/' which gets removed.
                 // Uses mediawiki api, and extract the content after the request
                 // Query value must be a valid MediaWiki title string, but we only ensure
-                // there is no pipe symbol, the rest is handlered by the api.
+                // there is no pipe symbol, the rest is handled by the api.
                 decodedPathname = decodeURIComponent(urlParts.pathname);
                 if (!/^\/[^|]+$/.test(decodedPathname)) {
-                    throw new Error('wikiraw: invalid title');
+                    throw new Error(urlParts.protocol + ' invalid title');
                 }
-                urlParts.query = {
-                    format: 'json',
-                    formatversion: '2',
-                    action: 'query',
-                    prop: 'revisions',
-                    rvprop: 'content',
-                    titles: decodedPathname.substring(1)
-                };
+                if (urlParts.protocol === 'wikiraw:') {
+                    urlParts.query = {
+                        format: 'json',
+                        formatversion: '2',
+                        action: 'query',
+                        prop: 'revisions',
+                        rvprop: 'content',
+                        titles: decodedPathname.substring(1)
+                    };
+                } else {
+                    urlParts.query = {
+                        format: 'json',
+                        formatversion: '2',
+                        action: 'jsondata',
+                        title: decodedPathname.substring(1)
+                    };
+                    if (urlParts.siteLanguage || this.languageCode) {
+                        urlParts.query.uselang = urlParts.siteLanguage || this.languageCode;
+                    }
+                }
+
                 urlParts.pathname = '/w/api.php';
                 urlParts.protocol = sanitizedHost.protocol;
                 opt.addCorsOrigin = true;
@@ -479,7 +434,7 @@ VegaWrapper.prototype.sanitizeUrl = function sanitizeUrl(opt) {
                     throw new Error(opt.graphProtocol + ' missing ids or query parameter in: ' + opt.url);
                 }
                 // the query object is not modified
-                urlParts.pathname = '/' + this.removeColon(opt.graphProtocol);
+                urlParts.pathname = '/' + removeColon(opt.graphProtocol);
                 break;
 
             case 'mapsnapshot:':
@@ -487,20 +442,23 @@ VegaWrapper.prototype.sanitizeUrl = function sanitizeUrl(opt) {
                 // Converts it into a snapshot image request for Kartotherian:
                 // https://maps.wikimedia.org/img/{style},{zoom},{lat},{lon},{width}x{height}[@{scale}x].{format}
                 // (scale will be set to 2, and format to png)
-                // Uses the same configuration as geoshape service, so reuse settings
-                this._validateExternalService(urlParts, sanitizedHost, opt.url, 'geoshape:');
                 if (!urlParts.query) {
                     throw new Error('mapsnapshot: missing required parameters');
                 }
+                validate(urlParts, 'width', 1, 4096);
+                validate(urlParts, 'height', 1, 4096);
+                validate(urlParts, 'zoom', 0, 22);
+                validate(urlParts, 'lat', -90, 90, true);
+                validate(urlParts, 'lon', -180, 180, true);
+
                 var query = urlParts.query;
-                validate(query, 'width', 1, 4096);
-                validate(query, 'height', 1, 4096);
-                validate(query, 'zoom', 0, 22);
-                validate(query, 'lat', -90, 90, true);
-                validate(query, 'lon', -180, 180, true);
                 if (query.style && !/^[-_0-9a-z]$/.test(query.style)) {
                     throw new Error('mapsnapshot: if style is given, it must be letters/numbers/dash/underscores only');
                 }
+
+                // Uses the same configuration as geoshape service, so reuse settings
+                this._validateExternalService(urlParts, sanitizedHost, opt.url, 'geoshape:');
+
                 urlParts.pathname = '/img/' + (query.style || 'osm-intl') + ',' + query.zoom + ',' +
                     query.lat + ',' + query.lon + ',' + query.width + 'x' + query.height + '@2x.png';
                 urlParts.query = {}; // deleting it would cause errors in mw.Uri()
@@ -514,19 +472,18 @@ VegaWrapper.prototype.sanitizeUrl = function sanitizeUrl(opt) {
     return this.formatUrl(urlParts, opt);
 };
 
-function validate(obj, name, min, max, isFloat) {
-    if (!obj.hasOwnProperty(name)) {
-        throw new Error('mapsnapshot: parameter ' + name + ' is not set');
+function validate(urlParts, name, min, max, isFloat) {
+    var value = urlParts.query[name];
+    if (value === undefined) {
+        throw new Error(urlParts.protocol + ' parameter ' + name + ' is not set');
     }
-    var value = obj[name];
     if (!(isFloat ? /^-?[0-9]+\.?[0-9]*$/ : /^-?[0-9]+$/).test(value)) {
-        throw new Error('mapsnapshot: parameter ' + name + ' is not a number');
+        throw new Error(urlParts.protocol + ' parameter ' + name + ' is not a number');
     }
     value = isFloat ? parseFloat(value) : parseInt(value);
     if (value < min || value > max) {
-        throw new Error('mapsnapshot: parameter ' + name + ' is not valid');
+        throw new Error(urlParts.protocol + ' parameter ' + name + ' is not valid');
     }
-    return value;
 }
 
 VegaWrapper.prototype._validateExternalService = function _validateExternalService(urlParts, sanitizedHost, url, protocolOverride) {
@@ -562,29 +519,71 @@ VegaWrapper.prototype.dataParser = function dataParser(error, data, opt, callbac
 };
 
 /**
+ * Parses the response from MW Api, throwing an error or logging warnings
+ */
+VegaWrapper.prototype.parseMWApiResponse = function parseMWApiResponse(data) {
+    data = JSON.parse(data);
+    if (data.error) {
+        throw new Error('API error: ' + JSON.stringify(data.error));
+    }
+    if (data.warnings) {
+        this.logger('API warnings: ' + JSON.stringify(data.warnings));
+    }
+    return data;
+};
+
+/**
  * Performs post-processing of the data requested by the graph's spec, and throw on error
  */
 VegaWrapper.prototype.parseDataOrThrow = function parseDataOrThrow(data, opt) {
     switch (opt.graphProtocol) {
         case 'wikiapi:':
+            data = this.parseMWApiResponse(data);
+            break;
         case 'wikiraw:':
-            // This was an API call - check for errors
-            data = JSON.parse(data);
-            if (data.error) {
-                throw new Error('API error: ' + JSON.stringify(data.error));
-            }
-            if (data.warnings) {
-                this.logger('API warnings: ' + JSON.stringify(data.warnings));
-            }
-            if (opt.graphProtocol === 'wikiraw:') {
-                try {
-                    data = data.query.pages[0].revisions[0].content;
-                } catch (e) {
-                    throw new Error('Page content not available ' + opt.url);
-                }
+            data = this.parseMWApiResponse(data);
+            try {
+                data = data.query.pages[0].revisions[0].content;
+            } catch (e) {
+                throw new Error('Page content not available ' + opt.url);
             }
             break;
-
+        case 'tabular:':
+        case 'map:':
+            data = this.parseMWApiResponse(data).jsondata;
+            var metadata = [{
+                description: data.description,
+                license_code: data.license.code,
+                license_text: data.license.text,
+                license_url: data.license.url,
+                sources: data.sources
+            }];
+            if (opt.graphProtocol === 'tabular:') {
+                var fields = data.schema.fields.map(function (v) {
+                    return v.name;
+                });
+                data = {
+                    meta: metadata,
+                    fields: data.schema.fields,
+                    data: data.data.map(function (v) {
+                        var row = {}, i;
+                        for (i = 0; i < fields.length; i++) {
+                            // Need to copy nulls too -- Vega has no easy way to test for undefined
+                            row[fields[i]] = v[i];
+                        }
+                        return row;
+                    })
+                }
+            } else {
+                metadata[0].zoom = data.zoom;
+                metadata[0].latitude = data.latitude;
+                metadata[0].longitude = data.longitude;
+                data = {
+                    meta: metadata,
+                    data: data.data
+                };
+            }
+            break;
         case 'wikidatasparql:':
             data = JSON.parse(data);
             if (!data.results || !Array.isArray(data.results.bindings)) {
@@ -612,4 +611,71 @@ function alwaysFail() {
     throw new Error('Disabled');
 }
 
-},{"domain-validator":2,"wd-type-parser":3}]},{},[1]);
+},{"domain-validator":2,"wd-type-parser":4}],4:[function(require,module,exports){
+'use strict';
+/* global module */
+
+module.exports = parseWikidataValue;
+
+/**
+ * Given a value object as returned from Wikidata Query Service, returns a simplified value
+ * @param {object} value Original object as sent by the Wikidata query service
+ * @param {string} value.type SPARQL data type (literal, uri)
+ * @param {string} value.datatype XMLSchema data type
+ * @param {*} value.value The actual value sent by the Wikidata query service
+ * @param {boolean=} ignoreUnknown if false, will return value.value even if it cannot be recognized
+ * @return {*}
+ */
+function parseWikidataValue(value, ignoreUnknown) {
+    var temp;
+
+    if (!value || !value.type || value.value === undefined) {
+        return undefined;
+    }
+
+    switch (value.type) {
+        case 'literal':
+            switch (value.datatype) {
+                case 'http://www.w3.org/2001/XMLSchema#double':
+                case 'http://www.w3.org/2001/XMLSchema#float':
+                case 'http://www.w3.org/2001/XMLSchema#decimal':
+                case 'http://www.w3.org/2001/XMLSchema#integer':
+                case 'http://www.w3.org/2001/XMLSchema#long':
+                case 'http://www.w3.org/2001/XMLSchema#int':
+                case 'http://www.w3.org/2001/XMLSchema#short':
+                case 'http://www.w3.org/2001/XMLSchema#nonNegativeInteger':
+                case 'http://www.w3.org/2001/XMLSchema#positiveInteger':
+                case 'http://www.w3.org/2001/XMLSchema#unsignedLong':
+                case 'http://www.w3.org/2001/XMLSchema#unsignedInt':
+                case 'http://www.w3.org/2001/XMLSchema#unsignedShort':
+                case 'http://www.w3.org/2001/XMLSchema#nonPositiveInteger':
+                case 'http://www.w3.org/2001/XMLSchema#negativeInteger':
+                    temp = parseFloat(value.value);
+                    if (temp.toString() === value.value) {
+                        // use number only if it is fully round-tripable back to string
+                        // TBD: this might be overcautios, and would cause more problems than solve
+                        return temp;
+                    }
+                    break;
+                case 'http://www.opengis.net/ont/geosparql#wktLiteral':
+                    // Point(-64.2 -36.62)  -- (longitude latitude)
+                    temp = /^Point\(([-0-9.]+) ([-0-9.]+)\)$/.exec(value.value);
+                    if (temp) {
+                        return [parseFloat(temp[1]), parseFloat(temp[2])];
+                    }
+                    break;
+            }
+            break;
+        case 'uri':
+            // "http://www.wikidata.org/entity/Q12345"  ->  "Q12345"
+            temp = /^http:\/\/www\.wikidata\.org\/entity\/(Q[1-9][0-9]*)$/.exec(value.value);
+            if (temp) {
+                return temp[1];
+            }
+            break;
+    }
+    return ignoreUnknown ? undefined : value.value;
+}
+
+
+},{}]},{},[1]);

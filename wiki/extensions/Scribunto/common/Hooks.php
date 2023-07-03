@@ -218,7 +218,16 @@ class ScribuntoHooks {
 		static $stats;
 
 		if ( !$stats ) {
-			$stats = RequestContext::getMain()->getStats();
+			// check, if MediaWikiServices exists and has a StatsdDataFactory service for
+			// backward-compatibility with MediaWiki 1.25+
+			if (
+				class_exists( 'MediaWiki\\MediaWikiServices' ) &&
+				\MediaWiki\MediaWikiServices::getInstance()->hasService( 'StatsdDataFactory' )
+			) {
+				$stats = \MediaWiki\MediaWikiServices::getInstance()->getStatsdDataFactory();
+			} else {
+				$stats = RequestContext::getMain()->getStats();
+			}
 		}
 
 		$metricKey = sprintf( 'scribunto.traces.%s__%s__%s', wfWikiId(), $moduleName, $functionName );
@@ -322,16 +331,16 @@ class ScribuntoHooks {
 	}
 
 	/**
-	 * EditPageBeforeEditChecks hook
+	 * EditPage::showStandardInputs:options hook
 	 *
 	 * @param EditPage $editor
-	 * @param array $checkboxes Checkbox array
-	 * @param int $tabindex Current tabindex
+	 * @param OutputPage $output
+	 * @param int $tab Current tabindex
 	 * @return bool
 	 */
-	public static function beforeEditChecks( EditPage &$editor, &$checkboxes, &$tabindex ) {
+	public static function showStandardInputsOptions( EditPage $editor, OutputPage $output, &$tab ) {
 		if ( $editor->getTitle()->hasContentModel( CONTENT_MODEL_SCRIBUNTO ) ) {
-			$editor->getArticle()->getContext()->getOutput()->addModules( 'ext.scribunto.edit' );
+			$output->addModules( 'ext.scribunto.edit' );
 			$editor->editFormTextAfterTools .= '<div id="mw-scribunto-console"></div>';
 		}
 		return true;

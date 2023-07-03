@@ -3,9 +3,7 @@
 namespace CirrusSearch\Maintenance;
 
 use CirrusSearch\SearchConfig;
-use CirrusSearch\Util;
 use Elastica;
-use Elastica\Filter;
 use Elastica\Index;
 use Elastica\JSON;
 use Elastica\Query;
@@ -124,7 +122,9 @@ class DumpIndex extends Maintenance {
 		$limit = (int) $this->getOption( 'limit', 0 );
 
 		$query = new Query();
-		$query->setFields( [ '_id', '_type', '_source' ] );
+		$query->setStoredFields( [ '_id', '_type', '_source' ] );
+		$query->setSize( $this->inputChunkSize );
+		$query->setSort( [ '_doc' ] );
 		if ( $this->hasOption( 'sourceFields' ) ) {
 			$sourceFields = explode( ',', $this->getOption( 'sourceFields' ) );
 			$query->setSource( [ 'include' => $sourceFields ] );
@@ -135,37 +135,39 @@ class DumpIndex extends Maintenance {
 			$query->setQuery( $bool );
 		}
 
-		$scrollOptions = [
-			'search_type' => 'scan',
-			'scroll' => "15m",
-			'size' => $this->inputChunkSize
-		];
-		$index = $this->getIndex();
+		$search = new \Elastica\Search( $this->getClient() );
+		$search->setQuery( $query );
+		$search->addIndex( $this->getIndex() );
+		$scroll = new \Elastica\Scroll( $search, '15m' );
 
-		$result = $index->search( $query, $scrollOptions );
-
-		$totalDocsInIndex = $result->getResponse()->getData();
-		$totalDocsInIndex = $totalDocsInIndex['hits']['total'];
-		$totalDocsToDump = $limit > 0 ? $limit : $totalDocsInIndex;
+		$totalDocsInIndex = -1;
+		$totalDocsToDump = -1;
 		$docsDumped = 0;
 
 		$this->logToStderr = true;
-		$this->output( "Dumping $totalDocsToDump documents ($totalDocsInIndex in the index)\n" );
 
-		MWElasticUtils::iterateOverScroll( $index, $result->getResponse()->getScrollId(), '15m',
-			function( $results ) use ( &$docsDumped, $totalDocsToDump ) {
-				foreach ( $results as $result ) {
-					$document = [
-						'_id' => $result->getId(),
-						'_type' => $result->getType(),
-						'_source' => $result->getSource()
-					];
-					$this->write( $document );
-					$docsDumped++;
-					$this->outputProgress( $docsDumped, $totalDocsToDump );
+		foreach( $scroll as $results ) {
+			if ( $totalDocsInIndex === -1 ) {
+				$totalDocsInIndex = $results->getTotalHits();
+				$totalDocsToDump = $limit > 0 ? $limit : $totalDocsInIndex;
+				$this->output( "Dumping $totalDocsToDump documents ($totalDocsInIndex in the index)\n" );
+			}
+
+			foreach ( $results as $result ) {
+				$document = [
+					'_id' => $result->getId(),
+					'_type' => $result->getType(),
+					'_source' => $result->getSource()
+				];
+				$this->write( $document );
+				$docsDumped++;
+				if ( $docsDumped >= $totalDocsToDump ) {
+					break;
 				}
-			}, $limit, 5 );
-		$this->output( "Dump done.\n" );
+			}
+			$this->outputProgress( $docsDumped, $totalDocsToDump );
+		}
+		$this->output( "Dump done ($docsDumped docs).\n" );
 	}
 
 	/**
@@ -246,6 +248,14 @@ class DumpIndex extends Maintenance {
 			$this->outputIndented( "$pctDone% done...\n" );
 		}
 	}
+
+	/**
+	 * @return Elastica\Client
+	 */
+	protected function getClient() {
+		return $this->getConnection()->getClient();
+	}
+
 }
 
 /**

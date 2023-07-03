@@ -113,6 +113,24 @@ class MetaStoreIndex {
 		$this->masterTimeout = $masterTimeout;
 	}
 
+	/**
+	 * Compare the current metastore version to an expected minimum
+	 * acceptable version.
+	 *
+	 * @param int[] $expected The metastore version to expected, as a
+	 *  two element array of major then minor version.
+	 * @return bool True when the metastore index in elasticsearch matches
+	 *  requirements
+	 */
+	public function versionIsAtLeast( array $expected ) {
+		// $expected >= $version
+		return (bool)version_compare(
+			implode( '.', $expected ),
+			implode( '.', $this->metastoreVersion() ),
+			'>='
+		);
+	}
+
 	public function createOrUpgradeIfNecessary() {
 		$this->fixOldName();
 		// If the mw_cirrus_metastore alias still not exists it
@@ -190,7 +208,7 @@ class MetaStoreIndex {
 			],
 			self::SANITIZE_TYPE => [
 				'properties' => [
-					'sanitize_job_wiki' => [ 'type' => 'string' ],
+					'sanitize_job_wiki' => [ 'type' => 'keyword' ],
 					'sanitize_job_created' => [
 						'type' => 'date',
 						'format' => 'epoch_second',
@@ -203,7 +221,7 @@ class MetaStoreIndex {
 						'type' => 'date',
 						'format' => 'epoch_second',
 					],
-					'sanitize_job_cluster' => [ 'type' => 'string' ],
+					'sanitize_job_cluster' => [ 'type' => 'keyword' ],
 					'sanitize_job_id_offset' => [ 'type' => 'long' ],
 					'sanitize_job_ids_sent' => [ 'type' => 'long' ],
 					'sanitize_job_jobs_sent' => [ 'type' => 'long' ],
@@ -285,7 +303,14 @@ class MetaStoreIndex {
 	 * alias or null if the alias does not exist
 	 */
 	private function getAliasedIndexName() {
-		$resp = $this->client->request( '_aliases/' . self::INDEX_NAME, \Elastica\Request::GET, [] );
+		// FIXME: Elastica seems to have trouble parsing the error reason
+		// for this endpoint. Running a simple HEAD first to check if it
+		// exists
+		$resp = $this->client->request( '_alias/' . self::INDEX_NAME, \Elastica\Request::HEAD, [] );
+		if ( $resp->getStatus() === 404 ) {
+			return null;
+		}
+		$resp = $this->client->request( '_alias/' . self::INDEX_NAME, \Elastica\Request::GET, [] );
 		$indexName = null;
 		foreach( $resp->getData() as $index => $aliases ) {
 			if ( isset( $aliases['aliases'][self::INDEX_NAME] ) ) {

@@ -36,7 +36,6 @@ $wgExtensionCredits['parserhook']['Scribunto'] = array(
 define( 'CONTENT_MODEL_SCRIBUNTO', 'Scribunto' );
 
 $wgMessagesDirs['Scribunto'] = __DIR__ . '/i18n';
-$wgExtensionMessagesFiles['Scribunto'] = __DIR__ . '/Scribunto.i18n.php';
 $wgExtensionMessagesFiles['ScribuntoMagic'] = __DIR__ . '/Scribunto.magic.php';
 $wgExtensionMessagesFiles['ScribuntoNamespaces'] = __DIR__ . '/Scribunto.namespaces.php';
 
@@ -71,7 +70,7 @@ $wgHooks['ParserCloned'][] = 'ScribuntoHooks::parserCloned';
 
 $wgHooks['CanonicalNamespaces'][] = 'ScribuntoHooks::addCanonicalNamespaces';
 $wgHooks['CodeEditorGetPageLanguage'][] = 'ScribuntoHooks::getCodeLanguage';
-$wgHooks['EditPageBeforeEditChecks'][] = 'ScribuntoHooks::beforeEditChecks';
+$wgHooks['EditPage::showStandardInputs:options'][] = 'ScribuntoHooks::showStandardInputsOptions';
 $wgHooks['EditPage::showReadOnlyForm:initial'][] = 'ScribuntoHooks::showReadOnlyFormInitial';
 $wgHooks['EditPageBeforeEditButtons'][] = 'ScribuntoHooks::beforeEditButtons';
 $wgHooks['EditFilterMergedContent'][] = 'ScribuntoHooks::validateScript';
@@ -169,6 +168,13 @@ $wgScribuntoEngineConf = array(
 		// implemented in the future, and there is no guarantee that a
 		// simulation of setfenv() and getfenv() will be provided.
 		'allowEnvFuncs' => false,
+
+		// The maximum number of languages about which data can be requested.
+		// The cost is about 1.5MB of memory usage per language on default
+		// installations (during recache), but if recaching is disabled with
+		//     $wgLocalisationCacheConf['manualRecache'] = false
+		// then memory usage is perhaps 10x smaller.
+		'maxLangCacheSize' => 30,
 	),
 	'luastandalone' => array(
 		'class' => 'Scribunto_LuaStandaloneEngine',
@@ -183,6 +189,7 @@ $wgScribuntoEngineConf = array(
 		'memoryLimit' => 50 * 1024 * 1024,
 		'cpuLimit' => 7,
 		'allowEnvFuncs' => false,
+		'maxLangCacheSize' => 30,
 	),
 );
 

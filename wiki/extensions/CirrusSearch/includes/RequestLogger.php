@@ -3,11 +3,9 @@
 namespace CirrusSearch;
 
 use DeferredUpdates;
-use Elastica\Client;
 use MediaWiki\Logger\LoggerFactory;
 use RequestContext;
 use SearchResultSet;
-use Title;
 use User;
 
 /**
@@ -198,6 +196,9 @@ class RequestLogger {
 					'payload' => isset( $context['payload'] ) ? array_map( 'strval', $context['payload'] ) : [],
 					'hits' => isset( $context['hits'] ) ? $this->encodeHits( $context['hits'] ) : [],
 				];
+				if ( !empty( $context['syntax'] ) ) {
+					$request['payload']['syntax'] = join( ',', $context['syntax'] );
+				}
 				$allHits = array_merge( $allHits, $request['hits'] );
 				if ( $log->isCachedResponse() ) {
 					$request['payload']['cached'] = 'true';

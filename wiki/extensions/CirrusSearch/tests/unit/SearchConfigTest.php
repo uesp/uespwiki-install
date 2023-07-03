@@ -2,7 +2,10 @@
 
 namespace CirrusSearch;
 
-class SearchConfigTest extends \MediaWikiTestCase {
+/**
+ * @group CirrusSearch
+ */
+class SearchConfigTest extends CirrusTestCase {
 	public function testInterWikiConfig() {
 		$config = new SearchConfig();
 		$config = new \HashConfig( $config->getConfigVars(wfWikiID(), SearchConfig::CIRRUS_VAR_PREFIX) );

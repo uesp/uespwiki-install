@@ -8,6 +8,7 @@
 }
 
 .user-links {
+	margin: 15px 0 0 0;
 	li {
 		display: inline-block;
 		& + li {
@@ -21,8 +22,8 @@
 	}
 	.mw-ui-icon-talk {
 		&:before {
+			// FIXME: this shouldn't be necessary
 			margin-right: 0.5em;
-			.background-image-svg-quick( 'talk' );
 		}
 	}
 }
@@ -36,9 +37,9 @@
 
 	.icon {
 		.background-image-svg-quick( 'userpage' );
-		background-repeat: no-repeat;
-		background-size: 50px 60px;
 		background-position: center top;
+		background-repeat: no-repeat;
+		.background-size( 50px, 60px );
 		height: 60px;
 		margin-bottom: 20px;
 		opacity: 0.2;

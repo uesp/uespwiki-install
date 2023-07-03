@@ -2,7 +2,6 @@
 
 namespace CirrusSearch\Query;
 
-use CirrusSearch\Search\Escaper;
 use CirrusSearch\Search\SearchContext;
 use CirrusSearch\SearchConfig;
 
@@ -50,9 +49,20 @@ class FullTextSimpleMatchQueryBuilder extends FullTextQueryStringQueryBuilder {
 	 */
 	private $dismaxSettings;
 
-	public function __construct( SearchConfig $config, Escaper $escaper, array $feature, array $settings ) {
-		parent::__construct( $config, $escaper, $feature );
+	/**
+	 * @var array[] filter settings
+	 */
+	private $filter;
+
+	public function __construct( SearchConfig $config, array $feature, array $settings ) {
+		parent::__construct( $config, $feature );
 		$this->fields = $settings['fields'];
+		if ( isset( $settings['filter'] ) ) {
+			$this->filter = $settings['filter'];
+		} else {
+			$this->filter = [ 'type' => 'default' ];
+		}
+
 		$this->phraseFields = $settings['phrase_rescore_fields'];
 		$this->defaultStemWeight = $settings['default_stem_weight'];
 		$this->defaultQueryType = $settings['default_query_type'];
@@ -63,7 +73,7 @@ class FullTextSimpleMatchQueryBuilder extends FullTextQueryStringQueryBuilder {
 	/**
 	 * Build the primary query used for full text search.
 	 * If query_string syntax is not used the experimental query is built.
-	 * We fallback to parent implementation otherwize.
+	 * We fallback to parent implementation otherwise.
 	 *
 	 * @param SearchContext $context
 	 * @param string[] $fields
@@ -77,6 +87,7 @@ class FullTextSimpleMatchQueryBuilder extends FullTextQueryStringQueryBuilder {
 			return parent::buildSearchTextQuery( $context, $fields,
 				$nearMatchFields, $queryString, $nearMatchQuery );
 		}
+		$context->addSyntaxUsed( 'full_text_simple_match', 5 );
 		$this->usedExpQuery = true;
 		$queryForMostFields = $this->buildExpQuery( $queryString );
 		if ( !$nearMatchQuery ) {
@@ -86,7 +97,7 @@ class FullTextSimpleMatchQueryBuilder extends FullTextQueryStringQueryBuilder {
 		// Build one query for the full text fields and one for the near match fields so that
 		// the near match can run unescaped.
 		$bool = new \Elastica\Query\BoolQuery();
-		$bool->setMinimumNumberShouldMatch( 1 );
+		$bool->setMinimumShouldMatch( 1 );
 		$bool->addShould( $queryForMostFields );
 		$nearMatch = new \Elastica\Query\MultiMatch();
 		$nearMatch->setFields( $nearMatchFields );
@@ -100,7 +111,7 @@ class FullTextSimpleMatchQueryBuilder extends FullTextQueryStringQueryBuilder {
 	 * Tries to track queries that would need the auto_generate_phrase
 	 * from query string.
 	 * We don't try to mimic all the behaviors of the lucene tokenizers
-	 * but to detect the words we break explicitely with the wordbreaker.
+	 * but to detect the words we break explicitly with the wordbreaker.
 	 * This includes mainly search for acronyms.
 	 * Other chars may require a phrase query like hyphens...
 	 *
@@ -181,21 +192,7 @@ class FullTextSimpleMatchQueryBuilder extends FullTextQueryStringQueryBuilder {
 	 */
 	private function buildExpQuery( $queryString ) {
 		$query = new \Elastica\Query\BoolQuery();
-
-		$all_filter = new \Elastica\Query\BoolQuery();
-		// FIXME: We can't use solely the stem field here
-		// - Depending on langauges it may lack stopwords,
-		// - Diacritics are sometimes (english) strangely (T141216)
-		// A dedicated field used for filtering would be nice
-		$match = new \Elastica\Query\Match();
-		$match->setField( 'all', [ "query" => $queryString ] );
-		$match->setFieldOperator( 'all', 'AND' );
-		$all_filter->addShould( $match );
-		$match = new \Elastica\Query\Match();
-		$match->setField( 'all.plain', [ "query" => $queryString ] );
-		$match->setFieldOperator( 'all.plain', 'AND' );
-		$all_filter->addShould( $match );
-		$query->addFilter( $all_filter );
+		$this->attachFilter( $this->filter, $queryString, $query );
 		$dismaxQueries = [];
 
 		foreach( $this->fields as $f => $settings ) {
@@ -257,5 +254,85 @@ class FullTextSimpleMatchQueryBuilder extends FullTextQueryStringQueryBuilder {
 		// Removed in future lucene version https://issues.apache.org/jira/browse/LUCENE-7347
 		$query->setParam( 'disable_coord', true );
 		return $query;
+	}
+
+	/**
+	 * Attach the query filter to $boolQuery
+	 *
+	 * @param array[] filter definition
+	 * @param string $query query text
+	 * @param \Elastica\Query\BoolQuery the query to attach the filter to
+	 */
+	private function attachFilter( array $filterDef, $query, \Elastica\Query\BoolQuery $boolQuery ) {
+		if ( !isset( $filterDef['type'] ) ) {
+			throw new \RuntimeException( "Cannot configure the filter clause, 'type' must be defined." );
+		}
+		$type = $filterDef['type'];
+		$filter = null;
+
+		switch( $type ) {
+		case 'default':
+			$filter = $this->buildSimpleAllFilter( $query );
+			break;
+		case 'constrain_title':
+			$filter = $this->buildTitleFilter( $filterDef, $query );
+			break;
+		default:
+			throw new \RuntimeException( "Cannot build the filter clause: unknown filter type $type" );
+		}
+
+		$boolQuery->addFilter( $filter );
+	}
+
+
+	/**
+	 * Builds a simple filter on all and all.plain when all terms must match
+	 *
+	 * @param string $query
+	 * @return \Elastica\Query\AbstractQuery
+	 */
+	private function buildSimpleAllFilter( $query ) {
+		$filter = new \Elastica\Query\BoolQuery();
+		// FIXME: We can't use solely the stem field here
+		// - Depending on languages it may lack stopwords,
+		// A dedicated field used for filtering would be nice
+		foreach( [ 'all', 'all.plain' ] as $field ) {
+			$m = new \Elastica\Query\Match();
+			$m->setFieldQuery( $field, $query );
+			$m->setFieldOperator( $field, 'AND' );
+			$filter->addShould( $m );
+		}
+		return $filter;
+	}
+
+	/**
+	 * Builds a simple filter based on buildSimpleAllFilter + a constraint
+	 * on title/redirect :
+	 * (all:query OR all.plain:query) AND (title:query OR redirect:query)
+	 * where the filter on title/redirect can be controlled by setting
+	 * minimum_should_match to relax the constraint on title.
+	 * (defaults to '3<80%')
+	 *
+	 * @param array[] $options array containing filter options
+	 * @param string $query the user query
+	 * @return \Elastica\Query\AbstractQuery
+	 */
+	private function buildTitleFilter( $options, $query ) {
+		$filter = new \Elastica\Query\BoolQuery();
+		$filter->addMust( $this->buildSimpleAllFilter( $query ) );
+		$minShouldMatch = '3<80%';
+		if ( isset( $options['settings']['minimum_should_match'] ) ) {
+			$minShouldMatch = $options['settings']['minimum_should_match'];
+		}
+		$titleFilter = new \Elastica\Query\BoolQuery();
+
+		foreach( [ 'title', 'redirect.title' ] as $field ) {
+			$m = new \Elastica\Query\Match();
+			$m->setFieldQuery( $field, $query );
+			$m->setFieldMinimumShouldMatch( $field, $minShouldMatch );
+			$titleFilter->addShould( $m );
+		}
+		$filter->addMust( $titleFilter );
+		return $filter;
 	}
 }

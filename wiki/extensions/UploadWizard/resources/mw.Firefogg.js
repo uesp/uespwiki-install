@@ -3,20 +3,19 @@
 	mw.Firefogg = {
 
 		firefoggInstallLinks: {
-			macosx: 'http://firefogg.org/macosx/Firefogg.xpi',
-			win32: 'http://firefogg.org/win32/Firefogg.xpi',
-			linux: 'http://firefogg.org/linux/Firefogg.xpi'
+			macosx: 'https://firefogg.org/macosx/Firefogg.xpi',
+			win32: 'https://firefogg.org/win32/Firefogg.xpi',
+			linux: 'https://firefogg.org/linux/Firefogg.xpi'
 		},
 
 		/**
 		 * Get the URL for installing firefogg on the client OS
+		 *
+		 * @return {string}
 		 */
 		getFirefoggInstallUrl: function () {
-			var osLink = false;
-			if ( $.client.profile().name !== 'firefox' ) {
-				return 'http://firefogg.org/';
-			}
-			if ( navigator.oscpu ) {
+			var osLink = 'https://firefogg.org/';
+			if ( navigator.oscpu && $.client.profile().name === 'firefox' ) {
 				if ( navigator.oscpu.search( 'Linux' ) >= 0 ) {
 					osLink = this.firefoggInstallLinks.linux;
 				} else if ( navigator.oscpu.search( 'Mac' ) >= 0 ) {

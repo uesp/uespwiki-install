@@ -1,0 +1,34 @@
+{
+	"@metadata": {
+		"authors": [
+			"Liuxinyu970226",
+			"Liangent",
+			"Cwlin0416",
+			"LNDDYL",
+			"Citizen01",
+			"Wctaiwan",
+			"Zhxy 519",
+			"Alexsh",
+			"烈羽"
+		]
+	},
+	"popups-message": "頁面預覽",
+	"popups-desc": "在游標停駐於頁面連結上方時，顯示頁面預覽。",
+	"popups-redirects": "重新導向至 <h3>$1</h3>",
+	"popups-settings-title": "頁面預覽",
+	"popups-settings-description": "此工具讓您可以預覽內部連結和參考資料。",
+	"popups-settings-option-simple": "啟用",
+	"popups-settings-option-simple-description": "取得文章的的快速預覽",
+	"popups-settings-option-advanced": "進階",
+	"popups-settings-option-advanced-description": "預覽連結並存取編輯功能選單（許多編輯者使用）。",
+	"popups-settings-option-off": "關閉",
+	"popups-settings-save": "儲存",
+	"popups-settings-help-ok": "完成",
+	"popups-settings-cancel": "取消",
+	"popups-settings-help": "您可以用頁尾的連結重新開啟預覽功能。",
+	"popups-settings-enable": "開啟預覽",
+	"popups-send-feedback": "送出回饋意見 (外部連結)",
+	"popups-preview-no-preview": "該頁面無法預覽",
+	"popups-prefs-optin-enabled-label": "啟用",
+	"popups-prefs-optin-disabled-label": "關閉"
+}

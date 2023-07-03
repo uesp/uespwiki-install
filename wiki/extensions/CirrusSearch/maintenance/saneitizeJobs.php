@@ -5,11 +5,6 @@ namespace CirrusSearch\Maintenance;
 use CirrusSearch\Connection;
 use CirrusSearch\SearchConfig;
 use CirrusSearch\Job\CheckerJob;
-use CirrusSearch\Maintenance\Maintenance;
-use CirrusSearch\Sanity\NoopRemediator;
-use CirrusSearch\Sanity\PrintingRemediator;
-use CirrusSearch\Sanity\QueueingRemediator;
-use MediaWiki\MediaWikiServices;
 
 use JobQueueGroup;
 
@@ -54,11 +49,6 @@ class SaneitizeJobs extends Maintenance {
 	 * @var int max page id (from db)
 	 */
 	private $maxId;
-
-	/**
-	 * @var SearchConfig
-	 */
-	private $config;
 
 	/**
 	 * @var string profile name
@@ -156,9 +146,6 @@ class SaneitizeJobs extends Maintenance {
 	}
 
 	private function showJobDetail() {
-		if ( !MetaStoreIndex::cirrusReady( $this->getConnection() ) ) {
-			$this->error( "Metastore unavailable, please index some data first.\n", 1 );
-		}
 		$profile = $this->getSearchConfig()->getElement( 'CirrusSearchSanitizationProfiles', $this->profileName );
 		$minLoopDuration = $profile['min_loop_duration'];
 		$maxJobs = $profile['max_checker_jobs'];
@@ -358,8 +345,13 @@ EOD
 
 		$this->metaStores = [];
 		foreach ( $connections as $cluster => $connection ) {
+			if ( !MetaStoreIndex::cirrusReady( $connection ) ) {
+				$this->error( "No metastore found in cluster $cluster", 1 );
+			}
 			$store = new MetaStoreIndex( $connection, $this );
-			$store->createOrUpgradeIfNecessary();
+			if ( !$store->versionIsAtLeast( [0, 2] ) ) {
+				$this->error( 'Metastore version is too old, expected at least 0.2', 1 );
+			}
 			$this->metaStores[$cluster] = $store;
 		}
 	}
@@ -402,7 +394,7 @@ EOD
 	}
 
 	/**
-	 * @param \Elastica\Document
+	 * @param \Elastica\Document $jobInfo
 	 */
 	private function updateJob( \Elastica\Document $jobInfo ) {
 		$version = time();
@@ -417,6 +409,7 @@ EOD
 	}
 
 	/**
+	 * @param string $jobName
 	 * @return \Elastica\Document
 	 */
 	private function createNewJob( $jobName ) {

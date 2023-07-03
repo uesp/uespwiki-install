@@ -41,15 +41,6 @@ class SpecialUploadWizard extends SpecialPage {
 
 		$req = $this->getRequest();
 
-		// if query string includes 'skiptutorial=true' set config variable to true
-		$skipTutorial = $req->getCheck( 'skiptutorial' );
-		if ( $skipTutorial ) {
-			$skip = in_array( $skipTutorial, [ '1', 'true' ] );
-			if ( $skip === true ) {
-				UploadWizardConfig::setUrlSetting( 'tutorial', [] );
-			}
-		}
-
 		$urlArgs = [ 'description', 'lat', 'lon', 'alt' ];
 
 		$urlDefaults = [];
@@ -344,14 +335,9 @@ class SpecialUploadWizard extends SpecialPage {
 				);
 		}
 
-		$tutorialHtml = '';
-		// only load the tutorial HTML if we aren't skipping the first step
-		if ( !$this->getUser()->getBoolOption( 'upwiz_skiptutorial' ) &&
-			$config['tutorial'] !== null && $config['tutorial'] !== [] &&
-			$config['tutorial']['skip'] !== true
-		) {
-			$tutorialHtml = UploadWizardTutorial::getHtml( $this->campaign );
-		}
+		// always load the html: even if the tutorial is skipped, users can
+		// still move back to view it
+		$tutorialHtml = UploadWizardTutorial::getHtml( $this->campaign );
 
 		// TODO move this into UploadWizard.js or some other javascript resource so the upload wizard
 		// can be dynamically included ( for example the add media wizard )

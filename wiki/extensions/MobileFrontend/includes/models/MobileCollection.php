@@ -7,7 +7,7 @@
 /**
  * A collection of pages, which are represented by the MobilePage class.
  */
-class MobileCollection implements IteratorAggregate {
+class MobileCollection implements IteratorAggregate, Countable {
 
 	/**
 	 * The internal collection of pages.
@@ -15,6 +15,13 @@ class MobileCollection implements IteratorAggregate {
 	 * @var MobilePage[]
 	 */
 	protected $pages = [];
+
+	/**
+	 * Return size of the collection
+	 */
+	public function count() {
+		return count( $this->pages );
+	}
 
 	/**
 	 * Adds a page to the collection.
@@ -25,6 +32,11 @@ class MobileCollection implements IteratorAggregate {
 		$this->pages[] = $page;
 	}
 
+	/**
+	 * Get the Iterator object
+	 *
+	 * @return ArrayIterator
+	 */
 	public function getIterator() {
 		return new ArrayIterator( $this->pages );
 	}

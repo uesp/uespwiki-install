@@ -24,16 +24,16 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 		// Add default warning messages
 		$this->exposeWarningMessages();
 
-		if ( $filter == 'new' && !$user->isAllowed( 'abusefilter-modify' ) ) {
+		if ( $filter == 'new' && !$this->canEdit() ) {
 			$out->addWikiMsg( 'abusefilter-edit-notallowed' );
 			return;
 		}
 
 		$editToken = $request->getVal( 'wpEditToken' );
-		$didEdit = $this->canEdit()
-			&& $user->matchEditToken( $editToken, array( 'abusefilter', $filter ) );
+		$tokenMatches = $user->matchEditToken(
+			$editToken, array( 'abusefilter', $filter ), $request );
 
-		if ( $didEdit ) {
+		if ( $tokenMatches && $this->canEdit() ) {
 			// Check syntax
 			$syntaxerr = AbuseFilter::checkSyntax( $request->getVal( 'wpFilterRules' ) );
 			if ( $syntaxerr !== true ) {
@@ -268,6 +268,11 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 				)
 			);
 		} else {
+			if ( $tokenMatches ) {
+				// lost rights meanwhile
+				$out->addWikiMsg( 'abusefilter-edit-notallowed' );
+			}
+
 			if ( $history_id ) {
 				$out->addWikiMsg(
 					'abusefilter-edit-oldwarning', $this->mHistoryID, $this->mFilter );
@@ -307,14 +312,15 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 
 		if ( !$row ) {
 			$out->addWikiMsg( 'abusefilter-edit-badfilter' );
-			$out->addHTML( Linker::link( $this->getTitle(), $this->msg( 'abusefilter-return' )->text() ) );
+			$out->addHTML( $this->linkRenderer->makeLink( $this->getTitle(),
+				$this->msg( 'abusefilter-return' )->text() ) );
 			return false;
 		}
 
 		$out->addSubtitle( $this->msg(
 			$filter === 'new' ? 'abusefilter-edit-subtitle-new' : 'abusefilter-edit-subtitle',
 			$this->getLanguage()->formatNum( $filter ), $history_id
-		)->text() );
+		)->parse() );
 
 		// Hide hidden filters.
 		if ( ( ( isset( $row->af_hidden ) && $row->af_hidden ) ||
@@ -371,10 +377,10 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 		}
 
 		// Hit count display
-		if ( !empty( $row->af_hit_count ) ) {
+		if ( !empty( $row->af_hit_count ) && $user->isAllowed( 'abusefilter-log-detail' ) ) {
 			$count_display = $this->msg( 'abusefilter-hitcount' )
-				->numParams( (int) $row->af_hit_count )->escaped();
-			$hitCount = Linker::linkKnown(
+				->numParams( (int) $row->af_hit_count )->text();
+			$hitCount = $this->linkRenderer->makeKnownLink(
 				SpecialPage::getTitleFor( 'AbuseLog' ),
 				$count_display,
 				array(),
@@ -388,8 +394,8 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 			// Statistics
 			global $wgAbuseFilterProfile;
 			$stash = ObjectCache::getMainStashInstance();
-			$matches_count = $stash->get( AbuseFilter::filterMatchesKey( $filter ) );
-			$total = $stash->get( AbuseFilter::filterUsedKey( $row->af_group ) );
+			$matches_count = (int)$stash->get( AbuseFilter::filterMatchesKey( $filter ) );
+			$total = (int)$stash->get( AbuseFilter::filterUsedKey( $row->af_group ) );
 
 			if ( $total > 0 ) {
 				$matches_percent = sprintf( '%.2f', 100 * $matches_count / $total );
@@ -401,7 +407,7 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 				} else {
 					$fields['abusefilter-edit-status-label'] = $this->msg( 'abusefilter-edit-status' )
 						->numParams( $total, $matches_count, $matches_percent )
-						->escaped();
+						->parse();
 				}
 			}
 		}
@@ -471,25 +477,27 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 		$fields['abusefilter-edit-flags'] = $flags;
 		$tools = '';
 
-		if ( $filter != 'new' && $user->isAllowed( 'abusefilter-revert' ) ) {
-			$tools .= Xml::tags(
-				'p', null,
-				Linker::link(
-					$this->getTitle( 'revert/' . $filter ),
-					$this->msg( 'abusefilter-edit-revert' )->text()
-				)
-			);
-		}
-
 		if ( $filter != 'new' ) {
-			// Test link
-			$tools .= Xml::tags(
-				'p', null,
-				Linker::link(
-					$this->getTitle( "test/$filter" ),
-					$this->msg( 'abusefilter-edit-test-link' )->parse()
-				)
-			);
+			if ( $user->isAllowed( 'abusefilter-revert' ) ) {
+				$tools .= Xml::tags(
+					'p', null,
+					$this->linkRenderer->makeLink(
+						$this->getTitle( "revert/$filter" ),
+						new HtmlArmor( $this->msg( 'abusefilter-edit-revert' )->parse() )
+					)
+				);
+			}
+
+			if ( $this->canEdit() ) {
+				// Test link
+				$tools .= Xml::tags(
+					'p', null,
+					$this->linkRenderer->makeLink(
+						$this->getTitle( "test/$filter" ),
+						new HtmlArmor( $this->msg( 'abusefilter-edit-test-link' )->parse() )
+					)
+				);
+			}
 			// Last modification details
 			$userLink =
 				Linker::userLink( $row->af_user, $row->af_user_text ) .
@@ -504,9 +512,9 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 					$lang->time( $row->af_timestamp, true ),
 					$userName
 				)->parse();
-			$history_display = $this->msg( 'abusefilter-edit-viewhistory' )->parse();
+			$history_display = new HtmlArmor( $this->msg( 'abusefilter-edit-viewhistory' )->parse() );
 			$fields['abusefilter-edit-history'] =
-				Linker::linkKnown( $this->getTitle( 'history/' . $filter ), $history_display );
+				$this->linkRenderer->makeKnownLink( $this->getTitle( 'history/' . $filter ), $history_display );
 		}
 
 		// Add export
@@ -648,14 +656,6 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 						Xml::buildForm( $throttleFields )
 					);
 				return $throttleSettings;
-			case 'flag':
-				$checkbox = Xml::checkLabel(
-					$this->msg( 'abusefilter-edit-action-flag' )->text(),
-					'wpFilterActionFlag',
-					"mw-abusefilter-action-checkbox-$action",
-					true,
-					array( 'disabled' => '1', 'class' => 'mw-abusefilter-action-checkbox' ) );
-				return Xml::tags( 'p', null, $checkbox );
 			case 'warn':
 				global $wgAbuseFilterDefaultWarningMessage;
 				$output = '';
@@ -745,7 +745,7 @@ class AbuseFilterViewEdit extends AbuseFilterView {
 			default:
 				// Give grep a chance to find the usages:
 				// abusefilter-edit-action-warn, abusefilter-edit-action-disallow
-				// abusefilter-edit-action-flag, abusefilter-edit-action-blockautopromote
+				// abusefilter-edit-action-blockautopromote
 				// abusefilter-edit-action-degroup, abusefilter-edit-action-block
 				// abusefilter-edit-action-throttle, abusefilter-edit-action-rangeblock
 				// abusefilter-edit-action-tag

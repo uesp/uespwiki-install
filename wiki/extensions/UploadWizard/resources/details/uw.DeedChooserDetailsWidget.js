@@ -14,19 +14,34 @@
 	OO.inheritClass( uw.DeedChooserDetailsWidget, uw.DetailsWidget );
 
 	/**
-	 * toggles whether we use the 'macro' deed or our own
+	 * Toggles whether we use the 'macro' deed or our own
+	 *
+	 * @param {mw.UploadWizardUpload} upload
 	 */
 	uw.DeedChooserDetailsWidget.prototype.useCustomDeedChooser = function ( upload ) {
 		var config, deed, deedDiv;
 
 		// Defining own deedChooser for uploads coming from external service
-		if ( upload.fromURL ) {
+		if ( upload.file.fromURL ) {
 			// XXX can be made a seperate class as mw.UploadFromUrlDeedChooser
-			this.deedChooser = upload.deedChooser = { valid: function () { return true; } };
+			this.deedChooser = upload.deedChooser = {
+				deed: {},
+				valid: function () {
+					return true;
+				},
+				getSerialized: function () {
+					return this.deed ? this.deed.getSerialized() : {};
+				},
+				setSerialized: function ( serialized ) {
+					if ( this.deed.setSerialized ) {
+						this.deed.setSerialized( serialized );
+					}
+				}
+			};
 
-			if ( upload.providedFile.license ) {
+			if ( upload.file.license ) {
 				// XXX need to add code in the remaining functions
-				this.$element.append( upload.providedFile.licenseMessage );
+				this.$element.append( upload.file.licenseMessage );
 				this.deedChooser.deed = this.getDeed( upload );
 			} else {
 				config = { type: 'or', licenses: [ 'custom' ], special: 'custom' };
@@ -36,19 +51,19 @@
 					undefined,
 					config,
 					1,
-					new mw.Api()
+					upload.api
 				);
 				deed.licenseInput.$element.addClass( 'mwe-upwiz-custom-deed' );
 				deed.licenseInputField = new uw.FieldLayout( deed.licenseInput );
 				this.$element.append( deed.licenseInputField.$element );
 				deed.licenseInput.setDefaultValues();
 
-				this.$element.append( upload.providedFile.licenseMessage );
+				this.$element.append( upload.file.licenseMessage );
 				this.deedChooser.deed = this.getDeed( upload, deed, {
 					getFields: function () { return [ this.licenseInputField ]; },
 					getLicenseWikiText: function () {
-						if ( upload.providedFile.licenseValue ) {
-							return upload.providedFile.licenseValue + this.licenseInput.getWikiText();
+						if ( upload.file.licenseValue ) {
+							return upload.file.licenseValue + this.licenseInput.getWikiText();
 						} else {
 							return this.licenseInput.getWikiText();
 						}
@@ -75,17 +90,22 @@
 		return $.extend( deed, {
 			getFields: function () { return []; },
 			getSourceWikiText: function () {
-				if ( typeof upload.providedFile.sourceURL !== 'undefined' ) {
-					return upload.providedFile.sourceURL;
+				if ( typeof upload.file.sourceURL !== 'undefined' ) {
+					return upload.file.sourceURL;
 				} else {
-					return upload.providedFile.url;
+					return upload.file.url;
 				}
 			},
 			getAuthorWikiText: function () {
-				return upload.providedFile.author;
+				return upload.file.author;
 			},
 			getLicenseWikiText: function () {
-				return upload.providedFile.licenseValue;
+				return upload.file.licenseValue;
+			},
+			getSerialized: function () {
+				return {};
+			},
+			setSerialized: function () {
 			}
 		}, overrides );
 	};
@@ -103,4 +123,24 @@
 		return $.Deferred().resolve( errors ).promise();
 	};
 
-} )( mediaWiki, mediaWiki.uploadWizard, jQuery, OO );
+	/**
+	 * @return {Object}
+	 */
+	uw.DeedChooserDetailsWidget.prototype.getSerialized = function () {
+		if ( this.deedChooser ) {
+			return this.deedChooser.getSerialized();
+		}
+
+		return {};
+	};
+
+	/**
+	 * @param {Object} serialized
+	 */
+	uw.DeedChooserDetailsWidget.prototype.setSerialized = function ( serialized ) {
+		if ( this.deedChooser ) {
+			this.deedChooser.setSerialized( serialized );
+		}
+	};
+
+}( mediaWiki, mediaWiki.uploadWizard, jQuery, OO ) );

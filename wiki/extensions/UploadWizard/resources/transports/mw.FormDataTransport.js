@@ -5,23 +5,22 @@
 	 * @constructor
 	 * @class mw.FormDataTransport
 	 * @mixins OO.EventEmitter
-	 * @param {string} postUrl URL to post to.
+	 * @param {mw.Api} api
 	 * @param {Object} formData Additional form fields required for upload api call
 	 * @param {Object} [config]
 	 * @param {Object} [config.chunkSize]
 	 * @param {Object} [config.maxPhpUploadSize]
 	 * @param {Object} [config.useRetryTimeout]
 	 */
-	mw.FormDataTransport = function ( postUrl, formData, config ) {
+	mw.FormDataTransport = function ( api, formData, config ) {
 		this.config = config || mw.UploadWizard.config;
 
 		OO.EventEmitter.call( this );
 
 		this.formData = formData;
 		this.aborted = false;
-		this.api = new mw.Api();
+		this.api = api;
 
-		this.postUrl = postUrl;
 		// Set chunk size to configured chunk size or max php size,
 		// whichever is smaller.
 		this.chunkSize = Math.min( this.config.chunkSize, this.config.maxPhpUploadSize );
@@ -34,71 +33,77 @@
 
 	mw.FormDataTransport.prototype.abort = function () {
 		this.aborted = true;
-
-		if ( this.xhr ) {
-			this.xhr.abort();
-		}
+		this.api.abort();
 	};
 
 	/**
-	 * Creates an XHR and sets some generic event handlers on it.
+	 * Submits an upload to the API.
 	 *
-	 * @param {jQuery.Deferred} deferred Object to send events to.
-	 * @return {XMLHttpRequest}
+	 * @param {Object} params Request params
+	 * @return {jQuery.Promise}
 	 */
-	mw.FormDataTransport.prototype.createXHR = function ( deferred ) {
-		var xhr = new XMLHttpRequest();
+	mw.FormDataTransport.prototype.post = function ( params ) {
+		var deferred = $.Deferred(),
+			request;
 
-		xhr.upload.addEventListener( 'progress', function ( evt ) {
-			var fraction;
-			if ( evt.lengthComputable ) {
-				fraction = parseFloat( evt.loaded / evt.total );
-			} else {
-				fraction = null;
+		request = this.api.post( params, {
+			/*
+			 * $.ajax is not quite equiped to handle File uploads with params.
+			 * The most convenient way would be to submit it with a FormData
+			 * object, but mw.Api will already do that for us: it'll transform
+			 * params if it encounters a multipart/form-data POST request, and
+			 * submit it accordingly!
+			 *
+			 * @see https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest#Submitting_forms_and_uploading_files
+			 */
+			contentType: 'multipart/form-data',
+			/*
+			 * $.ajax also has no progress event that will allow us to figure
+			 * out how much of the upload has already gone out, so let's add it!
+			 */
+			xhr: function () {
+				var xhr = $.ajaxSettings.xhr();
+				xhr.upload.addEventListener( 'progress', function ( evt ) {
+					var fraction = null;
+					if ( evt.lengthComputable ) {
+						fraction = parseFloat( evt.loaded / evt.total );
+					}
+					deferred.notify( fraction );
+				}, false );
+				return xhr;
 			}
-			deferred.notify( fraction );
-		}, false );
+		} );
 
-		return xhr;
+		// just pass on success & failures
+		request.then( deferred.resolve, deferred.reject );
+
+		return deferred.promise();
 	};
 
 	/**
-	 * Creates a FormData object suitable for upload.
+	 * Creates the upload API params.
 	 *
 	 * @param {string} filename
 	 * @param {number} [offset] For chunked uploads
-	 * @return {FormData}
+	 * @return {Object}
 	 */
-	mw.FormDataTransport.prototype.createFormData = function ( filename, offset ) {
-		var formData = new FormData();
+	mw.FormDataTransport.prototype.createParams = function ( filename, offset ) {
+		var params = OO.cloneObject( this.formData );
 
-		$.each( this.formData, function ( key, value ) {
-			formData.append( key, value );
+		$.extend( params, {
+			filename: filename,
+
+			// ignorewarnings is turned on, since warnings are presented in a
+			// later step and this transport doesn't know how to deal with them.
+			// Also, it's important to allow people to upload files with (for
+			// example) blacklisted names, and then rename them later in the
+			// wizard.
+			ignorewarnings: true,
+
+			offset: offset || 0
 		} );
 
-		formData.append( 'filename', filename );
-
-		// ignorewarnings is turned on, since warnings are presented in a
-		// later step and this transport doesn't know how to deal with them.
-		// Also, it's important to allow people to upload files with (for
-		// example) blacklisted names, and then rename them later in the
-		// wizard.
-		formData.append( 'ignorewarnings', true );
-
-		formData.append( 'offset', offset || 0 );
-
-		return formData;
-	};
-
-	/**
-	 * Sends data in a FormData object through an XHR.
-	 *
-	 * @param {XMLHttpRequest} xhr
-	 * @param {FormData} formData
-	 */
-	mw.FormDataTransport.prototype.sendData = function ( xhr, formData ) {
-		xhr.open( 'POST', this.postUrl, true );
-		xhr.send( formData );
+		return params;
 	};
 
 	/**
@@ -109,16 +114,10 @@
 	 * @return {jQuery.Promise}
 	 */
 	mw.FormDataTransport.prototype.upload = function ( file, tempFileName ) {
-		var formData, deferred, ext,
-			transport = this;
+		var params, ext;
 
-		// use timestamp + filename to avoid conflicts on server
-		this.tempname = ( new Date() ).getTime().toString() + tempFileName;
-		// remove unicode characters, tempname is only used during upload
-		this.tempname = this.tempname.split( '' ).map( function ( c ) {
-			return c.charCodeAt( 0 ) > 128 ? '_' : c;
-		} ).join( '' );
-		// Also limit length to 240 bytes (limit hardcoded in UploadBase.php).
+		this.tempname = tempFileName;
+		// Limit length to 240 bytes (limit hardcoded in UploadBase.php).
 		if ( this.tempname.length > 240 ) {
 			ext = this.tempname.split( '.' ).pop();
 			this.tempname = this.tempname.substr( 0, 240 - ext.length - 1 ) + '.' + ext;
@@ -127,24 +126,9 @@
 		if ( file.size > this.chunkSize ) {
 			return this.chunkedUpload( file );
 		} else {
-			deferred = $.Deferred();
-			this.xhr = this.createXHR( deferred );
-			this.xhr.addEventListener( 'load', function ( evt ) {
-				deferred.resolve( transport.parseResponse( evt ) );
-			}, false );
-			this.xhr.addEventListener( 'error', function ( evt ) {
-				deferred.reject( transport.parseResponse( evt ) );
-			}, false );
-			this.xhr.addEventListener( 'abort', function ( evt ) {
-				deferred.reject( transport.parseResponse( evt ) );
-			}, false );
-
-			formData = this.createFormData( this.tempname );
-			formData.append( 'file', file );
-
-			this.sendData( this.xhr, formData );
-
-			return deferred.promise();
+			params = this.createParams( this.tempname );
+			params.file = file;
+			return this.post( params );
 		}
 	};
 
@@ -171,8 +155,8 @@
 			transport = this;
 
 		for ( offset = 0; offset < fileSize; offset += chunkSize ) {
-			/*jshint loopfunc:true */
 			// Capture offset in a closure
+			// eslint-disable-next-line no-loop-func
 			( function ( offset ) {
 				var
 					newPromise = $.Deferred(),
@@ -189,7 +173,7 @@
 						} );
 				} );
 				prevPromise = newPromise;
-			} )( offset );
+			}( offset ) );
 		}
 
 		return deferred.promise();
@@ -203,18 +187,21 @@
 	 * @return {jQuery.Promise}
 	 */
 	mw.FormDataTransport.prototype.uploadChunk = function ( file, offset ) {
-		var formData,
-			deferred = $.Deferred(),
+		var params = this.createParams( this.tempname, offset ),
 			transport = this,
 			bytesAvailable = file.size,
 			chunk;
 
 		if ( this.aborted ) {
-			if ( this.xhr ) {
-				this.xhr.abort();
-			}
-			return deferred.reject();
+			this.api.abort();
+			return $.Deferred().reject( 'aborted', {
+				error: {
+					code: 'aborted',
+					html: mw.message( 'api-error-aborted' ).parse()
+				}
+			} );
 		}
+
 		// Slice API was changed and has vendor prefix for now
 		// new version now require start/end and not start/length
 		if ( file.mozSlice ) {
@@ -225,34 +212,21 @@
 			chunk = file.slice( offset, offset + this.chunkSize, file.type );
 		}
 
-		this.xhr = this.createXHR( deferred );
-		this.xhr.addEventListener( 'load', deferred.resolve, false );
-		this.xhr.addEventListener( 'error', deferred.reject, false );
-		this.xhr.addEventListener( 'abort', deferred.reject, false );
-
-		formData = this.createFormData( this.tempname, offset );
-
 		// only enable async if file is larger 10Mb
 		if ( bytesAvailable > 10 * 1024 * 1024 ) {
-			formData.append( 'async', true );
+			params.async = true;
 		}
 
 		// If offset is 0, we're uploading the file from scratch. filekey may be set if we're retrying
 		// the first chunk. The API errors out if a filekey is given with zero offset (as it's
 		// nonsensical). TODO Why do we need to retry in this case, if we managed to upload something?
 		if ( this.filekey && offset !== 0 ) {
-			formData.append( 'filekey', this.filekey );
+			params.filekey = this.filekey;
 		}
-		formData.append( 'filesize', bytesAvailable );
-		formData.append( 'chunk', chunk );
+		params.filesize = bytesAvailable;
+		params.chunk = chunk;
 
-		this.sendData( this.xhr, formData );
-
-		return deferred.promise().then( function ( evt ) {
-			return transport.parseResponse( evt );
-		}, function ( evt ) {
-			return transport.parseResponse( evt );
-		} ).then( function ( response ) {
+		return this.post( params ).then( function ( response ) {
 			if ( response.upload && response.upload.filekey ) {
 				transport.filekey = response.upload.filekey;
 			}
@@ -271,30 +245,32 @@
 						return transport.retryWithMethod( 'checkStatus' );
 				}
 			} else {
-				// Ain't this some great machine readable output eh
-				if (
-					response.error &&
-					response.error.code === 'stashfailed' &&
-					response.error.info === 'Chunked upload is already completed, check status for details'
-				) {
-					return transport.retryWithMethod( 'checkStatus' );
-				}
-
-				// Failed to upload, try again in 3 seconds
-				// This is really dumb, we should only do this for cases where retrying has a chance to work
-				// (so basically, network failures). If your upload was blocked by AbuseFilter you're
-				// shafted anyway. But some server-side errors really are temporary...
 				return transport.maybeRetry(
 					'on unknown response',
+					response.error ? response.error.code : 'unknown-error',
 					response,
 					'uploadChunk',
 					file, offset
 				);
 			}
-		}, function ( response ) {
+		}, function ( code, result ) {
+			// Ain't this some great machine readable output eh
+			if (
+				result.errors &&
+				result.errors[ 0 ].code === 'stashfailed' &&
+				result.errors[ 0 ].html === mw.message( 'apierror-stashfailed-complete' ).parse()
+			) {
+				return transport.retryWithMethod( 'checkStatus' );
+			}
+
+			// Failed to upload, try again in 3 seconds
+			// This is really dumb, we should only do this for cases where retrying has a chance to work
+			// (so basically, network failures). If your upload was blocked by AbuseFilter you're
+			// shafted anyway. But some server-side errors really are temporary...
 			return transport.maybeRetry(
 				'on error event',
-				response,
+				code,
+				result,
 				'uploadChunk',
 				file, offset
 			);
@@ -305,20 +281,21 @@
 	 * Handle possible retry event - rejected if maximum retries already fired.
 	 *
 	 * @param {string} contextMsg
+	 * @param {string} code
 	 * @param {Object} response
 	 * @param {string} retryMethod
 	 * @param {File} [file]
 	 * @param {number} [offset]
 	 * @return {jQuery.Promise}
 	 */
-	mw.FormDataTransport.prototype.maybeRetry = function ( contextMsg, response, retryMethod, file, offset ) {
+	mw.FormDataTransport.prototype.maybeRetry = function ( contextMsg, code, response, retryMethod, file, offset ) {
 		this.retries++;
 
 		if ( this.tooManyRetries() ) {
 			mw.log.warn( 'Max retries exceeded ' + contextMsg );
-			return $.Deferred().reject( response );
+			return $.Deferred().reject( code, response );
 		} else if ( this.aborted ) {
-			return $.Deferred().reject( response );
+			return $.Deferred().reject( code, response );
 		} else {
 			mw.log( 'Retry #' + this.retries + ' ' + contextMsg );
 			return this.retryWithMethod( retryMethod, file, offset );
@@ -366,33 +343,38 @@
 	 */
 	mw.FormDataTransport.prototype.checkStatus = function () {
 		var transport = this,
-			params = {};
+			params = OO.cloneObject( this.formData );
 
 		if ( this.aborted ) {
-			return $.Deferred().reject();
+			return $.Deferred().reject( 'aborted', {
+				error: {
+					code: 'aborted',
+					html: mw.message( 'api-error-aborted' ).parse()
+				}
+			} );
 		}
 
 		if ( !this.firstPoll ) {
 			this.firstPoll = ( new Date() ).getTime();
 		}
-		$.each( this.formData, function ( key, value ) {
-			params[ key ] = value;
-		} );
-		params.checkstatus =  true;
-		params.filekey =  this.filekey;
+		params.checkstatus = true;
+		params.filekey = this.filekey;
 		return this.api.post( params )
 			.then( function ( response ) {
 				if ( response.upload && response.upload.result === 'Poll' ) {
 					// If concatenation takes longer than 10 minutes give up
 					if ( ( ( new Date() ).getTime() - transport.firstPoll ) > 10 * 60 * 1000 ) {
-						return $.Deferred().reject( {
+						return $.Deferred().reject( 'server-error', { error: {
 							code: 'server-error',
-							info: 'unknown server error'
-						} );
+							html: mw.message( 'apierror-unknownerror' ).parse()
+						} } );
 					} else {
-						if ( response.upload.stage === undefined && window.console ) {
-							window.console.log( 'Unable to check file\'s status' );
-							return $.Deferred().reject();
+						if ( response.upload.stage === undefined ) {
+							mw.log.warn( 'Unable to check file\'s status' );
+							return $.Deferred().reject( 'server-error', { error: {
+								code: 'server-error',
+								html: mw.message( 'apierror-unknownerror' ).parse()
+							} } );
 						} else {
 							// Statuses that can be returned:
 							// * queued
@@ -405,36 +387,9 @@
 				}
 
 				return response;
-			}, function ( code, info, response ) {
-				return $.Deferred().reject( response );
+			}, function ( code, result ) {
+				return $.Deferred().reject( code, result );
 			} );
-	};
-
-	/**
-	 * Parse response from the server.
-	 *
-	 * @param {Event} evt
-	 * @return {Object}
-	 */
-	mw.FormDataTransport.prototype.parseResponse = function ( evt ) {
-		var response;
-
-		try {
-			response = $.parseJSON( evt.target.responseText );
-		} catch ( e ) {
-			if ( window.console ) {
-				// Let's check what caused this, too.
-				window.console.error( 'parsererror', evt );
-			}
-			response = {
-				error: {
-					code: 'parsererror',
-					info: evt.target.responseText
-				}
-			};
-		}
-
-		return response;
 	};
 
 }( mediaWiki, jQuery, OO ) );

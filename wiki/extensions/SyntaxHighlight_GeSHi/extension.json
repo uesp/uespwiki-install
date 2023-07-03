@@ -13,7 +13,7 @@
 	"descriptionmsg": "syntaxhighlight-desc",
 	"license-name": "GPL-2.0+",
 	"type": "parserhook",
-	"require": {
+	"requires": {
 		"MediaWiki": ">= 1.27"
 	},
 	"MessagesDirs": {
@@ -23,7 +23,8 @@
 	},
 	"AutoloadClasses": {
 		"SyntaxHighlight_GeSHi": "SyntaxHighlight_GeSHi.class.php",
-		"GeSHi": "SyntaxHighlight_GeSHi.compat.php",
+		"GeSHi": "SyntaxHighlight_GeSHi.GeSHi.php",
+		"SyntaxHighlightAce": "SyntaxHighlight_GeSHi.ace.php",
 		"SyntaxHighlightGeSHiCompat": "SyntaxHighlight_GeSHi.compat.php",
 		"ResourceLoaderGeSHiVisualEditorModule": "ResourceLoaderGeSHiVisualEditorModule.php"
 	},

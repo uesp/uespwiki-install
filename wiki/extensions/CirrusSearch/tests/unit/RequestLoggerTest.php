@@ -3,12 +3,12 @@
 namespace CirrusSearch\Test;
 
 use CirrusSearch;
+use CirrusSearch\CirrusTestCase;
 use CirrusSearch\CompletionSuggester;
 use CirrusSearch\Connection;
 use CirrusSearch\ElasticsearchIntermediary;
 use CirrusSearch\RequestLogger;
 use CirrusSearch\Searcher;
-use CirrusSearch\Search\FullTextResultsType;
 use Elastica\Request;
 use Elastica\Response;
 use Elastica\Transport\AbstractTransport;
@@ -19,10 +19,13 @@ use Psr\Log\AbstractLogger;
  * Tests full text and completion search request logging. Could be expanded for
  * other request types if necessary, but these are mostly the two we care
  * about.
+ *
+ * @group CirrusSearch
  */
-class RequestLoggerTest extends \MediaWikiTestCase {
+class RequestLoggerTest extends CirrusTestCase {
 	public function requestLoggingProvider() {
-		$test = [];
+		$tests = [];
+
 		foreach ( glob( __DIR__ . "/fixtures/requestLogging/*.request" ) as $requestFile ) {
 			$testBase = substr( $requestFile, 0, -8 );
 			$testName = basename( $testBase );
@@ -110,12 +113,15 @@ class RequestLoggerTest extends \MediaWikiTestCase {
 				$limit = isset( $query['limit'] ) ? $query['limit'] : 20;
 				$namespaces = isset( $query['namespaces'] ) ? $query['namespaces'] : null;
 
+
+				$globals = [
+					'wgCirrusSearchFullTextQueryBuilderProfile' => 'default',
+					'wgCirrusSearchInterwikiSources' => [],
+				];
 				if ( isset( $query['interwiki'] ) ) {
-					$this->setMwGlobals(
-						'wgCirrusSearchInterwikiSources',
-						$query['interwiki']
-					);
+					$globals['wgCirrusSearchInterwikiSources'] = $query['interwiki'];
 				}
+				$this->setMwGlobals( $globals );
 
 				$searchEngine = new CirrusSearch( 'wiki' );
 				$searchEngine->setConnection( $connection );
@@ -255,7 +261,7 @@ class RequestLoggerTest extends \MediaWikiTestCase {
 	 * statically referred to. Still asserts the keys exist, as otherwise avro
 	 * would fail to encode them.
 	 *
-	 * @param AbstractLogger[]
+	 * @param AbstractLogger[] $loggers
 	 * @return array
 	 */
 	private function collectLogs( array $loggers ) {

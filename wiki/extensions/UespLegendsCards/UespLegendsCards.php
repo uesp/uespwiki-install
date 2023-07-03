@@ -60,7 +60,7 @@ $wgResourceModules['ext.LegendCards.scripts'] = array(
 function uespLegendsCardData_beforePageDisplay(&$out) 
 {
 	global $wgScriptPath;
-		
+	
 	$out->addHeadItem("uesp-legendscards-css", "<link rel='stylesheet' href='//en.uesp.net/w/extensions/UespLegendsCards/UespLegendsCards.css?version=11Dec2017' />");
 	$out->addHeadItem("uesp-legendscards-js", "<script src='//en.uesp.net/w/extensions/UespLegendsCards/UespLegendsCards.js?version=11Dec2017'></script>");
 	
@@ -110,13 +110,15 @@ function uespRenderLegendsCard($input, array $args, Parser $parser, PPFrame $fra
 	$outputCardName = $parser->recursiveTagParse($cardName, $frame);
 	
 	$linkSuffix = "";
-	$disamb = $UESP_LEGENDS_DISAMBIGUATION[$outputCardName];
+	$disamb = $UESP_LEGENDS_DISAMBIGUATION[$outputCardName] ?? false;
 	if ($disamb) $linkSuffix = "_($disamb)";
 
 	if ($useCardDataLink)
 		$cardURL = "/wiki/Special:LegendsCardData?";
 	else
-		$cardURL = "/wiki/Legends:";		
+		$cardURL = "/wiki/Legends:";
+	
+	$attributes = '';
 	
 	if ($outputCardName != "")
 	{

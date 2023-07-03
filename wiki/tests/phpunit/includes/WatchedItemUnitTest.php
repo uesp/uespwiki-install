@@ -8,13 +8,24 @@ use MediaWiki\Linker\LinkTarget;
  */
 class WatchedItemUnitTest extends MediaWikiTestCase {
 
+	public function setUp() {
+		parent::setUp();
+
+		$this->hideDeprecated( 'WatchedItem::fromUserTitle' );
+		$this->hideDeprecated( 'WatchedItem::addWatch' );
+		$this->hideDeprecated( 'WatchedItem::removeWatch' );
+		$this->hideDeprecated( 'WatchedItem::isWatched' );
+		$this->hideDeprecated( 'WatchedItem::duplicateEntries' );
+		$this->hideDeprecated( 'WatchedItem::batchAddWatch' );
+	}
+
 	/**
 	 * @param int $id
 	 *
 	 * @return PHPUnit_Framework_MockObject_MockObject|User
 	 */
 	private function getMockUser( $id ) {
-		$user = $this->getMock( User::class );
+		$user = $this->createMock( User::class );
 		$user->expects( $this->any() )
 			->method( 'getId' )
 			->will( $this->returnValue( $id ) );
@@ -84,7 +95,7 @@ class WatchedItemUnitTest extends MediaWikiTestCase {
 		$checkRights = 0;
 
 		/** @var User|PHPUnit_Framework_MockObject_MockObject $user */
-		$user = $this->getMock( User::class );
+		$user = $this->createMock( User::class );
 		$user->expects( $this->once() )
 			->method( 'addWatch' )
 			->with( $title, $checkRights );
@@ -99,7 +110,7 @@ class WatchedItemUnitTest extends MediaWikiTestCase {
 		$checkRights = 0;
 
 		/** @var User|PHPUnit_Framework_MockObject_MockObject $user */
-		$user = $this->getMock( User::class );
+		$user = $this->createMock( User::class );
 		$user->expects( $this->once() )
 			->method( 'removeWatch' )
 			->with( $title, $checkRights );
@@ -124,7 +135,7 @@ class WatchedItemUnitTest extends MediaWikiTestCase {
 		$checkRights = 0;
 
 		/** @var User|PHPUnit_Framework_MockObject_MockObject $user */
-		$user = $this->getMock( User::class );
+		$user = $this->createMock( User::class );
 		$user->expects( $this->once() )
 			->method( 'isWatched' )
 			->with( $title, $checkRights )

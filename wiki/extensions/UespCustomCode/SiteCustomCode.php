@@ -163,6 +163,7 @@ $wgAutoloadClasses['SiteOldChangesList'] = $dir . 'SiteChangesList.php';
 $wgAutoloadClasses['SiteEnhancedChangesList'] = $dir . 'SiteChangesList.php';
 $wgAutoloadClasses['SiteSpecialRandompage'] = $dir . 'SiteSpecialRandompage.php';
 $wgAutoloadClasses['UespWebpHandler'] = $dir . 'UespWebpHandler.php';
+$wgAutoloadClasses['SiteSpecialMobilePreferences'] = $dir . 'SpecialMobilePreferences.php';
 
 $wgMediaHandlers['image/webp'] = 'UespWebpHandler';
 
@@ -359,10 +360,25 @@ function efSiteCustomCode() {
 	
 	if (class_exists("MobileContext"))
 	{
-		if (MobileContext::singleton()->isMobileDevice()) $uespIsMobile = true;
+		if (MobileContext::singleton()->isMobileDevice()) 
+		{
+			$uespIsMobile = true;
+			
+				// These hooks are here so as they are called after the same hook in MobileFrontEnd
+			setupUespMobileHooks();
+		}
 	}
 	
 	return true;
+}
+
+
+function setupUespMobileHooks()
+{
+	global $wgHooks;
+	
+	$wgHooks['SpecialPage_initList'][] = 'efSiteMobilePrefsSpecialPageInit';
+	$wgHooks['RequestContextCreateSkinMobile'][] = 'efSiteRequestContextCreateSkinMobile';
 }
 
 
@@ -423,7 +439,6 @@ function UESP_beforePageDisplay(&$out) {
 	
 	SetupUespFavIcons($out);
 	
-	SetUespMapSessionData();
 	SetupUespLongitudeAds($out);
 	SetupUespTwitchEmbed($out);
 	
@@ -464,30 +479,61 @@ function SetupUespTwitchEmbed(&$out) {
 
 function SetUespMapSessionData()
 {
+		//Note: This is no longer needed/used
+		
 	global $_SESSION, $wgUser;
 	
-	$_SESSION['UESP_AllMap_canEdit'] = false;
-	$_SESSION['UESP_EsoMap_canEdit'] = false;
-	$_SESSION['UESP_TRMap_canEdit'] = false;
-	$_SESSION['UESP_OtherMap_canEdit'] = false;
+		// TODO: Unsure when we have to migrate to the new session object (should have been 1.27/28)
+	//$session = \MediaWiki\Session\SessionManager::getGlobalSession();
+	
+	$_SESSION['UESP_AllMap_canEdit'] = 0;
+	$_SESSION['UESP_EsoMap_canEdit'] = 0;
+	$_SESSION['UESP_TRMap_canEdit'] = 0;
+	$_SESSION['UESP_OtherMap_canEdit'] = 0;
+	
+	//$session->set('UESP_AllMap_canEdit', 0);
+	//$session->set('UESP_EsoMap_canEdit', 0);
+	//$session->set('UESP_TRMap_canEdit', 0);
+	//$session->set('UESP_OtherMap_canEdit', 0);
 	
 	if ($wgUser == null) return;
 	
 	if ($wgUser->isAllowed( 'esomapedit' ))
 	{
-		$_SESSION['UESP_EsoMap_canEdit'] = true;
+		$_SESSION['UESP_EsoMap_canEdit'] = 1;
+		//$session->set('UESP_EsoMap_canEdit', 1);
 	}
 	
 	if ($wgUser->isAllowed( 'mapedit' ) || $wgUser->isAllowed( 'othermapedit' ))
 	{
-		$_SESSION['UESP_OtherMap_canEdit'] = true;
+		$_SESSION['UESP_OtherMap_canEdit'] = 1;
+		//$session->set('UESP_OtherMap_canEdit', 1);
 	}
 	
 	if ($wgUser->isAllowed( 'trmapedit' ))
 	{
-		$_SESSION['UESP_TRMap_canEdit'] = true;
+		$_SESSION['UESP_TRMap_canEdit'] = 1;
+		//$session->set('UESP_TRMap_canEdit', 1);
 	}
 }
+
+
+function efSiteMobilePrefsSpecialPageInit(&$aSpecialPages) {
+	$aSpecialPages['Preferences'] = 'SiteSpecialMobilePreferences';
+}
+
+
+function efSiteRequestContextCreateSkinMobile(MobileContext $mobileContext, Skin $skin) {
+	
+	if ( $skin instanceof SkinMinerva ) {
+		
+			// Turn off the use of the Special:MobileOptions page for preferences
+		$skin->setSkinOptions( [
+				SkinMinerva::OPTION_MOBILE_OPTIONS => false,
+			] );
+	}
+}
+
 
 /**
  * SpecialPage_initList hook
@@ -496,6 +542,7 @@ function SetUespMapSessionData()
  *   override some standard special pages with tweaked versions
  */
 function efSiteSpecialPageInit(&$aSpecialPages) {
+	
 	$dir = dirname(__FILE__) . '/';
 // remove unnecessary pages
 	unset($aSpecialPages['Booksources']);

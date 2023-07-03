@@ -511,18 +511,6 @@ return [
 		]
 	],
 
-	// Default thumbnail width
-	'thumbnailWidth' => 100,
-
-	// Max thumbnail height:
-	'thumbnailMaxHeight' => 100,
-
-	// Large thumbnail width
-	'largeThumbnailWidth' => 500,
-
-	// Large thumbnail max height
-	'largeThumbnailMaxHeight' => 500,
-
 	// Max author string length
 	'maxAuthorLength' => 10000,
 
@@ -609,7 +597,7 @@ return [
 	//		transcodeExtensionList
 	// 2) Once the user installs firefogg it is used for encoding videos that are not in supported formats before handing it off to mw.ApiUploadFormDataHandler for upload
 	// @codingStandardsIgnoreEnd
-	'enableFirefogg' => true,
+	'enableFirefogg' => false,
 
 	// Setup list of video extensions for recomending firefogg.
 	'transcodeExtensionList' => [

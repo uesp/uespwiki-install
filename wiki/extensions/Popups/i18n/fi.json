@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Stryn",
+			"Mikahama",
+			"Nike",
+			"Pyscowicz"
+		]
+	},
+	"popups-message": "Ponnahduskortit",
+	"popups-desc": "Näyttää ponnahduskortissa yhteenvedon sivun sisällöstä, kun käyttäjä laittaa hiiren sivulle osoittavan linkin päälle.",
+	"popups-redirects": "ohjaa sivulle <h3>$1</h3>",
+	"popups-settings-title": "Sivun esikatselu",
+	"popups-settings-description": "Tämän työkalun avulla voit esikatsella linkkejä wikisivuihin ja viittauksiin.",
+	"popups-settings-option-simple": "Ota käyttöön",
+	"popups-settings-option-simple-description": "Näytä aiheiden pikaesitselut lukutilassa.",
+	"popups-settings-option-advanced": "Laajennettu",
+	"popups-settings-option-off": "Poista käytöstä",
+	"popups-settings-save": "Tallenna",
+	"popups-settings-help-ok": "Valmis",
+	"popups-settings-cancel": "Peruuta",
+	"popups-settings-enable": "Ota esikatselu käyttöön",
+	"popups-send-feedback": "Lähetä palautetta (ulkoinen linkki)"
+}

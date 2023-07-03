@@ -2,14 +2,18 @@
 
 namespace CirrusSearch\Search;
 
+use CirrusSearch\CirrusTestCase;
 use SearchIndexField;
 
-class SearchFieldsTest extends \PHPUnit_Framework_TestCase {
+/**
+ * @group CirrusSearch
+ */
+class SearchFieldsTest extends CirrusTestCase {
 
 	public function getFields() {
 		return [
-			[ SearchIndexField::INDEX_TYPE_TEXT, 'string' ],
-			[ SearchIndexField::INDEX_TYPE_KEYWORD, 'string' ],
+			[ SearchIndexField::INDEX_TYPE_TEXT, 'text' ],
+			[ SearchIndexField::INDEX_TYPE_KEYWORD, 'text' ],
 			[ SearchIndexField::INDEX_TYPE_INTEGER, 'long' ],
 			[ SearchIndexField::INDEX_TYPE_NUMBER, 'double' ],
 			[ SearchIndexField::INDEX_TYPE_DATETIME, 'date' ],
@@ -32,7 +36,7 @@ class SearchFieldsTest extends \PHPUnit_Framework_TestCase {
 
 		$field->setFlag( SearchIndexField::FLAG_NO_INDEX );
 		$mapping = $field->getMapping( $engine );
-		$this->assertEquals( 'no', $mapping['index'] );
+		$this->assertEquals( false, $mapping['index'] );
 	}
 
 	public function testBadField() {

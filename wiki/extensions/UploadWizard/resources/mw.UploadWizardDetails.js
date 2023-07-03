@@ -179,7 +179,7 @@
 				title: mw.message( 'mwe-upwiz-license-confirm-remove-title' ).text()
 			} ).done( function ( confirmed ) {
 				if ( confirmed ) {
-					details.upload.remove();
+					details.upload.emit( 'remove-upload' );
 				}
 			} );
 		} );
@@ -251,6 +251,7 @@
 		/**
 		 * Display error message about multiple uploaded files with the same title specified
 		 *
+		 * @return {mw.UploadWizardDetails}
 		 * @chainable
 		 */
 		setDuplicateTitleError: function () {
@@ -261,6 +262,8 @@
 
 		/**
 		 * @private
+		 *
+		 * @return {uw.FieldLayout[]}
 		 */
 		getAllFields: function () {
 			return [].concat(
@@ -306,6 +309,8 @@
 
 		/**
 		 * Get a thumbnail caption for this upload (basically, the first description).
+		 *
+		 * @return {string}
 		 */
 		getThumbnailCaption: function () {
 			var descriptions = this.descriptionsDetails.getSerialized().descriptions;
@@ -331,10 +336,7 @@
 		 */
 		populate: function () {
 			var thumbnailDiv = this.thumbnailDiv;
-			this.upload.getThumbnail(
-				mw.UploadWizard.config.thumbnailWidth,
-				mw.UploadWizard.config.thumbnailMaxHeight
-			).done( function ( thumb ) {
+			this.upload.getThumbnail().done( function ( thumb ) {
 				mw.UploadWizard.placeThumbnail( thumbnailDiv, thumb );
 			} );
 			this.prefillDate();
@@ -582,7 +584,8 @@
 				other: this.otherDetails.getSerialized(),
 				campaigns: this.campaignDetailsFields.map( function ( field ) {
 					return field.fieldWidget.getSerialized();
-				} )
+				} ),
+				deed: this.deedChooserDetails.getSerialized()
 			};
 		},
 
@@ -618,6 +621,9 @@
 				for ( i = 0; i < this.campaignDetailsFields.length; i++ ) {
 					this.campaignDetailsFields[ i ].fieldWidget.setSerialized( serialized.campaigns[ i ] );
 				}
+			}
+			if ( serialized.deed ) {
+				this.deedChooserDetails.setSerialized( serialized.deed );
 			}
 		},
 
@@ -667,8 +673,10 @@
 			info = '';
 
 			for ( key in information ) {
-				info += '|' + key.replace( /:/g, '_' );
-				info += '=' + mw.Escaper.escapeForTemplate( information[ key ] ) + '\n';
+				if ( information.hasOwnProperty( key ) ) {
+					info += '|' + key.replace( /:/g, '_' );
+					info += '=' + mw.Escaper.escapeForTemplate( information[ key ] ) + '\n';
+				}
 			}
 
 			wikiText += '=={{int:filedesc}}==\n';
@@ -720,8 +728,7 @@
 		 * @return {jQuery.Promise}
 		 */
 		submit: function () {
-			var params, wikiText, apiPromise,
-				details = this;
+			var params;
 
 			$( 'form', this.containerDiv ).submit();
 
@@ -744,30 +751,37 @@
 				params.async = true;
 			}
 
-			wikiText = this.getWikiText();
+			params.text = this.getWikiText();
+			return this.submitInternal( params );
+		},
 
-			if ( wikiText !== false ) {
-				params.text = wikiText;
-				apiPromise = details.upload.api.postWithEditToken( params );
-				return apiPromise
-					.then(
-						function ( result ) {
-							if ( !result || result.error || ( result.upload && result.upload.warnings ) ) {
-								uw.eventFlowLogger.logApiError( 'details', result );
-							}
-							return details.handleSubmitResult( result, params );
-						},
-						function ( code, info, result ) {
+		/**
+		 * Perform the API call with given parameters (which is expected to publish this file) and
+		 * handle the result.
+		 *
+		 * @param {Object} params API call parameters
+		 * @return {jQuery.Promise}
+		 */
+		submitInternal: function ( params ) {
+			var
+				details = this,
+				apiPromise = this.upload.api.postWithEditToken( params );
+			return apiPromise
+				.then(
+					function ( result ) {
+						if ( result.upload && result.upload.warnings ) {
 							uw.eventFlowLogger.logApiError( 'details', result );
-							details.upload.state = 'error';
-							details.processError( code, info );
-							return $.Deferred().reject( code, info );
 						}
-					)
-					.promise( { abort: apiPromise.abort } );
-			}
-
-			return $.Deferred().reject();
+						return details.handleSubmitResult( result, params );
+					},
+					function ( code, result ) {
+						uw.eventFlowLogger.logApiError( 'details', result );
+						details.upload.state = 'error';
+						details.processError( code, result );
+						return $.Deferred().reject( code, result );
+					}
+				)
+				.promise( { abort: apiPromise.abort } );
 		},
 
 		/**
@@ -787,10 +801,16 @@
 			if ( result && result.upload && result.upload.result === 'Poll' ) {
 				// if async publishing takes longer than 10 minutes give up
 				if ( ( ( new Date() ).getTime() - this.firstPoll ) > 10 * 60 * 1000 ) {
-					return $.Deferred().reject( 'server-error', 'unknown server error' );
+					return deferred.reject( 'server-error', { error: {
+						code: 'server-error',
+						html: 'Unknown server error'
+					} } );
 				} else {
-					if ( result.upload.stage === undefined && window.console ) {
-						return $.Deferred().reject( 'no-stage', 'Unable to check file\'s status' );
+					if ( result.upload.stage === undefined ) {
+						return deferred.reject( 'no-stage', { error: {
+							code: 'no-stage',
+							html: 'Unable to check file\'s status'
+						} } );
 					} else {
 						// Messages that can be returned:
 						// * mwe-upwiz-queued
@@ -799,19 +819,11 @@
 						this.setStatus( mw.message( 'mwe-upwiz-' + result.upload.stage ).text() );
 						setTimeout( function () {
 							if ( details.upload.state !== 'aborted' ) {
-								details.upload.api.postWithEditToken( {
+								details.submitInternal( {
 									action: 'upload',
 									checkstatus: true,
 									filekey: details.upload.fileKey
-								} ).then( function ( result ) {
-									if ( !result || result.error || ( result.upload && result.upload.warnings ) ) {
-										uw.eventFlowLogger.logApiError( 'details', result );
-									}
-									return details.handleSubmitResult( result ).then( deferred.resolve, deferred.reject );
-								}, function ( code, info, result ) {
-									uw.eventFlowLogger.logApiError( 'details', result );
-									deferred.reject( code, info );
-								} );
+								} ).then( deferred.resolve, deferred.reject );
 							} else {
 								deferred.resolve( 'aborted' );
 							}
@@ -855,45 +867,29 @@
 				return $.Deferred().resolve();
 			} else if ( ignoreTheseWarnings ) {
 				params.ignorewarnings = 1;
-				return this.upload.api.postWithEditToken( params ).then( function ( result ) {
-					if ( !result || result.error || ( result.upload && result.upload.warnings ) ) {
-						uw.eventFlowLogger.logApiError( 'details', result );
-					}
-					return details.handleSubmitResult( result );
-				}, function ( code, info, result ) {
-					uw.eventFlowLogger.logApiError( 'details', result );
-					return $.Deferred().reject( code, info );
-				} );
+				return this.submitInternal( params );
 			} else if ( result && result.upload && result.upload.warnings ) {
 				if ( warnings.thumb || warnings[ 'thumb-name' ] ) {
-					this.recoverFromError( mw.message( 'mwe-upwiz-error-title-thumbnail' ), 'error-title-thumbnail' );
+					this.recoverFromError( 'error-title-thumbnail', mw.message( 'mwe-upwiz-error-title-thumbnail' ).parse() );
 				} else if ( warnings.badfilename ) {
-					this.recoverFromError( mw.message( 'mwe-upwiz-error-title-invalid' ), 'title-invalid' );
+					this.recoverFromError( 'title-invalid', mw.message( 'mwe-upwiz-error-title-invalid' ).parse() );
 				} else if ( warnings[ 'bad-prefix' ] ) {
-					this.recoverFromError( mw.message( 'mwe-upwiz-error-title-senselessimagename' ), 'title-senselessimagename' );
+					this.recoverFromError( 'title-senselessimagename', mw.message( 'mwe-upwiz-error-title-senselessimagename' ).parse() );
 				} else if ( existingFile ) {
 					existingFileUrl = mw.config.get( 'wgServer' ) + mw.Title.makeTitle( NS_FILE, existingFile ).getUrl();
-					this.recoverFromError( mw.message( 'mwe-upwiz-api-warning-exists', existingFileUrl ), 'api-warning-exists' );
+					this.recoverFromError( 'api-warning-exists', mw.message( 'mwe-upwiz-api-warning-exists', existingFileUrl ).parse() );
 				} else if ( warnings.duplicate ) {
-					this.recoverFromError( mw.message( 'mwe-upwiz-upload-error-duplicate' ), 'upload-error-duplicate' );
+					this.recoverFromError( 'upload-error-duplicate', mw.message( 'mwe-upwiz-upload-error-duplicate' ).parse() );
 				} else if ( warnings[ 'duplicate-archive' ] !== undefined ) {
 					// warnings[ 'duplicate-archive' ] may be '' (empty string) for revdeleted files
 					if ( this.upload.ignoreWarning[ 'duplicate-archive' ] ) {
 						// We already told the interface to ignore this warning, so
 						// let's steamroll over it and re-call this handler.
 						params.ignorewarnings = true;
-						return this.upload.api.postWithEditToken( params ).then( function ( result ) {
-							if ( !result || result.error || ( result.upload && result.upload.warnings ) ) {
-								uw.eventFlowLogger.logApiError( 'details', result );
-							}
-							return details.handleSubmitResult( result );
-						}, function ( code, info, result ) {
-							uw.eventFlowLogger.logApiError( 'details', result );
-							return $.Deferred().reject( code, info );
-						} );
+						return this.submitInternal( params );
 					} else {
 						// This should _never_ happen, but just in case....
-						this.recoverFromError( mw.message( 'mwe-upwiz-upload-error-duplicate-archive' ), 'upload-error-duplicate-archive' );
+						this.recoverFromError( 'upload-error-duplicate-archive', mw.message( 'mwe-upwiz-upload-error-duplicate-archive' ).parse() );
 					}
 				} else {
 					warningsKeys = [];
@@ -901,7 +897,7 @@
 						warningsKeys.push( key );
 					} );
 					this.upload.state = 'error';
-					this.recoverFromError( mw.message( 'api-error-unknown-warning', warningsKeys.join( ', ' ) ), 'api-error-unknown-warning' );
+					this.recoverFromError( 'unknown-warning', mw.message( 'api-error-unknown-warning', warningsKeys.join( ', ' ) ).parse() );
 				}
 
 				return $.Deferred().resolve();
@@ -913,67 +909,47 @@
 		/**
 		 * Create a recoverable error -- show the form again, and highlight the problematic field.
 		 *
-		 * @param {mw.Message} errorMessage Error message to show.
-		 * @param {string} errorCode
+		 * @param {string} code
+		 * @param {string} html Error message to show.
 		 */
-		recoverFromError: function ( errorMessage, errorCode ) {
-			uw.eventFlowLogger.logError( 'details', { code: errorCode, message: errorMessage } );
-			this.upload.state = 'error';
+		recoverFromError: function ( code, html ) {
+			uw.eventFlowLogger.logError( 'details', { code: code, message: html } );
+			this.upload.state = 'recoverable-error';
 			this.dataDiv.morphCrossfade( '.detailsForm' );
-			this.titleDetailsField.setErrors( [ errorMessage ] );
+			this.titleDetailsField.setErrors( [ { code: code, html: html } ] );
 		},
 
 		/**
 		 * Show error state, possibly using a recoverable error form
 		 *
 		 * @param {string} code Error code
-		 * @param {string} statusLine Status line
+		 * @param {string} html Error message
 		 */
-		showError: function ( code, statusLine ) {
-			uw.eventFlowLogger.logError( 'details', { code: code, message: statusLine } );
+		showError: function ( code, html ) {
+			uw.eventFlowLogger.logError( 'details', { code: code, message: html } );
 			this.showIndicator( 'error' );
-			this.setStatus( statusLine );
+			this.setStatus( html );
 		},
 
 		/**
 		 * Decide how to treat various errors
 		 *
 		 * @param {string} code Error code
-		 * @param {Mixed} result Result from ajax call
+		 * @param {Object} result Result from ajax call
 		 */
 		processError: function ( code, result ) {
-			var statusKey, comma, promise,
-				statusLine = mw.message( 'api-error-unclassified' ).text(),
-				titleBlacklistMessageMap = {
-					senselessimagename: 'senselessimagename', // TODO This is probably never hit?
-					'titleblacklist-custom-filename': 'hosting',
-					'titleblacklist-custom-SVG-thumbnail': 'thumbnail',
-					'titleblacklist-custom-thumbnail': 'thumbnail',
-					'titleblacklist-custom-double-apostrophe': 'double-apostrophe'
-				},
-				titleErrorMap = {
-					'fileexists-shared-forbidden': 'fileexists-shared-forbidden',
-					protectedpage: 'protected'
-				};
+			var recoverable = [
+				'abusefilter-disallowed',
+				'abusefilter-warning',
+				'spamblacklist',
+				'fileexists-shared-forbidden',
+				'protectedpage',
+				'titleblacklist-forbidden'
+			];
 
 			if ( code === 'badtoken' ) {
 				this.api.badToken( 'csrf' );
 				// TODO Automatically try again instead of requiring the user to bonk the button
-			}
-
-			if ( code === 'abusefilter-disallowed' || code === 'abusefilter-warning' || code === 'spamblacklist' ) {
-				// 'amenableparser' will expand templates and parser functions server-side.
-				// We still do the rest of wikitext parsing here (throught jqueryMsg).
-				promise = this.api.loadMessagesIfMissing( [ result.error.message.key ], { amenableparser: true } );
-				this.recoverFromError( mw.message( 'api-error-' + code, function () {
-					promise.done( function () {
-						mw.errorDialog( $( '<div>' ).msg(
-							result.error.message.key,
-							result.error.message.params
-						) );
-					} );
-				} ), code );
-				return;
 			}
 
 			if ( code === 'ratelimited' ) {
@@ -987,36 +963,16 @@
 				code = 'ratelimited';
 			}
 
-			if ( result && code ) {
-				if ( titleErrorMap[ code ] ) {
-					this.recoverFromError( mw.message( 'mwe-upwiz-error-title-' + titleErrorMap[ code ] ), 'title-' + titleErrorMap[ code ] );
-					return;
-				} else if ( code === 'titleblacklist-forbidden' ) {
-					this.recoverFromError( mw.message( 'mwe-upwiz-error-title-' + titleBlacklistMessageMap[ result.error.message.key ] ), 'title-' + titleBlacklistMessageMap[ result.error.message.key ] );
-					return;
-				} else {
-					statusKey = 'api-error-' + code;
-					if ( code === 'filetype-banned' && result.error.blacklisted ) {
-						comma = mw.message( 'comma-separator' ).text();
-						code = 'filetype-banned-type';
-						statusLine = mw.message( 'api-error-filetype-banned-type',
-							result.error.blacklisted.join( comma ),
-							result.error.allowed.join( comma ),
-							result.error.allowed.length,
-							result.error.blacklisted.length
-						).text();
-					} else if ( result.error && result.error.info ) {
-						statusLine = mw.message( statusKey, result.error.info ).text();
-					} else {
-						statusLine = mw.message( statusKey, '[no error info]' ).text();
-					}
-				}
+			if ( recoverable.indexOf( code ) > -1 ) {
+				this.recoverFromError( code, result.errors[ 0 ].html );
+				return;
 			}
-			this.showError( code, statusLine );
+
+			this.showError( code, result.errors[ 0 ].html );
 		},
 
 		setStatus: function ( s ) {
-			this.div.find( '.mwe-upwiz-file-status-line' ).text( s ).show();
+			this.div.find( '.mwe-upwiz-file-status-line' ).html( s ).show();
 		},
 
 		showIndicator: function ( statusStr ) {
@@ -1033,4 +989,4 @@
 		}
 	};
 
-} )( mediaWiki, mediaWiki.uploadWizard, jQuery, OO );
+}( mediaWiki, mediaWiki.uploadWizard, jQuery, OO ) );

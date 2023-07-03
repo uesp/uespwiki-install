@@ -11,6 +11,8 @@ class ArticlePage
   h1(:first_heading, id: 'section_0')
   # standalone history link
   a(:standalone_edit_history_link, css: '.last-modified-bar a')
+  # beta mode indicator
+  a(:beta_mode_indicator, css: '.branding-box sup')
 
   # left nav
   nav(:navigation, css: 'nav')
@@ -56,7 +58,7 @@ class ArticlePage
   button(:watch_confirm, class: 'mw-htmlform-submit')
 
   # search
-  button(:search_button, css: '.search-box .button-wrapper')
+  button(:search_icon, css: '#searchIcon')
   p(:search_within_pages, css: '.without-results')
   text_field(:search_box_placeholder, name: 'search', index: 0)
   text_field(:search_box2, name: 'search', index: 1)
@@ -76,7 +78,7 @@ class ArticlePage
     page.search_overlay_page_list_element.element.h3
   end
 
-  a(:notifications_button, id: 'secondary-button', class: 'user-button')
+  a(:notifications_button, css: '.user-button')
   div(:notifications_overlay, class: 'notifications-overlay')
   button(:notifications_overlay_close_button) do |page|
     page.notifications_overlay_element.button_element(class: 'cancel')
@@ -88,6 +90,7 @@ class ArticlePage
   # page-actions
   ul(:page_actions, id: 'page-actions')
   a(:talk, css: '.talk')
+  a(:category, css: '.category-button')
   a(:nearby_button, css: '#page-secondary-actions .nearby')
 
   # wikidata descriptions
@@ -116,6 +119,9 @@ class ArticlePage
     page.overlay_element.button_element(class: 'cancel')
   end
   h2(:overlay_heading, css: '.overlay-title h2')
+
+  # category
+  li(:overlay_category_topic_item, css: '.topic-title-list li')
 
   # visual editor
   div(:overlay_ve, css: '.editor-overlay-ve')

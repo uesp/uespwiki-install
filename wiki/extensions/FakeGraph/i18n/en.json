@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": []
+	},
+	"fakegraph-desc": "Hides &lt;graph> calls and adds them to a category.",
+	"fakegraph-graph-notice": "{{Notice|color=blue|image=[[File:Icon-Information.png|32px]]|width=100%|margin=2px|Graphs are currently disabled due to a security issue.}}",
+	"graph-disabled-category": "Pages with disabled graphs",
+	"graph-disabled-category-desc": "The page includes a <code><nowiki><graph></nowiki></code> tag, which is currently not available."
+}

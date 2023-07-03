@@ -3,7 +3,6 @@
 namespace CirrusSearch;
 
 use Title;
-use User;
 
 class SearchRequestLog extends BaseRequestLog {
 	/**
@@ -52,7 +51,7 @@ class SearchRequestLog extends BaseRequestLog {
 	}
 
 	/*
-	 * @param array
+	 * @param string[] $extra
 	 */
 	public function setCachedResult( array $extra ) {
 		$this->extra += $extra;

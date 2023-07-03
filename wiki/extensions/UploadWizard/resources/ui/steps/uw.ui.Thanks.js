@@ -22,6 +22,7 @@
 	 * @class uw.ui.Thanks
 	 * @extends uw.ui.Step
 	 * @constructor
+	 * @param {Object} config
 	 */
 	uw.ui.Thanks = function UWUIThanks( config ) {
 		var $header,
@@ -64,7 +65,7 @@
 		} );
 
 		this.beginButton = new OO.ui.ButtonWidget( {
-			label: this.getButtonConfig( 'beginButton', 'label' ) ||  mw.message( 'mwe-upwiz-upload-another' ).text(),
+			label: this.getButtonConfig( 'beginButton', 'label' ) || mw.message( 'mwe-upwiz-upload-another' ).text(),
 			flags: [ 'progressive', 'primary' ]
 		} );
 
@@ -98,15 +99,11 @@
 	uw.ui.Thanks.prototype.addUpload = function ( upload ) {
 		var thumbWikiText, $thanksDiv, $thumbnailWrapDiv, $thumbnailDiv, $thumbnailCaption, $thumbnailLink;
 
-		if ( upload === undefined ) {
-			return;
-		}
-
 		thumbWikiText = '[[' + [
-				upload.details.getTitle().getPrefixedText(),
-				'thumb',
-				upload.details.getThumbnailCaption()
-			].join( '|' ) + ']]';
+			upload.details.getTitle().getPrefixedText(),
+			'thumb',
+			upload.details.getThumbnailCaption()
+		].join( '|' ) + ']]';
 
 		$thanksDiv = $( '<div>' )
 			.addClass( 'mwe-upwiz-thanks ui-helper-clearfix' );
@@ -140,10 +137,7 @@
 					)
 			);
 
-		upload.getThumbnail(
-			this.config.thumbnailWidth,
-			this.config.thumbnailMaxHeight
-		).done( function ( thumb ) {
+		upload.getThumbnail().done( function ( thumb ) {
 			mw.UploadWizard.placeThumbnail( $thumbnailDiv, thumb );
 		} );
 
@@ -171,13 +165,6 @@
 				this.focus();
 				this.select();
 			} );
-	};
-
-	/**
-	 * Empty out all upload information.
-	 */
-	uw.ui.Thanks.prototype.empty = function () {
-		this.$div.find( '.mwe-upwiz-thanks' ).remove();
 	};
 
 	/**

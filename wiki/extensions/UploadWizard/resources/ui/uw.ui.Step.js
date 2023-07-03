@@ -46,20 +46,23 @@
 
 		$( '#mwe-upwiz-steps' ).append( this.$arrow );
 
-		// this will make sure that button will only be added if it's been
+		// this will make sure that buttons will only be added if they've been
 		// set in the controller, otherwise there's nowhere to go...
 		this.nextButtonPromise = $.Deferred();
+		this.previousButtonPromise = $.Deferred();
 	};
 
 	OO.mixinClass( uw.ui.Step, OO.EventEmitter );
 
 	/**
-	 * Move to the step.
+	 * Initialize this step.
 	 *
 	 * @param {mw.UploadWizardUpload[]} uploads
 	 */
-	uw.ui.Step.prototype.moveTo = function ( uploads ) {
+	uw.ui.Step.prototype.load = function ( uploads ) {
 		var offset = $( 'h1:first' ).offset();
+
+		this.movedFrom = false;
 
 		this.uploads = uploads;
 		this.$div.append( this.$buttons ).show();
@@ -72,19 +75,20 @@
 	};
 
 	/**
-	 * Move out of the step.
+	 * Cleanup this step.
 	 */
-	uw.ui.Step.prototype.moveFrom = function () {
+	uw.ui.Step.prototype.unload = function () {
+		this.movedFrom = true;
+
 		this.$div.children().detach();
 	};
 
-	/**
-	 * Empty data from the step.
-	 */
-	uw.ui.Step.prototype.empty = function () {};
-
 	uw.ui.Step.prototype.enableNextButton = function () {
 		this.nextButtonPromise.resolve();
+	};
+
+	uw.ui.Step.prototype.enablePreviousButton = function () {
+		this.previousButtonPromise.resolve();
 	};
 
 	/**
@@ -106,4 +110,21 @@
 		} );
 	};
 
+	/**
+	 * Add a 'previous' button to the step's button container
+	 */
+	uw.ui.Step.prototype.addPreviousButton = function () {
+		var ui = this;
+
+		this.previousButton = new OO.ui.ButtonWidget( {
+			classes: [ 'mwe-upwiz-button-previous' ],
+			label: mw.message( 'mwe-upwiz-previous' ).text()
+		} ).on( 'click', function () {
+			ui.emit( 'previous-step' );
+		} );
+
+		this.previousButtonPromise.done( function () {
+			ui.$buttons.append( ui.previousButton.$element );
+		} );
+	};
 }( mediaWiki, jQuery, mediaWiki.uploadWizard, OO ) );

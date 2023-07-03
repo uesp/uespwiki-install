@@ -2,9 +2,12 @@
 
 namespace CirrusSearch;
 
-use CirrusSearch\Search\InterwikiResultsType;
+use CirrusSearch\Search\FullTextResultsType;
 use CirrusSearch\Search\ResultSet;
-use ObjectCache;
+use CirrusSearch\Search\SearchContext;
+use MediaWiki\Logger\LoggerFactory;
+use MediaWiki\MediaWikiServices;
+use SpecialPageFactory;
 use User;
 
 /**
@@ -27,30 +30,39 @@ use User;
  */
 class InterwikiSearcher extends Searcher {
 	/**
-	 * @var int Max number of results to fetch from other wiki
+	 * @var int Max complexity allowed to run on other indices
 	 */
-	const MAX_RESULTS = 5;
+	const MAX_COMPLEXITY = 10;
 
 	/**
-	 * @var string interwiki prefix
+	 * @var int Highlighting bitfield
 	 */
-	private $interwiki;
+	private $highlightingConfig;
 
 	/**
 	 * Constructor
 	 * @param Connection $connection
+	 * @param SearchConfig $config
 	 * @param int[]|null $namespaces Namespace numbers to search, or null for all of them
 	 * @param User|null $user
-	 * @param string $index Base name for index to search from, defaults to $wgCirrusSearchIndexBaseName
+	 * @param int $highlightingConfig Bitmask of FullTextResultsType::HIGHLIGHT_… constants
 	 */
-	public function __construct( Connection $connection, array $namespaces = null, User $user = null ) {
+	public function __construct(
+		Connection $connection,
+		SearchConfig $config,
+		array $namespaces = null,
+		User $user = null,
+		$highlightingConfig = FullTextResultsType::HIGHLIGHT_NONE
+	) {
 		// Only allow core namespaces. We can't be sure any others exist
 		if ( $namespaces !== null ) {
 			$namespaces = array_filter( $namespaces, function( $namespace ) {
 				return $namespace <= 15;
 			} );
 		}
-		parent::__construct( $connection, 0, self::MAX_RESULTS, null, $namespaces, $user );
+		$maxResults = $config->get( 'CirrusSearchNumCrossProjectSearchResults' );
+		parent::__construct( $connection, 0, $maxResults, $config, $namespaces, $user );
+		$this->highlightingConfig = $highlightingConfig;
 	}
 
 	/**
@@ -64,7 +76,9 @@ class InterwikiSearcher extends Searcher {
 			return null;
 		}
 
-		$sources = $this->config->get( 'CirrusSearchInterwikiSources' );
+		$sources = MediaWikiServices::getInstance()
+			->getService( InterwikiResolver::SERVICE )
+			->getSisterProjectPrefixes();
 		if ( !$sources ) {
 			return null;
 		}
@@ -72,53 +86,102 @@ class InterwikiSearcher extends Searcher {
 			$this->config->get( 'CirrusSearchInterwikiCacheTime' )
 		);
 
-		$this->searchContext->setLimitSearchToLocalWiki( true );
-		$this->buildFullTextSearch( $term, false );
-		$context = $this->searchContext;
-
-		$retval = [];
-		$searches = [];
-		$resultsTypes = [];
-		foreach ( $sources as $interwiki => $index ) {
-			$resultsTypes[$interwiki] = new InterwikiResultsType( $interwiki );
-			$this->setResultsType( $resultsTypes[$interwiki] );
-			$this->indexBaseName = $index;
-			$this->searchContext = clone $context;
-			$search = $this->buildSearch();
-			if ( $this->searchContext->areResultsPossible() ) {
-				$searches[$interwiki] = $search;
+		$overriddenProfiles = $this->config->get( 'CirrusSearchCrossProjectProfiles' );
+		// Prepare a map where the key is a generated key identifying
+		// profile overrides, value holds an instance of the
+		// SearchContext and the list of wikis associated to it.
+		// This is needed to try building the query
+		// once per profile combination.
+		$byProfile = [
+			'__default__' => [
+				'context' => $this->searchContext,
+				'wikis' => [],
+			]
+		];
+		foreach( $sources as $interwiki => $index ) {
+			if ( isset( $overriddenProfiles[$interwiki] ) ) {
+				$key = $this->prepareContextKey( $overriddenProfiles[$interwiki] );
 			} else {
-				$retval[$interwiki] = [];
+				$key = '__default__';
+			}
+
+			if ( isset( $byProfile[$key] ) ) {
+				$byProfile[$key]['wikis'][] = $interwiki;
+			} else {
+				assert( isset( $overriddenProfiles[$interwiki] ) );
+				$byProfile[$key] = [
+					'context' => $this->buildOverriddenContext( $overriddenProfiles[$interwiki] ),
+					'wikis' => [ $interwiki ]
+				];
 			}
 		}
 
-		$results = $this->searchMulti( $searches, $term, $resultsTypes );
+		$retval = [];
+		$searches = [];
+		$this->setResultsType( new FullTextResultsType( $this->highlightingConfig ) );
+		foreach( $byProfile as $contexts ) {
+			// Build a new context for every search
+			// Some bits in the context may add up when calling
+			// buildFullTextSearch (such as filters).
+			$this->searchContext = $contexts['context'];
+			$this->searchContext->setLimitSearchToLocalWiki( true );
+			$this->searchContext->setOriginalSearchTerm( $term );
+			$this->buildFullTextSearch( $term, false );
+			$context = $this->searchContext;
+
+			foreach ( $sources as $interwiki => $index ) {
+				if ( !in_array( $interwiki, $contexts['wikis'] ) ) {
+					continue;
+				}
+				$this->indexBaseName = $index;
+				$this->searchContext = clone $context;
+				$search = $this->buildSearch();
+				if ( $this->searchContext->areResultsPossible() ) {
+					$searches[$interwiki] = $search;
+				} else {
+					$retval[$interwiki] = [];
+				}
+			}
+		}
+
+		$results = $this->searchMulti( $searches );
 		if ( !$results->isOK() ) {
 			return null;
 		}
 
-		return array_merge( $retval, $results->getValue() );
-	}
+		$retval = array_merge( $retval, $results->getValue() );
 
-	/**
-	 * Get the index basename for a given interwiki prefix, if one is defined.
-	 * @param string $interwiki
-	 * @return string|null
-	 */
-	public static function getIndexForInterwiki( $interwiki ) {
-		// These settings should be common for all wikis, so globals
-		// are _probably_ OK here.
-		global $wgCirrusSearchInterwikiSources, $wgCirrusSearchWikiToNameMap;
-
-		if ( isset( $wgCirrusSearchInterwikiSources[$interwiki] ) ) {
-			return $wgCirrusSearchInterwikiSources[$interwiki];
+		if ( $this->isReturnRaw() ) {
+			return $retval;
 		}
 
-		if ( isset( $wgCirrusSearchWikiToNameMap[$interwiki] ) ) {
-			return $wgCirrusSearchWikiToNameMap[$interwiki];
+		switch ( $this->config->get( 'CirrusSearchCrossProjectOrder' ) ) {
+		case 'recall':
+			uasort( $retval, function( $a, $b ) {
+				return $b->getTotalHits() - $a->getTotalHits();
+			} );
+			return $retval;
+		case 'random':
+			// reset the random number generator
+			// take the first 8 chars from the md5 to build a uint32
+			// and to prevent hexdec from returning floats
+			mt_srand( hexdec( substr( Util::generateIdentToken(), 0, 8 ) ) );
+			$sortKeys = array_map( function () { return mt_rand(); }, $retval );
+			// "Randomly" sort crossproject results
+			// Should give the same order for the same identity
+			array_multisort( $sortKeys, SORT_ASC, $retval );
+			return $retval;
+		case 'static':
+			return $retval;
+		default:
+			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
+				'wgCirrusSearchCrossProjectOrder is set to ' .
+				'unkown value {invalid_order} using static ' .
+				'instead.',
+				[ 'invalid_order' => $this->config->get( 'CirrusSearchCrossProjectOrder' ) ]
+			);
+			return $retval;
 		}
-
-		return null;
 	}
 
 	/**
@@ -137,5 +200,35 @@ class InterwikiSearcher extends Searcher {
 	 */
 	protected function getQueryCacheStatsKey() {
 		return 'CirrusSearch.query_cache.interwiki';
+	}
+
+	/**
+	 * Simple string representation of the overridden profiles
+	 * @param string[] $overriddenProfiles
+	 * @return string
+	 */
+	private function prepareContextKey( $overriddenProfiles ) {
+		return implode( '|', array_map(
+			function( $v, $k ) { return "$k:$v"; },
+			$overriddenProfiles,
+			array_keys( $overriddenProfiles )
+		) );
+	}
+
+	private function buildOverriddenContext( array $overrides ) {
+		$searchContext = new SearchContext( $this->searchContext->getConfig(), $this->searchContext->getNamespaces() );
+		foreach( $overrides as $name => $profile ) {
+			switch( $name ) {
+			case 'ftbuilder':
+				$searchContext->setFulltextQueryBuilderProfile( $profile );
+				break;
+			case 'rescore':
+				$searchContext->setRescoreProfile( $profile );
+				break;
+			default:
+				throw new \RuntimeException( "Cannot override profile: unsupported type $name found in configuration" );
+			}
+		}
+		return $searchContext;
 	}
 }

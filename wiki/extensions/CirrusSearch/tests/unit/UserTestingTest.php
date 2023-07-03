@@ -19,15 +19,17 @@ namespace CirrusSearch;
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @group CirrusSearch
  */
-class UserTestingTest extends \MediaWikiTestCase {
+class UserTestingTest extends CirrusTestCase {
 	public function setUp() {
 		parent::setUp();
 		Util::resetExecutionId();
 		UserTesting::resetInstance();
 	}
 
-	public function testPartitipcationInTest() {
+	public function testParticipationInTest() {
 		$config = $this->config( 'test' );
 		$ut = $this->ut( $config, true );
 		$this->assertEquals( true, $ut->isParticipatingIn( 'test' ) );

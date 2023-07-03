@@ -36,9 +36,9 @@ interface ResultsType {
 	 * Get the fields to load.  Most of the time we'll use source filtering instead but
 	 * some fields aren't part of the source.
 	 *
-	 * @return false|string|array corresponding to Elasticsearch fields syntax
+	 * @return array corresponding to Elasticsearch fields syntax
 	 */
-	function getFields();
+	function getStoredFields();
 
 	/**
 	 * Get the highlighting configuration.
@@ -62,22 +62,25 @@ interface ResultsType {
 	function createEmptyResult();
 }
 
-/**
- * Returns titles and makes no effort to figure out how the titles matched.
- */
-class TitleResultsType implements ResultsType {
+abstract class BaseResultsType implements ResultsType {
+
 	/**
 	 * @return false|string|array corresponding to Elasticsearch source filtering syntax
 	 */
 	public function getSourceFiltering() {
-		return [ 'namespace', 'title' ];
+		return [ 'namespace', 'title', 'namespace_text', 'wiki' ];
 	}
+}
 
+/**
+ * Returns titles and makes no effort to figure out how the titles matched.
+ */
+class TitleResultsType extends BaseResultsType {
 	/**
-	 * @return false|string|array corresponding to Elasticsearch fields syntax
+	 * @return array corresponding to Elasticsearch fields syntax
 	 */
-	public function getFields() {
-		return false;
+	public function getStoredFields() {
+		return [];
 	}
 
 	/**
@@ -96,7 +99,7 @@ class TitleResultsType implements ResultsType {
 	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
 		$results = [];
 		foreach( $resultSet->getResults() as $r ) {
-			$results[] = Title::makeTitle( $r->namespace, $r->title );
+			$results[] = TitleHelper::makeTitle( $r );
 		}
 		return $results;
 	}
@@ -187,7 +190,7 @@ class FancyTitleResultsType extends TitleResultsType {
 	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
 		$results = [];
 		foreach( $resultSet->getResults() as $r ) {
-			$title = Title::makeTitle( $r->namespace, $r->title );
+			$title = TitleHelper::makeTitle( $r );
 			$highlights = $r->getHighlights();
 			$resultForTitle = [];
 
@@ -219,7 +222,7 @@ class FancyTitleResultsType extends TitleResultsType {
 					// Instead of getting the redirect's real namespace we're going to just use the namespace
 					// of the title.  This is not great but OK given that we can't find cross namespace
 					// redirects properly any way.
-					$redirectTitle = Title::makeTitle( $r->namespace, $redirectTitle );
+					$redirectTitle = TitleHelper::makeRedirectTitle( $r, $redirectTitle, $r->namespace );
 					$resultForTitle[ 'redirectMatches' ][] = $redirectTitle;
 				}
 			}
@@ -247,7 +250,7 @@ class FancyTitleResultsType extends TitleResultsType {
 /**
  * Result type for a full text search.
  */
-class FullTextResultsType implements ResultsType {
+class FullTextResultsType extends BaseResultsType {
 	const HIGHLIGHT_NONE = 0;
 	const HIGHLIGHT_TITLE = 1;
 	const HIGHLIGHT_ALT_TITLE = 2;
@@ -269,36 +272,27 @@ class FullTextResultsType implements ResultsType {
 	private $highlightingConfig;
 
 	/**
-	 * @var string interwiki prefix mappings
-	 */
-	private $prefix;
-
-	/**
 	 * @param int $highlightingConfig Bitmask, see HIGHLIGHT_* consts
-	 * @param string $interwiki
 	 */
-	public function __construct( $highlightingConfig, $interwiki = '' ) {
+	public function __construct( $highlightingConfig ) {
 		$this->highlightingConfig = $highlightingConfig;
-		$this->prefix = $interwiki;
 	}
 
 	/**
 	 * @return false|string|array corresponding to Elasticsearch source filtering syntax
 	 */
 	public function getSourceFiltering() {
-		$fields = [ 'id', 'title', 'namespace', 'redirect.*', 'timestamp', 'text_bytes' ];
-		if ( $this->prefix ) {
-			$fields[] = 'namespace_text';
-		}
-
-		return $fields;
+		return array_merge(
+			parent::getSourceFiltering(),
+			[ 'redirect.*', 'timestamp', 'text_bytes' ]
+		);
 	}
 
 	/**
-	 * @return string
+	 * @return array
 	 */
-	public function getFields() {
-		return "text.word_count"; // word_count is only a stored field and isn't part of the source.
+	public function getStoredFields() {
+		return ["text.word_count"]; // word_count is only a stored field and isn't part of the source.
 	}
 
 	/**
@@ -459,8 +453,7 @@ class FullTextResultsType implements ResultsType {
 			$context->getSuggestPrefixes(),
 			$context->getSuggestSuffixes(),
 			$result,
-			$context->isSyntaxUsed(),
-			$this->prefix
+			$context->isSpecialKeywordUsed()
 		);
 	}
 
@@ -543,12 +536,20 @@ class FullTextResultsType implements ResultsType {
  * Returns page ids. Less CPU load on Elasticsearch since all we're returning
  * is an id.
  */
-class IdResultsType extends TitleResultsType {
+class IdResultsType implements ResultsType {
 	/**
 	 * @return false|string|array corresponding to Elasticsearch source filtering syntax
 	 */
 	public function getSourceFiltering() {
 		return false;
+	}
+
+	public function getStoredFields() {
+		return [];
+	}
+
+	public function getHighlightingConfiguration( array $highlightSource ) {
+		return null;
 	}
 
 	/**
@@ -569,65 +570,5 @@ class IdResultsType extends TitleResultsType {
 	 */
 	public function createEmptyResult() {
 		return [];
-	}
-}
-
-class InterwikiResultsType implements ResultsType {
-	/**
-	 * @var string interwiki prefix mappings
-	 */
-	private $prefix;
-
-	/**
-	 * Constructor
-	 *
-	 * @param string $interwiki
-	 */
-	public function __construct( $interwiki ) {
-		$this->prefix = $interwiki;
-	}
-
-	/**
-	 * @param SearchContext $context
-	 * @param \Elastica\ResultSet $result
-	 * @return ResultSet
-	 */
-	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $result ) {
-		return new ResultSet(
-			$context->getSuggestPrefixes(),
-			$context->getSuggestSuffixes(),
-			$result,
-			$context->isSyntaxUsed(),
-			$this->prefix
-		);
-	}
-
-	/**
-	 * @return EmptyResultSet
-	 */
-	public function createEmptyResult() {
-		return new EmptyResultSet();
-	}
-
-	/**
-	 * @param array $highlightSource
-	 * @return null
-	 */
-	public function getHighlightingConfiguration( array $highlightSource ) {
-		return null;
-	}
-
-	/**
-	 * @return false|string|array corresponding to Elasticsearch source filtering syntax
-	 */
-	public function getSourceFiltering() {
-		return [ 'namespace', 'namespace_text', 'title' ];
-	}
-
-	/**
-	 * @return false
-	 */
-	public function getFields() {
-		return false;
 	}
 }

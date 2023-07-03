@@ -25,7 +25,7 @@ use CirrusSearch\SearchConfig;
  */
 
 class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
-	const VERSION = "1.2";
+	const VERSION = "1.4";
 
 	/**
 	 * @param string $langCode The language code to build config for
@@ -42,11 +42,32 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 	 * @return array
 	 */
 	protected function defaults() {
+		// Use default lowercase filter
+		$lowercase_type = ['type' => 'lowercase'];
+		if( $this->isIcuAvailable() ) {
+			$lowercase_type = [
+				"type" => "icu_normalizer",
+				"name" => "nfkc_cf",
+			];
+		}
 		// Use the default Lucene ASCII filter
-		$folding_type = 'asciifolding';
-		if ( $this->isIcuAvailable() && $this->config->get( 'CirrusSearchUseIcuFolding' ) === true ) {
+		$folding_type = [ 'type' => 'asciifolding' ];
+		if ( $this->isIcuFolding() ) {
 			// Use ICU Folding if the plugin is available and activated in the config
-			$folding_type = 'icu_folding';
+			$folding_type = [ 'type' => 'icu_folding' ];
+			$unicodeSetFilter = $this->getICUSetFilter();
+			if ( !empty( $unicodeSetFilter ) ) {
+				$folding_type['unicodeSetFilter'] = $unicodeSetFilter;
+			}
+		}
+		$textTokenizer = 'standard';
+		$plainTokenizer = 'whitespace';
+		if ( $this->icuTokenizer ) {
+			$textTokenizer = 'icu_tokenizer';
+			// We cannot use the icu_tokenizer for plain here
+			// even if icu tokenization is mostly needed for languages
+			// where space is not used to break words. We don't want
+			// to break some punctuation chars like ':'
 		}
 		$defaults = [
 			'char_filter' => [
@@ -77,7 +98,35 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 						'\\]=>\u0020',
 						'{=>\u0020',
 						'}=>\u0020',
-						'\\\\=>\u0020'
+						'\\\\=>\u0020',
+						// Unicode white spaces
+						// cause issues with completion
+						// only few of them where actually
+						// identified as problematic but
+						// more are added for extra safety
+						// see: T156234
+						// TODO: reevaluate with es5
+						'\u00a0=>\u0020',
+						'\u1680=>\u0020',
+						'\u180e=>\u0020',
+						'\u2000=>\u0020',
+						'\u2001=>\u0020',
+						'\u2002=>\u0020',
+						'\u2003=>\u0020',
+						'\u2004=>\u0020',
+						'\u2005=>\u0020',
+						'\u2006=>\u0020',
+						'\u2007=>\u0020',
+						'\u2008=>\u0020',
+						'\u2009=>\u0020',
+						'\u200a=>\u0020',
+						'\u200b=>\u0020', // causes issue
+						'\u200c=>\u0020', // causes issue
+						'\u200d=>\u0020', // causes issue
+						'\u202f=>\u0020',
+						'\u205f=>\u0020',
+						'\u3000=>\u0020',
+						'\ufeff=>\u0020', // causes issue
 					],
 				],
 			],
@@ -87,29 +136,33 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 					"stopwords" => "_none_",
 					"remove_trailing" => "true"
 				],
-				"asciifolding" => [
-					"type" => $folding_type,
-				],
-				"icu_normalizer" => [
-					"type" => "icu_normalizer",
-					"name" => "nfkc_cf"
-				],
+				"lowercase" => $lowercase_type,
+				"accentfolding" => $folding_type,
 				"token_limit" => [
 					"type" => "limit",
 					"max_token_count" => "20"
-				]
+				],
+				// Workaround what seems to be a bug in the
+				// completion suggester, empty tokens cause an
+				// issue similar to
+				// https://github.com/elastic/elasticsearch/pull/11158
+				// can be removed with es5 if we want
+				"remove_empty" => [
+					"type" => "length",
+					"min" => 1,
+				],
 			],
 			'analyzer' => [
 				"stop_analyzer" => [
 					"type" => "custom",
 					"filter" => [
-						"standard",
 						"lowercase",
 						"stop_filter",
-						"asciifolding",
+						"accentfolding",
+						"remove_empty",
 						"token_limit"
 					],
-					"tokenizer" => "standard"
+					"tokenizer" => $textTokenizer,
 				],
 				// We do not remove stop words when searching,
 				// this leads to extremely weird behaviors while
@@ -117,30 +170,32 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 				"stop_analyzer_search" => [
 					"type" => "custom",
 					"filter" => [
-						"standard",
 						"lowercase",
-						"asciifolding",
+						"accentfolding",
+						"remove_empty",
 						"token_limit"
 					],
-					"tokenizer" => "standard"
+					"tokenizer" => $textTokenizer,
 				],
 				"plain" => [
 					"type" => "custom",
 					"char_filter" => [ 'word_break_helper' ],
 					"filter" => [
+						"remove_empty",
 						"token_limit",
 						"lowercase"
 					],
-					"tokenizer" => "whitespace"
+					"tokenizer" => $plainTokenizer,
 				],
 				"plain_search" => [
 					"type" => "custom",
 					"char_filter" => [ 'word_break_helper' ],
 					"filter" => [
+						"remove_empty",
 						"token_limit",
 						"lowercase"
 					],
-					"tokenizer" => "whitespace"
+					"tokenizer" => $plainTokenizer,
 				],
 			],
 		];
@@ -148,22 +203,22 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 			$defaults['analyzer']['subphrases'] = [
 				"type" => "custom",
 				"filter" => [
-					"standard",
 					"lowercase",
-					"asciifolding",
+					"accentfolding",
+					"remove_empty",
 					"token_limit"
 				],
-				"tokenizer" => "standard"
+				"tokenizer" => $textTokenizer,
 			];
 			$defaults['analyzer']['subphrases_search'] = [
 				"type" => "custom",
 				"filter" => [
-					"standard",
 					"lowercase",
-					"asciifolding",
+					"accentfolding",
+					"remove_empty",
 					"token_limit"
 				],
-				"tokenizer" => "standard"
+				"tokenizer" => $textTokenizer,
 			];
 		}
 		return $defaults;

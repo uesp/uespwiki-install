@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Shirayuki",
+			"Whym",
+			"赤城。",
+			"Sujiniku",
+			"Otokoume",
+			"Omotecho"
+		]
+	},
+	"popups-message": "ページのプレビュー",
+	"popups-desc": "ページへのリンクにホバーした際に、プレビューを表示する",
+	"popups-settings-title": "ページのプレビュー",
+	"popups-settings-description": "このツールによって、ウィキのページへのリンクから内容の要約をプレビューできます。",
+	"popups-settings-option-simple": "有効化",
+	"popups-settings-option-off": "無効化",
+	"popups-settings-save": "保存",
+	"popups-settings-help-ok": "完了",
+	"popups-settings-cancel": "取り消し",
+	"popups-settings-help": "ページのフッターにあるリンクから、プレビューを元に戻すことができます。",
+	"popups-settings-enable": "プレビューを有効にする",
+	"popups-send-feedback": "フィードバックを送信 (外部リンク)"
+}

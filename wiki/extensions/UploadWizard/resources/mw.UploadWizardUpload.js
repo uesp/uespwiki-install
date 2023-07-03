@@ -22,41 +22,45 @@
 	 * @class mw.UploadWizardUpload
 	 * @mixins OO.EventEmitter
 	 * @constructor
-	 * @param {UploadWizard} wizard
+	 * @param {Step} controller
+	 * @param {File} file
 	 */
-	mw.UploadWizardUpload = function MWUploadWizardUpload( wizard ) {
-		var upload = this;
-
+	mw.UploadWizardUpload = function MWUploadWizardUpload( controller, file ) {
 		OO.EventEmitter.call( this );
 
 		this.index = mw.UploadWizardUpload.prototype.count;
 		mw.UploadWizardUpload.prototype.count++;
 
-		this.wizard = wizard;
-		this.api = wizard.api;
+		this.controller = controller;
+		this.api = controller.api;
+		this.file = file;
 		this.state = 'new';
-		this.thumbnailPublishers = {};
 		this.imageinfo = {};
 		this.title = undefined;
-		this.extension = undefined;
-		this.filename = undefined;
-		this.file = undefined;
+		this.thumbnailPromise = null;
 		this.ignoreWarning = {};
-		this.fromURL = false;
-		this.previewPromise = null;
 
 		this.fileKey = undefined;
 
 		// this should be moved to the interface, if we even keep this
 		this.transportWeight = 1; // default all same
-		this.detailsWeight = 1; // default all same
 
 		// details
 		this.ui = new mw.UploadWizardUploadInterface( this )
 			.connect( this, {
-				'file-changed': [ 'emit', 'file-changed', upload ],
-				'filename-accepted': [ 'emit', 'filename-accepted' ],
-				'upload-filled': [ 'emit', 'filled' ]
+				/*
+				 * This may be confusing!
+				 * This object also has a `remove` method, which will also be
+				 * called when an upload is removed. But an upload can be
+				 * removed for multiple reasons (one being clicking the "remove"
+				 * button, which triggers this event - but another could be
+				 * removing faulty uploads).
+				 * To simplify things, we'll always initiate the remove from the
+				 * controllers, so we'll relay this event to the controllers,
+				 * which will then eventually come back to call `remove` on this
+				 * object.
+				 */
+				'upload-removed': [ 'emit', 'remove-upload' ]
 			} );
 	};
 
@@ -67,22 +71,6 @@
 
 	// increments with each upload
 	mw.UploadWizardUpload.prototype.count = 0;
-
-	/**
-	 * Manually fill the file input with a file.
-	 *
-	 * @param {File} providedFile
-	 */
-	mw.UploadWizardUpload.prototype.fill = function ( providedFile ) {
-		this.providedFile = providedFile;
-
-		// check to see if the File is being uploaded from a 3rd party URL.
-		if ( providedFile.fromURL ) {
-			this.fromURL = true;
-		}
-
-		this.ui.fill( providedFile );
-	};
 
 	/**
 	 * start
@@ -98,19 +86,15 @@
 	};
 
 	/**
-	 *  remove this upload. n.b. we trigger a removeUpload this is usually triggered from
+	 * Remove this upload. n.b. we trigger a removeUpload this is usually triggered from
 	 */
 	mw.UploadWizardUpload.prototype.remove = function () {
+		// remove the div that passed along the trigger
+		var $div = $( this.ui.div );
+		$div.unbind(); // everything
+		$div.remove();
+
 		this.state = 'aborted';
-		if ( this.deedPreview ) {
-			this.deedPreview.remove();
-		}
-		if ( this.details && this.details.div ) {
-			this.details.div.remove();
-		}
-		// we signal to the wizard to update itself, which has to delete the
-		// final vestige of this upload
-		this.emit( 'remove-upload' );
 	};
 
 	/**
@@ -130,20 +114,26 @@
 
 	/**
 	 * Stop the upload -- we have failed for some reason
+	 *
+	 * @param {string} code Error code from API
+	 * @param {string} html Error message
+	 * @param {jQuery} [$additionalStatus]
 	 */
-	mw.UploadWizardUpload.prototype.setError = function ( code, info, additionalStatus ) {
+	mw.UploadWizardUpload.prototype.setError = function ( code, html, $additionalStatus ) {
 		if ( this.state === 'aborted' ) {
 			// There's no point in reporting an error anymore.
 			return;
 		}
 		this.state = 'error';
 		this.transportProgress = 0;
-		this.ui.showError( code, info, additionalStatus );
-		uw.eventFlowLogger.logError( 'file', { code: code, message: info } );
+		this.ui.showError( code, html, $additionalStatus );
+		uw.eventFlowLogger.logError( 'file', { code: code, message: html } );
 	};
 
 	/**
 	 * Resume the upload, assume that whatever error(s) we got were benign.
+	 *
+	 * @param {string} code
 	 */
 	mw.UploadWizardUpload.prototype.removeErrors = function ( code ) {
 		this.ignoreWarning[ code ] = true;
@@ -151,73 +141,15 @@
 	};
 
 	/**
-	 * To be executed when an individual upload finishes. Processes the result and updates step 2's details
+	 * To be executed when an individual upload finishes. Processes the result
+	 * and updates step 2's details
 	 *
 	 * @param {Object} result The API result in parsed JSON form
 	 */
 	mw.UploadWizardUpload.prototype.setTransported = function ( result ) {
-		// default error state
-		var comma, warnCode, promise,
-			code = 'unknown',
-			info = 'unknown',
-			$extra;
+		var warnCode, param;
 
 		if ( this.state === 'aborted' ) {
-			return;
-		}
-
-		if ( result.error ) {
-			// If there was an error, we can't really do anything else, so let's get out while we can.
-			if ( result.error.code ) {
-				code = result.error.code;
-			}
-			if ( code === 'badtoken' ) {
-				this.api.badToken( 'csrf' );
-				// Try again once
-				if ( !this.ignoreWarning[ code ] ) {
-					this.removeErrors( code );
-					return;
-				}
-			}
-			if ( code === 'filetype-banned' && result.error.blacklisted ) {
-				code = 'filetype-banned-type';
-				comma = mw.message( 'comma-separator' ).text();
-				info = [
-					result.error.blacklisted.join( comma ),
-					result.error.allowed.join( comma ),
-					result.error.allowed.length,
-					result.error.blacklisted.length
-				];
-			} else if ( code === 'abusefilter-disallowed' || code === 'abusefilter-warning' || code === 'spamblacklist' ) {
-				// 'amenableparser' will expand templates and parser functions server-side.
-				// We still do the rest of wikitext parsing here (throught jqueryMsg).
-				promise = this.api.loadMessagesIfMissing( [ result.error.message.key ], { amenableparser: true } );
-				info = [
-					function () {
-						promise.done( function () {
-							mw.errorDialog( $( '<div>' ).msg(
-								result.error.message.key,
-								result.error.message.params
-							) );
-						} );
-					}
-				];
-
-				if ( code === 'abusefilter-warning' ) {
-					$extra = new OO.ui.ButtonWidget( {
-						label: mw.message( 'mwe-upwiz-override' ).text(),
-						title: mw.message( 'mwe-upwiz-override-upload' ).text(),
-						flags: 'progressive',
-						framed: false
-					} ).on( 'click', function () {
-						// No need to ignore the error, AbuseFilter will only return it once
-						this.start();
-					}.bind( this ) ).$element;
-				}
-			} else if ( result.error.info ) {
-				info = result.error.info;
-			}
-			this.setError( code, info );
 			return;
 		}
 
@@ -232,70 +164,100 @@
 					case 'exists-normalized':
 					case 'was-deleted':
 					case 'badfilename':
+					case 'bad-prefix':
 						// we ignore these warnings, because the title is not our final title.
 						break;
 					case 'duplicate':
-					case 'duplicate-archive':
-						code = warnCode;
 						this.setDuplicateError( warnCode, result.upload.warnings[ warnCode ] );
-						break;
-					default:
-						// we have an unknown warning, so let's say what we know
-						code = 'unknown-warning';
-						if ( typeof result.upload.warnings[ warnCode ] === 'string' ) {
-							// tack the original error code onto the warning info
-							info = warnCode + mw.message( 'colon-separator' ).text() + result.upload.warnings[ warnCode ];
-						} else {
-							info = result.upload.warnings[ warnCode ];
+						return;
+					case 'nochange':
+						// This is like 'duplicate', but also the filename is the same, which doesn't matter
+						if ( result.upload.warnings.exists ) {
+							this.setDuplicateError( warnCode, [ result.upload.warnings.exists ] );
 						}
-						this.setError( code, info );
-						break;
+						return;
+					case 'duplicate-archive':
+						this.setDuplicateArchiveError( warnCode, result.upload.warnings[ warnCode ] );
+						return;
+					default:
+						param = warnCode;
+						if ( typeof result.upload.warnings[ warnCode ] === 'string' ) {
+							// tack the original error code onto the warning message
+							param += mw.message( 'colon-separator' ).text() + result.upload.warnings[ warnCode ];
+						}
+
+						// we have an unknown warning, so let's say what we know
+						this.setError( warnCode, mw.message( 'api-error-unknown-warning', param ).parse() );
+						return;
 				}
 			}
 		}
 
-		if ( this.state !== 'error' ) {
-			if ( result.upload && result.upload.result === 'Success' ) {
-				if ( result.upload.imageinfo ) {
-					this.setSuccess( result );
-				} else {
-					this.setError( 'noimageinfo', info );
-				}
-			} else if ( result.upload && result.upload.result === 'Warning' ) {
-				throw new Error( 'Your browser got back a Warning result from the server. Please file a bug.' );
+		if ( result.upload && result.upload.result === 'Success' ) {
+			if ( result.upload.imageinfo ) {
+				this.setSuccess( result );
 			} else {
-				this.setError( code, info );
+				this.setError( 'noimageinfo', mw.message( 'api-error-noimageinfo' ).parse() );
+			}
+		} else if ( result.upload && result.upload.result === 'Warning' ) {
+			throw new Error( 'Your browser got back a Warning result from the server. Please file a bug.' );
+		} else {
+			this.setError( 'unknown', mw.message( 'unknown-error' ).parse() );
+		}
+	};
+
+	/**
+	 * To be executed when an individual upload fails
+	 *
+	 * @param {string} code The API error code
+	 * @param {Object} result The API result in parsed JSON form
+	 */
+	mw.UploadWizardUpload.prototype.setTransportError = function ( code, result ) {
+		var $extra;
+
+		if ( this.state === 'aborted' ) {
+			return;
+		}
+
+		if ( code === 'badtoken' ) {
+			this.api.badToken( 'csrf' );
+			// Try again once
+			if ( !this.ignoreWarning[ code ] ) {
+				this.removeErrors( code );
+				return;
 			}
 		}
+
+		if ( code === 'abusefilter-warning' ) {
+			$extra = new OO.ui.ButtonWidget( {
+				label: mw.message( 'mwe-upwiz-override' ).text(),
+				title: mw.message( 'mwe-upwiz-override-upload' ).text(),
+				flags: 'progressive',
+				framed: false
+			} ).on( 'click', function () {
+				// No need to ignore the error, AbuseFilter will only return it once
+				this.start();
+			}.bind( this ) ).$element;
+		}
+
+		this.setError( code, result.errors[ 0 ].html, $extra );
 	};
 
 	/**
 	 * Helper function to generate duplicate errors in a possibly collapsible list.
 	 * Works with existing duplicates and deleted dupes.
 	 *
-	 * @param {string} code Error code, should have matching strings in .i18n.php
+	 * @param {string} code Warning code, should have matching strings in .i18n.php
 	 * @param {Object} resultDuplicate Portion of the API error result listing duplicates
 	 */
 	mw.UploadWizardUpload.prototype.setDuplicateError = function ( code, resultDuplicate ) {
-		var duplicates, $ul, $extra, uploadDuplicate;
-
-		if ( typeof resultDuplicate === 'object' ) {
-			duplicates = resultDuplicate;
-		} else if ( typeof resultDuplicate === 'string' ) {
-			duplicates = [ resultDuplicate ];
-		}
-
-		$ul = $( '<ul>' );
-		$.each( duplicates, function ( i, filename ) {
-			var href, $a, params = {};
+		var $ul = $( '<ul>' );
+		$.each( resultDuplicate, function ( i, filename ) {
+			var href, $a;
 
 			try {
 				$a = $( '<a>' ).text( filename );
-				if ( code === 'duplicate-archive' ) {
-					$a.addClass( 'new' );
-					params = { action: 'edit', redlink: '1' };
-				}
-				href = mw.Title.makeTitle( NS_FILE, filename ).getUrl( params );
+				href = mw.Title.makeTitle( NS_FILE, filename ).getUrl( {} );
 				$a.attr( { href: href, target: '_blank' } );
 			} catch ( e ) {
 				// For example, if the file was revdeleted
@@ -305,12 +267,22 @@
 			$ul.append( $( '<li>' ).append( $a ) );
 		} );
 
-		if ( duplicates.length > 1 ) {
+		if ( resultDuplicate.length > 1 ) {
 			$ul.makeCollapsible( { collapsed: true } );
 		}
 
-		$extra = $ul;
-		if ( code === 'duplicate-archive' ) {
+		this.setError( code, mw.message( 'file-exists-duplicate', resultDuplicate.length ).parse(), $ul );
+	};
+
+	/**
+	 * Helper function to generate duplicate errors in a possibly collapsible list.
+	 * Works with existing duplicates and deleted dupes.
+	 *
+	 * @param {string} code Warning code, should have matching strings in .i18n.php
+	 * @param {Object} resultDuplicate Portion of the API error result listing duplicates
+	 */
+	mw.UploadWizardUpload.prototype.setDuplicateArchiveError = function ( code, resultDuplicate ) {
+		var filename = mw.Title.makeTitle( NS_FILE, resultDuplicate ).getPrefixedText(),
 			uploadDuplicate = new OO.ui.ButtonWidget( {
 				label: mw.message( 'mwe-upwiz-override' ).text(),
 				title: mw.message( 'mwe-upwiz-override-upload' ).text(),
@@ -319,16 +291,14 @@
 			} ).on( 'click', function () {
 				this.removeErrors( 'duplicate-archive' );
 			}.bind( this ) );
-			$extra = $extra.add( uploadDuplicate.$element );
-		}
 
-		this.setError( code, [ duplicates.length ], $extra );
+		this.setError( code, mw.message( 'file-deleted-duplicate', filename ).parse(), uploadDuplicate.$element );
 	};
 
 	/**
 	 * Called from any upload success condition
 	 *
-	 * @param {Mixed} result -- result of AJAX call
+	 * @param {Object} result -- result of AJAX call
 	 */
 	mw.UploadWizardUpload.prototype.setSuccess = function ( result ) {
 		this.state = 'transported';
@@ -336,17 +306,27 @@
 
 		this.ui.setStatus( 'mwe-upwiz-getting-metadata' );
 
-		if ( result.upload ) {
-			this.extractUploadInfo( result.upload );
-			this.state = 'stashed';
-			this.ui.showStashed();
+		this.extractUploadInfo( result.upload );
+		this.state = 'stashed';
+		this.ui.showStashed();
 
-			this.emit( 'success' );
-			// check all uploads, if they're complete, show the next button
-			// TODO Make wizard connect to 'success' event
-			this.wizard.steps.file.showNext();
+		this.emit( 'success' );
+		// check all uploads, if they're complete, show the next button
+		// TODO Make wizard connect to 'success' event
+		this.controller.showNext();
+	};
+
+	/**
+	 * Get just the filename.
+	 *
+	 * @return {string}
+	 */
+	mw.UploadWizardUpload.prototype.getFilename = function () {
+		if ( this.file.fileName ) {
+			return this.file.fileName;
 		} else {
-			this.setError( 'noimageinfo' );
+			// this property has a different name in FF vs Chrome.
+			return this.file.name;
 		}
 	};
 
@@ -354,10 +334,11 @@
 	 * Get the basename of a path.
 	 * For error conditions, returns the empty string.
 	 *
-	 * @param {string} path
 	 * @return {string} basename
 	 */
-	mw.UploadWizardUpload.prototype.getBasename = function ( path ) {
+	mw.UploadWizardUpload.prototype.getBasename = function () {
+		var path = this.getFilename();
+
 		if ( path === undefined || path === null ) {
 			return '';
 		}
@@ -365,115 +346,6 @@
 		// find index of last path separator in the path, add 1. (If no separator found, yields 0)
 		// then take the entire string after that.
 		return path.substr( Math.max( path.lastIndexOf( '/' ), path.lastIndexOf( '\\' ) ) + 1 );
-	};
-
-	/**
-	 * Shows a filename error in the UI.
-	 *
-	 * @param {string} code Short code for i18n strings
-	 * @param {string} info More information
-	 */
-	mw.UploadWizardUpload.prototype.fileNameErr = function ( code, info ) {
-		this.hasError = true;
-		this.ui.fileChangedError( code, info );
-	};
-
-	/**
-	 * Called when the file is entered into the file input, bound to its change() event.
-	 * Checks for file validity, then extracts metadata.
-	 * Error out if filename or its contents are determined to be unacceptable
-	 * Proceed to thumbnail extraction and image info if acceptable
-	 *
-	 * We changed the behavior here to be a little more sane. Now any errors
-	 * will cause the fileChangedOk not to be called, and if you have a special
-	 * case where an error should be ignored, you can simply find that error
-	 * and delete it from the third parameter of the error callback. The end.
-	 *
-	 * @param {string} filename The filename
-	 * @param {Object} file File, if available
-	 */
-	mw.UploadWizardUpload.prototype.checkFile = function ( filename, file ) {
-		var duplicate, extension,
-			actualMaxSize,
-			upload = this,
-
-			// Check if filename is acceptable
-			// TODO sanitize filename
-			basename = this.getBasename( filename );
-
-		function finishCallback() {
-			if ( upload && upload.ui ) {
-				upload.fileChangedOk();
-			} else {
-				setTimeout( finishCallback, 200 );
-			}
-		}
-
-		// Eternal optimism
-		this.hasError = false;
-
-		// check to see if the file has already been selected for upload.
-		duplicate = false;
-		$.each( this.wizard.uploads, function ( i, thisupload ) {
-			if ( thisupload !== undefined && upload !== thisupload && filename === thisupload.filename ) {
-				duplicate = true;
-				return false;
-			}
-		} );
-
-		if ( duplicate ) {
-			this.fileNameErr( 'dup', basename );
-			return;
-		}
-
-		this.setTitle( basename );
-
-		if ( !this.title ) {
-			if ( basename.indexOf( '.' ) === -1 ) {
-				this.fileNameErr( 'noext', null );
-			} else {
-				this.fileNameErr( 'unparseable', null );
-			}
-			return;
-		}
-
-		// Check if extension is acceptable
-		extension = this.title.getExtension();
-		if ( !extension ) {
-			this.fileNameErr( 'noext', null );
-		} else {
-			if (
-				mw.UploadWizard.config.fileExtensions !== null &&
-				$.inArray( extension.toLowerCase(), mw.UploadWizard.config.fileExtensions ) === -1
-			) {
-				this.fileNameErr( 'ext', extension );
-			} else {
-				// Split this into a separate case, if the error above got ignored,
-				// we want to still trudge forward.
-
-				// Extract more info via File API
-				this.file = file;
-
-				actualMaxSize = mw.UploadWizard.config.maxMwUploadSize;
-
-				// make sure the file isn't too large
-				// XXX need a way to find the size of the Flickr image
-				if ( this.file.size ) {
-					this.transportWeight = this.file.size;
-					if ( this.transportWeight > actualMaxSize ) {
-						this.showMaxSizeWarning( this.transportWeight, actualMaxSize );
-						return;
-					}
-				}
-				if ( this.imageinfo === undefined ) {
-					this.imageinfo = {};
-				}
-				this.filename = filename;
-				if ( this.hasError === false ) {
-					finishCallback();
-				}
-			}
-		}
 	};
 
 	/**
@@ -486,23 +358,6 @@
 	};
 
 	/**
-	 * Shows an error dialog informing the user that the selected file is to large
-	 *
-	 * @param {number} size Size of the file in bytes
-	 * @param {number} maxSize Maximum file size
-	 */
-	mw.UploadWizardUpload.prototype.showMaxSizeWarning = function ( size, maxSize ) {
-		mw.errorDialog(
-			mw.message(
-				'mwe-upwiz-file-too-large-text',
-				mw.units.bytes( maxSize ),
-				mw.units.bytes( size )
-			).text(),
-			mw.message( 'mwe-upwiz-file-too-large' ).text()
-		);
-	};
-
-	/**
 	 * Extract some JPEG metadata that we need to render thumbnails (EXIF rotation mostly).
 	 *
 	 * For JPEGs, we use the JsJpegMeta library in core to extract metadata,
@@ -511,6 +366,7 @@
 	 *
 	 * For all other file types, we don't need or want to run this, and this function does nothing.
 	 *
+	 * @private
 	 * @return {jQuery.Promise} A promise, resolved when we're done
 	 */
 	mw.UploadWizardUpload.prototype.extractMetadataFromJpegMeta = function () {
@@ -533,6 +389,7 @@
 					binStr = binReader.result;
 				} else {
 					// Array buffer; convert to binary string for the library.
+					/* global Uint8Array */
 					arr = new Uint8Array( binReader.result );
 					binStr = '';
 					for ( i = 0; i < arr.byteLength; i++ ) {
@@ -541,9 +398,8 @@
 				}
 				try {
 					meta = mw.libs.jpegmeta( binStr, upload.file.fileName );
-					// jscs:disable requireCamelCaseOrUpperCaseIdentifiers, disallowDanglingUnderscores
+					// eslint-disable-next-line camelcase, no-underscore-dangle
 					meta._binary_data = null;
-					// jscs:enable
 				} catch ( e ) {
 					meta = null;
 				}
@@ -570,9 +426,6 @@
 		var pixelHeightDim, pixelWidthDim, degrees;
 
 		if ( meta !== undefined && meta !== null && typeof meta === 'object' ) {
-			if ( this.imageinfo === undefined ) {
-				this.imageinfo = {};
-			}
 			if ( this.imageinfo.metadata === undefined ) {
 				this.imageinfo.metadata = {};
 			}
@@ -782,7 +635,7 @@
 			if ( mw.UploadWizard.config.debug ) {
 				mw.log( 'mw.UploadWizard::getUploadHandler> ' + constructor );
 			}
-			if ( this.fromURL ) {
+			if ( this.file.fromURL ) {
 				constructor = 'ApiUploadPostHandler';
 			}
 			this.uploadHandler = new mw[ constructor ]( this, this.api );
@@ -793,20 +646,14 @@
 	/**
 	 * Explicitly fetch a thumbnail for a stashed upload of the desired width.
 	 *
-	 * @param {number} width desired width of thumbnail (height will scale to match, if not given)
-	 * @param {number} [height] maximum height of thumbnail
+	 * @private
+	 * @param {number} width Desired width of thumbnail
+	 * @param {number} height Maximum height of thumbnail
 	 * @return {jQuery.Promise} Promise resolved with a HTMLImageElement, or null if thumbnail
 	 *     couldn't be generated
 	 */
 	mw.UploadWizardUpload.prototype.getApiThumbnail = function ( width, height ) {
-		var deferred,
-			key = width + '|' + height;
-
-		if ( this.thumbnailPublishers[ key ] ) {
-			return this.thumbnailPublishers[ key ];
-		}
-
-		deferred = $.Deferred();
+		var deferred = $.Deferred();
 
 		function thumbnailPublisher( thumbnails ) {
 			if ( thumbnails === null ) {
@@ -824,6 +671,13 @@
 						mw.log.warn( 'mw.UploadWizardUpload::getThumbnail> Thumbnail error or missing information' );
 						deferred.resolve( null );
 						return;
+					}
+
+					// executing this should cause a .load() or .error() event on the image
+					function setSrc() {
+						// IE 11 and Opera 12 will not, ever, re-request an image that they have already loaded
+						// once, regardless of caching headers. Append bogus stuff to the URL to make it work.
+						image.src = thumb.thumburl + '?' + Math.random();
 					}
 
 					// try to load this image with exponential backoff
@@ -849,23 +703,10 @@
 							}
 						} );
 
-					// executing this should cause a .load() or .error() event on the image
-					function setSrc() {
-						// IE 11 and Opera 12 will not, ever, re-request an image that they have already loaded
-						// once, regardless of caching headers. Append bogus stuff to the URL to make it work.
-						image.src = thumb.thumburl + '?' + Math.random();
-					}
-
 					// and, go!
 					setSrc();
 				} );
 			}
-		}
-
-		if ( !height ) {
-			// For action=query&prop=stashimageinfo / action=query&prop=imageinfo,
-			// height of '-1' is the same as not given, while '0' gives a one-pixel-wide thumbnail
-			height = -1;
 		}
 
 		if ( this.state !== 'complete' ) {
@@ -874,8 +715,7 @@
 			this.getImageInfo( thumbnailPublisher, [ 'url' ], width, height );
 		}
 
-		this.thumbnailPublishers[ key ] = deferred.promise();
-		return this.thumbnailPublishers[ key ];
+		return deferred.promise();
 	};
 
 	/**
@@ -913,6 +753,7 @@
 	/**
 	 * Fit an image into width & height constraints with scaling factor
 	 *
+	 * @private
 	 * @param {HTMLImageElement} image
 	 * @param {Object} constraints Width & height properties
 	 * @return {number}
@@ -935,6 +776,7 @@
 	 * Given an image (already loaded), dimension constraints
 	 * return canvas object scaled & transformedi ( & rotated if metadata indicates it's needed )
 	 *
+	 * @private
 	 * @param {HTMLImageElement} image
 	 * @param {Object} constraints Width & height constraints
 	 * @return {HTMLCanvasElement|null}
@@ -964,7 +806,7 @@
 			};
 		}
 
-		scaling = this.getScalingFromConstraints( image, constraints );
+		scaling = this.getScalingFromConstraints( image, scaleConstraints );
 
 		width = image.width * scaling;
 		height = image.height * scaling;
@@ -1021,6 +863,7 @@
 	/**
 	 * Return a browser-scaled image element, given an image and constraints.
 	 *
+	 * @private
 	 * @param {HTMLImageElement} image
 	 * @param {Object} constraints Width and height properties
 	 * @return {HTMLImageElement} with same src, but different attrs
@@ -1029,7 +872,7 @@
 		var scaling = this.getScalingFromConstraints( image, constraints );
 		return $( '<img/>' )
 			.attr( {
-				width:  parseInt( image.width * scaling, 10 ),
+				width: parseInt( image.width * scaling, 10 ),
 				height: parseInt( image.height * scaling, 10 ),
 				src:	image.src
 			} )
@@ -1041,6 +884,7 @@
 	/**
 	 * Return an element suitable for the preview of a certain size. Uses canvas when possible
 	 *
+	 * @private
 	 * @param {HTMLImageElement} image
 	 * @param {Integer} width
 	 * @param {Integer} height
@@ -1048,12 +892,9 @@
 	 */
 	mw.UploadWizardUpload.prototype.getScaledImageElement = function ( image, width, height ) {
 		var constraints, transform;
-		if ( width === undefined || width === null || width <= 0 ) {
-			width = mw.UploadWizard.config.thumbnailWidth;
-		}
 		constraints = {
-			width: parseInt( width, 10 ),
-			height: ( height === undefined ? null : parseInt( height, 10 ) )
+			width: width,
+			height: height
 		};
 
 		if ( mw.canvas.isAvailable() ) {
@@ -1067,16 +908,22 @@
 	};
 
 	/**
-	 * Acquire a thumbnail of given dimensions for this upload.
+	 * Acquire a thumbnail for this upload.
 	 *
-	 * @param {number} width Width constraint
-	 * @param {number} [height] Height constraint
 	 * @return {jQuery.Promise} Promise resolved with the HTMLImageElement or HTMLCanvasElement
 	 *   containing a thumbnail, or resolved with `null` when one can't be produced
 	 */
-	mw.UploadWizardUpload.prototype.getThumbnail = function ( width, height ) {
+	mw.UploadWizardUpload.prototype.getThumbnail = function () {
 		var upload = this,
+			// This must match the CSS dimensions of .mwe-upwiz-file-preview and .mwe-upwiz-thumbnail
+			width = 100,
+			height = 100,
 			deferred = $.Deferred();
+
+		if ( this.thumbnailPromise ) {
+			return this.thumbnailPromise;
+		}
+		this.thumbnailPromise = deferred.promise();
 
 		/**
 		 * @param {HTMLImageElement|null} image
@@ -1108,13 +955,7 @@
 				}
 			} );
 
-		return deferred.promise();
-	};
-
-	mw.UploadWizardUpload.prototype.createDetails = function () {
-		this.details = new mw.UploadWizardDetails( this, $( '#mwe-upwiz-macro-files' ) );
-		this.details.populate();
-		this.details.attach();
+		return this.thumbnailPromise;
 	};
 
 	/**
@@ -1126,17 +967,14 @@
 
 	/**
 	 * Make a preview for the file.
+	 *
+	 * @private
+	 * @return {jQuery.Promise}
 	 */
 	mw.UploadWizardUpload.prototype.makePreview = function () {
 		var first, video, url, dataUrlReader,
 			deferred = $.Deferred(),
 			upload = this;
-
-		// don't run this repeatedly.
-		if ( this.previewPromise ) {
-			return this.previewPromise;
-		}
-		this.previewPromise = deferred.promise();
 
 		// do preview if we can
 		if ( this.isPreviewable() ) {
@@ -1198,11 +1036,14 @@
 			deferred.reject();
 		}
 
-		return this.previewPromise;
+		return deferred.promise();
 	};
 
 	/**
 	 * Loads an image preview.
+	 *
+	 * @param {string} url
+	 * @param {jQuery.Deferred} deferred
 	 */
 	mw.UploadWizardUpload.prototype.loadImage = function ( url, deferred ) {
 		var image = document.createElement( 'img' );
@@ -1223,6 +1064,8 @@
 
 	/**
 	 * Check if the file is previewable.
+	 *
+	 * @return {boolean}
 	 */
 	mw.UploadWizardUpload.prototype.isPreviewable = function () {
 		return this.file && mw.fileApi.isPreviewableFile( this.file );
@@ -1230,6 +1073,8 @@
 
 	/**
 	 * Finds the right URL object to use.
+	 *
+	 * @return {URL}
 	 */
 	mw.UploadWizardUpload.prototype.URL = function () {
 		return window.URL || window.webkitURL || window.mozURL;
@@ -1237,9 +1082,11 @@
 
 	/**
 	 * Checks if this upload is a video.
+	 *
+	 * @return {boolean}
 	 */
 	mw.UploadWizardUpload.prototype.isVideo = function () {
 		return mw.fileApi.isPreviewableVideo( this.file );
 	};
 
-} )( mediaWiki, mediaWiki.uploadWizard, jQuery, OO );
+}( mediaWiki, mediaWiki.uploadWizard, jQuery, OO ) );

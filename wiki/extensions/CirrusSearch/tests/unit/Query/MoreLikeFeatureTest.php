@@ -2,9 +2,9 @@
 
 namespace CirrusSearch\Query;
 
-use CirrusSearch\Search\SearchContext;
+use CirrusSearch\CirrusTestCase;
 use CirrusSearch\SearchConfig;
-use MediaWikiTestCase;
+use CirrusSearch\Search\SearchContext;
 use MediaWiki\MediaWikiServices;
 use Title;
 
@@ -25,8 +25,10 @@ use Title;
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @group CirrusSearch
  */
-class MoreLikeFeatureTest extends MediaWikiTestCase {
+class MoreLikeFeatureTest extends BaseSimpleKeywordFeatureTest {
 
 	public function applyProvider() {
 		return [
@@ -46,8 +48,8 @@ class MoreLikeFeatureTest extends MediaWikiTestCase {
 						'max_doc_freq' => null,
 						'max_query_terms' => 25,
 						'min_term_freq' => 2,
-						'min_word_len' => 0,
-						'max_word_len' => 0,
+						'min_word_length' => 0,
+						'max_word_length' => 0,
 						'minimum_should_match' => '30%',
 					] )
 					->setFields( ['text'] )
@@ -65,8 +67,8 @@ class MoreLikeFeatureTest extends MediaWikiTestCase {
 							'max_doc_freq' => null,
 							'max_query_terms' => 25,
 							'min_term_freq' => 2,
-							'min_word_len' => 0,
-							'max_word_len' => 0,
+							'min_word_length' => 0,
+							'max_word_length' => 0,
 							'minimum_should_match' => '30%',
 						] )
 						->setFields( ['text'] )
@@ -83,8 +85,8 @@ class MoreLikeFeatureTest extends MediaWikiTestCase {
 						'max_doc_freq' => null,
 						'max_query_terms' => 25,
 						'min_term_freq' => 2,
-						'min_word_len' => 0,
-						'max_word_len' => 0,
+						'min_word_length' => 0,
+						'max_word_length' => 0,
 						'minimum_should_match' => '30%',
 					] )
 					->setFields( ['text'] )
@@ -101,8 +103,8 @@ class MoreLikeFeatureTest extends MediaWikiTestCase {
 						'max_doc_freq' => null,
 						'max_query_terms' => 25,
 						'min_term_freq' => 2,
-						'min_word_len' => 0,
-						'max_word_len' => 0,
+						'min_word_length' => 0,
+						'max_word_length' => 0,
 						'minimum_should_match' => '30%',
 					] )
 					->setFields( ['text'] )
@@ -127,14 +129,8 @@ class MoreLikeFeatureTest extends MediaWikiTestCase {
 
 		$context = new SearchContext( $config );
 
-		// This is only used for the 'all' feature which is currently
-		// untested, and is planned to be removed.
-		$getCallback = function ( array $docIds, array $fields ) {
-			throw new \RuntimeException( 'No requests should be made to elasticsearch' );
-		};
-
 		// Finally run the test
-		$feature = new MoreLikeFeature( $config, $getCallback );
+		$feature = new MoreLikeFeature( $config );
 
 		$result = $feature->apply( $context, $term );
 
@@ -148,5 +144,25 @@ class MoreLikeFeatureTest extends MediaWikiTestCase {
 				$this->assertEquals( '', $result, 'Term must be empty string' );
 			}
 		}
+	}
+
+	public function testWarningsForUnknownPages() {
+		MediaWikiServices::getInstance()->getLinkCache()
+			->addGoodLinkObj( 12345, Title::newFromText( 'Some page' ) );
+		$this->assertWarnings(
+			new MoreLikeFeature( new SearchConfig() ),
+			[],
+			'morelike:Some page'
+		);
+		$this->assertWarnings(
+			new MoreLikeFeature( new SearchConfig() ),
+			[],
+			'morelike:Some page|Title that doesnt exist'
+		);
+		$this->assertWarnings(
+			new MoreLikeFeature( new SearchConfig() ),
+			[ [ 'cirrussearch-mlt-feature-no-valid-titles', 'morelike' ] ],
+			'morelike:Title that doesnt exist'
+		);
 	}
 }

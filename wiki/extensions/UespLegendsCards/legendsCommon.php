@@ -44,7 +44,7 @@ function CreateLegendsTables($db)
 						INDEX index_class (`class`(3)),
 						INDEX index_rarity (rarity(3)),
 						FULLTEXT (name, text)
-					);";
+					) ENGINE=MYISAM;";
 	
 	$result = $db->query($query);
 	if ($result === false) return "Failed to create the cards table!";
@@ -72,14 +72,14 @@ function CreateLegendsTables($db)
 						trainingLevel2 TINYINT NOT NULL,
 						uses TINYTEXT NOT NULL,
 						deleteTimestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-					);";
+					) ENGINE=MYISAM;";
 	
 	$result = $db->query($query);
 	if ($result === false) return "Failed to create the deletedCards table!";
 	
 	$query = "CREATE TABLE IF NOT EXISTS sets (
 						name TINYTEXT NOT NULL
-					);";
+					) ENGINE=MYISAM;";
 	
 	$result = $db->query($query);
 	if ($result === false) return "Failed to create the sets table!";
@@ -88,7 +88,7 @@ function CreateLegendsTables($db)
 	$query = "CREATE TABLE IF NOT EXISTS disambiguation (
 						name TINYTEXT NOT NULL,
 						linkSuffix TINYTEXT NOT NULL
-					);";
+					) ENGINE=MYISAM;";
 	
 	$result = $db->query($query);
 	if ($result === false) return "Failed to create the disambiguation table!";
@@ -97,7 +97,7 @@ function CreateLegendsTables($db)
 						id TINYTEXT NOT NULL,
 						value TINYTEXT NOT NULL,
 						PRIMARY KEY (id(16))
-					);";
+					) ENGINE=MYISAM;";
 	
 	$result = $db->query($query);
 	if ($result === false) return "Failed to create the logInfo table!";

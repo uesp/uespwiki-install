@@ -28,15 +28,16 @@
 	/**
 	 * Set up the form and deed object for the deed option that says these uploads are the work of a third party.
 	 *
+	 * @class mw.UploadWizardDeedThirdParty
+	 * @constructor
 	 * @param {number} uploadCount Integer count of uploads that this deed refers to (useful for message pluralization)
 	 * @param {mw.Api} api API object - useful for doing previews
 	 * @param {Object} config The UW config
 	 */
 	mw.UploadWizardDeedThirdParty = function ( uploadCount, api, config ) {
-		var
-			deed = new mw.UploadWizardDeed();
+		var deed = new mw.UploadWizardDeed();
 
-		deed.uploadCount = uploadCount ? uploadCount : 1;
+		deed.uploadCount = uploadCount || 1;
 
 		deed.sourceInput = new OO.ui.TextInputWidget( {
 			multiline: true,
@@ -172,8 +173,36 @@
 			 */
 			getFields: function () {
 				return [ this.authorInputField, this.sourceInputField, this.licenseInputField ];
+			},
+
+			/**
+			 * @return {Object}
+			 */
+			getSerialized: function () {
+				return $.extend( mw.UploadWizardDeed.prototype.getSerialized.call( this ), {
+					source: this.sourceInput.getValue(),
+					author: this.authorInput.getValue(),
+					license: this.licenseInput.getSerialized()
+				} );
+			},
+
+			/**
+			 * @param {Object} serialized
+			 */
+			setSerialized: function ( serialized ) {
+				mw.UploadWizardDeed.prototype.setSerialized.call( this, serialized );
+
+				if ( serialized.source ) {
+					this.sourceInput.setValue( serialized.source );
+				}
+				if ( serialized.author ) {
+					this.authorInput.setValue( serialized.author );
+				}
+				if ( serialized.license ) {
+					this.licenseInput.setSerialized( serialized.license );
+				}
 			}
 		} );
 	};
 
-} )( mediaWiki, mediaWiki.uploadWizard, jQuery );
+}( mediaWiki, mediaWiki.uploadWizard, jQuery ) );

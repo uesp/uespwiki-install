@@ -243,10 +243,6 @@ form.mwe-upwiz-form {
 	margin-top: 1em;
 }
 
-#mwe-upwiz-stepdiv-file .mwe-upwiz-buttons {
-	display: none;
-}
-
 #mwe-upwiz-stepdiv-file .mwe-upwiz-buttons .mwe-upwiz-file-endchoice {
 	display: none;
 }
@@ -432,6 +428,10 @@ label.mwe-upwiz-copyright-info {
 	text-align: right;
 }
 
+.mwe-upwiz-button-previous {
+	float: left;
+}
+
 a.mwe-upwiz-tooltip-link {
 	cursor: pointer;
 }
@@ -445,7 +445,7 @@ input[type='radio'].mwe-upwiz-copyright-info-radio {
 .mwe-upwiz-deed-license-group-head {
 	padding-left: 1.5em;
 	cursor: pointer;
-	outline: none;
+	outline: 0;
 	display: block;
 }
 
@@ -465,6 +465,26 @@ input[type='radio'].mwe-upwiz-copyright-info-radio {
 .mwe-upwiz-deed-license-group-body {
 	margin-bottom: 1em;
 	padding-left: 1.5em;
+}
+
+.mwe-upwiz-license-custom {
+	overflow: hidden;
+}
+
+.mwe-upwiz-license-custom .oo-ui-buttonElement {
+	float: right;
+	width: 9em;
+	padding-left: 1em;
+	margin-right: 0;
+}
+
+.mwe-upwiz-license-custom .oo-ui-textInputWidget {
+	width: auto;
+	margin-right: 10em;
+}
+
+.mwe-upwiz-license-custom .oo-ui-textInputWidget textarea {
+	font-family: monospace, monospace;
 }
 
 .mwe-upwiz-thanks {

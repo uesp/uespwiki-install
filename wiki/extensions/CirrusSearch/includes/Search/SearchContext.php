@@ -3,7 +3,6 @@
 namespace CirrusSearch\Search;
 
 use CirrusSearch\SearchConfig;
-use GeoData\Coord;
 use Elastica\Query\AbstractQuery;
 
 /**
@@ -46,6 +45,11 @@ class SearchContext {
 	private $boostTemplatesFromQuery;
 
 	/**
+	 * @var array set of per-wiki template boosts from extra index handling
+	 */
+	private $extraIndexBoostTemplates = [];
+
+	/**
 	 * @deprecated use rescore profiles instead
 	 * @var bool do we need to boost links
 	 */
@@ -69,10 +73,9 @@ class SearchContext {
 	private $rescoreProfile;
 
 	/**
-	 * @var array[] nested array of arrays. Each child array contains three keys:
-	 * coord, radius and weight. Used for geographic radius boosting.
+	 * @var FunctionScoreBuilder[] Extra scoring builders to use.
 	 */
-	private $geoBoosts = [];
+	private $extraScoreBuilders = [];
 
 	/**
 	 * @var bool Could this query possibly return results?
@@ -84,11 +87,6 @@ class SearchContext {
 	 *  held in the array key, value is always true.
 	 */
 	private $syntaxUsed = [];
-
-	/**
-	 * @var string The type of search being performed. ex: full_text, near_match, prefix, etc.
-	 */
-	private $searchType = 'unknown';
 
 	/**
 	 * @var AbstractQuery[] List of filters that query results must match
@@ -165,9 +163,41 @@ class SearchContext {
 	private $limitSearchToLocalWiki = false;
 
 	/**
-	 * @param int The number of seconds to cache results for
+	 * @var int The number of seconds to cache results for
 	 */
 	private $cacheTtl = 0;
+
+	/**
+	 * @var string The original search
+	 */
+	private $originalSearchTerm;
+
+	/**
+	 * @var Escaper $escaper
+	 */
+	private $escaper;
+
+	/**
+	 * @var int[] weights of different syntaxes
+	 */
+	private static $syntaxWeights = [
+		// regex is really tough
+		'full_text' => 10,
+		'regex' => PHP_INT_MAX,
+		'more_like' => 100,
+		'near_match' => 10,
+		'prefix' => 2,
+	];
+
+	/**
+	 * @var array[] Warnings to be passed into StatusValue::warning()
+	 */
+	private $warnings = [];
+
+	/**
+	 * @var string name of the fulltext query builder profile
+	 */
+	private $fulltextQueryBuilderProfile;
 
 	/**
 	 * @param SearchConfig $config
@@ -179,12 +209,14 @@ class SearchContext {
 		$this->boostLinks = $this->config->get( 'CirrusSearchBoostLinks' );
 		$this->namespaces = $namespaces;
 		$this->rescoreProfile = $this->config->get( 'CirrusSearchRescoreProfile' );
+		$this->fulltextQueryBuilderProfile = $this->config->get( 'CirrusSearchFullTextQueryBuilderProfile' );
 
 		$decay = $this->config->get( 'CirrusSearchPreferRecentDefaultDecayPortion' );
 		if ( $decay > 0 ) {
 			$this->preferRecentDecayPortion = $decay;
 			$this->preferRecentHalfLife = $this->config->get( 'CirrusSearchPreferRecentDefaultHalfLife' );
 		}
+		$this->escaper = new Escaper( $config->get( 'LanguageCode' ), $config->get( 'CirrusSearchAllowLeadingWildcard' ) );
 	}
 
 	public function __clone() {
@@ -224,17 +256,37 @@ class SearchContext {
 	 * null if not used in the query or an empty array if there was a syntax error.
 	 * Initialized after special syntax extraction.
 	 *
-	 * @return array|null of boosted templates, key is the template value is the weight
+	 * @return array|null of boosted templates, key is the template value is the weight.
+	 *  null indicates the default template boosts should be used.
 	 */
 	public function getBoostTemplatesFromQuery() {
 		return $this->boostTemplatesFromQuery;
 	}
 
 	/**
-	 * @param array $boostTemplatesFromQuery boosted templates extracted from query
+	 * @param array|null $boostTemplatesFromQuery boosted templates extracted from query.
+	 *  null indicates the default template boosts should be used.
 	 */
 	public function setBoostTemplatesFromQuery( $boostTemplatesFromQuery ) {
 		$this->boostTemplatesFromQuery = $boostTemplatesFromQuery;
+	}
+
+	/**
+	 * Returns list of boosted templates specified by extra indexes query.
+	 *
+	 * @return array Map from wiki id to list of templates to boost
+	 *  within that wiki
+	 */
+	public function getExtraIndexBoostTemplates() {
+		return $this->extraIndexBoostTemplates;
+	}
+
+	/**
+	 * @param string $index Index to boost templates within
+	 * @param array Map from template name to weight to apply to that template
+	 */
+	public function addExtraIndexBoostTemplates( $wiki, array $extraIndexBoostTemplates ) {
+		$this->extraIndexBoostTemplates[$wiki] = $extraIndexBoostTemplates;
 	}
 
 	/**
@@ -300,31 +352,10 @@ class SearchContext {
 	}
 
 	/**
-	 * @param string the rescore profile to use
+	 * @param string $rescoreProfile the rescore profile to use
 	 */
 	public function setRescoreProfile( $rescoreProfile ) {
 		$this->rescoreProfile = $rescoreProfile;
-	}
-
-	/**
-	 * @return array[] nested array of arrays. Each child array contains three keys:
-	 * coord, radius and weight
-	 */
-	public function getGeoBoosts() {
-		return $this->geoBoosts;
-	}
-
-	/**
-	 * @param Coord $coord Coordinates to boost near
-	 * @param int $radius radius to boost within, in meters
-	 * @param float $weight Number to multiply score by when within radius
-	 */
-	public function addGeoBoost( Coord $coord, $radius, $weight ) {
-		$this->geoBoosts[] = [
-			'coord' => $coord,
-			'radius' => $radius,
-			'weight' => $weight,
-		];
 	}
 
 	/**
@@ -344,7 +375,7 @@ class SearchContext {
 
 	/**
 	 * @var string|null $type type of syntax to check, null for any type
-	 * @return bool True when the query uses $type kind of special syntax
+	 * @return bool True when the query uses $type kind of syntax
 	 */
 	public function isSyntaxUsed( $type = null ) {
 		if ( $type === null ) {
@@ -354,32 +385,77 @@ class SearchContext {
 	}
 
 	/**
-	 * @return string[] List of special syntax used in the query
+	 * @return boolean true if a special keyword was used in the query
+	 */
+	public function isSpecialKeywordUsed() {
+		// full_text is not considered a special keyword
+		return !empty( array_diff_key( $this->syntaxUsed, [
+			'full_text' => true,
+			'full_text_simple_match' => true,
+			'full_text_querystring' => true,
+		] ) );
+	}
+
+	/**
+	 * @return string[] List of syntax used in the query
 	 */
 	public function getSyntaxUsed() {
 		return array_keys( $this->syntaxUsed );
 	}
 
 	/**
-	 * @param string $feature Name of a syntax feature used in the query string
+	 * @return string Text description of syntax used by query.
 	 */
-	public function addSyntaxUsed( $feature ) {
-		$this->syntaxUsed[$feature] = true;
+	public function getSyntaxDescription() {
+		return implode( ',', $this->getSyntaxUsed() );
+	}
+
+	/**
+	 * @param string $feature Name of a syntax feature used in the query string
+	 * @param int    $weight How "complex" is this feature.
+	 */
+	public function addSyntaxUsed( $feature, $weight = null ) {
+		if ( is_null( $weight ) ) {
+			if(isset(self::$syntaxWeights[$feature])) {
+				$weight = self::$syntaxWeights[$feature];
+			} else {
+				$weight = 1;
+			}
+		}
+		$this->syntaxUsed[$feature] = $weight;
 	}
 
 	/**
 	 * @return string The type of search being performed, ex: full_text, near_match, prefix, etc.
-	 * @todo It might be possible to determine this based on the features used.
+	 * Using getSyntaxUsed() is better in most cases.
 	 */
 	public function getSearchType() {
-		return $this->searchType;
+		if ( empty( $this->syntaxUsed ) ) {
+			return 'full_text';
+		}
+		arsort( $this->syntaxUsed );
+		// Return the first heaviest syntax
+		return key( $this->syntaxUsed );
+	}
+
+	/**
+	 * @return int maximum complexity of the syntax used in search
+	 */
+	public function getSearchComplexity() {
+		if ( empty( $this->syntaxUsed ) ) {
+			return 1;
+		}
+		arsort( $this->syntaxUsed );
+
+		// Return the first heaviest syntax
+		return reset( $this->syntaxUsed );
 	}
 
 	/**
 	 * @param string $type The type of search being performed. ex: full_text, near_match, prefix, etc.
+	 * @deprecated Use addSyntaxUsed()
 	 */
 	public function setSearchType( $type ) {
-		$this->searchType = $type;
 	}
 
 	/**
@@ -420,7 +496,7 @@ class SearchContext {
 	}
 
 	/**
-	 * @param AbstractQuery Query that should be used for highlighting if different
+	 * @param AbstractQuery $query Query that should be used for highlighting if different
 	 *  from the query used for selecting.
 	 */
 	public function setHighlightQuery( AbstractQuery $query ) {
@@ -437,6 +513,7 @@ class SearchContext {
 	}
 
 	/**
+	 * @param ResultsType $resultsType
 	 * @return array|null Highlight portion of query to be sent to elasticsearch
 	 */
 	public function getHighlight( ResultsType $resultsType ) {
@@ -596,11 +673,11 @@ class SearchContext {
 	}
 
 	/**
-	 * @param \Elastica\Query\Match $match Queries that don't use Elastic's
+	 * @param \Elastica\Query\AbstractQuery $match Queries that don't use Elastic's
 	 * "query string" query, for more advanced searching (e.g.
 	 *  match_phrase_prefix for regular quoted strings).
 	 */
-	public function addNonTextQuery( \Elastica\Query\Match $match ) {
+	public function addNonTextQuery( \Elastica\Query\AbstractQuery $match ) {
 		$this->nonTextQueries[] = $match;
 	}
 
@@ -646,5 +723,72 @@ class SearchContext {
 	 */
 	public function setCacheTtl( $ttl ) {
 		$this->cacheTtl = $ttl;
+	}
+
+	/**
+	 * @return string the original search term
+	 */
+	public function getOriginalSearchTerm() {
+		return $this->originalSearchTerm;
+	}
+
+	/**
+	 * Set the original search term
+	 * @param string $term
+	 */
+	public function setOriginalSearchTerm( $term ) {
+		$this->originalSearchTerm = $term;
+	}
+
+	/**
+	 * @return Escaper
+	 */
+	public function escaper() {
+		return $this->escaper;
+	}
+
+	/**
+	 * @return FunctionScoreBuilder[]
+	 */
+	public function getExtraScoreBuilders() {
+		return $this->extraScoreBuilders;
+	}
+
+	/**
+	 * Add custom scoring function to the context.
+	 * The rescore builder will pick it up.
+	 * @param FunctionScoreBuilder $rescore
+	 */
+	public function addCustomRescoreComponent( FunctionScoreBuilder $rescore ) {
+		$this->extraScoreBuilders[] = $rescore;
+	}
+
+	/**
+	 * @param string $message i18n message key
+	 */
+	public function addWarning( $message /*, parameters... */ ) {
+		$this->warnings[] = func_get_args();
+	}
+
+	/**
+	 * @return array[] Array of arrays. Each sub array is a set of values
+	 *  suitable for creating an i18n message.
+	 */
+	public function getWarnings() {
+		return $this->warnings;
+	}
+
+	/**
+	 * @return string the name of the fulltext query builder profile
+	 */
+	public function getFulltextQueryBuilderProfile() {
+		return $this->fulltextQueryBuilderProfile;
+	}
+
+	/**
+	 * @param string $profile set the name of the fulltext query builder profile
+	 */
+	public function setFulltextQueryBuilderProfile( $profile ) {
+		$this->fulltextQueryBuilderProfile = $profile;
 	}
 }

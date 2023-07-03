@@ -2,9 +2,13 @@
 
 namespace CirrusSearch\Query;
 
+use CirrusSearch\CirrusTestCase;
 use CirrusSearch\Search\SearchContext;
 
-class PreferRecentFeatureText extends \MediaWikiTestCase {
+/**
+ * @group CirrusSearch
+ */
+class PreferRecentFeatureText extends CirrusTestCase {
 
 	public function parseProvider() {
 		return [

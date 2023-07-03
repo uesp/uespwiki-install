@@ -5,7 +5,6 @@ namespace CirrusSearch\Query;
 use CirrusSearch\OtherIndexes;
 use CirrusSearch\SearchConfig;
 use CirrusSearch\Searcher;
-use CirrusSearch\Search\Escaper;
 use CirrusSearch\Search\SearchContext;
 use MediaWiki\Logger\LoggerFactory;
 
@@ -20,11 +19,6 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	protected $config;
 
 	/**
-	 * @var Escaper
-	 */
-	private $escaper;
-
-	/**
 	 * @var KeywordFeature[]
 	 */
 	private $features;
@@ -36,29 +30,26 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 
 	/**
 	 * @param SearchConfig $config
-	 * @param Escaper $escaper
 	 * @param KeywordFeature[] $features
 	 * @param array[] $settings currently ignored
 	 */
-	public function __construct( SearchConfig $config, Escaper $escaper, array $features, array $settings = [] ) {
+	public function __construct( SearchConfig $config, array $features, array $settings = [] ) {
 		$this->config = $config;
-		$this->escaper = $escaper;
 		$this->features = $features;
 	}
 
 	/**
 	 * Search articles with provided term.
 	 *
-	 * @param SearchContext $context
+	 * @param SearchContext $searchContext
 	 * @param string $term term to search
 	 * @param boolean $showSuggestion should this search suggest alternative
 	 * searches that might be better?
 	 */
 	public function build( SearchContext $searchContext, $term, $showSuggestion ) {
+		$searchContext->addSyntaxUsed( 'full_text' );
 		// Transform Mediawiki specific syntax to filters and extra
 		// (pre-escaped) query string
-		$searchContext->setSearchType( 'full_text' );
-
 		foreach ( $this->features as $feature ) {
 			$term = $feature->apply( $searchContext, $term );
 		}
@@ -67,7 +58,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 			return;
 		}
 
-		$term = $this->escaper->escapeQuotes( $term );
+		$term = $searchContext->escaper()->escapeQuotes( $term );
 		$term = trim( $term );
 
 		// Match quoted phrases including those containing escaped quotes.
@@ -83,13 +74,12 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 			"/$matchQuotesRegex/",
 			function ( $matches ) use ( $searchContext, $slop ) {
 				$negate = $matches[ 'negate' ][ 0 ] ? 'NOT ' : '';
-				$main = $this->escaper->fixupQueryStringPart( $matches[ 'main' ][ 0 ] );
+				$main = $searchContext->escaper()->fixupQueryStringPart( $matches[ 'main' ][ 0 ] );
 
 				if ( !$negate && !isset( $matches[ 'fuzzy' ] ) && !isset( $matches[ 'slop' ] ) &&
 						 preg_match( '/^"([^"*]+)[*]"/', $main, $matches ) ) {
-					$phraseMatch = new \Elastica\Query\Match( );
+					$phraseMatch = new \Elastica\Query\MatchPhrasePrefix( );
 					$phraseMatch->setFieldQuery( "all.plain", $matches[1] );
-					$phraseMatch->setFieldType( "all.plain", "phrase_prefix" );
 					$searchContext->addNonTextQuery( $phraseMatch );
 
 					$phraseHighlightMatch = new \Elastica\Query\QueryString( );
@@ -119,7 +109,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 		// in prefix queries.
 		$query = self::replaceAllPartsOfQuery( $query, '/\w+\*(?:\w*\*?)*/u',
 			function ( $matches ) use ( $searchContext ) {
-				$term = $this->escaper->fixupQueryStringPart( $matches[ 0 ][ 0 ] );
+				$term = $searchContext->escaper()->fixupQueryStringPart( $matches[ 0 ][ 0 ] );
 				return [
 					'escaped' => self::switchSearchToExactForWildcards( $searchContext, $term ),
 					'nonAll' => self::switchSearchToExactForWildcards( $searchContext, $term )
@@ -140,7 +130,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 				continue;
 			}
 			if ( isset( $queryPart[ 'raw' ] ) ) {
-				$fixed = $this->escaper->fixupQueryStringPart( $queryPart[ 'raw' ] );
+				$fixed = $searchContext->escaper()->fixupQueryStringPart( $queryPart[ 'raw' ] );
 				$escapedQuery[] = $fixed;
 				$nonAllQuery[] = $fixed;
 				$nearMatchQuery[] = $queryPart[ 'raw' ];
@@ -154,7 +144,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 
 		// Actual text query
 		list( $this->queryStringQueryString, $fuzzyQuery ) =
-			$this->escaper->fixupWholeQueryString( implode( ' ', $escapedQuery ) );
+			$searchContext->escaper()->fixupWholeQueryString( implode( ' ', $escapedQuery ) );
 		$searchContext->setFuzzyQuery( $fuzzyQuery );
 
 		if ( $this->queryStringQueryString === '' ) {
@@ -205,7 +195,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 			$nonAllFields = array_merge(
 				self::buildFullTextSearchFields( $searchContext, 1, '.plain', false ),
 				self::buildFullTextSearchFields( $searchContext, $this->config->get( 'CirrusSearchStemmedWeight' ), '', false ) );
-			list( $nonAllQueryString, /*_*/ ) = $this->escaper->fixupWholeQueryString( implode( ' ', $nonAllQuery ) );
+			list( $nonAllQueryString, /*_*/ ) = $searchContext->escaper()->fixupWholeQueryString( implode( ' ', $nonAllQuery ) );
 			$searchContext->setHighlightQuery(
 				$this->buildHighlightQuery( $searchContext, $nonAllFields, $nonAllQueryString, 1 )
 			);
@@ -219,7 +209,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 		// out of phrase queries at this point.
 		if ( $this->config->get( 'CirrusSearchPhraseRescoreBoost' ) > 0.0 &&
 				$this->config->get( 'CirrusSearchPhraseRescoreWindowSize' ) &&
-				!$searchContext->isSyntaxUsed() &&
+				!$searchContext->isSpecialKeywordUsed() &&
 				strpos( $this->queryStringQueryString, '"' ) === false &&
 				strpos( $this->queryStringQueryString, ' ' ) !== false ) {
 
@@ -255,7 +245,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	 * Attempt to build a degraded query from the query already built into $context. Must be
 	 * called *after* self::build().
 	 *
-	 * @param SearchContext $context
+	 * @param SearchContext $searchContext
 	 * @return bool True if a degraded query was built
 	 */
 	public function buildDegraded( SearchContext $searchContext ) {
@@ -268,7 +258,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 			self::buildFullTextSearchFields( $searchContext, $this->config->get( 'CirrusSearchStemmedWeight' ), '', true )
 		);
 
-		$searchContext->setSearchType( 'degraded_full_text' );
+		$searchContext->addSyntaxUsed( 'degraded_full_text' );
 		$searchContext->setMainQuery( new \Elastica\Query\Simple( [ 'simple_query_string' => [
 			'fields' => $fields,
 			'query' => $this->queryStringQueryString,
@@ -380,9 +370,10 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	 * @param string $nearMatchQuery
 	 * @return \Elastica\Query\AbstractQuery
 	 */
-	protected function buildSearchTextQuery( SearchContext $context, array $fields, array $nearMatchFields, $queryString, $nearMatchQuery ) {
+	protected function buildSearchTextQuery( SearchContext $searchContext, array $fields, array $nearMatchFields, $queryString, $nearMatchQuery ) {
 		$slop = $this->config->getElement( 'CirrusSearchPhraseSlop', 'default' );
 		$queryForMostFields = $this->buildQueryString( $fields, $queryString, $slop );
+		$searchContext->addSyntaxUsed( 'full_text_querystring', 5 );
 		if ( !$nearMatchQuery ) {
 			return $queryForMostFields;
 		}
@@ -390,7 +381,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 		// Build one query for the full text fields and one for the near match fields so that
 		// the near match can run unescaped.
 		$bool = new \Elastica\Query\BoolQuery();
-		$bool->setMinimumNumberShouldMatch( 1 );
+		$bool->setMinimumShouldMatch( 1 );
 		$bool->addShould( $queryForMostFields );
 		$nearMatch = new \Elastica\Query\MultiMatch();
 		$nearMatch->setFields( $nearMatchFields );
@@ -421,8 +412,13 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 		$query->setFuzzyPrefixLength( 2 );
 		$query->setRewrite( $this->getMultiTermRewriteMethod() );
 		$states = $this->config->get( 'CirrusSearchQueryStringMaxDeterminizedStates' );
+		$option = 'max_determinized_states';
+		// Workround https://github.com/elastic/elasticsearch/issues/22722
+		if ( $this->config->getElement( 'CirrusSearchElasticQuirks', 'query_string_max_determinized_states' ) === true ) {
+			$option = 'max_determined_states';
+		}
 		if ( isset( $states ) ) {
-			$query->setParam( 'max_determinized_states', $states );
+			$query->setParam( $option, $states );
 		}
 		return $query;
 	}
@@ -441,7 +437,8 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	 * the possible fields otherwise. This prevents applying and compiling
 	 * costly wildcard queries too many times.
 	 *
-	 * @param string $term
+	 * @param SearchContext $context
+	 * @param string        $term
 	 * @return string
 	 */
 	private static function switchSearchToExactForWildcards( SearchContext $context, $term ) {
@@ -479,11 +476,12 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	/**
 	 * Build fields searched by full text search.
 	 *
-	 * @param float $weight weight to multiply by all fields
-	 * @param string $fieldSuffix suffix to add to field names
-	 * @param boolean $allFieldAllowed can we use the all field?  False for
+	 * @param SearchContext $context
+	 * @param float         $weight weight to multiply by all fields
+	 * @param string        $fieldSuffix suffix to add to field names
+	 * @param boolean       $allFieldAllowed can we use the all field?  False for
 	 *  collecting phrases for the highlighter.
-	 * @return string[] array of fields to query
+	 * @return \string[] array of fields to query
 	 */
 	private static function buildFullTextSearchFields( SearchContext $context, $weight, $fieldSuffix, $allFieldAllowed ) {
 		$searchWeights = $context->getConfig()->get( 'CirrusSearchWeights' );

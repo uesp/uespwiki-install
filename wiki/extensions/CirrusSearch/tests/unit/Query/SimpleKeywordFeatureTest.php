@@ -2,9 +2,13 @@
 
 namespace CirrusSearch\Query;
 
+use CirrusSearch\CirrusTestCase;
 use CirrusSearch\Search\SearchContext;
 
-class SimpleKeywordFeatureTest extends \PHPUnit_Framework_TestCase {
+/**
+ * @group CirrusSearch
+ */
+class SimpleKeywordFeatureTest extends CirrusTestCase {
 	public function applyProvider() {
 		return [
 			'unquoted value' => [
@@ -177,8 +181,8 @@ class SimpleKeywordFeatureTest extends \PHPUnit_Framework_TestCase {
 class MockSimpleKeywordFeature extends SimpleKeywordFeature {
 	private $calls = [];
 
-	protected function getKeywordRegex() {
-		return 'mock';
+	protected function getKeywords() {
+		return ['mock'];
 	}
 
 	protected function doApply( SearchContext $context, $key, $value, $quotedValue, $negated ) {

@@ -25,21 +25,21 @@
 		assert.ok( step.ui );
 	} );
 
-	QUnit.test( 'moveTo', 1, function ( assert ) {
+	QUnit.test( 'load', 1, function ( assert ) {
 		var step = new uw.controller.Deed(
 				new mw.Api(),
 				{ licensing: { thirdParty: { type: 'test', licenses: [] } } }
 			),
 			ststub = this.sandbox.stub().returns( $.Deferred().promise() ),
 			uploads = [
-				{ fromURL: true, getThumbnail: ststub },
-				{ getThumbnail: ststub },
-				{ fromURL: true, getThumbnail: ststub },
-				{ getThumbnail: ststub }
+				{ file: { fromURL: true }, getThumbnail: ststub, on: $.noop },
+				{ file: {}, getThumbnail: ststub, on: $.noop },
+				{ file: { fromURL: true }, getThumbnail: ststub, on: $.noop },
+				{ file: {}, getThumbnail: ststub, on: $.noop }
 			];
 
-		this.sandbox.stub( step.ui, 'moveTo' );
-		step.moveTo( uploads );
+		this.sandbox.stub( step.ui, 'load' );
+		step.load( uploads );
 
 		assert.strictEqual( ststub.callCount, 2 );
 	} );

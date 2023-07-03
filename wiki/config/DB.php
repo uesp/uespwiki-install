@@ -15,7 +15,8 @@ $uespWikiDBName = $uespWikiDB . $uespLanguageSuffix;
 
 if ($uespIsDev)
 {
-	$wgDBname = "uesp_net_wikidev";
+	$wgDBname = "uesp_net_wikidev" . $uespLanguageSuffix;
+	$uespWikiDBName = $wgDBname;
 	
 	$wgDBservers = array(
 		array(          # content3 is the only dev wiki database

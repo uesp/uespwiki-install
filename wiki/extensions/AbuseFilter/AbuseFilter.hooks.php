@@ -1,6 +1,7 @@
 <?php
 
 use MediaWiki\Auth\AuthManager;
+use MediaWiki\MediaWikiServices;
 
 class AbuseFilterHooks {
 	public static $successful_action_vars = false;
@@ -17,9 +18,9 @@ class AbuseFilterHooks {
 			$wgDisableAuthManager, $wgAuthManagerAutoConfig;
 
 		if ( isset( $wgAbuseFilterAvailableActions ) || isset( $wgAbuseFilterRestrictedActions ) ) {
-			wfWarn( '$wgAbuseFilterAvailableActions and $wgAbuseFilterRestrictedActions have been'
-				. 'removed. Please use $wgAbuseFilterActions and $wgAbuseFilterRestrictions'
-				. 'instead. The format is the same except the action names are the keys of the'
+			wfWarn( '$wgAbuseFilterAvailableActions and $wgAbuseFilterRestrictedActions have been '
+				. 'removed. Please use $wgAbuseFilterActions and $wgAbuseFilterRestrictions '
+				. 'instead. The format is the same except the action names are the keys of the '
 				. 'array and the values are booleans.' );
 		}
 
@@ -701,10 +702,12 @@ class AbuseFilterHooks {
 			$context = RequestContext::getMain();
 		}
 		if ( $context->getUser()->isAllowed( 'abusefilter-log' ) ) {
-			$tools[] = Linker::link(
+			$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
+			$tools[] = $linkRenderer->makeLink(
 				SpecialPage::getTitleFor( 'AbuseLog' ),
 				$context->msg( 'abusefilter-log-linkoncontribs' )->text(),
-				array( 'title' => $context->msg( 'abusefilter-log-linkoncontribs-text' )->parse() ),
+				array( 'title' => $context->msg( 'abusefilter-log-linkoncontribs-text',
+					$nt->getText() )->parse() ),
 				array( 'wpSearchUser' => $nt->getText() )
 			);
 		}

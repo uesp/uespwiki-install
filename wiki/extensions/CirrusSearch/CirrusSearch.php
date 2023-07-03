@@ -40,6 +40,7 @@ $wgExtensionCredits['other'][] = [
 
 /**
  * Configuration
+ * Please update docs/settings.txt if you add new values!
  */
 
 // Default cluster for read operations. This is an array key
@@ -136,14 +137,15 @@ $wgCirrusSearchOptimizeIndexForExperimentalHighlighter = false;
 //
 // Here is an example to enable faster regex matching:
 // $wgCirrusSearchWikimediaExtraPlugin[ 'regex' ] =
-//     array( 'build', 'use', 'max_inspect' => 10000 );
+//     array( 'build', 'use' );
 // The 'build' value instructs Cirrus to build the index required to speed up
 // regex queries.  The 'use' value instructs Cirrus to use it to power regular
 // expression queries.  If 'use' is added before the index is rebuilt with
-// 'build' in the array then regex will fail to find anything.  The value of
-// the 'max_inspect' key is the maximum number of pages to recheck the regex
-// against.  Its optional and defaults to 10000 which seems like a reasonable
-// compromise to keep regexes fast while still producing good results.
+// 'build' in the array then regex will fail to find anything. To limit the
+// potential performance impact of regex searches a regex-specific timeout can
+// be set, after which the user will receive partial results and a notice about
+// the timeout. Additionally a regex-specific pool counter can be used to limit
+// the number of regex's being processed in parallel.
 //
 // This turns on noop-detection for updates and is compatible with
 // wikimedia-extra versions 1.3.1, 1.4.2, 1.5.0, and greater:
@@ -205,6 +207,24 @@ $wgCirrusSearchNamespaceMappings = [];
 // to your wiki but after it is in the extra search index you'll see duplicate
 // results until the job is done.
 $wgCirrusSearchExtraIndexes = [];
+
+// Template boosts to apply to extra index queries. This is pretty much a complete
+// hack, but gets the job done. Top level is a map from the extra index addedby
+// $wgCirrusSearchExtraIndexes to a configuration map. That configuration map must
+// contain a 'wiki' entry with the same value as the 'wiki' field in the documents,
+// and a 'boosts' entry containing a map from template name to boost weight.
+//
+// Example:
+//   $wgCirrusSearchExtraIndexBoostTemplates = [
+//       'commonswiki_file' => [
+//           'wiki' => 'commonswiki',
+//           'boosts' => [
+//               'Template:Valued image' => 1.75
+//               'Template:Assessments' => 1.75,
+//           ],
+//       ]
+//   ];
+$wgCirrusSearchExtraIndexBoostTemplates = [];
 
 // Shard timeout for index operations.  This is the amount of time
 // Elasticsearch will wait around for an offline primary shard. Currently this
@@ -363,7 +383,7 @@ $wgCirrusSearchUnlinkedArticlesToUpdate = 25;
 
 // Configure the similarity module
 // see profile/SimilarityProfiles.php for more details
-$wgCirrusSearchSimilarityProfile = 'default';
+$wgCirrusSearchSimilarityProfile = 'classic';
 
 // Weight of fields.  Must be integers not decimals.  If $wgCirrusSearchAllFields['use']
 // is false this can be changed on the fly.  If it is true then changes to this require
@@ -487,12 +507,12 @@ $wgCirrusSearchMoreLikeThisConfig = [
 
 	// Minimum length for a word to be considered
 	// small words tend to be stop words.
-	'min_word_len' => 0,
+	'min_word_length' => 0,
 
 	// Maximum length for a word to be considered
 	// Very long "words" tend to be uncommon, excluding them can help recall but it
 	// is highly dependent on the language.
-	'max_word_len' => 0,
+	'max_word_length' => 0,
 
 	// Percent of terms to match
 	// High value will increase precision but can prevent small docs to match against large ones
@@ -514,17 +534,7 @@ $wgCirrusSearchMoreLikeThisAllowedFields = [
 	'auxiliary_text',
 	'opening_text',
 	'headings',
-	'all'
 ];
-
-// When set to false cirrus will use the text content to build the query
-// and search on the field listed in $wgCirrusSearchMoreLikeThisFields
-// Set to true if you want to use field data as input text to build the initial
-// query.
-// Note that if the all field is used then this setting will be forced to true.
-// This is because the all field is not part of the _source and its content cannot
-// be retrieved by elasticsearch.
-$wgCirrusSearchMoreLikeThisUseFields = false;
 
 // This allows redirecting queries to a separate cluster configured
 // in $wgCirrusSearchClusters. Note that queries can use multiple features, in
@@ -542,9 +552,6 @@ $wgCirrusSearchClusterOverrides = [];
 // whatever is configured).
 $wgCirrusSearchMoreLikeThisTTL = 0;
 
-// Show the notification about this wiki using CirrusSearch on the search page.
-$wgCirrusSearchShowNowUsing = false;
-
 // CirrusSearch interwiki searching
 // Keys are the interwiki prefix, values are the index to search
 // Results are cached.
@@ -552,6 +559,14 @@ $wgCirrusSearchInterwikiSources = [];
 
 // How long to cache interwiki search results for (in seconds)
 $wgCirrusSearchInterwikiCacheTime = 7200;
+
+// Set the order of crossproject side boxes
+// Possible values:
+// - static: output crossproject results in the order provided
+//   by the interwiki resolver (order set in wgCirrusSearchInterwikiSources
+//   or SiteMatrix)
+// - recall: based on total hits
+$wgCirrusSearchCrossProjectOrder = 'static';
 
 // The seconds Elasticsearch will wait to batch index changes before making
 // them available for search.  Lower values make search more real time but put
@@ -589,18 +604,6 @@ $wgCirrusSearchUpdateConflictRetryCount = 5;
 
 // Number of characters to include in article fragments.
 $wgCirrusSearchFragmentSize = 150;
-
-// Should we add a cache warmer that searches for the main page to the content
-// namespace?
-// @see http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-warmers.html
-$wgCirrusSearchMainPageCacheWarmer = true;
-
-// Other cache warmers.  Form is index name => array(searches).  See examples
-// commented out below.
-$wgCirrusSearchCacheWarmers = [];
-// $wgCirrusSearchCacheWarmers[ 'content' ][] = 'foo bar';
-// $wgCirrusSearchCacheWarmers[ 'content' ][] = 'batman';
-// $wgCirrusSearchCacheWarmers[ 'general' ][] = 'template:noble pipe';
 
 // Whether to boost searches based on link counts. Default is true
 // which most wikis will want. Edge cases will want to turn this off.
@@ -766,12 +769,36 @@ $wgCirrusSearchCompletionSettings = 'fuzzy';
  * Enable ICU Folding instead of the default ASCII Folding.
  * It allows to cover a wider range of characters when squashing diacritics.
  * see https://www.elastic.co/guide/en/elasticsearch/plugins/current/analysis-icu-folding.html
- * Currently this settings is only used by the CompletionSuggester.
- * Requires the ICU plugin installed.
- * Set to true to enable, false to use the default ASCII Folding
+ * Requires the ICU plugin installed and a recent wmf extra plugin (>= 2.3.4).
+ * Set to:
+ * - default: let cirrus decides if ICU folding can be enabled according to wiki language
+ * - yes: force the use of ICU folding
+ * - no: disable ICU folding even if cirrus thinks it can be enabled
  * NOTE: Experimental
  */
-$wgCirrusSearchUseIcuFolding = false;
+$wgCirrusSearchUseIcuFolding = 'default';
+
+/**
+ * Set the unicode set filter for ICU folding
+ * see http://userguide.icu-project.org/strings/unicodeset
+ * e.g. set [^é] to exclude é from icufolding
+ */
+$wgCirrusSearchICUFoldingUnicodeSetFilter = null;
+
+/**
+ * Enable the ICU Tokenizer instead of the standard filter
+ * for plain fields.
+ * It may be more suited for languages that do not use spaces
+ * to break words.
+ * Requires the ICU plugin installed
+ * Set to:
+ * - default: let cirrus decides if the ICU tokenizer can be enabled according to wiki language
+ * - yes: force the use of ICU tokenizer
+ * - no: disable the ICU tokenizer even if cirrus thinks it can be enabled
+ * NOTE: Experimental
+ */
+$wgCirrusSearchUseIcuTokenizer = 'default';
+
 
 /**
  * Set the default scoring function to be used by maintenance/updateSuggesterIndex.php
@@ -818,13 +845,6 @@ $wgCirrusSearchCompletionSuggesterSubphrases = [
 $wgCirrusSearchCompletionSuggesterUseDefaultSort = false;
 
 /**
- * Builds extra fst with a geo context.
- * Can generate a very large in-memory FST
- * NOTE: Experimental, no API endpoints are available yet.
- */
-$wgCirrusSearchCompletionSuggesterGeoContext = ['build' => false];
-
-/**
  * Maximum number of results to ask from the elasticsearch completion
  * api, note that this value will be multiplied by fetch_limit_factor
  * set in Completion profiles (default to 2)
@@ -841,14 +861,6 @@ $wgCirrusSearchCompletionSuggesterHardLimit = 50;
  * reducing the number of disk operation to primary shards only.
  */
 $wgCirrusSearchRecycleCompletionSuggesterIndex = true;
-
-/**
- * Profile for geo context search as you type suggestion (completion suggestion)
- * (see profiles/SuggestProfiles.php for more details.)
- *
- * NOTE: This is an experimental API
- */
-$wgCirrusSearchCompletionGeoContextSettings = $wgCirrusSearchCompletionGeoContextProfiles['default'];
 
 /**
  * Enable alternative language search.
@@ -879,15 +891,85 @@ $wgCirrusSearchLanguageToWikiMap = [];
 $wgCirrusSearchWikiToNameMap = [];
 
 /**
+ * Enable crossproject search.
+ * Crossproject works by seaching on so-called sister wikis:
+ * Same language, sister project.
+ * NOTE: Experimental
+ */
+$wgCirrusSearchEnableCrossProjectSearch = false;
+
+/**
+ * List of crossproject interwiki prefix to ignore
+ * when running crossproject search.
+ * (only useful when the list of cross projects is
+ * obtained via the SiteMatrix extension)
+ * Example :
+ * $wgCirrusSearchCrossProjectSearchBlackList = [ 'n', 'v' ];
+ * In WMF context this would remove wikinews and wikiversity
+ * from the list of crossproject displayed in the sidebar
+ */
+$wgCirrusSearchCrossProjectSearchBlackList = [];
+
+/**
+ * Override various profiles to use for interwiki searching.
+ * Example:
+ * $wgCirrusSearchCrossProjectProfiles = [
+ *    'v' => [
+ *        'ftbuilder' => 'perfield_builder_title_match',
+ *        'rescore' => 'wsum_inclinks',
+ *    ],
+ * ];
+ * Will use the perfield_builder_title_match fulttext and wsum_inclinks rescore
+ * profile for wikivoyage (WMF context) and the current wiki profile for
+ * others.
+ */
+$wgCirrusSearchCrossProjectProfiles = [];
+
+/**
+ * When wgCirrusSearchEnableCrossProjectSearch is true
+ * Setting wgCirrusSearchHideCrossProjectResults will
+ * tell SpecialSearch to run normally without displaying
+ * interwiki results.
+ * Useful to report how many results we could have been
+ * displayed (For analytics purpose).
+ */
+$wgCirrusSearchHideCrossProjectResults = false;
+
+/**
+ * Informs SpeciaSearch in core that we want
+ * to use the new cross project result page
+ */
+$wgCirrusSearchNewCrossProjectPage = false;
+
+/**
+ * The number of results to return in cross-project search
+ */
+$wgCirrusSearchNumCrossProjectSearchResults = 5;
+
+/**
+ * Enable cross leanguage search.
+ * Usually implemented as fallback for queries
+ * that returns fewer than $wgCirrusSearchInterwikiThreshold results
+ * NOTE: Experimental
+ */
+$wgCirrusSearchEnableCrossLanguageSearch = false;
+
+/**
  * If set to non-empty string, interwiki results will have ?wprov=XYZ parameter added.
  */
 $wgCirrusSearchInterwikiProv = false;
 
 /**
- * Set the rescore profile to default.
+ * Set the full text rescore profile to default.
  * see profile/RescoreProfiles.php for more info
  */
 $wgCirrusSearchRescoreProfile = 'classic';
+
+/**
+ * Set the prefix search rescore profile to default.
+ * see profile/RescoreProfiles.php for more info
+ */
+$wgCirrusSearchPrefixSearchRescoreProfile = 'classic';
 
 /**
  * If current wiki has less than this number of results, try to search other language wikis.
@@ -912,14 +994,23 @@ $wgCirrusSearchInterwikiThreshold = 3;
 $wgCirrusSearchLanguageDetectors = [];
 
 /**
- * Directory where TextCat detector should look for language model
+ * List of directories where TextCat detector should look for language models
  */
-$wgCirrusSearchTextcatModel = false;
+$wgCirrusSearchTextcatModel = [];
+
+/**
+ * Configuration for specifying TextCat parameters.
+ * Keys are maxNgrams, maxReturnedLanguages, resultsRatio,
+ * minInputLength, maxProportion, langBoostScore, and numBoostedLangs.
+ * See vendor/wikimedia/textcat/TextCat.php
+ */
+
+$wgCirrusSearchTextcatConfig = [];
 
 /**
  * Limit the set of languages detected by Textcat.
- * Useful when some languages in the model have very bad precision, e.g.:
- * $wgCirrusSearchTextcatLanguages = array( 'ar', 'it', 'de' );
+ * Useful when some languages in the model have too many false positives, e.g.:
+ * $wgCirrusSearchTextcatLanguages = [ 'ar', 'it', 'de' ];
  */
 
 /**
@@ -999,7 +1090,7 @@ $wgCirrusSearchExtraBackendLatency = 0;
 $wgCirrusSearchBoostTemplates = [];
 
 /**
- * Disable customization of boot templates on wiki
+ * Disable customization of boost templates on wiki
  * Set to true to disable onwiki config.
  */
 $wgCirrusSearchIgnoreOnWikiBoostTemplates = false;
@@ -1008,10 +1099,28 @@ $wgCirrusSearchIgnoreOnWikiBoostTemplates = false;
  * CirrusSearch development options:
  * - morelike_collect_titles_from_elastic: first pass collection from elastic
  * - ignore_missing_rev: ignore missing revisions
+ * - allow_nuke: Let the tests/jenkins/nukeAllIndexes.php script do its job
  *
  * NOTE: never activate any of these on a production site
  */
 $wgCirrusSearchDevelOptions = [];
+
+/**
+ * Aliases for file types in filtype: search.
+ * Example:
+ * $wgCirrusSearchFiletypeAliases = [
+ *  'jpg' => 'bitmap',
+ *  'image' => 'bitmap',
+ *  'document' => 'office',
+ * ];
+ */
+$wgCirrusSearchFiletypeAliases = [];
+
+/**
+ * Var to activate some workarounds about specific
+ * bugs/quirks found in elasticsearch.
+ */
+$wgCirrusSearchElasticQuirks = [];
 
 $includes = __DIR__ . "/includes/";
 $apiDir = $includes . 'Api/';
@@ -1034,26 +1143,29 @@ if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
 /**
  * Hooks
  */
+$wgHooks[ 'CirrusSearchBuildDocumentFinishBatch'][] = 'CirrusSearch\BuildDocument\RedirectsAndIncomingLinks::finishBatch';
 $wgHooks[ 'CirrusSearchBuildDocumentLinks'][] = 'CirrusSearch\BuildDocument\RedirectsAndIncomingLinks::buildDocument';
+
 $wgHooks[ 'AfterImportPage' ][] = 'CirrusSearch\Hooks::onAfterImportPage';
+$wgHooks[ 'APIAfterExecute' ][] = 'CirrusSearch\Hooks::onAPIAfterExecute';
 $wgHooks[ 'ApiBeforeMain' ][] = 'CirrusSearch\Hooks::onApiBeforeMain';
 $wgHooks[ 'ArticleDelete' ][] = 'CirrusSearch\Hooks::onArticleDelete';
 $wgHooks[ 'ArticleDeleteComplete' ][] = 'CirrusSearch\Hooks::onArticleDeleteComplete';
 $wgHooks[ 'ArticleRevisionVisibilitySet' ][] = 'CirrusSearch\Hooks::onRevisionDelete';
+$wgHooks[ 'ArticleUndelete' ][] = 'CirrusSearch\Hooks::onArticleUndelete';
 $wgHooks[ 'BeforeInitialize' ][] = 'CirrusSearch\Hooks::onBeforeInitialize';
+$wgHooks[ 'GetBetaFeaturePreferences' ][] = 'CirrusSearch\Hooks::getBetaFeaturePreferences';
+$wgHooks[ 'GetPreferences' ][] = 'CirrusSearch\Hooks::onGetPreferences';
 $wgHooks[ 'LinksUpdateComplete' ][] = 'CirrusSearch\Hooks::onLinksUpdateCompleted';
+$wgHooks[ 'MediaWikiServices' ][] = 'CirrusSearch\Hooks::onMediaWikiServices';
 $wgHooks[ 'ResourceLoaderGetConfigVars' ][] = 'CirrusSearch\Hooks::onResourceLoaderGetConfigVars';
+$wgHooks[ 'ShowSearchHitTitle' ][] = 'CirrusSearch\Hooks::onShowSearchHitTitle';
 $wgHooks[ 'SoftwareInfo' ][] = 'CirrusSearch\Hooks::onSoftwareInfo';
-$wgHooks[ 'SpecialSearchResultsPrepend' ][] = 'CirrusSearch\Hooks::onSpecialSearchResultsPrepend';
+$wgHooks[ 'SpecialSearchResults' ][] = 'CirrusSearch\Hooks::onSpecialSearchResults';
 $wgHooks[ 'SpecialSearchResultsAppend' ][] = 'CirrusSearch\Hooks::onSpecialSearchResultsAppend';
 $wgHooks[ 'TitleMove' ][] = 'CirrusSearch\Hooks::onTitleMove';
 $wgHooks[ 'TitleMoveComplete' ][] = 'CirrusSearch\Hooks::onTitleMoveComplete';
 $wgHooks[ 'UnitTestsList' ][] = 'CirrusSearch\Hooks::onUnitTestsList';
-$wgHooks[ 'ShowSearchHitTitle' ][] = 'CirrusSearch\Hooks::onShowSearchHitTitle';
-$wgHooks[ 'GetBetaFeaturePreferences' ][] = 'CirrusSearch\Hooks::getBetaFeaturePreferences';
-$wgHooks[ 'APIAfterExecute' ][] = 'CirrusSearch\Hooks::onAPIAfterExecute';
-$wgHooks[ 'SpecialSearchResults' ][] = 'CirrusSearch\Hooks::onSpecialSearchResults';
-$wgHooks[ 'GetPreferences' ][] = 'CirrusSearch\Hooks::onGetPreferences';
 $wgHooks[ 'UserGetDefaultOptions' ][] = 'CirrusSearch\Hooks::onUserGetDefaultOptions';
 
 /**
@@ -1072,6 +1184,7 @@ $wgJobClasses[ 'cirrusSearchMassIndex' ] = 'CirrusSearch\Job\MassIndex';
 $wgJobClasses[ 'cirrusSearchOtherIndex' ] = 'CirrusSearch\Job\OtherIndex';
 $wgJobClasses[ 'cirrusSearchElasticaWrite' ] = 'CirrusSearch\Job\ElasticaWrite';
 $wgJobClasses[ 'cirrusSearchCheckerJob' ] = 'CirrusSearch\Job\CheckerJob';
+$wgJobClasses[ 'cirrusSearchDeleteArchive' ] = 'CirrusSearch\Job\DeleteArchive';
 
 /**
  * Actions
@@ -1105,6 +1218,7 @@ $wgResourceModules += [
 		'messages' => [],
 		'remoteExtPath' => 'CirrusSearch',
 		'localBasePath' => __DIR__,
+		'targets' => [ 'desktop', 'mobile' ],
 	],
 ];
 
@@ -1130,6 +1244,34 @@ $wgCirrusSearchFieldTypes = [
 $wgCirrusSearchFieldTypeOverrides = [
 	'opening_text' => \CirrusSearch\Search\OpeningTextIndexField::class,
 ];
+
+/**
+ * Custom settings to be provided with index creation. Used for setting
+ * slow logs threhsolds and such. Alternatively index templates could
+ * be used within elasticsearch.
+ *
+ * Example:
+ *   $wgCirrusSearchExtraIndexSettings = [
+ *     'indexing.slowlog.threshold.index.warn' => '10s',
+ *     'indexing.slowlog.threshold.index.info' => '5s',
+ *     'search.slowlog.threshold.fetch.info' => '1s',
+ *     'search.slowlog.threshold.fetch.info' => '800ms',
+ *  ]
+ */
+$wgCirrusSearchExtraIndexSettings = [];
+
+/**
+ * Whether to index deleted pages for archiving.
+ */
+$wgCirrusSearchIndexDeletes = false;
+/**
+ * Enable archive search.
+ */
+$wgCirrusSearchEnableArchive = false;
+
+/*
+ * Please update docs/settings.txt if you add new values!
+ */
 
 /**
  * Jenkins configuration required to get all the browser tests passing cleanly.

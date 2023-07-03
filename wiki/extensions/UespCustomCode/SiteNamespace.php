@@ -272,12 +272,16 @@ class SiteNamespace
 		if (!is_null($ns) && $ns)
 			$nschk = $ns;
 		// not forcing entire extension to be installed... at least not yet
-		elseif (function_exists('efMetaTemplateInit')) {
-			$pstack = new MetaTemplateParserStack($parser, $frame);
-			if (is_null($nschk = $pstack->get('ns_base')) && is_null($nschk = $pstack->get('ns_id')))
-				$nschk = NULL;
-		} else
-			$nschk = NULL;
+		else {
+			$nschk = $frame->getNamedArgument('ns_base');
+			if ($nschk === false) {
+				$nschk = $frame->getNamedArgument('ns_id');
+				if ($nschk === false) {
+					$nschk = null;
+				}
+			}
+		}
+
 		if ($nschk === -1 || $nschk === '-1')
 			$nschk = NULL;
 

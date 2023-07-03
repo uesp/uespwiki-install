@@ -1,0 +1,124 @@
+{
+	"name": "Popups",
+	"author": [
+		"Prateek Saxena",
+		"Yair Rand"
+	],
+	"url": "https://www.mediawiki.org/wiki/Extension:Popups",
+	"descriptionmsg": "popups-desc",
+	"license-name": "GPL-2.0+",
+	"type": "betafeatures",
+	"AutoloadClasses": {
+		"Popups\\PopupsHooks": "includes/PopupsHooks.php",
+		"Popups\\PopupsContext": "includes/PopupsContext.php",
+		"Popups\\PopupsGadgetsIntegration": "includes/PopupsGadgetsIntegration.php"
+	},
+	"ConfigRegistry": {
+		"popups": "GlobalVarConfig::newInstance"
+	},
+	"Hooks": {
+		"GetBetaFeaturePreferences": [
+			"Popups\\PopupsHooks::onGetBetaPreferences"
+		],
+		"BeforePageDisplay": [
+			"Popups\\PopupsHooks::onBeforePageDisplay"
+		],
+		"ResourceLoaderGetConfigVars": [
+			"Popups\\PopupsHooks::onResourceLoaderGetConfigVars"
+		],
+		"GetPreferences": [
+			"Popups\\PopupsHooks::onGetPreferences"
+		],
+		"UserGetDefaultOptions": [
+			"Popups\\PopupsHooks::onUserGetDefaultOptions"
+		],
+		"MakeGlobalVariablesScript": [
+			"Popups\\PopupsHooks::onMakeGlobalVariablesScript"
+		]
+	},
+	"MessagesDirs": {
+		"Popups": [
+			"i18n"
+		]
+	},
+	"EventLoggingSchemas": {
+		"Popups": 16364296
+	},
+	"config": {
+		"@PopupsBetaFeature": "@var bool: Whether the extension should be enabled as an opt-in beta feature. If true, the BetaFeatures extension must be installed. False by default.",
+		"PopupsBetaFeature": false,
+		"@PopupsSchemaSamplingRate": "@var number: Sample rate for logging events to Schema:Popups.",
+		"PopupsSchemaSamplingRate": 0,
+		"@PopupsHideOptInOnPreferencesPage": "@var bool: Whether the option to enable/disable Page Previews should be hidden on Preferences page. Please note if PopupsBetaFeature is set to true this option will be always hidden. False by default",
+		"PopupsHideOptInOnPreferencesPage": false,
+		"@PopupsOptInDefaultState": "@var string:['1'|'0'] Default Page Previews visibility. Has to be a string as a compatibility with beta feature settings",
+		"PopupsOptInDefaultState": "0",
+		"@PopupsConflictingNavPopupsGadgetName": "@var string: Navigation popups gadget name",
+		"PopupsConflictingNavPopupsGadgetName": "Navigation_popups",
+		"@PopupsAPIUseRESTBase": "Whether to use RESTBase rather than the MediaWiki API for fetching Popups data.",
+		"PopupsAPIUseRESTBase": false,
+		"@PopupsAnonsEnabledSamplingRate": "Sampling rate for showing popups to anonymous users.",
+		"PopupsAnonsEnabledSamplingRate": 0.9,
+		"@PopupsStatsvSamplingRate": "Sampling rate for logging performance data to statsv.",
+		"PopupsStatsvSamplingRate": 0
+	},
+	"ResourceModules": {
+		"ext.popups.images": {
+			"selector": ".mw-ui-icon-{name}:before",
+			"class": "ResourceLoaderImageModule",
+			"prefix": "mw-ui",
+			"images": {
+				"popups-settings": "resources/ext.popups.images/cog.svg",
+				"popups-close": "resources/ext.popups.images/close.svg"
+			}
+		},
+		"ext.popups": {
+			"scripts": [
+				"resources/dist/index.js"
+			],
+			"templates": {
+				"preview.mustache": "resources/ext.popups/templates/preview.mustache",
+				"preview-empty.mustache": "resources/ext.popups/templates/preview-empty.mustache",
+				"settings.mustache": "resources/ext.popups/templates/settings.mustache"
+			},
+			"styles": [
+				"resources/ext.popups/styles/ext.popups.core.less",
+				"resources/ext.popups/styles/ext.popups.animation.less",
+				"resources/ext.popups/styles/ext.popups.settings.less"
+			],
+			"messages": [
+				"popups-settings-title",
+				"popups-settings-description",
+				"popups-settings-option-simple",
+				"popups-settings-option-simple-description",
+				"popups-settings-option-advanced",
+				"popups-settings-option-advanced-description",
+				"popups-settings-option-off",
+				"popups-settings-save",
+				"popups-settings-cancel",
+				"popups-settings-enable",
+				"popups-settings-help",
+				"popups-settings-help-ok",
+				"popups-send-feedback",
+				"popups-preview-no-preview",
+				"popups-preview-footer-read"
+			],
+			"dependencies": [
+				"ext.popups.images",
+				"mediawiki.experiments",
+				"mediawiki.storage",
+				"mediawiki.Title",
+				"mediawiki.jqueryMsg",
+				"mediawiki.ui.button",
+				"mediawiki.ui.icon",
+				"mediawiki.Uri",
+				"jquery.hidpi"
+			]
+		}
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "Popups"
+	},
+	"manifest_version": 1
+}

@@ -41,10 +41,21 @@ class ComputePageSpeedStats
 	
 	
 	function parseInputParams() {
-		$options = getopt("je");
+		$options = getopt("f:je");
 		
 		if ($options['j'] !== null) $this->outputJson = true;
 		if ($options['e'] !== null) $this->echo = true;
+		
+		if ($options['f'] !== null) 
+		{
+			$logFile = $options['f'];
+			
+			if (file_exists($logFile)) 
+			{
+				$this->LOGFILE = $logFile;
+				if ($this->echo) print("Using '$logFile' as source log file!\n");
+			}
+		}
 	}
 	
 	

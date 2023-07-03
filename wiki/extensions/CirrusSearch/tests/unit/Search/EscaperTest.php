@@ -2,7 +2,7 @@
 
 namespace CirrusSearch\Search;
 
-use PHPUnit_Framework_TestCase;
+use CirrusSearch\CirrusTestCase;
 
 /**
  * Test escaping search strings.
@@ -21,8 +21,10 @@ use PHPUnit_Framework_TestCase;
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @group CirrusSearch
  */
-class EscaperTest extends PHPUnit_Framework_TestCase {
+class EscaperTest extends CirrusTestCase {
 
 	/**
 	 * @dataProvider fuzzyEscapeTestCases

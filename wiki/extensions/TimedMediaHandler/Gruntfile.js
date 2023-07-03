@@ -1,18 +1,15 @@
-/*jshint node:true */
+/* eslint-env node */
 module.exports = function ( grunt ) {
-	grunt.loadNpmTasks( 'grunt-contrib-copy' );
-	grunt.loadNpmTasks( 'grunt-contrib-jshint' );
-	grunt.loadNpmTasks( 'grunt-jsonlint' );
 	grunt.loadNpmTasks( 'grunt-banana-checker' );
-	grunt.loadNpmTasks( 'grunt-jscs' );
+	grunt.loadNpmTasks( 'grunt-contrib-copy' );
+	grunt.loadNpmTasks( 'grunt-eslint' );
 	grunt.loadNpmTasks( 'grunt-exec' );
-	grunt.loadNpmTasks( 'grunt-patch' );
+	grunt.loadNpmTasks( 'grunt-jsonlint' );
+	grunt.loadNpmTasks( 'grunt-patcher' );
+	grunt.loadNpmTasks( 'grunt-stylelint' );
 
 	grunt.initConfig( {
-		jshint: {
-			options: {
-				jshintrc: true
-			},
+		eslint: {
 			all: [
 				'**/*.js',
 				'!MwEmbedModules/**',
@@ -21,11 +18,22 @@ module.exports = function ( grunt ) {
 				'!node_modules/**'
 			]
 		},
-		jscs: {
-			src: '<%= jshint.all %>'
+		stylelint: {
+			options: {
+				syntax: 'less'
+			},
+			all: [
+				'**/*.{css,less}',
+				'!MwEmbedModules/**',
+				'!resources/videojs*/**',
+				'!resources/mw-info-button/**',
+				'!node_modules/**'
+			]
 		},
 		banana: {
-			all: 'i18n/'
+			all: 'i18n/',
+			EmbedPlayer: 'MwEmbedModules/EmbedPlayer/i18n/',
+			TimedText: 'MwEmbedModules/TimedText/i18n/'
 		},
 		jsonlint: {
 			all: [
@@ -103,6 +111,6 @@ module.exports = function ( grunt ) {
 	} );
 
 	grunt.registerTask( 'update-videojs', [ 'exec:npm-update-videojs', 'copy:video.js', 'copy:videojs-resolution-switcher', 'copy:videojs-ogvjs', 'copy:videojs-responsive-layout', 'copy:videojs-replay', 'patch:video.js' ] );
-	grunt.registerTask( 'test', [ 'jshint', 'jscs', 'jsonlint', 'banana' ] );
+	grunt.registerTask( 'test', [ 'eslint', 'stylelint', 'jsonlint', 'banana' ] );
 	grunt.registerTask( 'default', 'test' );
 };

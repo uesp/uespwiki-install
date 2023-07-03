@@ -13,12 +13,15 @@ class MobileFormatterTest extends MediaWikiTestCase {
 	 * Helper function that creates section headings from a heading and title
 	 *
 	 * @param string $heading
-	 * @param string $title
+	 * @param string $innerHtml of the heading element
+	 * @param integer [$sectionNumber] heading corresponds to
 	 * @return string
 	 */
-	private function makeSectionHeading( $heading, $title ) {
-		return "<$heading class=\"section-heading\">" . self::SECTION_INDICATOR .
-			"$title</$heading>";
+	private function makeSectionHeading( $heading, $innerHtml, $sectionNumber = 1 ) {
+		return "<$heading class=\"section-heading\""
+			. " onclick=\"javascript:mfTempOpenSection($sectionNumber)\">"
+			. self::SECTION_INDICATOR
+			. "$innerHtml</$heading>";
 	}
 
 	/**
@@ -26,10 +29,21 @@ class MobileFormatterTest extends MediaWikiTestCase {
 	 *
 	 * @param string $sectionNumber
 	 * @param string $contentHtml
+	 * @param boolean $isReferenceSection whether the section contains references
 	 * @return string
 	 */
-	private function makeSectionHtml( $sectionNumber, $contentHtml='' ) {
-		return "<div class=\"mf-section-$sectionNumber\">$contentHtml</div>";
+	private function makeSectionHtml( $sectionNumber, $contentHtml = '',
+		$isReferenceSection = false
+	) {
+		$attrs = $isReferenceSection ? ' data-is-reference-section="1"' : '';
+		$className = "mf-section-$sectionNumber";
+
+		if ( $sectionNumber > 0 ) {
+			$className = $className . ' ' . MobileFormatter::STYLE_COLLAPSIBLE_SECTION_CLASS;
+		}
+
+		return "<div class=\"$className\" id=\"mf-section-$sectionNumber\""
+			. "$attrs>$contentHtml</div>";
 	}
 
 	/**
@@ -43,7 +57,6 @@ class MobileFormatterTest extends MediaWikiTestCase {
 	 * @param bool $lazyLoadImages
 	 * @param bool $showFirstParagraphBeforeInfobox
 	 * @covers MobileFormatter::filterContent
-	 * @covers MobileFormatter::doRewriteReferencesForLazyLoading
 	 * @covers MobileFormatter::doRemoveImages
 	 */
 	public function testHtmlTransform( $input, $expected, $callback = false,
@@ -59,8 +72,28 @@ class MobileFormatterTest extends MediaWikiTestCase {
 		$mf->topHeadingTags = [ 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ];
 		$mf->filterContent( $removeDefaults, $lazyLoadReferences, $lazyLoadImages,
 			$showFirstParagraphBeforeInfobox );
+
 		$html = $mf->getText();
 		$this->assertEquals( str_replace( "\n", '', $expected ), str_replace( "\n", '', $html ) );
+	}
+
+	public function testHtmlTransformWhenSkippingLazyLoadingSmallImages() {
+		$smallPic =  '<img src="smallPicture.jpg" style="width: 4.4ex; height:3.34ex;">';
+		$enableSections = function ( MobileFormatter $mf ) {
+			$mf->enableExpandableSections();
+		};
+		$this->setMwGlobals( [
+			'wgMFLazyLoadSkipSmallImages' => true
+		] );
+
+		$this->testHtmlTransform(
+			'<p>text</p><h2>heading 1</h2>' . $smallPic,
+			$this->makeSectionHtml( 0, '<p>text</p>' )
+			. $this->makeSectionHeading( 'h2', 'heading 1' )
+			. $this->makeSectionHtml( 1, $smallPic ),
+			$enableSections,
+			false, false, true
+		);
 	}
 
 	public function provideHtmlTransform() {
@@ -75,14 +108,15 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			$f->setIsMainPage( true );
 		};
 		$citeUrl = SpecialPage::getTitleFor( 'MobileCite', '0' )->getLocalUrl();
-		$imageStyles = '<img src="math.jpg" style="vertical-align: -3.505ex; '
-			. 'width: 24.412ex; height:7.343ex; background:none;">';
+		$lazyLoadedImageStyles = '<img src="bigPicture.jpg" style="vertical-align: -3.505ex; '
+			. 'width: 84.412ex; height:70.343ex; background:none;">';
+
 		$placeholderStyles = '<span class="lazy-image-placeholder" '
-			. 'style="width: 24.412ex;height: 7.343ex;" '
-			. 'data-src="math.jpg">'
+			. 'style="width: 84.412ex;height: 70.343ex;" '
+			. 'data-src="bigPicture.jpg">'
 			. ' '
 			. '</span>';
-		$noscriptStyles = '<noscript>' . $imageStyles . '</noscript>';
+		$noscriptStyles = '<noscript>' . $lazyLoadedImageStyles . '</noscript>';
 		$originalImage = '<img alt="foo" src="foo.jpg" width="100" '
 			. 'height="100" srcset="foo-1.5x.jpg 1.5x, foo-2x.jpg 2x">';
 		$placeholder = '<span class="lazy-image-placeholder" '
@@ -104,10 +138,8 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			],
 			wfMessage( 'mobile-frontend-references-list' )
 		);
-		$refSectionHtml = '<h2 class="section-heading">' . self::SECTION_INDICATOR
-			. 'references</h2>'
-			. '<div class="mf-section-1" data-is-reference-section="1">'
-			. $refplaceholder . '</div>';
+		$refSectionHtml = $this->makeSectionHeading( 'h2', 'references' )
+			. $this->makeSectionHtml( 1, $refplaceholder, true );
 
 		return [
 			// # Lazy loading images
@@ -122,13 +154,11 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				'<p>' . $originalImage . '</p><h2>heading 1</h2><p>text</p>'
 					. '<h2>heading 2</h2>abc',
-				'<div class="mf-section-0"><p>' . $originalImage . '</p></div>'
-					. '<h2 class="section-heading">' . self::SECTION_INDICATOR
-					. 'heading 1</h2>'
-					. '<div class="mf-section-1"><p>text</p>'
-					. '</div>'
-					. '<h2 class="section-heading">' . self::SECTION_INDICATOR
-					. 'heading 2</h2><div class="mf-section-2">abc</div>',
+				$this->makeSectionHtml( 0, '<p>' . $originalImage . '</p>' )
+					. $this->makeSectionHeading( 'h2', 'heading 1' )
+					. $this->makeSectionHtml( 1, '<p>text</p>' )
+					. $this->makeSectionHeading( 'h2', 'heading 2', 2 )
+					. $this->makeSectionHtml( 2, 'abc' ),
 				$enableSections,
 				false, false, true,
 			],
@@ -136,31 +166,27 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				'<p>text</p><h2>heading 1</h2><p>text</p>' . $originalImage
 					. '<h2>heading 2</h2>abc',
-				'<div class="mf-section-0"><p>text</p></div>'
-					. '<h2 class="section-heading">' . self::SECTION_INDICATOR
-					. 'heading 1</h2>'
-					. '<div class="mf-section-1"><p>text</p>'
-					. $noscript
-					. $placeholder
-					. '</div>'
-					. '<h2 class="section-heading">' . self::SECTION_INDICATOR
-					. 'heading 2</h2><div class="mf-section-2">abc</div>',
+					$this->makeSectionHtml( 0, '<p>text</p>' )
+					. $this->makeSectionHeading( 'h2', 'heading 1' )
+					. $this->makeSectionHtml( 1,
+						'<p>text</p>' . $noscript . $placeholder
+					)
+					. $this->makeSectionHeading( 'h2', 'heading 2', 2 )
+					. $this->makeSectionHtml( 2, 'abc' ),
 				$enableSections,
 				false, false, true,
 			],
 			// Test lazy loading of images with style attributes
 			[
-				'<p>text</p><h2>heading 1</h2><p>text</p>' . $imageStyles
+				'<p>text</p><h2>heading 1</h2><p>text</p>' . $lazyLoadedImageStyles
 					. '<h2>heading 2</h2>abc',
-				'<div class="mf-section-0"><p>text</p></div>'
-					. '<h2 class="section-heading">' . self::SECTION_INDICATOR
-					. 'heading 1</h2>'
-					. '<div class="mf-section-1"><p>text</p>'
-					. $noscriptStyles
-					. $placeholderStyles
-					. '</div>'
-					. '<h2 class="section-heading">' . self::SECTION_INDICATOR
-					. 'heading 2</h2><div class="mf-section-2">abc</div>',
+				$this->makeSectionHtml( 0, '<p>text</p>' )
+					. $this->makeSectionHeading( 'h2', 'heading 1' )
+					. $this->makeSectionHtml( 1,
+						'<p>text</p>' . $noscriptStyles . $placeholderStyles
+					)
+					. $this->makeSectionHeading( 'h2', 'heading 2', 2 )
+					. $this->makeSectionHtml( 2, 'abc' ),
 				$enableSections,
 				false, false, true,
 			],
@@ -168,17 +194,13 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				'<p>text</p><h2>heading 1</h2><p>text</p>' . $originalImage
 				.'<h2>heading 2</h2>' . $originalImage,
-				'<div class="mf-section-0"><p>text</p></div>'
-					. '<h2 class="section-heading">' . self::SECTION_INDICATOR . 'heading 1</h2>'
-					. '<div class="mf-section-1"><p>text</p>'
-					. $noscript
-					. $placeholder
-					. '</div>'
-					. '<h2 class="section-heading">' . self::SECTION_INDICATOR . 'heading 2</h2>'
-					. '<div class="mf-section-2">'
-					. $noscript
-					. $placeholder
-					. '</div>',
+				$this->makeSectionHtml( 0, '<p>text</p>' )
+					. $this->makeSectionHeading( 'h2', 'heading 1' )
+					. $this->makeSectionHtml( 1,
+						'<p>text</p>' . $noscript . $placeholder
+					)
+					. $this->makeSectionHeading( 'h2', 'heading 2', 2 )
+					. $this->makeSectionHtml( 2, $noscript . $placeholder ),
 				$enableSections,
 				false, false, true,
 			],
@@ -187,8 +209,7 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				$refText
 					. '<h2>references</h2>' . $refhtml,
-				'<div class="mf-section-0">' . $expectedReftext . '</div>'
-					. $refSectionHtml,
+				$this->makeSectionHtml( 0, $expectedReftext ) . $refSectionHtml,
 				$enableSections,
 				false, true, false
 			],
@@ -197,9 +218,10 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				'<p>T135923 <sup class="reference">    <a href="#cite-note-1">[1]</a></sup></p>'
 					. '<h2>references</h2>' . $refhtml,
-				'<div class="mf-section-0">'
-					. '<p>T135923 <sup class="reference">    <a href="' . $citeUrl
-					. '#cite-note-1">[1]</a></sup></p></div>'
+				$this->makeSectionHtml( 0, '<p>T135923 <sup class="reference">    '
+					. '<a href="' . $citeUrl
+					. '#cite-note-1">[1]</a></sup></p>'
+				)
 					. $refSectionHtml,
 				$enableSections,
 				false, true, false
@@ -208,9 +230,9 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				'<p>T135923 <sup class="reference"></sup></p>'
 					. '<h2>references</h2>' . $refhtml,
-				'<div class="mf-section-0">'
-					. '<p>T135923 <sup class="reference"></sup></p></div>'
-					. $refSectionHtml,
+				$this->makeSectionHtml( 0,
+					'<p>T135923 <sup class="reference"></sup></p>'
+				) . $refSectionHtml,
 				$enableSections,
 				false, true, false
 			],
@@ -254,11 +276,12 @@ class MobileFormatterTest extends MediaWikiTestCase {
 				'<h2><span class="mw-headline" id="Forty-niners">Forty-niners</span>'
 					. '<a class="edit-page" href="#editor/2">Edit</a></h2>'
 					. $longLine,
-				'<div class="mf-section-0"></div>'
-					. '<h2 class="section-heading">' . self::SECTION_INDICATOR
-					. '<span class="mw-headline" id="Forty-niners">Forty-niners</span>'
-					. '<a class="edit-page" href="#editor/2">Edit</a></h2>'
-					. '<div class="mf-section-1">' . $longLine . '</div>',
+				$this->makeSectionHtml( 0, '' )
+					. $this->makeSectionHeading( 'h2',
+						'<span class="mw-headline" id="Forty-niners">Forty-niners</span>'
+						. '<a class="edit-page" href="#editor/2">Edit</a>'
+					)
+					. $this->makeSectionHtml( 1, $longLine ),
 				$enableSections
 			],
 			// \n</h3> in headers
@@ -267,24 +290,21 @@ class MobileFormatterTest extends MediaWikiTestCase {
 					. $longLine
 					. '<h4><span>h4</span></h4>'
 					. 'h4 text.',
-				'<div class="mf-section-0"></div>'
-					. '<h3 class="section-heading">' . self::SECTION_INDICATOR
-					 . '<span>h3</span></h3>'
-					. '<div class="mf-section-1">'
-					. $longLine
-					. '<h4 class="in-block"><span>h4</span></h4>'
-					. 'h4 text.'
-					. '</div>',
+				$this->makeSectionHtml( 0, '' )
+					. $this->makeSectionHeading( 'h3', '<span>h3</span>' )
+					. $this->makeSectionHtml( 1, $longLine
+						. '<h4 class="in-block"><span>h4</span></h4>'
+						. 'h4 text.'
+					),
 				$enableSections
 			],
 			// \n</h6> in headers
 			[
 				'<h6><span>h6</span></h6>'
 					. $longLine,
-				'<div class="mf-section-0"></div>'
-					. '<h6 class="section-heading">' . self::SECTION_INDICATOR
-				  . '<span>h6</span></h6>'
-					. '<div class="mf-section-1">' . $longLine . '</div>',
+				$this->makeSectionHtml( 0, '' )
+					. $this->makeSectionHeading( 'h6', '<span>h6</span>' )
+					. $this->makeSectionHtml( 1, $longLine ),
 				$enableSections
 			],
 			// Bug 36670
@@ -292,11 +312,12 @@ class MobileFormatterTest extends MediaWikiTestCase {
 				'<h2><span class="mw-headline" id="History"><span id="Overview"></span>'
 					. 'History</span><a class="edit-page" href="#editor/2">Edit</a></h2>'
 					. $longLine,
-				'<div class="mf-section-0"></div><h2 class="section-heading">'
-				. self::SECTION_INDICATOR
-				. '<span class="mw-headline" id="History"><span id="Overview"></span>'
-				. 'History</span><a class="edit-page" href="#editor/2">Edit</a></h2>'
-				. '<div class="mf-section-1">' . $longLine . '</div>',
+				$this->makeSectionHtml( 0, '' )
+				. $this->makeSectionHeading( 'h2',
+					'<span class="mw-headline" id="History"><span id="Overview"></span>'
+						. 'History</span><a class="edit-page" href="#editor/2">Edit</a>'
+					)
+				. $this->makeSectionHtml( 1, $longLine ),
 				$enableSections
 			],
 
@@ -562,7 +583,20 @@ class MobileFormatterTest extends MediaWikiTestCase {
 
 				$enableSections, false, false, false, true,
 			],
+			[
+				// infobox, a paragraph, list element
+				// @see https://phabricator.wikimedia.org/T149852
+				'<table class="' . self::INFOBOX_CLASSNAME . '"><tr><td>infobox</td></tr></table>' .
+				'<p>paragraph</p>' .
+				'<ol><li>item 1</li><li>item 2</li></ol>',
 
+				$this->makeSectionHtml(
+					0,
+					'<p>paragraph</p><ol><li>item 1</li><li>item 2</li></ol>' .
+					'<table class="' . self::INFOBOX_CLASSNAME . '"><tr><td>infobox</td></tr></table>'
+				),
+				$enableSections, false, false, false, true,
+			],
 			[
 				// 2 hat-notes, ambox, 2 infoboxes, 2 paragraphs, another section
 				'<div class="' . self::HATNOTE_CLASSNAME . '">hatnote</div>' .
@@ -572,6 +606,7 @@ class MobileFormatterTest extends MediaWikiTestCase {
 				'<table class="' . self::INFOBOX_CLASSNAME . '"><tr><td>infobox 2</td></tr></table>' .
 				'<p>paragraph 1</p>' .
 				'<p>paragraph 2</p>' .
+				'<ul><li>item</li></ul>'.
 				'<h2>Heading 1</h2>' .
 				'<p>paragraph 3</p>',
 
@@ -583,12 +618,48 @@ class MobileFormatterTest extends MediaWikiTestCase {
 					'<p>paragraph 1</p>' .
 					'<table class="' . self::INFOBOX_CLASSNAME . '"><tr><td>infobox 1</td></tr></table>' .
 					'<table class="' . self::INFOBOX_CLASSNAME . '"><tr><td>infobox 2</td></tr></table>' .
-					'<p>paragraph 2</p>'
+					'<p>paragraph 2</p><ul><li>item</li></ul>'
 				) .
 				$this->makeSectionHeading( 'h2', 'Heading 1' ) .
 				$this->makeSectionHtml(
 					1,
 					'<p>paragraph 3</p>'
+				),
+
+				$enableSections, false, false, false, true,
+			],
+
+			[
+				// Minimal test case for T149561: `p` elements should be immediate
+				// descendants of the section container element (`div`, currently).
+
+				'<table class="' . self::INFOBOX_CLASSNAME . '">' .
+				'<tr><td><p>SURPRISE PARAGRAPH</p></td></tr></table>' .
+				'<p>paragraph 1</p>',
+
+				$this->makeSectionHtml(
+					0,
+					'<p>paragraph 1</p>' .
+					'<table class="' . self::INFOBOX_CLASSNAME . '">' .
+					'<tr><td><p>SURPRISE PARAGRAPH</p></td></tr></table>'
+				),
+
+				$enableSections, false, false, false, true,
+			],
+
+			[
+				// T149389: If the infobox is inside one or more containers, i.e. not an
+				// immediate child of the section container element, then
+				// MobileFormatter#moveFirstParagraphBeforeInfobox will trigger a "Not
+				// Found Error" warning.
+				// Do not touch infoboxes that are not immediate children of the lead section
+				'<div><table class="' . self::INFOBOX_CLASSNAME . '"><tr><td>infobox</td></tr></table></div>' .
+				'<p>paragraph 1</p>',
+
+				$this->makeSectionHtml(
+					0,
+					'<div><table class="' . self::INFOBOX_CLASSNAME . '"><tr><td>infobox</td></tr></table></div>' .
+					'<p>paragraph 1</p>'
 				),
 
 				$enableSections, false, false, false, true,
@@ -600,7 +671,6 @@ class MobileFormatterTest extends MediaWikiTestCase {
 	 * @dataProvider provideHeadingTransform
 	 * @covers MobileFormatter::makeSections
 	 * @covers MobileFormatter::enableExpandableSections
-	 * @covers MobileFormatter::setTopHeadingTags
 	 * @covers MobileFormatter::filterContent
 	 */
 	public function testHeadingTransform( array $topHeadingTags, $input, $expectedOutput ) {
@@ -624,9 +694,9 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				[ 'h1', 'h2' ],
 				'<h1>Foo</h1><h2>Bar</h2>',
-				'<div class="mf-section-0"></div><h1 class="section-heading">' . self::SECTION_INDICATOR
-				  . 'Foo</h1>'
-					. '<div class="mf-section-1"><h2 class="in-block">Bar</h2></div>',
+				$this->makeSectionHtml( 0, '' )
+					. $this->makeSectionHeading( 'h1', 'Foo' )
+					. $this->makeSectionHtml( 1, '<h2 class="in-block">Bar</h2>' )
 			],
 
 			// The "in-block" class is added to a subheading
@@ -634,18 +704,18 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				[ 'h1', 'h2' ],
 				'<h1>Foo</h1><h2 class="baz">Bar</h2>',
-				'<div class="mf-section-0"></div><h1 class="section-heading">' . self::SECTION_INDICATOR
-					. 'Foo</h1><div class="mf-section-1">'
-					. '<h2 class="baz in-block">Bar</h2></div>',
+				$this->makeSectionHtml( 0, '' )
+					. $this->makeSectionHeading( 'h1', 'Foo' )
+					. $this->makeSectionHtml( 1, '<h2 class="baz in-block">Bar</h2>' ),
 			],
 
 			// The "in-block" class is added to all subheadings.
 			[
 				[ 'h1', 'h2', 'h3' ],
 				'<h1>Foo</h1><h2>Bar</h2><h3>Qux</h3>',
-				'<div class="mf-section-0"></div><h1 class="section-heading">' . self::SECTION_INDICATOR
-					. 'Foo</h1><div class="mf-section-1">'
-					. '<h2 class="in-block">Bar</h2><h3 class="in-block">Qux</h3></div>',
+				$this->makeSectionHtml( 0, '' )
+					. $this->makeSectionHeading( 'h1', 'Foo' )
+					. $this->makeSectionHtml( 1, '<h2 class="in-block">Bar</h2><h3 class="in-block">Qux</h3>' )
 			],
 
 			// The first heading found is the highest ranked
@@ -653,18 +723,18 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				[ 'h1', 'h2', 'h3' ],
 				'<h2>Bar</h2><h3>Qux</h3>',
-				'<div class="mf-section-0"></div><h2 class="section-heading">' . self::SECTION_INDICATOR
-					. 'Bar</h2><div class="mf-section-1">'
-					. '<h3 class="in-block">Qux</h3></div>',
+				$this->makeSectionHtml( 0, '' )
+					. $this->makeSectionHeading( 'h2', 'Bar' )
+					. $this->makeSectionHtml( 1, '<h3 class="in-block">Qux</h3>' ),
 			],
 
 			// Unenclosed text is appended to the expandable container.
 			[
 				[ 'h1', 'h2' ],
 				'<h1>Foo</h1><h2>Bar</h2>A',
-				'<div class="mf-section-0"></div><h1 class="section-heading">' . self::SECTION_INDICATOR
-					. 'Foo</h1><div class="mf-section-1">'
-					. '<h2 class="in-block">Bar</h2>A</div>',
+				$this->makeSectionHtml( 0, '' )
+					. $this->makeSectionHeading( 'h1', 'Foo' )
+					. $this->makeSectionHtml( 1, '<h2 class="in-block">Bar</h2>A' )
 			],
 
 			// Unencloded text that appears before the first
@@ -674,22 +744,20 @@ class MobileFormatterTest extends MediaWikiTestCase {
 			[
 				[ 'h1', 'h2' ],
 				'A<h1>Foo</h1><h2>Bar</h2>',
-				'<div class="mf-section-0"><p>A</p></div>'
-					. '<h1 class="section-heading">' . self::SECTION_INDICATOR
-					. 'Foo</h1><div class="mf-section-1">'
-					. '<h2 class="in-block">Bar</h2></div>',
+				$this->makeSectionHtml( 0, '<p>A</p>' )
+					. $this->makeSectionHeading( 'h1', 'Foo' )
+					. $this->makeSectionHtml( 1, '<h2 class="in-block">Bar</h2>' ),
 			],
 
 			// Multiple headings are handled identically.
 			[
 				[ 'h1', 'h2' ],
 				'<h1>Foo</h1><h2>Bar</h2>Baz<h1>Qux</h1>Quux',
-				'<div class="mf-section-0"></div>'
-					. '<h1 class="section-heading">' . self::SECTION_INDICATOR
-					.'Foo</h1><div class="mf-section-1">'
-					. '<h2 class="in-block">Bar</h2>Baz</div>'
-					. '<h1 class="section-heading">' . self::SECTION_INDICATOR
-					. 'Qux</h1><div class="mf-section-2">Quux</div>',
+				$this->makeSectionHtml( 0, '' )
+					. $this->makeSectionHeading( 'h1', 'Foo' )
+					. $this->makeSectionHtml( 1, '<h2 class="in-block">Bar</h2>Baz' )
+					. $this->makeSectionHeading( 'h1', 'Qux', 2 )
+					. $this->makeSectionHtml( 2, 'Quux' ),
 			],
 		];
 	}
@@ -699,7 +767,7 @@ class MobileFormatterTest extends MediaWikiTestCase {
 	 *
 	 * @param array $expected what we expect the dimensions to be.
 	 * @param string $w value of width attribute (if any)
-	 * @param stirng $h value of height attribute (if any)
+	 * @param string $h value of height attribute (if any)
 	 * @param string $style value of style attribute (if any)
 	 * @covers MobileFormatter::getImageDimensions
 	 */
@@ -764,8 +832,33 @@ class MobileFormatterTest extends MediaWikiTestCase {
 	}
 
 	/**
-	 * @covers MobileFormatter::insertTOCPlaceholder
+	 * @dataProvider provideIsDimensionSmallerThanThreshold
+	 * @covers MobileFormatter::isDimensionSmallerThanThreshold
 	 */
+	public function testIsDimensionSmallerThanThreshold( $dimension, $expected ) {
+		$mf = new MobileFormatter( '', Title::newFromText( 'Test' ) );
+		$this->assertEquals( $expected, $mf->isDimensionSmallerThanThreshold( $dimension ) );
+	}
+
+	/**
+	 * @see https://phabricator.wikimedia.org/T162623
+	 */
+	public function provideIsDimensionSmallerThanThreshold() {
+		return [
+			[ '40px', true ],
+			[ '50px', true ],
+			[ '57px', false ],
+			[ '100ox', false ],
+			[ '10', false ],
+			[ '5.12ex', true ],
+			[ '9.89ex', true ],
+			[ '15.1ex', false ],
+			[ '10in', false ],
+			[ 'big', false ],
+			[ '', false ]
+		];
+	}
+
 	public function testInsertTOCPlaceholder() {
 		$input = '<p>Hello world.</p><h2>Heading</h2>Text.';
 		$mf = new MobileFormatter( $input, Title::newFromText( 'Mobile' ) );
@@ -773,9 +866,9 @@ class MobileFormatterTest extends MediaWikiTestCase {
 		$mf->enableExpandableSections();
 		$mf->topHeadingTags = [ 'h2' ];
 		$mf->filterContent( false, false, false );
-		$expected = '<div class="mf-section-0"><p>Hello world.</p>'
-			. self::TOC . '</div><h2 class="section-heading">'
-			. self::SECTION_INDICATOR . 'Heading</h2><div class="mf-section-1">Text.</div>';
+		$expected = $this->makeSectionHtml( 0, '<p>Hello world.</p>' . self::TOC )
+			. $this->makeSectionHeading( 'h2', 'Heading' )
+			. $this->makeSectionHtml( 1, 'Text.' );
 		$this->assertEquals( $expected, $mf->getText() );
 	}
 
@@ -786,5 +879,75 @@ class MobileFormatterTest extends MediaWikiTestCase {
 		$input = '<p>Hello, world!</p><h2>Section heading</h2><ol class="references"></ol>';
 		$formatter = new MobileFormatter( $input, Title::newFromText( 'Special:Foo' ) );
 		$formatter->filterContent( false, true, false );
+	}
+
+	/**
+	 * @see https://phabricator.wikimedia.org/T149884
+	 * @dataProvider provideLoggingOfInfoboxesBeingWrappedInContainersWhenWrapped
+	 * @covers MobileFormatter::filterContent
+	 * @param string $input
+	 */
+	public function testLoggingOfInfoboxesBeingWrappedInContainersWhenWrapped( $input ) {
+		$this->setMwGlobals( [
+			'wgMFLogWrappedInfoboxes' => true
+		] );
+
+		$title = 'Special:T149884';
+
+		$formatter = new MobileFormatter( MobileFormatter::wrapHTML( $input ),
+			Title::newFromText( $title ) );
+		$formatter->enableExpandableSections();
+
+		$loggerMock = $this->getMock( \Psr\Log\LoggerInterface::class );
+		$loggerMock->expects( $this->once() )
+			->method( 'info' )
+			->will( $this->returnCallback( function( $message ) use ( $title ) {
+				// Debug message contains Page title
+				$this->assertContains( $title, $message );
+				// and contains revision id which is 0 by default
+				$this->assertContains( '0', $message );
+			} ) );
+
+		$this->setLogger( 'mobile', $loggerMock );
+		$formatter->filterContent( false, false, false, true );
+	}
+
+	public function provideLoggingOfInfoboxesBeingWrappedInContainersWhenWrapped() {
+		$box = '<table class="' . self::INFOBOX_CLASSNAME . '"><tr><td>infobox</td></tr></table>';
+
+		return [
+			// wrapped once
+			[ "<div>$box</div>" ],
+			// wrapped twice
+			[ "<div><p>$box</p></div>" ],
+			// wrapped inside different infobox
+			[ "<table class=\"" . self::INFOBOX_CLASSNAME . "\"><tr><td>$box</td></tr></table>" ],
+			// wrapped multiple times
+			[ "<div><div><p><span><div><p>Test</p>$box</div></span></p></div></div>" ]
+		];
+	}
+
+	/**
+	 * @see https://phabricator.wikimedia.org/T149884
+	 * @covers MobileFormatter::filterContent
+	 */
+	public function testLoggingOfInfoboxesBeingWrappedInContainersWhenNotWrapped() {
+		$this->setMwGlobals( [
+			'wgMFLogWrappedInfoboxes' => true
+		] );
+
+		$input = '<table class="' . self::INFOBOX_CLASSNAME . '"><tr><td>infobox</td></tr></table>';
+		$title = 'Special:T149884';
+
+		$formatter = new MobileFormatter( MobileFormatter::wrapHTML( $input ),
+			Title::newFromText( $title ) );
+		$formatter->enableExpandableSections();
+
+		$loggerMock = $this->getMock( \Psr\Log\LoggerInterface::class );
+		$loggerMock->expects( $this->never() )
+			->method( 'debug' );
+
+		$this->setLogger( 'mobile', $loggerMock );
+		$formatter->filterContent( false, false, false, true );
 	}
 }

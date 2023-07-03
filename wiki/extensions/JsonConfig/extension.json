@@ -43,15 +43,20 @@
 		"JsonConfigNamespaces": "JsonConfig.namespaces.php"
 	},
 	"AutoloadClasses": {
+		"JsonConfig\\FauxInterwikiLookup": "includes/FauxInterwikiLookup.php",
 		"JsonConfig\\JCApi": "includes/JCApi.php",
 		"JsonConfig\\JCCache": "includes/JCCache.php",
 		"JsonConfig\\JCContent": "includes/JCContent.php",
 		"JsonConfig\\JCContentHandler": "includes/JCContentHandler.php",
 		"JsonConfig\\JCContentView": "includes/JCContentView.php",
+		"JsonConfig\\JCDataApi": "includes/JCDataApi.php",
 		"JsonConfig\\JCDataContent": "includes/JCDataContent.php",
 		"JsonConfig\\JCDefaultContentView": "includes/JCDefaultContentView.php",
 		"JsonConfig\\JCDefaultObjContentView": "includes/JCDefaultObjContentView.php",
+		"JsonConfig\\JCJsonDifferenceEngine": "includes/JCJsonDifferenceEngine.php",
 		"JsonConfig\\JCLuaLibrary": "includes/JCLuaLibrary.php",
+		"JsonConfig\\JCMapDataContent": "includes/JCMapDataContent.php",
+		"JsonConfig\\JCMapDataContentView": "includes/JCMapDataContentView.php",
 		"JsonConfig\\JCObjContent": "includes/JCObjContent.php",
 		"JsonConfig\\JCSingleton": "includes/JCSingleton.php",
 		"JsonConfig\\JCTabularContent": "includes/JCTabularContent.php",
@@ -66,7 +71,11 @@
 	},
 	"ResourceModules": {
 		"ext.jsonConfig": {
-			"styles": "JsonConfig.css",
+			"styles": [
+				"JsonConfig.css",
+				"tabular-general.less",
+				"tabular-table.less"
+			],
 			"position": "top"
 		}
 	},
@@ -75,32 +84,11 @@
 		"remoteExtPath": "JsonConfig/modules"
 	},
 	"Hooks": {
-		"CanonicalNamespaces": [
-			"JsonConfig\\JCSingleton::onCanonicalNamespaces"
-		],
-		"ScribuntoExternalLibraries": [
-			"JsonConfig\\JCLuaLibrary::onScribuntoExternalLibraries"
-		],
-		"ContentHandlerDefaultModelFor": [
-			"JsonConfig\\JCSingleton::onContentHandlerDefaultModelFor"
-		],
-		"ContentHandlerForModelID": [
-			"JsonConfig\\JCSingleton::onContentHandlerForModelID"
-		],
-		"CodeEditorGetPageLanguage": [
-			"JsonConfig\\JCSingleton::onCodeEditorGetPageLanguage"
-		],
-		"EditFilterMergedContent": [
-			"JsonConfig\\JCSingleton::onEditFilterMergedContent"
-		],
-		"BeforePageDisplay": [
-			"JsonConfig\\JCSingleton::onBeforePageDisplay"
-		],
-		"MovePageIsValidMove": [
-			"JsonConfig\\JCSingleton::onMovePageIsValidMove"
-		],
 		"AbortMove": [
 			"JsonConfig\\JCSingleton::onAbortMove"
+		],
+		"ApiMain::moduleManager": [
+			"JsonConfig\\JCSingleton::onApiMainModuleManager"
 		],
 		"ArticleDeleteComplete": [
 			"JsonConfig\\JCSingleton::onArticleDeleteComplete"
@@ -108,8 +96,44 @@
 		"ArticleUndelete": [
 			"JsonConfig\\JCSingleton::onArticleUndelete"
 		],
+		"BeforePageDisplay": [
+			"JsonConfig\\JCSingleton::onBeforePageDisplay"
+		],
+		"CanonicalNamespaces": [
+			"JsonConfig\\JCSingleton::onCanonicalNamespaces"
+		],
+		"CodeEditorGetPageLanguage": [
+			"JsonConfig\\JCSingleton::onCodeEditorGetPageLanguage"
+		],
+		"ContentHandlerDefaultModelFor": [
+			"JsonConfig\\JCSingleton::onContentHandlerDefaultModelFor"
+		],
+		"ContentHandlerForModelID": [
+			"JsonConfig\\JCSingleton::onContentHandlerForModelID"
+		],
+		"CustomEditor": [
+			"JsonConfig\\JCSingleton::onCustomEditor"
+		],
+		"EditFilterMergedContent": [
+			"JsonConfig\\JCSingleton::onEditFilterMergedContent"
+		],
+		"EditPageCopyrightWarning": [
+			"JsonConfig\\JCSingleton::onEditPageCopyrightWarning"
+		],
+		"MovePageIsValidMove": [
+			"JsonConfig\\JCSingleton::onMovePageIsValidMove"
+		],
 		"PageContentSaveComplete": [
 			"JsonConfig\\JCSingleton::onPageContentSaveComplete"
+		],
+		"ScribuntoExternalLibraries": [
+			"JsonConfig\\JCLuaLibrary::onScribuntoExternalLibraries"
+		],
+		"SkinCopyrightFooter": [
+			"JsonConfig\\JCSingleton::onSkinCopyrightFooter"
+		],
+		"TitleGetEditNotices": [
+			"JsonConfig\\JCSingleton::onTitleGetEditNotices"
 		],
 		"TitleMoveComplete": [
 			"JsonConfig\\JCSingleton::onTitleMoveComplete"
@@ -120,16 +144,28 @@
 	},
 	"config": {
 		"JsonConfigs": {
-			"_merge_strategy": "array_replace_recursive"
+			"merge_strategy": "array_replace_recursive",
+			"value": {}
 		},
 		"JsonConfigModels": {
-			"_merge_strategy": "array_replace_recursive"
+			"merge_strategy": "array_replace_recursive",
+			"value": {}
 		},
-		"JsonConfigDisableCache": false,
-		"JsonConfigCacheKeyPrefix": "1",
-		"JsonConfigEnableLuaSupport": false,
-		"JsonConfigAllowedLicenses": [ "CC0-1.0" ],
-		"JsonConfigInterwikiPrefix": "commons"
+		"JsonConfigDisableCache": {
+			"value": false
+		},
+		"JsonConfigCacheKeyPrefix": {
+			"value": "1"
+		},
+		"JsonConfigEnableLuaSupport": {
+			"value": false
+		},
+		"JsonConfigAllowedLicenses": {
+			"value": [ "CC0-1.0" ]
+		},
+		"JsonConfigInterwikiPrefix": {
+			"value": "commons"
+		}
 	},
-	"manifest_version": 1
+	"manifest_version": 2
 }

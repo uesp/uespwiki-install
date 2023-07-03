@@ -59,6 +59,7 @@ class UespMonoBookTemplate extends MonoBookTemplate {
 								echo "\n<ul>\n";
 							$isindent = true;
 							$val['text'] = trim(substr($val['text'],1));
+							$val['id'] = str_replace('.2A', '', $val['id']);
 						}
 						elseif ($isindent) {
 							$isindent = false;

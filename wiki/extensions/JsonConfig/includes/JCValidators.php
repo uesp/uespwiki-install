@@ -29,15 +29,17 @@ class JCValidators {
 	}
 
 	/** Returns a validator function to check if the value is a valid boolean (true/false)
+	 * @param bool $nullable if true, null becomes a valid value
 	 * @return callable
 	 */
-	public static function isBool() {
-		return function ( JCValue $v, array $path ) {
-			if ( !is_bool( $v->getValue() ) ) {
-				$v->error( 'jsonconfig-err-bool', $path );
-				return false;
+	public static function isBool( $nullable = false ) {
+		return function ( JCValue $v, array $path ) use ( $nullable ) {
+			$value = $v->getValue();
+			if ( is_bool( $value ) || ( $nullable && $value === null ) ) {
+				return true;
 			}
-			return true;
+			$v->error( 'jsonconfig-err-bool', $path );
+			return false;
 		};
 	}
 
@@ -51,6 +53,24 @@ class JCValidators {
 				return false;
 			}
 			return true;
+		};
+	}
+
+	/** Returns a validator function to check if the value is a valid single line string
+	 * @param bool $nullable if true, null becomes a valid value
+	 * @param int $maxlength maximum allowed string size
+	 * @return callable
+	 */
+	public static function isStringLine( $nullable = false, $maxlength = 400 ) {
+		return function ( JCValue $v, array $path ) use ( $nullable, $maxlength ) {
+			$value = $v->getValue();
+			if ( JCUtils::isValidLineString( $value, $maxlength ) ||
+				 ( $nullable && $value === null )
+			) {
+				return true;
+			}
+			$v->error( 'jsonconfig-err-stringline', $path, $maxlength );
+			return false;
 		};
 	}
 
@@ -68,15 +88,17 @@ class JCValidators {
 	}
 
 	/** Returns a validator function to check if the value is a valid integer
+	 * @param bool $nullable if true, null becomes a valid value
 	 * @return callable
 	 */
-	public static function isNumber() {
-		return function ( JCValue $v, array $path ) {
-			if ( !is_double( $v->getValue() ) && !is_int( $v->getValue() ) ) {
-				$v->error( 'jsonconfig-err-number', $path );
-				return false;
+	public static function isNumber( $nullable = false ) {
+		return function ( JCValue $v, array $path ) use ( $nullable ) {
+			$value = $v->getValue();
+			if ( is_double( $value ) || is_int( $value ) || ( $nullable && $value === null ) ) {
+				return true;
 			}
-			return true;
+			$v->error( 'jsonconfig-err-number', $path );
+			return false;
 		};
 	}
 
@@ -154,7 +176,7 @@ class JCValidators {
 	public static function stringToList() {
 		return function ( JCValue $v ) {
 			if ( is_string( $v->getValue() ) ) {
-				$v->setValue( array( $v->getValue() ) );
+				$v->setValue( [ $v->getValue() ] );
 			}
 			return true;
 		};
@@ -174,35 +196,25 @@ class JCValidators {
 		};
 	}
 
-	public static function isLocalizedString() {
-		return function ( JCValue $jcv, array $path ) {
-			if ( $jcv->isMissing() ) {
-				$v = array();
-			} else {
+	/** Returns a validator function that will ensure that the given value is a non-empty object,
+	 * with each key being an allowed language code, and each value being a single line string.
+	 * @param bool $nullable if true, null becomes a valid value
+	 * @param int $maxlength
+	 * @return Closure
+	 */
+	public static function isLocalizedString( $nullable = false, $maxlength = 400 ) {
+		return function ( JCValue $jcv, array $path ) use ( $nullable, $maxlength ) {
+			if ( !$jcv->isMissing() ) {
 				$v = $jcv->getValue();
+				if ( $nullable && $v === null ) {
+					return true;
+				}
 				if ( is_object( $v ) ) {
 					$v = (array)$v;
 				}
-			}
-			if ( is_array( $v ) ) {
-				if ( !empty( $v ) &&
-					 JCUtils::isListOfLangs( array_keys( $v ) ) &&
-					 JCUtils::allValuesAreStrings( $v )
-				) {
-					// Sort array so that the values are sorted alphabetically,
-					// except 'en' which will be shown first
-					uksort( $v,
-						function ( $a, $b ) {
-							if ( $a === $b ) {
-								return 0;
-							} elseif ( $a === 'en' ) {
-								return -1;
-							} elseif ( $b === 'en' ) {
-								return 1;
-							} else {
-								return strcasecmp( $a, $b );
-							}
-						} );
+				if ( JCUtils::isLocalizedArray( $v, $maxlength ) ) {
+					// Sort array so that the values are sorted alphabetically
+					ksort( $v );
 					$jcv->setValue( (object)$v );
 					return true;
 				}
@@ -215,37 +227,44 @@ class JCValidators {
 	/** Returns a validator function to check if the value is a valid header string
 	 * @return callable
 	 */
-	public static function isHeaderString() {
-		return function ( JCValue $v, array $path ) {
+	public static function isHeaderString( &$allHeaders ) {
+		return function ( JCValue $v, array $path ) use ( &$allHeaders ) {
 			$value = $v->getValue();
 			// must be a string, begins with a letter or '_', and only has letters/digits/'_'
 			if ( !is_string( $value ) || !preg_match( '/^[\pL_][\pL\pN_]*$/ui', $value ) ) {
 				$v->error( 'jsonconfig-err-bad-header-string', $path );
-				return false;
+			} elseif ( in_array( $value, $allHeaders ) ) {
+				$v->error( 'jsonconfig-err-duplicate-header', $path, $value );
+			} else {
+				$allHeaders[] = $value;
+				return true;
 			}
-			return true;
+			return false;
 		};
 	}
 
-	/** Returns a validator function to check if value is a list of unique strings
+	/** Returns a validator function to check if the dictionary value contains any unexpected vals
+	 * This should be called after all values inside an object have already been tested
 	 * @return callable
 	 */
-	public static function listHasUniqueStrings() {
+	public static function noExtraValues() {
 		return function ( JCValue $v, array $path ) {
 			$value = $v->getValue();
-			if ( is_array( $value ) &&
-				 count( $value ) !== count( array_unique( array_map( function ( JCValue $vv ) {
-					return $vv->getValue();
-				}, $value ) ) )
-			) {
-				$v->error( 'jsonconfig-err-unique-strings', $path );
-				return false;
+			if ( is_object( $value ) ) {
+				foreach ( $value as $key => $subVal ) {
+					if ( !is_a( $subVal, '\JsonConfig\JCValue' ) ) {
+						$v->error( 'jsonconfig-err-unexpected-key', $path, $key );
+						return false;
+					}
+				}
 			}
 			return true;
 		};
 	}
 
 	/** Returns a validator function to check if value is a list of a given size
+	 * @param integer $count
+	 * @param string $field
 	 * @return callable
 	 */
 	public static function checkListSize( $count, $field ) {
@@ -271,16 +290,16 @@ class JCValidators {
 			if ( is_string( $value ) ) {
 				switch ( $value ) {
 					case 'string':
-						$validator = JCValidators::isString();
+						$validator = JCValidators::isStringLine( true );
 						break;
 					case 'boolean':
-						$validator = JCValidators::isBool();
+						$validator = JCValidators::isBool( true );
 						break;
 					case 'number':
-						$validator = JCValidators::isNumber();
+						$validator = JCValidators::isNumber( true );
 						break;
 					case 'localized':
-						$validator = JCValidators::isLocalizedString();
+						$validator = JCValidators::isLocalizedString( true );
 						break;
 				}
 			}

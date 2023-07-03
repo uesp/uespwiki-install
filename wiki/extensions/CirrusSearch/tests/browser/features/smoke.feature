@@ -1,29 +1,29 @@
 #
 # This file is subject to the license terms in the COPYING file found in the
 # CirrusSearch top-level directory and at
-# https://git.wikimedia.org/blob/mediawiki%2Fextensions%2FCirrusSearch/HEAD/COPYING. No part of
+# https://phabricator.wikimedia.org/diffusion/ECIR/browse/master/COPYING. No part of
 # CirrusSearch, including this file, may be copied, modified, propagated, or
 # distributed except according to the terms contained in the COPYING file.
 #
 # Copyright 2012-2014 by the Mediawiki developers. See the CREDITS file in the
 # CirrusSearch top-level directory and at
-# https://git.wikimedia.org/blob/mediawiki%2Fextensions%2FCirrusSearch/HEAD/CREDITS
+# https://phabricator.wikimedia.org/diffusion/ECIR/browse/master/CREDITS
 #
 @clean @firefox @test2.wikipedia.org @phantomjs @smoke
 Feature: Smoke test
 
-  @en.wikipedia.beta.wmflabs.org
+  @en.wikipedia.beta.wmflabs.org  @expect_failure
   Scenario: Search suggestions
     Given I am at a random page
-    When I search for: main
-    Then a list of suggested pages should appear
-      And Main Page should be the first result
+    When I type main into the search box
+    Then suggestions should appear
+    And Main Page is the first suggestion
 
   @expect_failure
   Scenario: Fill in search term and click search
     Given I am at a random page
-    When I search for: ma
-      And I click the search button
+    When I type ma into the search box
+    And I click the search button
     Then I should land on Search Results page
 
   @en.wikipedia.beta.wmflabs.org

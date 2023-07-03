@@ -18,6 +18,7 @@ use Title;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RequestContext;
+use ApiUsageException;
 use UsageException;
 use User;
 use WebRequest;
@@ -203,7 +204,6 @@ class Hooks {
 	 */
 	private static function overrideMoreLikeThisOptionsFromMessage() {
 		global $wgCirrusSearchMoreLikeThisConfig,
-			$wgCirrusSearchMoreLikeThisUseFields,
 			$wgCirrusSearchMoreLikeThisAllowedFields,
 			$wgCirrusSearchMoreLikeThisMaxQueryTermsLimit,
 			$wgCirrusSearchMoreLikeThisFields;
@@ -231,8 +231,8 @@ class Hooks {
 			case 'max_doc_freq':
 			case 'max_query_terms':
 			case 'min_term_freq':
-			case 'min_word_len':
-			case 'max_word_len':
+			case 'min_word_length':
+			case 'max_word_length':
 				if( is_numeric( $v ) && $v >= 0 ) {
 					$wgCirrusSearchMoreLikeThisConfig[$k] = intval( $v );
 				} elseif ( $v === 'null' ) {
@@ -259,13 +259,6 @@ class Hooks {
 				$wgCirrusSearchMoreLikeThisFields = array_intersect(
 					array_map( 'trim', explode( ',', $v ) ),
 					$wgCirrusSearchMoreLikeThisAllowedFields );
-				break;
-			case 'use_fields':
-				if ( $v === 'true' ) {
-					$wgCirrusSearchMoreLikeThisUseFields = true;
-				} elseif ( $v === 'false' ) {
-					$wgCirrusSearchMoreLikeThisUseFields = false;
-				}
 				break;
 			}
 			if ( $wgCirrusSearchMoreLikeThisConfig['max_query_terms'] > $wgCirrusSearchMoreLikeThisMaxQueryTermsLimit ) {
@@ -302,7 +295,6 @@ class Hooks {
 	 */
 	private static function overrideMoreLikeThisOptions( WebRequest $request ) {
 		global $wgCirrusSearchMoreLikeThisConfig,
-			$wgCirrusSearchMoreLikeThisUseFields,
 			$wgCirrusSearchMoreLikeThisAllowedFields,
 			$wgCirrusSearchMoreLikeThisMaxQueryTermsLimit,
 			$wgCirrusSearchMoreLikeThisFields;
@@ -313,9 +305,8 @@ class Hooks {
 			$request, 'cirrusMltMaxQueryTerms', $wgCirrusSearchMoreLikeThisMaxQueryTermsLimit );
 		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['min_term_freq'], $request, 'cirrusMltMinTermFreq' );
 		self::overrideMinimumShouldMatch( $wgCirrusSearchMoreLikeThisConfig['minimum_should_match'], $request, 'cirrusMltMinimumShouldMatch' );
-		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['min_word_len'], $request, 'cirrusMltMinWordLength' );
-		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['max_word_len'], $request, 'cirrusMltMaxWordLength' );
-		self::overrideYesNo( $wgCirrusSearchMoreLikeThisUseFields, $request, 'cirrusMltUseFields' );
+		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['min_word_length'], $request, 'cirrusMltMinWordLength' );
+		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['max_word_length'], $request, 'cirrusMltMaxWordLength' );
 		$fields = $request->getVal( 'cirrusMltFields' );
 		if( isset( $fields ) ) {
 			$wgCirrusSearchMoreLikeThisFields = array_intersect(
@@ -429,32 +420,6 @@ class Hooks {
 	}
 
 	/**
-	 * Called to prepend text before search results and inject metrics
-	 * @param SpecialSearch $specialSearch The SpecialPage object for Special:Search
-	 * @param OutputPage $out The output page object
-	 * @param string $term The term being searched for
-	 * @return bool
-	 */
-	public static function onSpecialSearchResultsPrepend( $specialSearch, $out, $term ) {
-		global $wgCirrusSearchShowNowUsing;
-
-		// Prepend our message if needed
-		if ( $wgCirrusSearchShowNowUsing ) {
-			$out->addHTML( Xml::openElement( 'div', [ 'class' => 'cirrussearch-now-using' ] ) .
-				$specialSearch->msg( 'cirrussearch-now-using' )->parse() .
-				Xml::closeElement( 'div' ) );
-		}
-
-		// Embed metrics if this was a Cirrus page
-		$engine = $specialSearch->getSearchEngine();
-		if ( $engine instanceof CirrusSearch ) {
-			$out->addJsConfigVars( $engine->getLastSearchMetrics() );
-		}
-
-		return true;
-	}
-
-	/**
 	 * @param SpecialSearch $specialSearch
 	 * @param OutputPage $out
 	 * @param string $term
@@ -465,6 +430,12 @@ class Hooks {
 
 		if ( $wgCirrusSearchFeedbackLink ) {
 			self::addSearchFeedbackLink( $wgCirrusSearchFeedbackLink, $specialSearch, $out );
+		}
+
+		// Embed metrics if this was a Cirrus page
+		$engine = $specialSearch->getSearchEngine();
+		if ( $engine instanceof CirrusSearch ) {
+			$out->addJsConfigVars( $engine->getLastSearchMetrics() );
 		}
 		return true;
 	}
@@ -551,7 +522,7 @@ class Hooks {
 	 * @return boolean
 	 */
 	public static function prefixSearchExtractNamespace( &$namespaces, &$search ) {
-		$searcher = new Searcher( self::getConnection(), 0, 1, null, $namespaces );
+		$searcher = new Searcher( self::getConnection(), 0, 1, self::getConfig(), $namespaces );
 		$searcher->updateNamespacesFromQuery( $search );
 		$namespaces = $searcher->getSearchContext()->getNamespaces();
 		return false;
@@ -562,6 +533,8 @@ class Hooks {
 	 * @param string $term the original search term and all language variants
 	 * @param null|Title $titleResult resulting match.  A Title if we found something, unchanged otherwise.
 	 * @return bool return false if we find something, true otherwise so mediawiki can try its default behavior
+	 * @throws ApiUsageException
+	 * @throws UsageException
 	 */
 	public static function onSearchGetNearMatch( $term, &$titleResult ) {
 		global $wgContLang;
@@ -573,7 +546,7 @@ class Hooks {
 
 		$user = RequestContext::getMain()->getUser();
 		// Ask for the first 50 results we see.  If there are more than that too bad.
-		$searcher = new Searcher( self::getConnection(), 0, 50, null, [ $title->getNamespace() ], $user );
+		$searcher = new Searcher( self::getConnection(), 0, 50, self::getConfig(), [ $title->getNamespace() ], $user );
 		if ( $title->getNamespace() === NS_MAIN ) {
 			$searcher->updateNamespacesFromQuery( $term );
 		} else {
@@ -582,6 +555,11 @@ class Hooks {
 		$searcher->setResultsType( new FancyTitleResultsType( 'near_match' ) );
 		try {
 			$status = $searcher->nearMatchTitleSearch( $term );
+		} catch ( ApiUsageException $e ) {
+			if ( defined( 'MW_API' ) ) {
+				throw $e;
+			}
+			return true;
 		} catch ( UsageException $e ) {
 			if ( defined( 'MW_API' ) ) {
 				throw $e;
@@ -789,10 +767,10 @@ class Hooks {
 
 	/**
 	 * @param string $term
-	 * @param SearchResultSet|null &$titleMatches
-	 * @param SearchResultSet|null &$textMatches
+	 * @param SearchResultSet|null $titleMatches
+	 * @param SearchResultSet|null $textMatches
 	 */
-	public static function onSpecialSearchResults( $term, &$titleMatches, &$textMatches ) {
+	public static function onSpecialSearchResults( $term, $titleMatches, $textMatches ) {
 		global $wgOut;
 
 		$wgOut->addModules( 'ext.cirrus.serp' );
@@ -827,4 +805,52 @@ class Hooks {
 		$defaultOptions['cirrussearch-pref-completion-profile'] = $config->get( 'CirrusSearchCompletionSettings' );
 		return true;
 	}
+
+	/**
+	 * Register CirrusSearch services
+	 * @param MediaWikiServices $container
+	 * @return bool
+	 */
+	public static function onMediaWikiServices( MediaWikiServices $container ) {
+		$container->defineService(
+			InterwikiResolverFactory::SERVICE,
+			[InterwikiResolverFactory::class, 'newFactory']
+		);
+		$container->defineService(
+			InterwikiResolver::SERVICE,
+			function( MediaWikiServices $serviceContainer ) {
+				$config = $serviceContainer->getConfigFactory()
+						->makeConfig( 'CirrusSearch' );
+				return $serviceContainer
+					->getService( InterwikiResolverFactory::SERVICE )
+					->getResolver( $config );
+			}
+		);
+		return true;
+	}
+
+
+	/**
+	 * When article is undeleted - check the archive for other instances of the title,
+	 * if not there - drop it from the archive.
+	 * @param Title $title
+	 * @param bool $create
+	 * @param string $comment
+	 * @param string $oldPageId
+	 * @param array $restoredPages
+	 * @return bool
+	 */
+	public static function onArticleUndelete( Title $title, $create, $comment, $oldPageId, $restoredPages ) {
+		global $wgCirrusSearchIndexDeletes;
+		if ( !$wgCirrusSearchIndexDeletes ) {
+			// Not indexing, thus nothing to remove here.
+			return true;
+		}
+		JobQueueGroup::singleton()->push(
+			new Job\DeleteArchive( $title, [ 'docIds' => $restoredPages ] )
+		);
+		return true;
+
+	}
+
 }

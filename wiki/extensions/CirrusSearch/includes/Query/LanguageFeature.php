@@ -22,10 +22,10 @@ class LanguageFeature extends SimpleKeywordFeature {
 	const QUERY_LIMIT = 20;
 
 	/**
-	 * @return string
+	 * @return string[]
 	 */
-	protected function getKeywordRegex() {
-		return 'inlanguage';
+	protected function getKeywords() {
+		return ['inlanguage'];
 	}
 
 	/**
@@ -42,7 +42,15 @@ class LanguageFeature extends SimpleKeywordFeature {
 	protected function doApply( SearchContext $context, $key, $value, $quotedValue, $negated ) {
 		$queries = [];
 
-		$langs = array_slice( explode( ',', $value ), 0, self::QUERY_LIMIT );
+		$langs = explode( ',', $value );
+		if ( count( $langs ) > self::QUERY_LIMIT ) {
+			$context->addWarning(
+				'cirrussearch-feature-too-many-conditions',
+				$key,
+				self::QUERY_LIMIT
+			);
+			$langs = array_slice( $langs, 0, self::QUERY_LIMIT );
+		}
 		foreach ( $langs as $lang ) {
 			if ( strlen( trim( $lang ) ) > 0 ) {
 				$query = new \Elastica\Query\Match();

@@ -5,6 +5,14 @@
         "description" : "Displays the count of edits per day.",
         "descriptionmsg" : "dailyedits-desc",
         "version" : "0.0.1",
+       	"ExtensionMessagesFiles": {
+			"DailyEditsAlias": "DailyEdits.i18n.alias.php"
+		},
+		"MessagesDirs": {
+			"DailyEdits": [
+				"i18n"
+			]
+		},
         "AutoloadClasses" : 
         {
 			"DailyEdits" : "DailyEdits.php"

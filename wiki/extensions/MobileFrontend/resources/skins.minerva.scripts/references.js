@@ -16,7 +16,7 @@
 	 * ReferenceGateway
 	 *
 	 * @ignore
-	 * @returns {ReferencesDrawer}
+	 * @return {ReferencesDrawer}
 	 */
 	function referenceDrawerFactory() {
 		var gateway = null;
@@ -88,7 +88,7 @@
 	 * @param {Page} page
 	 */
 	function setup( page ) {
-		var $refs = page.$( 'sup a' );
+		var $refs = page.$( 'sup.reference a' );
 
 		if ( $refs.length ) {
 			$refs

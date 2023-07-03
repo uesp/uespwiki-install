@@ -15,6 +15,7 @@ $UESP_EXT_DEFAULT = 0;		// Included with the MW extension
 $UESP_EXT_UPGRADE = 1;		// Upgrade with the uesp-getmwext script
 $UESP_EXT_OTHER = 2;		// Needs a manual upgrade
 $UESP_EXT_NONE = 3;			// Doesn't need an upgrade
+$UESP_EXT_IGNORE = 4;		// Don't do anything
 
 $UESP_EXTENSION_INFO = [
 	"AbuseFilter" => $UESP_EXT_UPGRADE,
@@ -61,6 +62,7 @@ $UESP_EXTENSION_INFO = [
 	"Patroller" => $UESP_EXT_UPGRADE,
 	"PdfHandler" => $UESP_EXT_DEFAULT,
 	"Poem" => $UESP_EXT_DEFAULT,
+	"Popups" => $UESP_EXT_UPGRADE,
 	//"ProtectSection" => $UESP_EXT_NONE,
 	"RecentPopularPages" => $UESP_EXT_NONE,
 	"RegexFunctions" => $UESP_EXT_UPGRADE,
@@ -71,6 +73,8 @@ $UESP_EXTENSION_INFO = [
 	"SpamBlacklist" => $UESP_EXT_DEFAULT,
 	"SyntaxHighlight_GeSHi" => $UESP_EXT_DEFAULT,
 	"Tabs" => $UESP_EXT_UPGRADE,
+	"TextExtracts" => $UESP_EXT_UPGRADE,
+	"TemplateStyles" => $UESP_EXT_UPGRADE,
 	"TimedMediaHandler" => $UESP_EXT_UPGRADE,
 	"TitleBlacklist" => $UESP_EXT_DEFAULT,
 	"TorBlock" => $UESP_EXT_UPGRADE,
@@ -88,6 +92,12 @@ $UESP_EXTENSION_INFO = [
 	"UsersEditCount" => $UESP_EXT_NONE,
 	"WikiEditor" => $UESP_EXT_DEFAULT,
 	"WikiTextLoggedInOut" => $UESP_EXT_UPGRADE,
+		
+	"FakeGraph" => $UESP_EXT_IGNORE,
+	"ParserHelperBackup" => $UESP_EXT_IGNORE,
+	"FakeGraphBackup" => $UESP_EXT_IGNORE,
+	"MetaTemplateBackup" => $UESP_EXT_IGNORE,
+	"RivenBackup" => $UESP_EXT_IGNORE,
 ];
 
 if ($UESP_UPGRADING_MW == 1) return;
@@ -140,7 +150,7 @@ wfLoadExtension( "InputBox" );
 require_once( "$IP/extensions/JobQueue/JobQueue.php" );
 require_once( "$IP/extensions/LabeledSectionTransclusion/LabeledSectionTransclusion.php" );
 require_once( "$IP/extensions/MediaFunctions/MediaFunctions.php" );
-require_once( "$IP/extensions/MetaTemplate/MetaTemplate.php" );
+wfLoadExtension( "MetaTemplate" );
 
 require_once( "$IP/extensions/MobileFrontend/MobileFrontend.php" );
 $wgMobileFrontendLogo = $wgScriptPath . '/extensions/MobileFrontend/stylesheets/images/uesp-mobile-logo.png';
@@ -162,6 +172,7 @@ require_once( "$IP/extensions/RegexFunctions/RegexFunctions.php" );
 wfLoadExtension( "Renameuser" );
 wfLoadExtension( 'Riven' );
 wfLoadExtension( "SpamBlacklist" );
+wfLoadExtension( 'TemplateStyles' );
 wfLoadExtension( "TitleBlacklist" );
 
 require_once( "$IP/extensions/TorBlock/TorBlock.php" );
@@ -397,7 +408,7 @@ $wgNativeSvgHandlerEnableLinks = true;
 wfLoadExtension( "UespGameMap" );
 wfLoadExtension( "UespEsoData" );
 
-if ($uespIsDev) wfLoadExtension( "EmbedVideo" );
+wfLoadExtension( "EmbedVideo" );
 
 require_once "$IP/extensions/PageImages/PageImages.php";
 $wgPageImagesNamespaces = [NS_MAIN, 102, 104, 106, 108,
@@ -408,3 +419,7 @@ $wgPageImagesNamespaces = [NS_MAIN, 102, 104, 106, 108,
 		150, 152, 154, 156, 158,
 		160, 162, 164, 166, 168,
 		170, 172, 174, 176, 178];
+
+wfLoadExtension( "TextExtracts" );
+wfLoadExtension( "Popups" );
+$wgPopupsReferencePreviewsBetaFeature = false;

@@ -3,11 +3,11 @@
 	var
 		// see: https://www.mediawiki.org/wiki/Manual:Interface/JavaScript#Page-specific
 		isEditable = mw.config.get( 'wgIsProbablyEditable' ),
-		blockInfo =  mw.config.get( 'wgMinervaUserBlockInfo', false ),
-		settings = M.require( 'mobile.settings/settings' ),
+		blockInfo = mw.config.get( 'wgMinervaUserBlockInfo', false ),
+		settings = M.require( 'mobile.startup/settings' ),
 		router = require( 'mediawiki.router' ),
 		overlayManager = M.require( 'skins.minerva.scripts/overlayManager' ),
-		loader = M.require( 'mobile.overlays/moduleLoader' ),
+		loader = M.require( 'mobile.startup/rlModuleLoader' ),
 		Icon = M.require( 'mobile.startup/Icon' ),
 		Button = M.require( 'mobile.startup/Button' ),
 		Anchor = M.require( 'mobile.startup/Anchor' ),
@@ -21,8 +21,8 @@
 		currentPage = M.getCurrentPage(),
 		enabledClass = enabledEditIcon.getGlyphClassName(),
 		disabledClass = disabledEditIcon.getGlyphClassName(),
-		user = M.require( 'mobile.user/user' ),
-		popup = M.require( 'mobile.toast/toast' ),
+		user = M.require( 'mobile.startup/user' ),
+		popup = M.require( 'mobile.startup/toast' ),
 		// FIXME: Disable on IE < 10 for time being
 		blacklisted = /MSIE \d\./.test( navigator.userAgent ),
 		isEditingSupported = router.isSupported() && !blacklisted,
@@ -32,7 +32,7 @@
 		veConfig = mw.config.get( 'wgVisualEditorConfig' ),
 		// FIXME: Should we consider default site options and user prefs?
 		isVisualEditorEnabled = veConfig,
-		CtaDrawer = M.require( 'mobile.drawers/CtaDrawer' ),
+		CtaDrawer = M.require( 'mobile.startup/CtaDrawer' ),
 		drawer,
 		$caEdit = $( '#ca-edit' );
 
@@ -46,9 +46,9 @@
 	 * Prepend an edit page button to the container
 	 * @method
 	 * @ignore
-	 * @param {Number} section number
-	 * @param {String} container CSS selector of the container
-	 * @returns {jQuery.Object} newly created edit page button
+	 * @param {number} section number
+	 * @param {string} container CSS selector of the container
+	 * @return {jQuery.Object} newly created edit page button
 	 */
 	function addEditButton( section, container ) {
 		return $( '<a class="edit-page">' )
@@ -65,7 +65,7 @@
 	 * @method
 	 * @ignore
 	 * @param {jQuery.Object} $el Element which will render a drawer on click
-	 * @param {Number} section number representing the section
+	 * @param {number} section number representing the section
 	 */
 	function makeCta( $el, section ) {
 		$el
@@ -101,7 +101,7 @@
 	 * editor for this wiki.
 	 * @method
 	 * @ignore
-	 * @return {String} Either 'VisualEditor' or 'SourceEditor'
+	 * @return {string} Either 'VisualEditor' or 'SourceEditor'
 	 */
 	function getPreferredEditor() {
 		var preferredEditor = settings.get( 'preferredEditor', true );
@@ -161,7 +161,7 @@
 			 * won't have loaded yet.
 			 * @private
 			 * @ignore
-			 * @param {String} editor name e.g. wikitext or visualeditor
+			 * @param {string} editor name e.g. wikitext or visualeditor
 			 * @method
 			 */
 			function logInit( editor ) {
@@ -331,7 +331,7 @@
 	 * Show a toast message with sincere condolences.
 	 * @method
 	 * @ignore
-	 * @param {String} msg Message for sorry message
+	 * @param {string} msg Message for sorry message
 	 */
 	function showSorryToast( msg ) {
 		$( '#ca-edit, .edit-page' ).on( 'click', function ( ev ) {

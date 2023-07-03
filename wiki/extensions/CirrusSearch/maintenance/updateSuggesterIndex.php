@@ -5,15 +5,14 @@ namespace CirrusSearch\Maintenance;
 use CirrusSearch\Connection;
 use CirrusSearch\DataSender;
 use CirrusSearch\ElasticaErrorHandler;
-use CirrusSearch\Util;
 use CirrusSearch\BuildDocument\Completion\DefaultSortSuggestionsBuilder;
 use CirrusSearch\BuildDocument\Completion\NaiveSubphrasesSuggestionsBuilder;
-use CirrusSearch\BuildDocument\Completion\GeoSuggestionsBuilder;
 use CirrusSearch\BuildDocument\Completion\SuggestBuilder;
 use CirrusSearch\BuildDocument\Completion\SuggestScoringMethodFactory;
 use CirrusSearch\BuildDocument\Completion\SuggestScoringMethod;
 use CirrusSearch\Maintenance\Validators\AnalyzersValidator;
 use CirrusSearch\SearchConfig;
+use CirrusSearch\Elastica\MultiSearch as MultiSearch;
 use Elastica;
 use Elastica\Index;
 use Elastica\Query;
@@ -152,9 +151,9 @@ class UpdateSuggesterIndex extends Maintenance {
 		$this->addOption( 'baseName', 'What basename to use for all indexes, ' .
 			'defaults to wiki id', false, true );
 		$this->addOption( 'indexChunkSize', 'Documents per shard to index in a batch.   ' .
-		    'Note when changing the number of shards that the old shard size is used, not the new ' .
-		    'one.  If you see many errors submitting documents in bulk but the automatic retry as ' .
-		    'singles works then lower this number.  Defaults to 100.', false, true );
+			'Note when changing the number of shards that the old shard size is used, not the new ' .
+			'one.  If you see many errors submitting documents in bulk but the automatic retry as ' .
+			'singles works then lower this number.  Defaults to 500.', false, true );
 		$this->addOption( 'indexRetryAttempts', 'Number of times to back off and retry ' .
 			'per failure.  Note that failures are not common but if Elasticsearch is in the process ' .
 			'of moving a shard this can time out.  This will retry the attempt after some backoff ' .
@@ -194,7 +193,7 @@ class UpdateSuggesterIndex extends Maintenance {
 		}
 
 		$this->indexBaseName = $this->getOption( 'baseName', $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME ) );
-		$this->indexChunkSize = $this->getOption( 'indexChunkSize', 100 );
+		$this->indexChunkSize = $this->getOption( 'indexChunkSize', 500 );
 		$this->indexRetryAttempts = $this->getOption( 'reindexRetryAttempts', 5 );
 
 		$this->optimizeIndex = $this->getOption( 'optimize', false );
@@ -222,15 +221,12 @@ class UpdateSuggesterIndex extends Maintenance {
 		if( $subPhrasesConfig['build'] ) {
 			$extraBuilders[] = NaiveSubphrasesSuggestionsBuilder::create( $subPhrasesConfig );
 		}
-		if ( $this->getSearchConfig()->getElement( 'CirrusSearchCompletionSuggesterGeoContext', 'build' ) ) {
-			$extraBuilders[] = new GeoSuggestionsBuilder();
-		}
 		$this->builder = new SuggestBuilder( $this->scoreMethod, $extraBuilders );
 
 		try {
 			// If the version does not exist it's certainly because nothing has been indexed.
 			if ( !MetaStoreIndex::cirrusReady( $this->getConnection() ) ) {
-				throw new \Exception("Cirrus meta sotre does not exist, you must index your data first");
+				throw new \Exception("Cirrus meta store does not exist, you must index your data first");
 			}
 
 			if ( !$this->canWrite() ) {
@@ -296,7 +292,7 @@ class UpdateSuggesterIndex extends Maintenance {
 			$stats = $index->getStats()->getData();
 			// Extra check: if stats report usages we should not try to fix things
 			// automatically.
-			if ( $stats['_all']['total']['suggest']['total'] == 0 ) {
+			if ( $stats['_all']['total']['search']['suggest_total'] == 0 ) {
 				$this->log( "Deleting broken index {$index->getName()}\n" );
 				$this->deleteIndex( $index );
 			} else {
@@ -426,34 +422,34 @@ class UpdateSuggesterIndex extends Maintenance {
 
 		$query = new Elastica\Query();
 		$query->setQuery( $bool );
-		$query->setFields( [ '_id' ] );
+		$query->setSize( $this->indexChunkSize );
+		$query->setSource( false );
+		$query->setSort( ['_doc'] );
+		$search = new \Elastica\Search( $this->getClient() );
+		$search->setQuery( $query );
+		$search->addIndex( $this->getIndex() );
+		$scroll = new \Elastica\Scroll( $search, '15m' );
 
-		$scrollOptions = [
-			'search_type' => 'scan',
-			'scroll' => "15m",
-			'size' => $this->indexChunkSize
-		];
-		$result = $this->getIndex()->search( $query, $scrollOptions );
+		$totalDocsToDump = -1;
 
-		$totalDocsInIndex = $result->getResponse()->getData();
-		$totalDocsInIndex = $totalDocsInIndex['hits']['total'];
-		$totalDocsToDump = $totalDocsInIndex;
-
-		$this->log( "Deleting remaining docs from previous batch ($totalDocsInIndex).\n" );
-		MWElasticUtils::iterateOverScroll( $this->getIndex(), $result->getResponse()->getScrollId(), '15m',
-			function( $results ) use ( &$docsDumped, $totalDocsToDump ) {
-				$docIds = [];
-				foreach( $results as $result ) {
-					$docsDumped++;
-					$docIds[] = $result->getId();
+		$this->log( "Deleting remaining docs from previous batch\n" );
+		foreach ( $scroll as $results ) {
+			if ( $totalDocsToDump === -1 ) {
+				$totalDocsToDump = $results->getTotalHits();
+				$docsDumped = 0;
+			}
+			$docIds = [];
+			foreach( $results as $result ) {
+				$docsDumped++;
+				$docIds[] = $result->getId();
+			}
+			$this->outputProgress( $docsDumped, $totalDocsToDump );
+			MWElasticUtils::withRetry( $this->indexRetryAttempts,
+				function() use ( $docIds ) {
+					$this->getType()->deleteIds( $docIds );
 				}
-				$this->outputProgress( $docsDumped, $totalDocsToDump );
-				MWElasticUtils::withRetry( $this->indexRetryAttempts,
-					function() use ( $docIds ) {
-						$this->getType()->deleteIds( $docIds );
-					}
-				);
-			}, 0, $this->indexRetryAttempts );
+			);
+		}
 		$this->log( "Done.\n" );
 		// Old docs should be deleted now we can optimize and flush
 		$this->optimize();
@@ -499,13 +495,13 @@ class UpdateSuggesterIndex extends Maintenance {
 
 	private function optimize() {
 		$this->log("Optimizing index...");
-		$this->getIndex()->optimize( [ 'max_num_segments' => 1 ] );
+		$this->getIndex()->forcemerge( [ 'max_num_segments' => 1 ] );
 		$this->output("ok.\n");
 	}
 
 	private function expungeDeletes() {
 		$this->log("Purging deleted docs...");
-		$this->getIndex()->optimize( [ 'only_expunge_deletes' => true, 'flush' => false ] );
+		$this->getIndex()->forcemerge( [ 'only_expunge_deletes' => true, 'flush' => false ] );
 		$this->output("ok.\n");
 	}
 
@@ -520,9 +516,8 @@ class UpdateSuggesterIndex extends Maintenance {
 		$countIndices = [ Connection::CONTENT_INDEX_TYPE ];
 
 		$query = new Query();
-		$query->setFields( [ '_id', '_type', '_source' ] );
 		$query->setSource( [
-			'include' => $this->builder->getRequiredFields()
+			'includes' => $this->builder->getRequiredFields()
 		] );
 
 		$pageAndNs = new Elastica\Query\BoolQuery();
@@ -533,15 +528,16 @@ class UpdateSuggesterIndex extends Maintenance {
 		$bool->addFilter( $pageAndNs );
 
 		$query->setQuery( $bool );
+		$query->setSort( [ '_doc' ] );
 
 		// Run a first query to count the number of docs.
 		// This is needed for the scoring methods that need
 		// to normalize values against wiki size.
-		$mSearch = new \Elastica\Multi\Search( $this->getClient() );
+		$mSearch = new MultiSearch( $this->getClient() );
 		foreach ( $countIndices as $sourceIndexType ) {
 			$search = new \Elastica\Search( $this->getClient() );
 			$search->addIndex( $this->getConnection()->getIndex( $this->indexBaseName, $sourceIndexType ) );
-			$search->setOption( \Elastica\Search::OPTION_SEARCH_TYPE, \Elastica\Search::OPTION_SEARCH_TYPE_COUNT );
+			$search->getQuery()->setSize( 0 );
 			$mSearch->addSearch( $search );
 		}
 
@@ -554,43 +550,39 @@ class UpdateSuggesterIndex extends Maintenance {
 		$this->scoreMethod->setMaxDocs( $total );
 
 		foreach( $sourceIndexTypes as $sourceIndexType ) {
-			$scrollOptions = [
-				'search_type' => 'scan',
-				'scroll' => "15m",
-				'size' => $this->indexChunkSize
-			];
-
 			$sourceIndex = $this->getConnection()->getIndex( $this->indexBaseName, $sourceIndexType );
-			$result = $sourceIndex->search( $query, $scrollOptions );
-			$totalDocsInIndex = $result->getResponse()->getData();
-			$totalDocsInIndex = $totalDocsInIndex['hits']['total'];
-			$totalDocsToDump = $totalDocsInIndex;
+			$search = new \Elastica\Search( $this->getClient() );
+			$search->setQuery( $query );
+			$search->addIndex( $sourceIndex );
+			$query->setSize( $this->indexChunkSize );
+			$totalDocsToDump = -1;
+			$scroll = new \Elastica\Scroll( $search, '15m' );
 
 			$docsDumped = 0;
-			$this->log( "Indexing $totalDocsToDump documents from $sourceIndexType ($totalDocsInIndex in the index) with batchId: {$this->builder->getBatchId()} and scoring method: {$this->scoreMethodName}\n" );
-
 			$destinationType = $this->getIndex()->getType( Connection::TITLE_SUGGEST_TYPE_NAME );
 
-			MWElasticUtils::iterateOverScroll( $sourceIndex, $result->getResponse()->getScrollId(), '15m',
-				function( $results ) use ( &$docsDumped, $totalDocsToDump,
-						$destinationType ) {
-					$inputDocs = [];
-					foreach ( $results as $result ) {
-						$docsDumped++;
-						$inputDocs[] = [
-							'id' => $result->getId(),
-							'source' => $result->getSource()
-						];
-					}
+			foreach ( $scroll as $results ) {
+				if ( $totalDocsToDump === -1 ) {
+					$totalDocsToDump = $results->getTotalHits();
+					$this->log( "Indexing $totalDocsToDump documents from $sourceIndexType with batchId: {$this->builder->getBatchId()} and scoring method: {$this->scoreMethodName}\n" );
+				}
+				$inputDocs = [];
+				foreach ( $results as $result ) {
+					$docsDumped++;
+					$inputDocs[] = [
+						'id' => $result->getId(),
+						'source' => $result->getSource()
+					];
+				}
 
-					$suggestDocs = $this->builder->build( $inputDocs );
-					$this->outputProgress( $docsDumped, $totalDocsToDump );
-					MWElasticUtils::withRetry( $this->indexRetryAttempts,
-						function() use ( $destinationType, $suggestDocs ) {
-							$destinationType->addDocuments( $suggestDocs );
-						}
-					);
-				}, 0, $this->indexRetryAttempts );
+				$suggestDocs = $this->builder->build( $inputDocs );
+				$this->outputProgress( $docsDumped, $totalDocsToDump );
+				MWElasticUtils::withRetry( $this->indexRetryAttempts,
+					function() use ( $destinationType, $suggestDocs ) {
+						$destinationType->addDocuments( $suggestDocs );
+					}
+				);
+			}
 			$this->log( "Indexing from $sourceIndexType index done.\n" );
 		}
 	}

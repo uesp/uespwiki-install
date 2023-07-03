@@ -3,6 +3,8 @@
  * SpecialMobileWatchlist.php
  */
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * Implements the Watchlist special page
  */
@@ -133,14 +135,20 @@ class SpecialMobileWatchlist extends MobileSpecialPageFeed {
 
 	/**
 	 * Get the header for the watchlist page
-	 * @param User user
+	 * @param User $user
+	 * @param string|null $view the name of the view to show (optional)
+	 *  If absent user preferences will be consulted.
 	 * @return string Parsed HTML
 	 */
-	public static function getWatchlistHeader( User $user ) {
+	public static function getWatchlistHeader( User $user, $view = null ) {
 		$sp = SpecialPage::getTitleFor( 'Watchlist' );
 		$attrsList = $attrsFeed = [];
-		$view = $user->getOption( SpecialMobileWatchlist::VIEW_OPTION_NAME, 'a-z' );
+		// https://phabricator.wikimedia.org/T150650
+		if ( $view === null ) {
+			$view = $user->getOption( SpecialMobileWatchlist::VIEW_OPTION_NAME, 'a-z' );
+		}
 		$filter = $user->getOption( SpecialMobileWatchlist::FILTER_OPTION_NAME, 'all' );
+
 		if ( $view === 'feed' ) {
 			$attrsList[ 'class' ] = MobileUI::buttonClass();
 			// FIXME [MediaWiki UI] This probably be described as a different type of mediawiki ui element
@@ -151,17 +159,18 @@ class SpecialMobileWatchlist extends MobileSpecialPageFeed {
 			$attrsList[ 'class' ] = MobileUI::buttonClass( 'progressive', 'is-on' );
 		}
 
+		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 		$html =
 		Html::openElement( 'ul', [ 'class' => 'button-bar mw-ui-button-group' ] ) .
 			Html::openElement( 'li', $attrsList ) .
-			Linker::link( $sp,
+			$linkRenderer->makeLink( $sp,
 				wfMessage( 'mobile-frontend-watchlist-a-z' )->text(),
 				[ 'class' => 'button' ],
 				[ 'watchlistview' => 'a-z' ]
 			) .
 			Html::closeElement( 'li' ) .
 			Html::openElement( 'li', $attrsFeed ) .
-			Linker::link( $sp,
+			$linkRenderer->makeLink( $sp,
 				wfMessage( 'mobile-frontend-watchlist-feed' )->text(),
 				[ 'class' => 'button' ],
 				[ 'watchlistview' => 'feed', 'filter' => $filter ]
@@ -224,7 +233,7 @@ class SpecialMobileWatchlist extends MobileSpecialPageFeed {
 		$user = $this->getUser();
 		$dbr = wfGetDB( DB_SLAVE, 'watchlist' );
 
-		# Possible where conditions
+		// Possible where conditions
 		$conds = $this->getNSConditions( 'rc_namespace' );
 
 		// snip....

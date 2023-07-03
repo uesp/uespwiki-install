@@ -53,8 +53,9 @@ if ($uespLanguageSuffix != "")
 	$wgSharedUploadPath = '//images.uesp.net';
 	$wgSharedUploadDirectory = '/home/uesp/www/w/images/';
 	$wgHashedSharedUploadDirectory = true;
-	$wgUploadNavigationUrl = "//www.uesp.net/wiki/Special:Upload";
-	$wgUploadMissingFileUrl= "//www.uesp.net/wiki/Special:Upload";
+	$wgUploadNavigationUrl = "//en.uesp.net/wiki/Special:Upload";
+	$wgUploadMissingFileUrl= "//en.uesp.net/wiki/Special:Upload";
+	$wgRepositoryBaseUrl = "https://en.uesp.net/wiki/File:";
 }
 
 if ($uespLanguageSuffix == "_ar")
@@ -81,7 +82,7 @@ $wgDefaultSkin = 'uespmonobook';
 $wgDefaultUserOptions['thumbsize'] = 3; // thumb size 200
 $wgGalleryOptions['imageWidth'] = 200;
 $wgGalleryOptions['imageHeight'] = 200;
-$wgGalleryOptions['mode'] = 'packed';
+$wgGalleryOptions['mode'] = 'nolines';
 
 $wgRightsPage = "UESPWiki:Copyright_and_Ownership";
 $wgRightsUrl = "http://creativecommons.org/licenses/by-sa/2.5/";
@@ -155,5 +156,6 @@ $wgMaxImageArea = 6e7;
 if ($uespIsDev)
 {
 	$wgUploadPath = "//dev.uesp.net/w/images";
+	$wgLogo = "//images.uesp.net/e/e2/UESP_Wiki_Dev_Logo.png";
 }
 

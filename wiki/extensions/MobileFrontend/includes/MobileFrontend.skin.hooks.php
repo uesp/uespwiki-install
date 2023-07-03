@@ -1,6 +1,30 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 class MobileFrontendSkinHooks {
+	/**
+	 * Make it possible to open sections while JavaScript is still loading.
+	 *
+	 * @return string The JavaScript code to add event handlers to the skin
+	 */
+	public static function interimTogglingSupport() {
+		$js = <<<JAVASCRIPT
+function mfTempOpenSection( id ) {
+	var block = document.getElementById( "mf-section-" + id );
+	block.className += " open-block";
+	// The previous sibling to the content block is guaranteed to be the
+	// associated heading due to mobileformatter. We need to add the same
+	// class to flip the collapse arrow icon.
+	// <h[1-6]>heading</h[1-6]><div id="mf-section-[1-9]+"></div>
+	block.previousSibling.className += " open-block";
+}
+JAVASCRIPT;
+		return Html::inlineScript(
+			ResourceLoader::filter( 'minify-js', $js )
+		);
+	}
+
 	/**
 	 * Fallback for Grade C to load lazyload image placeholders.
 	 *
@@ -67,6 +91,7 @@ JAVASCRIPT;
 	 * FIXME: This hack shouldn't be needed anymore after fixing T111833
 	 *
 	 * @param string $license
+	 * @param Message $msgObj delimiter (optional)
 	 * @return integer Returns 2, if there are multiple licenses, 1 otherwise.
 	 */
 	public static function getPluralLicenseInfo( $license, $msgObj = null ) {
@@ -123,7 +148,11 @@ JAVASCRIPT;
 			}
 			if ( $rightsPage ) {
 				$title = Title::newFromText( $rightsPage );
-				$link = Linker::linkKnown( $title, $rightsText, $attribs );
+				$link = MediaWikiServices::getInstance()->getLinkRenderer()->makeKnownLink(
+					$title,
+					new HtmlArmor( $rightsText ),
+					$attribs
+				);
 			} elseif ( $rightsUrl ) {
 				$link = Linker::makeExternalLink( $rightsUrl, $rightsText, true, '', $attribs );
 			} else {
@@ -205,8 +234,6 @@ JAVASCRIPT;
 	protected static function mobileFooter( Skin $sk, QuickTemplate $tpl, MobileContext $ctx,
 		Title $title, WebRequest $req
 	) {
-		$inBeta = $ctx->isBetaGroupMember();
-
 		$url = $sk->getOutput()->getProperty( 'desktopUrl' );
 		if ( $url ) {
 			$url = wfAppendQuery( $url, 'mobileaction=toggle_view_desktop' );
@@ -218,17 +245,9 @@ JAVASCRIPT;
 		$desktopUrl = $ctx->getDesktopUrl( wfExpandUrl( $url, PROTO_RELATIVE ) );
 
 		$desktop = $ctx->msg( 'mobile-frontend-view-desktop' )->escaped();
-		$mobile = $ctx->msg( 'mobile-frontend-view-mobile' )->escaped();
 		$desktopToggler = Html::element( 'a',
 			[ 'id' => "mw-mf-display-toggle", "href" => $desktopUrl ], $desktop );
 		$sitename = self::getSitename( true );
-		$siteheading = Html::rawElement( 'h2', [], $sitename );
-		$switcherHtml = <<<HTML
-{$siteheading}
-<ul>
-	<li>{$mobile}</li><li>{$desktopToggler}</li>
-</ul>
-HTML;
 
 		// Generate the licensing text displayed in the footer of each page.
 		// See Skin::getCopyright for desktop equivalent.
@@ -241,10 +260,7 @@ HTML;
 
 		// Enable extensions to add links to footer in Mobile view, too - bug 66350
 		Hooks::run( 'MobileSiteOutputPageBeforeExec', [ &$sk, &$tpl ] );
-		// FIXME: Deprecate this hook.
-		Hooks::run( 'SkinMinervaOutputPageBeforeExec', [ &$sk, &$tpl ], '1.26' );
 
-		$tpl->set( 'mobile-switcher', $switcherHtml );
 		$tpl->set( 'footer-site-heading-html', $sitename );
 		$tpl->set( 'desktop-toggle', $desktopToggler );
 		$tpl->set( 'mobile-license', $licenseText );
@@ -254,22 +270,11 @@ HTML;
 		$places = [
 			'terms-use',
 			'privacy',
+			'desktop-toggle'
 		];
-
-		if ( $ctx->getMFConfig()->get( 'MinervaUseFooterV2' ) || $inBeta ) {
-			$places[] = 'desktop-toggle';
-			$footerlinks = [
-				'places' => $places,
-			];
-		} else {
-			$footerlinks = [
-				'info' => [
-					'mobile-switcher',
-					'mobile-license',
-				],
-				'places' => $places,
-			];
-		}
+		$footerlinks = [
+			'places' => $places,
+		];
 		$tpl->set( 'footerlinks', $footerlinks );
 		return $tpl;
 	}

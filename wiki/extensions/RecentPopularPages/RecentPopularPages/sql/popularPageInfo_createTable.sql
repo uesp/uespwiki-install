@@ -1,0 +1,5 @@
+CREATE TABLE /*_*/popularPageInfo(
+	k TINYTEXT NOT NULL,
+	v TINYTEXT NOT NULL,
+	PRIMARY KEY (k(32))
+) ENGINE=MYISAM /*$wgDBTableOptions*/;

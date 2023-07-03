@@ -156,8 +156,8 @@ class MediaFunctions {
 		if ( $text ) {
 			$title = Title::newFromText( $text );
 			if ( $title instanceof Title ) {
-				if ( $title->getNamespace() != NS_IMAGE )
-					$title = Title::makeTitle( NS_IMAGE, $title->getText() );
+				if ( $title->getNamespace() != NS_FILE )
+					$title = Title::makeTitle( NS_FILE, $title->getText() );
 				$file = wfFindFile( $title );
 				return $file instanceof File
 					? $file

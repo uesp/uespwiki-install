@@ -5,6 +5,7 @@ namespace JsonConfig;
 use FormatJson;
 use ParserOptions;
 use ParserOutput;
+use stdClass;
 use Title;
 use Status;
 
@@ -19,14 +20,12 @@ use Status;
 class JCContent extends \TextContent {
 	/** @var array */
 	private $rawData = null;
-	/** @var \stdClass|array */
+	/** @var stdClass|array */
 	protected $data = null;
 	/** @var \Status */
 	private $status;
 	/** @var bool */
 	private $thorough;
-	/** If false, JSON parsing will use stdClass instead of array for "{...}" */
-	protected $useAssocParsing = false;
 	/** @var JCContentView|null contains an instance of the view class */
 	private $view = null;
 
@@ -47,10 +46,20 @@ class JCContent extends \TextContent {
 
 	/**
 	 * Get validated data
-	 * @return array|\stdClass
+	 * @return stdClass|stdClass[]
 	 */
 	public function getData() {
 		return $this->data;
+	}
+
+	/**
+	 * Returns data after sanitization, suitable for third-party use
+	 *
+	 * @param stdClass|stdClass[] $data
+	 * @return stdClass|stdClass[]
+	 */
+	public function getSafeData( $data ) {
+		return $data;
 	}
 
 	/**
@@ -106,6 +115,8 @@ class JCContent extends \TextContent {
 
 	/**
 	 * Override this method to perform additional data validation
+	 * @param mixed $data
+	 * @return mixed
 	 */
 	public function validate( $data ) {
 		return $data;
@@ -117,23 +128,16 @@ class JCContent extends \TextContent {
 	private function parse() {
 		$rawText = $this->getNativeData();
 		$parseOpts = FormatJson::STRIP_COMMENTS + FormatJson::TRY_FIXING;
-		if ( $this->useAssocParsing ) {
-			$parseOpts += FormatJson::FORCE_ASSOC;
-		}
 		$status = FormatJson::parse( $rawText, $parseOpts );
 		if ( !$status->isOK() ) {
 			$this->status = $status;
 			return;
 		}
 		$data = $status->getValue();
-		if ( !$this->useAssocParsing ) {
-			// @fixme: HACK - need a deep clone of the data
-			// @fixme: but doing (object)(array)$data will re-encode empty [] as {}
-			// @performance: re-encoding is likely faster than stripping comments in PHP twice
-			$this->rawData = FormatJson::decode( FormatJson::encode( $data, FormatJson::ALL_OK ), true );
-		} else {
-			$this->rawData = $data;
-		}
+		// @fixme: HACK - need a deep clone of the data
+		// @fixme: but doing (object)(array)$data will re-encode empty [] as {}
+		// @performance: re-encoding is likely faster than stripping comments in PHP twice
+		$this->rawData = FormatJson::decode( FormatJson::encode( $data, FormatJson::ALL_OK ), true );
 		$this->data = $this->validate( $data );
 	}
 
@@ -148,9 +152,7 @@ class JCContent extends \TextContent {
 		if ( !$this->isValidJson() ) {
 			return $this; // Invalid JSON - can't do anything with it
 		}
-		$formatted = self::normalizeLineEndings(
-			FormatJson::encode( $this->getData(), true, FormatJson::ALL_OK )
-		);
+		$formatted = FormatJson::encode( $this->getData(), false, FormatJson::ALL_OK );
 		if ( $this->getNativeData() !== $formatted ) {
 			return new static( $formatted, $this->getModel(), $this->thorough() );
 		}

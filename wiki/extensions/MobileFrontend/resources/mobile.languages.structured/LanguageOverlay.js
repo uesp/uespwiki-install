@@ -1,6 +1,6 @@
 ( function ( M, $ ) {
 
-	var Overlay = M.require( 'mobile.overlays/Overlay' ),
+	var Overlay = M.require( 'mobile.startup/Overlay' ),
 		util = M.require( 'mobile.languages.structured/util' );
 
 	/**
@@ -8,6 +8,12 @@
 	 *
 	 * @class LanguageOverlay
 	 * @extends Overlay
+	 *
+	 * @constructor
+	 * @param {Object} options Configuration options
+	 * @param {Object[]} options.languages list of language objects as returned by the API
+	 * @param {Array|boolean} options.variants language variant objects or false if no variants exist
+	 * @param {string} [options.deviceLanguage] the device's primary language
 	 */
 	function LanguageOverlay( options ) {
 		var languages;
@@ -40,8 +46,7 @@
 			inputPlaceholder: mw.msg( 'mobile-frontend-languages-structured-overlay-search-input-placeholder' ),
 			// we can't rely on CSS only to uppercase the headings. See https://stackoverflow.com/questions/3777443/css-text-transform-not-working-properly-for-turkish-characters
 			allLanguagesHeader: mw.msg( 'mobile-frontend-languages-structured-overlay-all-languages-header' ).toLocaleUpperCase(),
-			suggestedLanguagesHeader: mw.msg( 'mobile-frontend-languages-structured-overlay-suggested-languages-header' ).toLocaleUpperCase(),
-			headerChrome: false
+			suggestedLanguagesHeader: mw.msg( 'mobile-frontend-languages-structured-overlay-suggested-languages-header' ).toLocaleUpperCase()
 		} ),
 		/** @inheritdoc */
 		templatePartials: $.extend( {}, Overlay.prototype.templatePartials, {
@@ -68,14 +73,12 @@
 		onLinkClick: function ( ev ) {
 			var $link = this.$( ev.currentTarget ),
 				lang = $link.attr( 'lang' ),
-				$visibleLanguageLinks = this.$languageItems.filter( ':visible' ),
-				index;
+				$visibleLanguageLinks = this.$languageItems.filter( ':visible' );
 
 			util.saveLanguageUsageCount( lang, util.getFrequentlyUsedLanguages() );
 
 			// find the index of the clicked language in the list of visible results
-			$.each( $visibleLanguageLinks, function ( i, link ) {
-				index = i + 1;
+			$visibleLanguageLinks.each( function ( i, link ) {
 				if ( $( link ).hasClass( lang ) ) {
 					return false;
 				}
@@ -93,13 +96,13 @@
 		/**
 		 * Filter the language list to only show languages that match the current search term.
 		 *
-		 * @param {String} val of search term (lowercase).
+		 * @param {string} val of search term (lowercase).
 		 */
 		filterLanguages: function ( val ) {
 			var filteredList = [];
 
 			if ( val ) {
-				$.each( this.options.languages, function ( i, language ) {
+				this.options.languages.forEach( function ( language ) {
 					var langname = language.langname;
 					// search by language code or language name
 					if ( language.autonym.toLowerCase().indexOf( val ) > -1 ||
@@ -111,7 +114,7 @@
 				} );
 
 				if ( this.options.variants ) {
-					$.each( this.options.variants, function ( i, variant ) {
+					this.options.variants.forEach( function ( variant ) {
 						// search by variant code or variant name
 						if ( variant.autonym.toLowerCase().indexOf( val ) > -1 ||
 							variant.lang.toLowerCase().indexOf( val ) > -1

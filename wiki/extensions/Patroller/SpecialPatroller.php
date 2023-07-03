@@ -3,8 +3,8 @@
  * Patroller
  * Patroller MediaWiki hooks
  *
- * @author: Rob Church <robchur@gmail.com>, Kris Blair (Cblair91)
- * @copyright: 2006-2008 Rob Church, 2015 Kris Blair
+ * @author: Rob Church <robchur@gmail.com>, Kris Blair (Developaws)
+ * @copyright: 2006-2008 Rob Church, 2015-2017 Kris Blair
  * @license: GPL General Public Licence 2.0
  * @package: Patroller
  * @link: https://mediawiki.org/wiki/Extension:Patroller
@@ -36,47 +36,47 @@ class SpecialPatroller extends SpecialPage {
 
 		$this->setHeaders();
 
-		# Check permissions
+		// Check permissions
 		if ( !$wgUser->isAllowed( 'patroller' ) ) {
 			throw new PermissionsError( 'patroller' );
 		}
 
-		# Keep out blocked users
+		// Keep out blocked users
 		if ( $wgUser->isBlocked() ) {
 			throw new UserBlockedError( $wgUser->getBlock() );
 		}
 
-		# Prune old assignments if needed
+		// Prune old assignments if needed
 		if ( 0 == mt_rand( 0, 499 ) ) {
 			$this->pruneAssignments();
 		}
 
-		# See if something needs to be done
+		// See if something needs to be done
 		if ( $wgRequest->wasPosted() && $wgUser->matchEditToken( $wgRequest->getText( 'wpToken' ) ) ) {
 			$rcid = $wgRequest->getIntOrNull( 'wpRcId' );
 			if ( $rcid ) {
 				if ( $wgRequest->getCheck( 'wpPatrolEndorse' ) ) {
-					# Mark the change patrolled
+					// Mark the change patrolled
 					if ( !$wgUser->isBlocked( false ) ) {
 						RecentChange::markPatrolled( $rcid );
-						$wgOut->setSubtitle( wfMessages( 'patrol-endorsed-ok' )->escaped() );
+						$wgOut->setSubtitle( wfMessage( 'patrol-endorsed-ok' )->escaped() );
 					} else {
-						$wgOut->setSubtitle( wfMessages( 'patrol-endorsed-failed' )->escaped() );
+						$wgOut->setSubtitle( wfMessage( 'patrol-endorsed-failed' )->escaped() );
 					}
 				} elseif ( $wgRequest->getCheck( 'wpPatrolRevert' ) ) {
-					# Revert the change
+					// Revert the change
 					$edit = $this->loadChange( $rcid );
 					$msg = $this->revert( $edit, $this->revertReason( $wgRequest ) ) ? 'ok' : 'failed';
 					$wgOut->setSubtitle( wfMessage( 'patrol-reverted-' . $msg )->escaped() );
 				} elseif ( $wgRequest->getCheck( 'wpPatrolSkip' ) ) {
-					# Do nothing
+					// Do nothing
 					$wgOut->setSubtitle( wfMessage( 'patrol-skipped-ok' )->escaped() );
 				}
 			}
 		}
 
-		# If a token was passed, but the check box value was not, then the user
-		# wants to pause or stop patrolling
+		// If a token was passed, but the check box value was not, then the user
+		// wants to pause or stop patrolling
 		if ( $wgRequest->getCheck( 'wpToken' ) && !$wgRequest->getCheck( 'wpAnother' ) ) {
 			$skin = $this->getSkin();
 			$self = SpecialPage::getTitleFor( 'Patrol' );
@@ -91,12 +91,12 @@ class SpecialPatroller extends SpecialPage {
 			return;
 		}
 
-		# Pop an edit off recentchanges
+		// Pop an edit off recentchanges
 		$haveEdit = false;
 		while ( !$haveEdit ) {
 			$edit = $this->fetchChange( $wgUser );
 			if ( $edit ) {
-				# Attempt to assign it
+				// Attempt to assign it
 				if ( $this->assignChange( $edit ) ) {
 					$haveEdit = true;
 					$this->showDiffDetails( $edit );
@@ -106,8 +106,8 @@ class SpecialPatroller extends SpecialPage {
 					$this->showControls( $edit );
 				}
 			} else {
-				# Can't find a suitable edit
-				$haveEdit = true; # Don't keep going, there's nothing to find
+				// Can't find a suitable edit
+				$haveEdit = true; // Don't keep going, there's nothing to find
 				$wgOut->addWikiText( wfMessage( 'patrol-nonefound' )->text() );
 			}
 		}
@@ -121,14 +121,14 @@ class SpecialPatroller extends SpecialPage {
 	 * @return	void
 	 */
 	private function showDiffDetails( &$edit ) {
-		global $wgUser, $wgOut;
+		global $wgOut;
 		$edit->counter = 1;
 		$edit->mAttribs['rc_patrolled'] = 1;
 		$list = ChangesList::newFromContext( RequestContext::GetMain() );
 		$wgOut->addHTML(
-			$list->beginRecentChangesList()
-			. $list->recentChangesLine( $edit )
-			. $list->endRecentChangesList()
+			$list->beginRecentChangesList() .
+			$list->recentChangesLine( $edit ) .
+			$list->endRecentChangesList()
 		);
 	}
 
@@ -159,24 +159,27 @@ class SpecialPatroller extends SpecialPage {
 		global $wgUser, $wgOut;
 		$self = SpecialPage::getTitleFor( 'Patrol' );
 		$form = Html::openElement( 'form', [
-			'method' => 'post', 'action' => $self->getLocalUrl() ]
-		);
+			'method' => 'post',
+			'action' => $self->getLocalUrl()
+		] );
 		$form .= Html::openElement( 'table' );
 		$form .= Html::openElement( 'tr' );
-		$form .= Html::openElement( 'td', [ 'align' => 'right' ] );
-		$form .= Html::submitButton(
-			wfMessage( 'patrol-endorse' )->escaped(),
-			[ 'name' => 'wpPatrolEndorse' ]
-		);
+		$form .= Html::openElement( 'td', [
+			'align' => 'right'
+		] );
+		$form .= Html::submitButton( wfMessage( 'patrol-endorse' )->escaped(), [
+			'name' => 'wpPatrolEndorse'
+		] );
 		$form .= Html::closeElement( 'td' );
 		$form .= Html::openElement( 'td' ) . Html::closeElement( 'td' );
 		$form .= Html::closeElement( 'tr' );
 		$form .= Html::openElement( 'tr' );
-		$form .= Html::openElement( 'td', [ 'align' => 'right' ] );
-		$form .= Html::submitButton(
-			wfMessage( 'patrol-revert' )->escaped(),
-			[ 'name' => 'wpPatrolRevert' ]
-		);
+		$form .= Html::openElement( 'td', [
+			'align' => 'right'
+		] );
+		$form .= Html::submitButton( wfMessage( 'patrol-revert' )->escaped(), [
+			'name' => 'wpPatrolRevert'
+		] );
 		$form .= Html::closeElement( 'td' );
 		$form .= Html::openElement( 'td' );
 		$form .= Html::label( wfMessage( 'patrol-revert-reason' )->escaped(), 'reason' ) . '&#160;';
@@ -184,11 +187,12 @@ class SpecialPatroller extends SpecialPage {
 		$form .= Html::closeElement( 'td' );
 		$form .= Html::closeElement( 'tr' );
 		$form .= Html::openElement( 'tr' );
-		$form .= Html::openElement( 'td', [ 'align' => 'right' ] );
-		$form .= Html::submitButton(
-			wfMessage( 'patrol-skip' )->escaped(),
-			[ 'name' => 'wpPatrolSkip' ]
-		);
+		$form .= Html::openElement( 'td', [
+			'align' => 'right'
+		] );
+		$form .= Html::submitButton( wfMessage( 'patrol-skip' )->escaped(), [
+			'name' => 'wpPatrolSkip'
+		] );
 		$form .= Html::closeElement( 'td' );
 		$form .= Html::closeElement( 'tr' );
 		$form .= Html::openElement( 'tr' );
@@ -221,19 +225,37 @@ class SpecialPatroller extends SpecialPage {
 		$dbr = wfGetDB( DB_SLAVE );
 		$uid = $user->getId();
 		extract( $dbr->tableNames( 'recentchanges', 'patrollers', 'page' ) );
-		$sql = "SELECT * FROM $page, $recentchanges LEFT JOIN $patrollers ON rc_id = ptr_change
-				WHERE rc_namespace = page_namespace AND rc_title = page_title
-				AND rc_this_oldid = page_latest AND rc_bot = 0 AND rc_patrolled = 0 AND rc_type = 0
-				AND rc_user != $uid AND ptr_timestamp IS NULL LIMIT 0,1";
-		$res = $dbr->query( $sql, 'Patroller::fetchChange' );
-		if ( $dbr->numRows( $res ) > 0 ) {
-			$row = $dbr->fetchObject( $res );
-			$dbr->freeResult( $res );
+		$res = $dbr->select(
+			[ $page, $recentchanges, $patrollers ],
+			'*',
+			[
+				'ptr_timestamp IS NULL',
+				'rc_namespace = page_namespace',
+				'rc_title = page_title',
+				'rc_this_oldid = page_latest',
+				'rc_user != ' . $uid,
+				'rc_bot'		=> '0',
+				'rc_patrolled'	=> '0',
+				'rc_type'		=> '0'
+			],
+			__METHOD__,
+			[
+				'LIMIT'	=> '1'
+			],
+			[
+				$patrollers => [
+					'LEFT JOIN',
+					[
+						'rc_id = ptr_change'
+					]
+				]
+			]
+		);
+		if ( $res->numRows() > 0 ) {
+			$row = $res->fetchObject();
 			return RecentChange::newFromRow( $row, $row->rc_last_oldid );
-		} else {
-			$dbr->freeResult( $res );
-			return false;
 		}
+		return false;
 	}
 
 	/**
@@ -245,13 +267,19 @@ class SpecialPatroller extends SpecialPage {
 	 */
 	private function loadChange( $rcid ) {
 		$dbr = wfGetDB( DB_SLAVE );
-		$res = $dbr->select( 'recentchanges', '*', [ 'rc_id' => $rcid ], 'Patroller::loadChange' );
-		if ( $dbr->numRows( $res ) > 0 ) {
+		$res = $dbr->select(
+			'recentchanges',
+			'*',
+			[
+				'rc_id' => $rcid
+			],
+			'Patroller::loadChange'
+		);
+		if ( $res->numRows() > 0 ) {
 			$row = $dbr->fetchObject( $res );
 			return RecentChange::newFromRow( $row );
-		} else {
-			return false;
 		}
+		return false;
 	}
 
 	/**
@@ -264,8 +292,15 @@ class SpecialPatroller extends SpecialPage {
 	 */
 	private function assignChange( &$edit ) {
 		$dbw = wfGetDB( DB_MASTER );
-		$val = [ 'ptr_change' => $edit->mAttribs['rc_id'], 'ptr_timestamp' => $dbw->timestamp() ];
-		$res = $dbw->insert( 'patrollers', $val, 'Patroller::assignChange', 'IGNORE' );
+		$res = $dbw->insert(
+			'patrollers',
+			[
+				'ptr_change'	=> $edit->mAttribs['rc_id'],
+				'ptr_timestamp'	=> $dbw->timestamp()
+			],
+			__METHOD__,
+			'IGNORE'
+		);
 		return (bool) $dbw->affectedRows();
 	}
 
@@ -280,7 +315,13 @@ class SpecialPatroller extends SpecialPage {
 	 */
 	private function unassignChange( $rcid ) {
 		$dbw = wfGetDB( DB_MASTER );
-		$dbw->delete( 'patrollers', [ 'ptr_change' => $rcid ], 'Patroller::unassignChange' );
+		$dbw->delete(
+			'patrollers',
+			[
+				'ptr_change' => $rcid
+			],
+			__METHOD__
+		);
 	}
 
 	/**
@@ -295,8 +336,10 @@ class SpecialPatroller extends SpecialPage {
 		$dbw = wfGetDB( DB_MASTER );
 		$dbw->delete(
 			'patrollers',
-			[ 'ptr_timestamp < ' . $dbw->timestamp( time() - 120 ) ],
-			'Patroller::pruneAssignments'
+			[
+				'ptr_timestamp < ' . $dbw->timestamp( time() - 120 )
+			],
+			__METHOD__
 		);
 	}
 
@@ -310,33 +353,38 @@ class SpecialPatroller extends SpecialPage {
 	 */
 	private function revert( &$edit, $comment = '' ) {
 		global $wgUser;
-		if ( !$wgUser->isBlocked( false ) ) { # Check block against master
+		if ( !$wgUser->isBlocked( false ) ) { // Check block against master
 			$dbw = wfGetDB( DB_MASTER );
 			$title = $edit->getTitle();
-			# Prepare the comment
+			// Prepare the comment
 			$comment = wfMessage( 'patrol-reverting', $comment )->inContentLanguage()->text();
-			# Find the old revision
+			// Find the old revision
 			$old = Revision::newFromId( $edit->mAttribs['rc_last_oldid'] );
-			# Be certain we're not overwriting a more recent change
-			# If we would, ignore it, and silently consider this change patrolled
+			// Be certain we're not overwriting a more recent change
+			// If we would, ignore it, and silently consider this change patrolled
 			$latest = (int)$dbw->selectField(
 				'page',
 				'page_latest',
-				[ 'page_id' => $title->getArticleID() ],
+				[
+					'page_id' => $title->getArticleID()
+				],
 				__METHOD__
 			);
 			if ( $edit->mAttribs['rc_this_oldid'] == $latest ) {
-				# Revert the edit; keep the reversion itself out of recent changes
+				// Revert the edit; keep the reversion itself out of recent changes
 				wfDebugLog( 'patroller', 'Reverting "' . $title->getPrefixedText() . '" to r' . $old->getId() );
-				$article = new Article( $title );
-				$article->doEdit( $old->getText(), $comment, EDIT_UPDATE & EDIT_MINOR & EDIT_SUPPRESS_RC );
+				$page = WikiPage::factory( $title );
+				$page->doEditContent(
+					$old->getContent(),
+					$comment,
+					EDIT_UPDATE & EDIT_MINOR & EDIT_SUPPRESS_RC
+				);
 			}
-			# Mark the edit patrolled so it doesn't bother us again
+			// Mark the edit patrolled so it doesn't bother us again
 			RecentChange::markPatrolled( $edit->mAttribs['rc_id'] );
 			return true;
-		} else {
-			return false;
 		}
+		return false;
 	}
 
 	/**
@@ -350,25 +398,27 @@ class SpecialPatroller extends SpecialPage {
 		$msg = wfMessage( 'patrol-reasons' )->inContentLanguage()->text();
 		if ( $msg == '-' || $msg == '&lt;patrol-reasons&gt;' ) {
 			return '';
-		} else {
-			$reasons = [];
-			$lines = explode( "\n", $msg );
-			foreach ( $lines as $line ) {
-				if ( substr( $line, 0, 1 ) == '*' ) {
-					$reasons[] = trim( $line, '* ' );
-				}
-			}
-			if ( count( $reasons ) > 0 ) {
-				$box = Html::openElement( 'select', [ 'name' => 'wpPatrolRevertReasonCommon' ] );
-				foreach ( $reasons as $reason ) {
-					$box .= Html::element( 'option', [ 'value' => $reason ], $reason );
-				}
-				$box .= Html::closeElement( 'select' );
-				return $box;
-			} else {
-				return '';
+		}
+		$reasons = [];
+		$lines = explode( "\n", $msg );
+		foreach ( $lines as $line ) {
+			if ( substr( $line, 0, 1 ) == '*' ) {
+				$reasons[] = trim( $line, '* ' );
 			}
 		}
+		if ( count( $reasons ) > 0 ) {
+			$box = Html::openElement( 'select', [
+				'name' => 'wpPatrolRevertReasonCommon'
+			] );
+			foreach ( $reasons as $reason ) {
+				$box .= Html::element( 'option', [
+					'value' => $reason
+				], $reason );
+			}
+			$box .= Html::closeElement( 'select' );
+			return $box;
+		}
+		return '';
 	}
 
 	/**

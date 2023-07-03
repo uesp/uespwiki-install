@@ -113,6 +113,11 @@ $namespaceNames['de'] = array(
 	829 => 'Modul_Diskussion',
 );
 
+$namespaceNames['din'] = array(
+	828 => 'Mukääcëtök',
+	829 => 'Jam_wɛ̈t_ë_mukääcëtök',
+);
+
 $namespaceNames['diq'] = array(
 	828 => 'Modul',
 	829 => 'Modul_vaten',
@@ -121,6 +126,11 @@ $namespaceNames['diq'] = array(
 $namespaceNames['dsb'] = array(
 	828 => 'Modul',
 	829 => 'Modul_diskusija',
+);
+
+$namespaceNames['dty'] = array(
+	828 => 'मोड्युल',
+	829 => 'मोड्युल_कुरणि',
 );
 
 $namespaceNames['dv'] = array(
@@ -248,6 +258,11 @@ $namespaceNames['ko'] = array(
 	829 => '모듈토론',
 );
 
+$namespaceNames['ku'] = array(
+	828 => 'Modul',
+	829 => 'Gotûbêja_modulê',
+);
+
 $namespaceNames['lb'] = array(
 	828 => 'Modul',
 	829 => 'Modul_Diskussioun',
@@ -320,6 +335,11 @@ $namespaceNames['or'] = array(
 $namespaceNames['pl'] = array(
 	828 => 'Moduł',
 	829 => 'Dyskusja_modułu',
+);
+
+$namespaceNames['pnb'] = array(
+	828 => 'ماڈیول',
+	829 => 'ماڈیول_گل_بات',
 );
 
 $namespaceNames['pt'] = array(

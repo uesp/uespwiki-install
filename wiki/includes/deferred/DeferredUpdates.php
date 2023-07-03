@@ -19,7 +19,10 @@
  *
  * @file
  */
+use Wikimedia\Rdbms\IDatabase;
 use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\LBFactory;
+use Wikimedia\Rdbms\LoadBalancer;
 
 /**
  * Class for managing the deferred updates
@@ -73,9 +76,12 @@ class DeferredUpdates {
 	public static function addUpdate( DeferrableUpdate $update, $stage = self::POSTSEND ) {
 		global $wgCommandLineMode;
 
-		// This is a sub-DeferredUpdate, run it right after its parent update
 		if ( self::$executeContext && self::$executeContext['stage'] >= $stage ) {
+			// This is a sub-DeferredUpdate; run it right after its parent update.
+			// Also, while post-send updates are running, push any "pre-send" jobs to the
+			// active post-send queue to make sure they get run this round (or at all).
 			self::$executeContext['subqueue'][] = $update;
+
 			return;
 		}
 
@@ -180,17 +186,6 @@ class DeferredUpdates {
 		while ( $updates ) {
 			$queue = []; // clear the queue
 
-			/* UESP 1.29 patch
-			if ( $mode === 'enqueue' ) {
-				try {
-					// Push enqueuable updates to the job queue and get the rest
-					$updates = self::enqueueUpdates( $updates );
-				} catch ( Exception $e ) {
-					// Let other updates have a chance to run if this failed
-					MWExceptionHandler::rollbackMasterChangesAndLog( $e );
-				}
-			} //*/
-
 			// Order will be DataUpdate followed by generic DeferrableUpdate tasks
 			$updatesByType = [ 'data' => [], 'generic' => [] ];
 			foreach ( $updates as $du ) {
@@ -210,15 +205,8 @@ class DeferredUpdates {
 			// Execute all remaining tasks...
 			foreach ( $updatesByType as $updatesForType ) {
 				foreach ( $updatesForType as $update ) {
-					/* UESP
-					self::$executeContext = [
-						'update' => $update,
-						'stage' => $stage,
-						'subqueue' => []
-					]; */
-					/** @var DeferrableUpdate $update */
-					// $guiError = self::runUpdate( $update, $lbFactory, $stage ); //UESP
 					self::$executeContext = [ 'stage' => $stage, 'subqueue' => [] ];
+					/** @var DeferrableUpdate $update */
 					$guiError = self::runUpdate( $update, $lbFactory, $mode, $stage );
 					$reportableError = $reportableError ?: $guiError;
 					// Do the subqueue updates for $update until there are none
@@ -231,7 +219,6 @@ class DeferredUpdates {
 							$subUpdate->setTransactionTicket( $ticket );
 						}
 
-						//$guiError = self::runUpdate( $subUpdate, $lbFactory, $stage ); //UESP
 						$guiError = self::runUpdate( $subUpdate, $lbFactory, $mode, $stage );
 						$reportableError = $reportableError ?: $guiError;
 					}
@@ -254,14 +241,11 @@ class DeferredUpdates {
 	 * @param integer $stage
 	 * @return ErrorPageError|null
 	 */
-	private static function runUpdate( DeferrableUpdate $update, LBFactory $lbFactory, $mode, $stage ) {
+	private static function runUpdate(
+		DeferrableUpdate $update, LBFactory $lbFactory, $mode, $stage
+	) {
 		$guiError = null;
 		try {
-			/* UESP
-			$fnameTrxOwner = get_class( $update ) . '::doUpdate';
-			$lbFactory->beginMasterChanges( $fnameTrxOwner );
-			$update->doUpdate();
-			$lbFactory->commitMasterChanges( $fnameTrxOwner ); */
 			if ( $mode === 'enqueue' && $update instanceof EnqueueableDataUpdate ) {
 				// Run only the job enqueue logic to complete the update later
 				$spec = $update->getAsJobSpecification();
@@ -343,6 +327,21 @@ class DeferredUpdates {
 	 */
 	public static function pendingUpdatesCount() {
 		return count( self::$preSendUpdates ) + count( self::$postSendUpdates );
+	}
+
+	/**
+	 * @param integer $stage DeferredUpdates constant (PRESEND, POSTSEND, or ALL)
+	 * @since 1.29
+	 */
+	public static function getPendingUpdates( $stage = self::ALL ) {
+		$updates = [];
+		if ( $stage === self::ALL || $stage === self::PRESEND ) {
+			$updates = array_merge( $updates, self::$preSendUpdates );
+		}
+		if ( $stage === self::ALL || $stage === self::POSTSEND ) {
+			$updates = array_merge( $updates, self::$postSendUpdates );
+		}
+		return $updates;
 	}
 
 	/**

@@ -75,6 +75,7 @@ class UserTesting {
 	 * global configuration and the trigger from the main request context.
 	 *
 	 * @param callable|null $callback
+	 * @param string|null $trigger
 	 * @return self
 	 */
 	public static function getInstance( $callback = null, $trigger = null ) {
@@ -114,7 +115,7 @@ class UserTesting {
 						break;
 					}
 				}
-			} elseif ( $testConfig['sampleRate'] > 0 ) {
+			} elseif ( isset( $testConfig['sampleRate'] ) && $testConfig['sampleRate'] > 0 ) {
 				$bucketProbability = call_user_func( $callback, $testName, $testConfig['sampleRate'] );
 				if ( $bucketProbability > 0 ) {
 					$this->activateTest( $testName, $bucketProbability, $testConfig );

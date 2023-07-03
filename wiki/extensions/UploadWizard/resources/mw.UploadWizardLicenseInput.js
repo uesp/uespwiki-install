@@ -5,6 +5,8 @@
 
 	OO.inheritClass( LicensePreviewDialog, OO.ui.Dialog );
 
+	LicensePreviewDialog.static.name = 'licensePreviewDialog';
+
 	LicensePreviewDialog.prototype.initialize = function () {
 		var dialog = this;
 
@@ -13,7 +15,7 @@
 		this.content = new OO.ui.PanelLayout( { padded: true, expanded: false } );
 		this.$body.append( this.content.$element );
 		this.$spinner = $.createSpinner( { size: 'large', type: 'block' } )
-			.css( { width: 200, padding: 20, float: 'none', margin: '0 auto' } );
+			.css( { width: 200, padding: 20, 'float': 'none', margin: '0 auto' } );
 
 		$( 'body' ).on( 'click', function ( e ) {
 			if ( !$.contains( dialog.$body.get( 0 ), e.target ) ) {
@@ -248,7 +250,7 @@
 			var input = this,
 
 				attrs = {
-					id:  this.name + '_' + this.inputs.length, // unique id
+					id: this.name + '_' + this.inputs.length, // unique id
 					name: this.name, // name of input, shared among all checkboxes or radio buttons.
 					type: this.type, // kind of input
 					value: this.createInputValueFromTemplateConfig( templates, config )
@@ -304,7 +306,7 @@
 		 * @return {jQuery} Wrapped textarea
 		 */
 		createCustomWikiTextInterface: function ( $input, customDefault ) {
-			var keydownTimeout,
+			var
 				input = this,
 				nameId = $input.attr( 'id' ) + '_custom',
 				textarea, button;
@@ -317,18 +319,10 @@
 			} );
 			textarea.$input.attr( 'id', nameId );
 
-			textarea.$input
-				.focus( function () { input.setInput( $input, true ); } )
-				.keydown( function () {
-					window.clearTimeout( keydownTimeout );
-					keydownTimeout = window.setTimeout(
-						function () { input.emit( 'change' ); },
-						2000
-					);
-				} )
-				.css( {
-					'font-family': 'monospace'
-				} );
+			// Select this radio when the user clicks on the text field
+			textarea.$input.focus( function () { input.setInput( $input, true ); } );
+			// Update displayed errors as the user is typing
+			textarea.on( 'change', OO.ui.debounce( this.emit.bind( this, 'change' ), 500 ) );
 
 			button = new OO.ui.ButtonWidget( {
 				label: mw.message( 'mwe-upwiz-license-custom-preview' ).text(),
@@ -337,10 +331,9 @@
 				input.showPreview( textarea.getValue() );
 			} );
 
-			return $( '<div></div>' ).css( { width: '100%' } ).append(
-				$( '<div></div>' ).css( { float: 'right', width: '9em', 'padding-left': '1em' } ).append( button.$element ),
-				$( '<div></div>' ).css( { 'margin-right': '10em' } ).append( textarea.$element ),
-				$( '<div></div>' ).css( { clear: 'both' } )
+			return $( '<div>' ).addClass( 'mwe-upwiz-license-custom' ).append(
+				button.$element,
+				textarea.$element
 			);
 		},
 
@@ -374,8 +367,16 @@
 		setInputsIndividually: function ( values ) {
 			var input = this;
 			$.each( this.inputs, function ( i, $input ) {
-				var licenseName = $input.data( 'licenseName' );
-				input.setInput( $input, values[ licenseName ] );
+				var licenseName = $input.data( 'licenseName' ),
+					value = licenseName in values && values[ licenseName ] !== false;
+
+				input.setInput( $input, value );
+
+				// if value was a string, it doesn't just mean that we should
+				// select the checkbox, but also fill out the textarea it comes with
+				if ( value && typeof values[ licenseName ] === 'string' ) {
+					$input.data( 'textarea' ).val( values[ licenseName ] );
+				}
 			} );
 		},
 
@@ -470,6 +471,9 @@
 
 		/**
 		 * Get the value of a particular input
+		 *
+		 * @param {jQuery} $input
+		 * @return {string}
 		 */
 		getInputWikiText: function ( $input ) {
 			return $input.val() + '\n' + this.getInputTextAreaVal( $input );
@@ -478,6 +482,7 @@
 		/**
 		 * Get the value of the associated textarea, if any
 		 *
+		 * @param {jQuery} $input
 		 * @return {string}
 		 */
 		getInputTextAreaVal: function ( $input ) {
@@ -520,11 +525,11 @@
 				var templates = [],
 					template, title, i;
 
-				for ( i in result.parse.templates ) {
+				for ( i = 0; i < result.parse.templates.length; i++ ) {
 					template = result.parse.templates[ i ];
 
 					// normalize templates to mw.Title.getPrefixedDb() format
-					title = new mw.Title( template[ '*' ], template.ns );
+					title = new mw.Title( template.title, template.ns );
 					templates.push( title.getPrefixedDb() );
 				}
 
@@ -538,6 +543,8 @@
 
 		/**
 		 * See uw.DetailsWidget
+		 *
+		 * @return {jQuery.Promise}
 		 */
 		getErrors: function () {
 			var input = this,
@@ -598,6 +605,8 @@
 
 		/**
 		 * See uw.DetailsWidget
+		 *
+		 * @return {jQuery.Promise}
 		 */
 		getWarnings: function () {
 			return $.Deferred().resolve( [] ).promise();
@@ -622,7 +631,7 @@
 			}
 
 			function error( code, result ) {
-				var message = result.textStatus || result.error && result.error.info || undefined;
+				var message = result.errors[ 0 ].html;
 
 				uw.eventFlowLogger.logError( 'license', { code: code, message: message } );
 				show( $( '<div></div>' ).append(
@@ -632,8 +641,30 @@
 			}
 
 			this.api.parse( wikiText ).done( show ).fail( error );
+		},
+
+		/**
+		 * @return {Object}
+		 */
+		getSerialized: function () {
+			var i,
+				values = {},
+				$inputs = this.getSelectedInputs();
+
+			for ( i = 0; i < $inputs.length; i++ ) {
+				values[ $inputs[ i ].data( 'licenseName' ) ] = this.getInputTextAreaVal( $inputs[ i ] ) || true;
+			}
+
+			return values;
+		},
+
+		/**
+		 * @param {Object} serialized
+		 */
+		setSerialized: function ( serialized ) {
+			this.setValues( serialized );
 		}
 
 	} );
 
-} )( mediaWiki, mediaWiki.uploadWizard, jQuery, OO );
+}( mediaWiki, mediaWiki.uploadWizard, jQuery, OO ) );

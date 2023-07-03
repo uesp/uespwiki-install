@@ -86,7 +86,7 @@ class ElasticaErrorHandler {
 					'^too_complex_to_determinize_exception$',
 					'^elasticsearch_parse_exception$',
 					'^search_parse_exception$',
-					'^query_parsing_exception$',
+					'^query_shard_exception$',
 					'^illegal_argument_exception$',
 					'^too_many_clauses$'
 				],
@@ -152,11 +152,7 @@ class ElasticaErrorHandler {
 		// These can be top level errors, or exceptions that don't extend from
 		// ResponseException like PartialShardFailureException or errors
 		// contacting the cluster.
-		if (gettype($error) == "string") {	//UESP Added case
-			return [
-				Status::newFatal( 'cirrussearch-backend-error' ), $error ];
-		}
-		elseif ( !isset( $error['root_cause'][0]['type'] ) ) {
+		if ( !isset( $error['root_cause'][0]['type'] ) ) {
 			return [
 				Status::newFatal( 'cirrussearch-backend-error' ),
 				$error['type'] . ': ' . $error['reason']
@@ -169,13 +165,24 @@ class ElasticaErrorHandler {
 		// it happens.
 		$cause = reset( $error['root_cause'] );
 
-		if ( $cause['type'] === 'query_parsing_exception' ) {
+		if ( $cause['type'] === 'query_shard_exception' ) {
 			// The important part of the parse error message is embedded a few levels down
 			// and comes before the next new line so lets slurp it up and log it rather than
 			// the huge clump of error.
 			$shardFailure = reset( $error['failed_shards'] );
-			$message = $shardFailure['reason']['caused_by']['reason'];
+			if ( !empty( $shardFailure['reason'] ) ) {
+				if ( !empty( $shardFailure['reason']['caused_by'] ) ) {
+					$message = $shardFailure['reason']['caused_by']['reason'];
+				} else {
+					$message = $shardFailure['reason']['reason'];
+				}
+			} else {
+				$message = "???";
+			}
 			$end = strpos( $message, "\n", 0 );
+			if ( $end === false ) {
+				$end = strlen( $message );
+			}
 			$parseError = substr( $message, 0, $end );
 
 			return [

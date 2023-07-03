@@ -2,7 +2,6 @@
 
 namespace CirrusSearch;
 
-use IP;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use PoolCounterWorkViaCallback;
@@ -204,38 +203,6 @@ class Util {
 	}
 
 	/**
-	 * Tries to identify the best redirect by finding the link with the
-	 * smallest edit distance between the title and the user query.
-	 *
-	 * @param string $userQuery the user query
-	 * @param array $redirects the list of redirects
-	 * @return string the best redirect text
-	 */
-	public static function chooseBestRedirect( $userQuery, $redirects ) {
-		$userQuery = mb_strtolower( $userQuery );
-		$len = mb_strlen( $userQuery );
-		$bestDistance = INF;
-		$best = null;
-
-		foreach( $redirects as $redir ) {
-			$text = $redir['title'];
-			if ( mb_strlen( $text ) > $len ) {
-				$text = mb_substr( $text, 0, $len );
-			}
-			$text = mb_strtolower( $text );
-			$distance = levenshtein( $text, $userQuery );
-			if ( $distance == 0 ) {
-				return $redir['title'];
-			}
-			if ( $distance < $bestDistance ) {
-				$bestDistance = $distance;
-				$best = $redir['title'];
-			}
-		}
-		return $best;
-	}
-
-	/**
 	 * Test if $string ends with $suffix
 	 *
 	 * @param string $string string to test
@@ -394,7 +361,7 @@ class Util {
 				$term = preg_replace( '/(?<!\\\\)(\?)+(\PL|$)/', '$2', $term );
 				$term = preg_replace( '/\\\\\?/', '?', $term );
 			} elseif ( $strippingLevel === 'all' ) {
-				//strip all unescapred question marks
+				//strip all unescaped question marks
 				$term = preg_replace( '/(?<!\\\\)(\?)+/', ' ', $term );
 				$term = preg_replace( '/\\\\\?/', '?', $term );
 			}

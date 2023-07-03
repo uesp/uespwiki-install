@@ -30,7 +30,9 @@ use LinkBatch;
  */
 class SuggestBuilder {
 	/**
-	 * We limit the input to 50 chars
+	 * We limit the input to 50 chars the search requests
+	 * It'll be used when searching to trim the input query
+	 * and when determining close redirects
 	 */
 	const MAX_INPUT_LENGTH = 50;
 
@@ -64,9 +66,6 @@ class SuggestBuilder {
 	 * promoted as a title suggestion.
 	 * This is useful not to promote Eraq as a title suggestion for Iraq
 	 * Less than 3 can lead to weird results like oba => Osama Bin Laden
-	 * @todo: to avoid displaying typos (if the typo is in the 3 chars)
-	 * we could re-work Utils::chooseBestRedirect and display the title
-	 * if the chosen redirect is close enough to the title.
 	 */
 	const REDIRECT_COMMON_PREFIX_LEN = 3;
 
@@ -79,11 +78,6 @@ class SuggestBuilder {
 	 * @var integer batch id
 	 */
 	private $batchId;
-
-	/**
-	 * @var boolean set to true to add an extra title suggestion with defaultsort
-	 */
-	private $withDefaultSort;
 
 	/**
 	 * @var ExtraSuggestionsBuilder[]
@@ -119,6 +113,9 @@ class SuggestBuilder {
 		foreach ( $inputDocs as $sourceDoc ) {
 			$inputDoc = $sourceDoc['source'];
 			$docId = $sourceDoc['id'];
+			// a bit of a hack but it's convenient to carry
+			// the id around
+			$inputDoc['id'] = $docId;
 			if ( !isset( $inputDoc['namespace'] ) ) {
 				// Bad doc, nothing to do here.
 				continue;
@@ -147,9 +144,11 @@ class SuggestBuilder {
 					$score = (int) ($score * self::CROSSNS_DISCOUNT);
 
 					$title = Title::makeTitle( $redir['namespace'], $redir['title'] );
-					$crossNsTitles[$redir['title']] = [
+					$crossNsTitles[] = [
 						'title' => $title,
 						'score' => $score,
+						'text' => $redir['title'],
+						'inputDoc' => $inputDoc,
 					];
 				}
 			}
@@ -158,7 +157,7 @@ class SuggestBuilder {
 		// Build cross ns suggestions
 		if ( !empty ( $crossNsTitles ) ) {
 			$titles = [];
-			foreach( $crossNsTitles as $text => $data ) {
+			foreach( $crossNsTitles as $data ) {
 				$titles[] = $data['title'];
 			}
 			$lb = new LinkBatch( $titles );
@@ -169,12 +168,12 @@ class SuggestBuilder {
 			//   is the official one
 			// - we will certainly suggest multiple times the same pages
 			// - we must not run a second pass at query time: no redirect suggestion
-			foreach ( $crossNsTitles as $text => $data ) {
+			foreach ( $crossNsTitles as $data ) {
 				$suggestion = [
-					'text' => $text,
+					'text' => $data['text'],
 					'variants' => []
 				];
-				$docs[] = $this->buildTitleSuggestion( $data['title']->getArticleID(), $suggestion, $data['score'], $inputDoc );
+				$docs[] = $this->buildTitleSuggestion( $data['title']->getArticleID(), $suggestion, $data['score'], $data['inputDoc'] );
 			}
 		}
 		return $docs;
@@ -196,9 +195,6 @@ class SuggestBuilder {
 		$score = $this->scoringMethod->score( $inputDoc );
 
 		$suggestions = $this->extractTitleAndSimilarRedirects( $inputDoc );
-		if ( $this->withDefaultSort && !empty( $inputDoc['defaultsort'] ) ) {
-			$suggestions['group']['variants'][] = $inputDoc['defaultsort'];
-		}
 
 		$docs[] = $this->buildTitleSuggestion( $docId, $suggestions['group'], $score, $inputDoc );
 		if ( !empty( $suggestions['candidates'] ) ) {
@@ -224,8 +220,6 @@ class SuggestBuilder {
 
 	/**
 	 * Builds the 'title' suggestion.
-	 * The output is encoded as pageId:t:Title.
-	 * NOTE: the client will be able to display Title encoded in the output when searching.
 	 *
 	 * @param string $docId the page id
 	 * @param array $title the title in 'text' and an array of similar redirects in 'variants'
@@ -234,15 +228,13 @@ class SuggestBuilder {
 	 * @return \Elastica\Document the suggestion document
 	 */
 	private function buildTitleSuggestion( $docId, array $title, $score, array $inputDoc ) {
-		$inputs = [ $this->prepareInput( $title['text'] ) ];
+		$inputs = [ $title['text'] ];
 		foreach ( $title['variants'] as $variant ) {
-			$inputs[] = $this->prepareInput( $variant );
+			$inputs[] = $variant;
 		}
-		$output = self::encodeTitleOutput( $docId, $title['text'] );
 		return $this->buildSuggestion(
 			self::TITLE_SUGGESTION,
 			$docId,
-			$output,
 			$inputs,
 			$score,
 			$inputDoc
@@ -251,7 +243,6 @@ class SuggestBuilder {
 
 	/**
 	 * Builds the 'redirects' suggestion.
-	 * The output is encoded as pageId:r
 	 * The score will be discounted by the REDIRECT_DISCOUNT factor.
 	 * NOTE: the client will have to fetch the doc redirects when searching
 	 * and choose the best one to display. This is because we are unable
@@ -266,12 +257,11 @@ class SuggestBuilder {
 	private function buildRedirectsSuggestion( $docId, array $redirects, $score, array $inputDoc ) {
 		$inputs = [];
 		foreach ( $redirects as $redirect ) {
-			$inputs[] = $this->prepareInput( $redirect );
+			$inputs[] = $redirect;
 		}
-		$output = self::encodeRedirectOutput( $docId );
 		$score = (int) ( $score * self::REDIRECT_DISCOUNT );
-		return $this->buildSuggestion( self::REDIRECT_SUGGESTION, $docId, $output,
-			$inputs, $score, $inputDoc );
+		return $this->buildSuggestion( self::REDIRECT_SUGGESTION, $docId, $inputs,
+			$score, $inputDoc );
 	}
 
 	/**
@@ -279,28 +269,32 @@ class SuggestBuilder {
 	 *
 	 * @param string $suggestionType suggestion type (title or redirect)
 	 * @param string $docId The document id
-	 * @param string $output the suggestion output
+	 * @param string[] $titles the suggestion titles
+	 * @param string $type suggestion type
 	 * @param string[] $inputs the suggestion inputs
 	 * @param int $score the weight of the suggestion
 	 * @param mixed[] $inputDoc
 	 * @return \Elastica\Document a doc ready to be indexed in the completion suggester
 	 */
-	private function buildSuggestion( $suggestionType, $docId, $output, array $inputs, $score, array $inputDoc ) {
+	private function buildSuggestion( $suggestionType, $docId, array $inputs, $score, array $inputDoc ) {
 		$doc = [
 			'batch_id' => $this->batchId,
+			'source_doc_id' => $inputDoc['id'],
+			'target_title' => [
+				'title' => $inputDoc['title'],
+				'namespace' => $inputDoc['namespace'],
+			],
 			'suggest' => [
 				'input' => $inputs,
-				'output' => $output,
 				'weight' => $score
 			],
 			'suggest-stop' => [
 				'input' => $inputs,
-				'output' => $output,
 				'weight' => $score
 			]
 		];
 
-		$suggestDoc = new \Elastica\Document( $this->encodeDocId( $suggestionType, $docId ), $doc );
+		$suggestDoc = new \Elastica\Document( self::encodeDocId( $suggestionType, $docId ), $doc );
 		foreach( $this->extraBuilders as $builder ) {
 			$builder->build( $inputDoc, $suggestionType, $score, $suggestDoc, $this->targetNamespace );
 		}
@@ -313,9 +307,9 @@ class SuggestBuilder {
 	 *  resolve to the document.
 	 */
 	public function buildInputs( array $input ) {
-		$inputs = [ $this->prepareInput( $input['text'] ) ];
+		$inputs = [ $input['text'] ];
 		foreach ( $input['variants'] as $variant ) {
-			$inputs[] = $this->prepareInput( $variant );
+			$inputs[] = $variant;
 		}
 		return $inputs;
 	}
@@ -325,7 +319,7 @@ class SuggestBuilder {
 	 * @return string A page title short enough to not cause indexing
 	 *  issues.
 	 */
-	public function prepareInput( $input ) {
+	public function trimForDistanceCheck( $input ) {
 		if ( mb_strlen( $input ) > self::MAX_INPUT_LENGTH ) {
 			$input = mb_substr( $input, 0, self::MAX_INPUT_LENGTH );
 		}
@@ -417,8 +411,8 @@ class SuggestBuilder {
 	 * @return integer the edit distance between a and b
 	 */
 	private function distance( $a, $b ) {
-		$a = $this->prepareInput( $a );
-		$b = $this->prepareInput( $b );
+		$a = $this->trimForDistanceCheck( $a );
+		$b = $this->trimForDistanceCheck( $b );
 		$a = mb_strtolower( $a );
 		$b = mb_strtolower( $b );
 
@@ -448,70 +442,23 @@ class SuggestBuilder {
 	 * Encode the suggestion doc id
 	 * @param string $docId
 	 * @param string $suggestionType
+	 * @return string
 	 */
-	private function encodeDocId( $docId, $suggestionType ) {
-		return $suggestionType . $docId;
+	public static function encodeDocId( $suggestionType, $docId ) {
+		return $docId . $suggestionType;
 	}
 
 	/**
-	 * Encode a title suggestion output
+	 * Encode possible docIds used by the completion suggester index
 	 *
-	 * @param string $docId elasticsearch document id
-	 * @param string $title
-	 * @return string the encoded output
+	 * @param string $docId
+	 * @return string[] list of docIds
 	 */
-	public static function encodeTitleOutput( $docId, $title ) {
-		return $docId . ':'. self::TITLE_SUGGESTION . ':' . $title;
-	}
-
-	/**
-	 * Encode a redirect suggestion output
-	 *
-	 * @param string $docId elasticsearch document id
-	 * @return string the encoded output
-	 */
-	public static function encodeRedirectOutput( $docId ) {
-		return $docId . ':' . self::REDIRECT_SUGGESTION;
-	}
-
-	/**
-	 * Decode a suggestion output.
-	 * The result is an array with the following keys:
-	 * id: the pageId
-	 * type: either REDIRECT_SUGGESTION or TITLE_SUGGESTION
-	 * text (optional): if TITLE_SUGGESTION the Title text
-	 *
-	 * @param string $output text value returned by a suggest query
-	 * @return string[]|null array of strings, or null if the output is not properly encoded
-	 */
-	public static function decodeOutput( $output ) {
-		if ( $output == null ) {
-			return null;
-		}
-		$parts = explode( ':', $output, 3 );
-		if ( sizeof ( $parts ) < 2 ) {
-			// Ignore broken output
-			return null;
-		}
-
-
-		switch( $parts[1] ) {
-		case self::REDIRECT_SUGGESTION:
-			return [
-				'docId' => $parts[0],
-				'type' => self::REDIRECT_SUGGESTION,
-			];
-		case self::TITLE_SUGGESTION:
-			if ( sizeof( $parts ) < 3 ) {
-				return null;
-			}
-			return [
-				'docId' => $parts[0],
-				'type' => self::TITLE_SUGGESTION,
-				'text' => $parts[2]
-			];
-		}
-		return null;
+	public static function encodePossibleDocIds( $docId ) {
+		return [
+			self::encodeDocId( self::TITLE_SUGGESTION, $docId ),
+			self::encodeDocId( self::REDIRECT_SUGGESTION, $docId ),
+		];
 	}
 
 	/**
@@ -519,5 +466,12 @@ class SuggestBuilder {
 	 */
 	public function getBatchId() {
 		return $this->batchId;
+	}
+
+	/**
+	 * @return int the target namespace
+	 */
+	public function getTargetNamespace() {
+		return $this->targetNamespace;
 	}
 }

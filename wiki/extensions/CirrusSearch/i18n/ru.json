@@ -6,7 +6,11 @@
 			"Sunpriat",
 			"Jackie",
 			"Putnik",
-			"Туллук"
+			"Туллук",
+			"Gamliel Fishkin",
+			"Kareyac",
+			"Alex Great",
+			"Ole Yves"
 		]
 	},
 	"cirrussearch-desc": "Поиск для MediaWiki на базе Elasticsearch",
@@ -27,6 +31,7 @@
 	"apihelp-cirrus-mapping-dump-example": "Получить дамп маппинга CirrusSearch для этой вики.",
 	"apihelp-cirrus-settings-dump-description": "Дамп настроек CirrusSearch для этой вики.",
 	"apihelp-cirrus-settings-dump-example": "Получить дамп настроек CirrusSearch для этой вики.",
+	"apierror-cirrus-requesttoolong": "Поисковый запрос превышает максимально допустимую длину. ($1 > $2)",
 	"cirrussearch-give-feedback": "Оставьте отзыв",
 	"cirrussearch-query-too-long": "Поисковый запрос превышает максимально допустимую длину. ($1 > $2)",
 	"cirrussearch-completionsuggester-pref": "Предложение окончаний",
@@ -37,6 +42,19 @@
 	"cirrussearch-completion-profile-normal-subphrases": "\nНесколько знаков препинания, а также диакритические и игнорируемые слова удалены . Также этому могут быть подвергнуты субфразы ( это могут быть субфразы или подстраницы в зависимости от внутренней конфигурации вики ) .",
 	"cirrussearch-completion-profile-fuzzy": "Подобный обычному с исправлением опечаток (поддерживается до двух опечаток).",
 	"cirrussearch-completion-profile-fuzzy-subphrases": "Соответствует нормальному исправлению опечатки (возможно две опечатки). Этому могут быть подвержены также субфразы  (субфразы или подстраницы в зависимости от внутренней конфигурации wiki)",
-	"cirrussearch-pref-completion-profile-help": "Задает поведение для автоматического заполнения предложения (Поиск при вводе).",
-	"prefs-completion": "Завершение поиска"
+	"cirrussearch-pref-completion-profile-help": "Задаёт поведение для автоматического заполнения предложения (Поиск при вводе).",
+	"prefs-completion": "Завершение поиска",
+	"cirrussearch-pref-completion-section-desc": "Подсказчик автозаполнения",
+	"cirrussearch-pref-completion-section-legend": "[https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:CirrusSearch/CompletionSuggester «Подсказчик автозаполнения»] — это алгоритм для поиска названий с наиболее близкими по написанию и релевантными по запросу.",
+	"cirrussearch-completion-profile-fuzzy-pref-name": "По умолчанию (рекомендуется)",
+	"cirrussearch-completion-profile-fuzzy-pref-desc": "Исправляет до двух опечаток. Подставляет подходящие перенаправления.",
+	"cirrussearch-completion-profile-strict-pref-name": "Точный режим (расширенный)",
+	"cirrussearch-completion-profile-strict-pref-desc": "Не исправляет опечатки. Игнорирует перенаправления. Строгое соответствие.",
+	"cirrussearch-completion-profile-normal-pref-name": "Режим перенаправлений (расширенный)",
+	"cirrussearch-completion-profile-normal-pref-desc": "Не исправляет опечатки. Подставляет подходящие перенаправления.",
+	"cirrussearch-pref-completion-legacy-section-desc": "Поиск по префиксу",
+	"cirrussearch-pref-completion-legacy-section-legend": "Устаревший алгоритм поиска по мере ввода.",
+	"cirrussearch-completion-profile-classic-pref-name": "Классический поиск по префиксу",
+	"cirrussearch-completion-profile-classic-pref-desc": "Не исправляет опечатки. Подсказывает названия от начала по мере ввода.",
+	"cirrussearch-regex-timed-out": "Поиск по регулярному выражению завершил работу раньше своего полного выполнения. Попробуйте упростить регулярное выражение для получения всех результатов."
 }

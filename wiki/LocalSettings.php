@@ -36,5 +36,8 @@ require './config/Mobile.php';
 # Optional includes (enable for testing as needed on select wikis). Be careful
 # if/when enabling on the main live sites due to performance issues and the
 # size of data collected.
-# require './config/Profiler.php';
+
+if ($_SERVER['REMOTE_ADDR'] == '72.39.65.128') {
+	require './config/Profiler.php';
+}
 require './config/Debug.php';

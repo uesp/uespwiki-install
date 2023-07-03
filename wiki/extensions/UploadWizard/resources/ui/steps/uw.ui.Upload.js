@@ -64,7 +64,8 @@
 				label: mw.message( 'mwe-upwiz-add-file-flickr' ).text(),
 				flags: 'constructive'
 			} ).on( 'click', function () {
-				upload.emit( 'flickr-ui-init' );
+				upload.flickrInterfaceInit();
+				uw.eventFlowLogger.logEvent( 'flickr-upload-button-clicked' );
 			} );
 
 			this.$flickrAddFileContainer.append(
@@ -90,7 +91,47 @@
 					this.$flickrSelectList
 				);
 
-			this.$flickrSelect = $( '#mwe-upwiz-select-flickr' );
+			// Button to move on & upload the files that were selected
+			this.flickrSelectButton = new OO.ui.ButtonWidget( {
+				id: 'mwe-upwiz-select-flickr',
+				label: mw.message( 'mwe-upwiz-add-file-0-free' ).text(),
+				flags: [ 'constructive', 'primary' ]
+			} );
+			this.$flickrSelectListContainer.append( this.flickrSelectButton.$element );
+
+			// A container holding a form
+			this.$flickrContainer = $( '<div id="mwe-upwiz-upload-add-flickr-container"></div>' );
+
+			// Form whose submit event will be listened to and prevented
+			this.$flickrForm = $( '<form id="mwe-upwiz-flickr-url-form"></form>' )
+				.appendTo( this.$flickrContainer )
+				.on( 'submit', function () {
+					var checker = new mw.FlickrChecker( upload, upload.flickrSelectButton );
+					upload.flickrButton.setDisabled( true );
+					upload.flickrChecker( checker );
+					// TODO Any particular reason to stopPropagation ?
+					return false;
+				} );
+
+			// The input that will hold a flickr URL entered by the user; will be appended to a form
+			this.$flickrInput = $( '<input id="mwe-upwiz-flickr-input" type="text" />' )
+				.prependTo( this.$flickrForm );
+
+			this.flickrButton = new OO.ui.ButtonInputWidget( {
+				id: 'mwe-upwiz-upload-ctrl-flickr',
+				label: mw.message( 'mwe-upwiz-add-flickr' ).text(),
+				flags: [ 'progressive', 'primary' ],
+				type: 'submit'
+			} );
+			this.$flickrForm.append( this.flickrButton.$element );
+
+			// Add disclaimer
+			$( '<div id="mwe-upwiz-flickr-disclaimer"></div>' )
+				.html(
+					mw.message( 'mwe-upwiz-flickr-disclaimer1' ).parse() +
+					'<br/>' + mw.message( 'mwe-upwiz-flickr-disclaimer2' ).parse()
+				)
+				.appendTo( this.$flickrContainer );
 		}
 
 		this.nextStepButtonAllOk = new OO.ui.ButtonWidget( {
@@ -131,6 +172,7 @@
 			.attr( 'id', 'mwe-upwiz-progress' )
 			.addClass( 'ui-helper-clearfix' );
 
+		this.addPreviousButton();
 		this.addNextButton();
 	};
 
@@ -145,6 +187,16 @@
 	uw.ui.Upload.prototype.setupFileInputCtrl = function ( $element ) {
 		var $fileInputCtrl = $( '<input type="file" multiple name="file" class="mwe-upwiz-file-input" />' ),
 			ui = this;
+
+		// Check for iOS 5 Safari's lack of file uploads (T34328#364508).
+		// While this looks extremely unlikely to be right, it actually is. Blame Apple.
+		if ( $fileInputCtrl.prop( 'disabled' ) ) {
+			$element.replaceWith(
+				$( '<span>' ).msg( 'mwe-upwiz-file-upload-notcapable' )
+			);
+
+			return;
+		}
 
 		$element.find( '.mwe-upwiz-file-input' ).remove();
 		$element.append( $fileInputCtrl );
@@ -194,7 +246,7 @@
 			this.$fileListings.filter( ':odd' ).addClass( 'odd' );
 			this.$fileListings.filter( ':even' ).removeClass( 'odd' );
 		} else {
-			this.$buttons.hide();
+			this.hideEndButtons();
 
 			if ( this.isFlickrImportEnabled() ) {
 				this.$uploadCenterDivide.show();
@@ -212,6 +264,8 @@
 
 	/**
 	 * Changes the initial centered invitation button to something like "add another file"
+	 *
+	 * @param {boolean} more
 	 */
 	uw.ui.Upload.prototype.setAddButtonText = function ( more ) {
 		var msg = 'mwe-upwiz-add-file-',
@@ -235,49 +289,12 @@
 		}
 	};
 
-	/**
-	 * Empties the upload list.
-	 */
-	uw.ui.Upload.prototype.empty = function () {
-		this.$addFileContainer
-			.add( this.$buttons )
-			.add( this.$progress )
-			.hide();
+	uw.ui.Upload.prototype.load = function ( uploads ) {
+		uw.ui.Step.prototype.load.call( this, uploads );
 
-		this.$addFileContainer
-			.add( this.$uploadCenterDivide )
-			.add( this.$uploadCtrl )
-			.show();
-
-		if ( this.isFlickrImportEnabled() ) {
-			this.$flickrAddFileContainer
-				.add( this.$uploadCenterDivide )
-				.show();
-
-			// changes the button back from "add more files from flickr" to the initial text
-			this.addFlickrFile.setLabel( mw.message( 'mwe-upwiz-add-file-flickr' ).text() );
-
-			this.emptyFlickrLists();
+		if ( uploads.length === 0 ) {
+			this.$fileList.removeClass( 'mwe-upwiz-filled-filelist' );
 		}
-
-		// changes the button back from "add another file" to the initial centered invitation button
-		this.addFile.setLabel( mw.message( 'mwe-upwiz-add-file-0-free' ).text() );
-	};
-
-	/**
-	 * Empties the Flickr selection lists.
-	 */
-	uw.ui.Upload.prototype.emptyFlickrLists = function () {
-		// empty the flickr lists
-		this.$flickrSelectList.empty();
-		this.$flickrSelectListContainer.unbind();
-		this.$flickrSelect.unbind();
-	};
-
-	uw.ui.Upload.prototype.moveTo = function () {
-		uw.ui.Step.prototype.moveTo.call( this );
-
-		this.$fileList.removeClass( 'mwe-upwiz-filled-filelist' );
 
 		this.$div.prepend(
 			$( '<div>' )
@@ -295,6 +312,40 @@
 		// Show the upload button, and the add file button
 		$( '#mwe-upwiz-upload-ctrls' ).show();
 		$( '#mwe-upwiz-add-file' ).show();
+	};
+
+	uw.ui.Upload.prototype.displayUploads = function ( uploads ) {
+		var
+			thumbPromise,
+			uploadInterfaceDivs = [];
+
+		$.each( uploads, function ( i, upload ) {
+			// We'll attach all interfaces to the DOM at once rather than one-by-one, for better
+			// performance
+			uploadInterfaceDivs.push( upload.ui.div );
+		} );
+
+		// Attach all interfaces to the DOM
+		this.$fileList.append( $( uploadInterfaceDivs ) );
+
+		// Display thumbnails, but not all at once because they're somewhat expensive to generate.
+		// This will wait for each thumbnail to be complete before starting the next one.
+		thumbPromise = $.Deferred().resolve();
+		$.each( uploads, function ( i, upload ) {
+			thumbPromise = thumbPromise.then( function () {
+				var deferred = $.Deferred();
+				setTimeout( function () {
+					if ( this.movedFrom ) {
+						// We're no longer displaying any of these thumbnails, stop
+						deferred.reject();
+					}
+					upload.ui.showThumbnail().done( function () {
+						deferred.resolve();
+					} );
+				} );
+				return deferred.promise();
+			} );
+		} );
 	};
 
 	uw.ui.Upload.prototype.addNextButton = function () {
@@ -366,7 +417,7 @@
 	 *
 	 * @param {number} filesUploaded The number of files that have been attempted to upload
 	 */
-	uw.ui.Upload.prototype.showTooManyFilesWarning = function ( filesUploaded ) {
+	uw.ui.Upload.prototype.showTooManyFilesError = function ( filesUploaded ) {
 		mw.errorDialog(
 			mw.message(
 				'mwe-upwiz-too-many-files-text',
@@ -378,12 +429,156 @@
 	};
 
 	/**
+	 * Shows an error dialog informing the user that an upload omitted because
+	 * it is too large.
+	 *
+	 * @param {number} maxSize The max upload file size
+	 * @param {number} size The actual upload file size
+	 */
+	uw.ui.Upload.prototype.showFileTooLargeError = function ( maxSize, size ) {
+		mw.errorDialog(
+			mw.message(
+				'mwe-upwiz-file-too-large-text',
+				uw.units.bytes( maxSize ),
+				uw.units.bytes( size )
+			).text(),
+			mw.message( 'mwe-upwiz-file-too-large' ).text()
+		);
+	};
+
+	/**
+	 * @param {string} filename
+	 * @param {string} extension
+	 */
+	uw.ui.Upload.prototype.showBadExtensionError = function ( filename, extension ) {
+		var $errorMessage;
+		// Check if firefogg should be recommended to be installed ( user selects an extension that can be converted)
+		if ( mw.UploadWizard.config.enableFirefogg &&
+			$.inArray( extension.toLowerCase(), mw.UploadWizard.config.transcodeExtensionList ) !== -1
+		) {
+			$errorMessage = $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-extension-video-firefogg',
+				mw.Firefogg.getFirefoggInstallUrl(),
+				'https://commons.wikimedia.org/wiki/Help:Converting_video'
+			);
+		} else {
+			$errorMessage = $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-filename-extension', extension );
+		}
+		this.showFilenameError( $errorMessage );
+	};
+
+	uw.ui.Upload.prototype.showMissingExtensionError = function () {
+		var $errorMessage = $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-filename-no-extension' );
+		this.showFilenameError(
+			$( '<div></div>' ).append(
+				$errorMessage,
+				$( '<p>' ).msg( 'mwe-upwiz-allowed-filename-extensions' ),
+				$( '<blockquote>' ).append( $( '<tt>' ).append(
+					mw.UploadWizard.config.fileExtensions.join( ' ' )
+				) )
+			)
+		);
+	};
+
+	/**
+	 * @param {string} filename
+	 * @param {string} basename
+	 */
+	uw.ui.Upload.prototype.showDuplicateError = function ( filename, basename ) {
+		this.showFilenameError( $( '<p>' ).msg( 'mwe-upwiz-upload-error-duplicate-filename-error', basename ) );
+	};
+
+	/**
+	 * @param {string} filename
+	 */
+	uw.ui.Upload.prototype.showUnparseableFilenameError = function ( filename ) {
+		this.showFilenameError( mw.message( 'mwe-upwiz-unparseable-filename', filename ).escaped() );
+	};
+
+	/**
+	 * Shows an error dialog informing the user that an upload has been omitted
+	 * over its filename.
+	 *
+	 * @param {jQuery} $text The error message
+	 */
+	uw.ui.Upload.prototype.showFilenameError = function ( $text ) {
+		var msgText;
+
+		if ( $text instanceof jQuery ) {
+			msgText = $text.text();
+		} else {
+			msgText = $text;
+		}
+
+		uw.eventFlowLogger.logError( 'file', { code: 'filename', message: msgText } );
+		mw.errorDialog( $text );
+	};
+
+	/**
 	 * Checks whether flickr import is enabled and the current user has the rights to use it
 	 *
 	 * @return {boolean}
 	 */
 	uw.ui.Upload.prototype.isFlickrImportEnabled = function () {
 		return this.config.UploadFromUrl && this.config.flickrApiKey !== '';
+	};
+
+	/**
+	 * Initiates the Interface to upload media from Flickr.
+	 * Called when the user clicks on the 'Add images from Flickr' button.
+	 */
+	uw.ui.Upload.prototype.flickrInterfaceInit = function () {
+		// Hide containers for selecting files, and show the flickr interface instead
+		this.$addFileContainer.hide();
+		this.$flickrAddFileContainer.hide();
+		this.$flickrContainer.show();
+		this.flickrSelectButton.$element.show();
+		this.flickrButton.setDisabled( false );
+
+		// Add placeholder text to the Flickr URL input field
+		this.$flickrInput.placeholder( mw.message( 'mwe-upwiz-flickr-input-placeholder' ).text() );
+
+		// Insert form into the page
+		this.$div.find( '#mwe-upwiz-files' ).prepend( this.$flickrContainer );
+
+		this.$flickrInput.focus();
+	};
+
+	/**
+	 * Responsible for fetching license of the provided media.
+	 *
+	 * @param {mw.FlickrChecker} checker
+	 */
+	uw.ui.Upload.prototype.flickrChecker = function ( checker ) {
+		var flickrInputUrl = this.$flickrInput.val();
+
+		checker.getLicenses().done( function () {
+			checker.checkFlickr( flickrInputUrl );
+		} );
+	};
+
+	/**
+	 * Reset the interface if there is a problem while fetching the images from
+	 * the URL entered by the user.
+	 */
+	uw.ui.Upload.prototype.flickrInterfaceReset = function () {
+		// first destroy it completely, then reshow the add button
+		this.flickrInterfaceDestroy();
+		this.flickrButton.setDisabled( false );
+		this.$flickrContainer.show();
+		this.flickrSelectButton.$element.show();
+	};
+
+	/**
+	 * Removes the flickr interface.
+	 */
+	uw.ui.Upload.prototype.flickrInterfaceDestroy = function () {
+		this.$flickrInput.val( '' );
+		this.$flickrSelectList.empty();
+		this.$flickrSelectListContainer.unbind();
+		this.$flickrSelectListContainer.hide();
+		this.$flickrContainer.hide();
+		this.flickrButton.setDisabled( true );
+		this.flickrSelectButton.$element.hide();
 	};
 
 }( mediaWiki, jQuery, mediaWiki.uploadWizard, OO ) );

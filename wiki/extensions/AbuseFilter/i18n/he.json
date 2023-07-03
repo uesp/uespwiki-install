@@ -13,7 +13,8 @@
 			"דולב",
 			"ערן",
 			"Inkbug",
-			"Matma Rex"
+			"Matma Rex",
+			"Esh77"
 		]
 	},
 	"abusefilter-desc": "החלת בדיקות אוטומטיות על עריכות",
@@ -21,7 +22,7 @@
 	"abuselog": "יומן השחתות",
 	"abusefilter-intro": "ברוך בואך לממשק הניהול של מסנן ההשחתות.\nמסנן ההשחתות הוא אמצעי אוטומטי להפעלת בדיקות אוטומטיות על כל הפעולות.\nממשק זה מציג רשימה של מסננים שהוגדרו, ומאפשר לשנות אותם.",
 	"abusefilter-mustbeeditor": "מסיבות אבטחה, רק משתמשים עם ההרשאה לשנות מסנני השחתות יכולים להשתמש בממשק זה.",
-	"abusefilter-warning": "'''אזהרה:''' פעולה זו זוהתה באופן אוטומטי כמזיקה.\nעריכות שאינן מועילות ישוחזרו במהרה,\nועריכות גסות או חזרה על עריכות לא מועילות תגרומנה לחסימה של החשבון או של כתובת ה־IP שלך.\nאם לדעתך הפעולה הזאת מועילה, ניתן לאשר אותה באמצעות שליחה חוזרת.\nתיאור קצר של החוק שפעולתך הפרה: $1",
+	"abusefilter-warning": "'''אזהרה:''' פעולה זו זוהתה באופן אוטומטי כמזיקה.\nפעולות שאינן מועילות תשוחזרנה במהרה,\nועריכות גסות או חזרה על עריכות לא מועילות תגרומנה לחסימה של החשבון או של כתובת ה־IP שלך.\nאם לדעתך הפעולה הזאת מועילה, ניתן לאשר אותה באמצעות שליחה חוזרת.\nתיאור קצר של החוק שפעולתך הפרה: $1",
 	"abusefilter-disallowed": "פעולה זו זוהתה באופן אוטומטי כמזיקה, ולכן לא אופשרה.\nאם לדעתך הפעולה שלך הייתה מועילה, באפשרותך ליצור קשר עם מפעיל מערכת ולהודיע לו מה ניסית לעשות.\nתיאור קצר של החוק שפעולתך הפרה: $1",
 	"abusefilter-blocked-display": "פעולה זו זוהתה באופן אוטומטי כמזיקה,\nולכן אין באפשרותך לבצע אותה.\nבנוסף, כדי להגן על {{SITENAME}}, חשבון המשתמש שלך וכל כתובות ה־IP המשויכות אליו נחסמו מעריכה.\nאם זה אירע בטעות, נא ליצור קשר עם מפעיל מערכת.\nתיאור קצר של החוק שפעולתך הפרה: $1",
 	"abusefilter-degrouped": "פעולה זו זוהתה באופן אוטומטי כמזיקה.\nכתוצאה מכך, היא לא אופשרה, ומאחר שיש חשד שחשבונך נפרץ, כל ההרשאות שלך נשללו.\nאם לדעתך מדובר בשגיאה, נא ליצור קשר עם ביורוקרט עם הסבר של הפעולה הזאת, וייתכן שההרשאות שלך תשוחזרנה.\nתיאור קצר של החוק שפעולתך הפרה: $1",
@@ -50,6 +51,7 @@
 	"action-abusefilter-modify-restricted": "לשנות מסנני השחתות עם פעולות מוגבלות",
 	"action-abusefilter-revert": "לשחזר את כל השינויים שבוצעו על־ידי מסנן השחתות מסוים",
 	"action-abusefilter-view-private": "לצפות במסנני השחתות שסומנו כפרטיים",
+	"action-abusefilter-log-private": "לצפות ביומנים של מסנני השחתות שסומנו כפרטיים",
 	"abusefilter-log": "יומן מסנן ההשחתות",
 	"abusefilter-log-summary": "יומן זה מציג רשימה של כל הפעולות שנתפסו על־ידי המסננים.",
 	"abusefilter-log-search": "חיפוש ביומן ההשחתות",
@@ -75,10 +77,11 @@
 	"abusefilter-log-noactions": "אין",
 	"abusefilter-log-details-diff": "שינויים שבוצעו בעריכה",
 	"abusefilter-log-linkoncontribs": "יומן מסנן ההשחתות",
-	"abusefilter-log-linkoncontribs-text": "יומן ההשחתות עבור משתמש זה",
+	"abusefilter-log-linkoncontribs-text": "יומן ההשחתות עבור {{GENDER:$1|משתמש זה|משתמשת זו}}",
 	"abusefilter-log-hidden": "(רשומה מוסתרת)",
 	"abusefilter-log-hidden-implicit": "(הוסתר כי הגרסה נמחקה)",
 	"abusefilter-log-cannot-see-details": "אין לך הרשאה לראות את פרטי הרשומה הזו.",
+	"abusefilter-log-nonexistent": "רשומה עם המזהה שניתן אינה קיימת",
 	"abusefilter-log-details-hidden": "אין באפשרותך לצפות בפרטים של רשומה זו כי היא הוסתרה מעיני הציבור.",
 	"abusefilter-log-private-not-included": "חלק ממספרי המסננים שהגדרת פרטיים. מכיוון שאין לך הרשאה להציג פרטים של מסננים פרטיים, לא נעשה חיפוש במסננים האלה.",
 	"abusefilter-log-hide-legend": "הסתרת רשומת יומן",
@@ -88,7 +91,7 @@
 	"abusefilter-log-hide-forbidden": "אין לך הרשאה להסתיר רשומות ביומן ההשחתות.",
 	"abusefilter-logentry-suppress": "\"[[$1]]\" הוסתר",
 	"abusefilter-logentry-unsuppress": "ההסתרה של \"[[$1]]\" בוטלה",
-	"logentry-abusefilter-hit": "$1 הפעיל את $4 כשביצע את הפעולה \"$5\" בדף $3. הפעולות שננקטו: $6 ($7)",
+	"logentry-abusefilter-hit": "$1 {{GENDER:$2|הפעיל|הפעילה}} את $4 {{GENDER:$2|כשביצע|כשביצעה}} את הפעולה \"$5\" בדף $3. הפעולות שננקטו: $6 ($7)",
 	"abusefilter-management": "ניהול מסנני ההשחתות",
 	"abusefilter-list": "כל המסננים",
 	"abusefilter-list-id": "מספר המסנן",
@@ -159,7 +162,6 @@
 	"abusefilter-edit-consequences": "אילו פעולות לבצע בעת ההתאמה",
 	"abusefilter-edit-action-warn": "לבצע את הפעולות האלה לאחר אזהרת המשתמש",
 	"abusefilter-edit-action-disallow": "למנוע מהמשתמש לבצע את הפעולה הזאת",
-	"abusefilter-edit-action-flag": "לסמן את העריכה ביומן ההשחתות",
 	"abusefilter-edit-action-blockautopromote": "לשלול מהמשתמש את הרשאות המשתמש הוותיק",
 	"abusefilter-edit-action-degroup": "לשלול את כל ההרשאות של המשתמש",
 	"abusefilter-edit-action-block": "לחסום את המשתמש ו/או כתובת ה־IP מעריכה",
@@ -448,5 +450,9 @@
 	"apihelp-query+abuselog-param-limit": "מספר מרבי של עיולים שיהיו ברשימה.",
 	"apihelp-query+abuselog-param-prop": "אילו מאפיינים לקבל.",
 	"apihelp-query+abuselog-example-1": "להציג עיולי יומן אחרונים",
-	"apihelp-query+abuselog-example-2": "הצגת עיולי יומן אחרונים עבור [[API]]"
+	"apihelp-query+abuselog-example-2": "הצגת עיולי יומן אחרונים עבור [[API]]",
+	"apierror-abusefilter-canttest": "אין לך הרשאה לבחון מסנני השחתות.",
+	"apierror-abusefilter-cantcheck": "אין לך הרשאה לבדוק את התחביר של מסנני השחתות.",
+	"apierror-abusefilter-nosuchlogid": "אין רשומה ביומן ההשחתות עם המזהה $1.",
+	"apierror-abusefilter-badsyntax": "המסנן מכיל תחביר בלתי תקין."
 }

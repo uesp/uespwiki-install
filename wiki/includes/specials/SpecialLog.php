@@ -51,6 +51,7 @@ class SpecialLog extends SpecialPage {
 		$opts->add( 'dir', '' );
 		$opts->add( 'offender', '' );
 		$opts->add( 'subtype', '' );
+		$opts->add( 'logid', '' );
 
 		// Set values
 		$opts->fetchValuesFromRequest( $this->getRequest() );
@@ -96,7 +97,7 @@ class SpecialLog extends SpecialPage {
 
 		# Some log types are only for a 'User:' title but we might have been given
 		# only the username instead of the full title 'User:username'. This part try
-		# to lookup for a user by that name and eventually fix user input. See bug 1697.
+		# to lookup for a user by that name and eventually fix user input. See T3697.
 		if ( in_array( $opts->getValue( 'type' ), self::getLogTypesOnUser() ) ) {
 			# ok we have a type of log which expect a user title.
 			$target = Title::newFromText( $opts->getValue( 'page' ) );
@@ -146,6 +147,16 @@ class SpecialLog extends SpecialPage {
 		return $subpages;
 	}
 
+	/**
+	 * Set options based on the subpage title parts:
+	 * - One part that is a valid log type: Special:Log/logtype
+	 * - Two parts: Special:Log/logtype/username
+	 * - Otherwise, assume the whole subpage is a username.
+	 *
+	 * @param FormOptions $opts
+	 * @param $par
+	 * @throws ConfigException
+	 */
 	private function parseParams( FormOptions $opts, $par ) {
 		# Get parameters
 		$par = $par !== null ? $par : '';
@@ -181,7 +192,8 @@ class SpecialLog extends SpecialPage {
 			$opts->getValue( 'year' ),
 			$opts->getValue( 'month' ),
 			$opts->getValue( 'tagfilter' ),
-			$opts->getValue( 'subtype' )
+			$opts->getValue( 'subtype' ),
+			$opts->getValue( 'logid' )
 		);
 
 		$this->addHeader( $opts->getValue( 'type' ) );

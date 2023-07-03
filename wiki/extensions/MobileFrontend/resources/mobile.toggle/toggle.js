@@ -1,7 +1,7 @@
 ( function ( M, $ ) {
-	var context = M.require( 'mobile.context/context' ),
-		settings = M.require( 'mobile.settings/settings' ),
-		browser = M.require( 'mobile.browser/Browser' ).getSingleton(),
+	var context = M.require( 'mobile.startup/context' ),
+		settings = M.require( 'mobile.startup/settings' ),
+		browser = M.require( 'mobile.startup/Browser' ).getSingleton(),
 		escapeHash = M.require( 'mobile.startup/util' ).escapeHash,
 		arrowOptions = {
 			name: 'arrow',
@@ -27,11 +27,11 @@
 	 *
 	 * @method
 	 * @param {Page} page
-	 * @returns {Object} representing open sections
+	 * @return {Object} representing open sections
 	 * @ignore
 	 */
 	function getExpandedSections( page ) {
-		var expandedSections = $.parseJSON(
+		var expandedSections = JSON.parse(
 			settings.get( 'expandedSections', false ) || '{}'
 		);
 		expandedSections[page.title] = expandedSections[page.title] || {};
@@ -109,9 +109,11 @@
 			expandedSections = getExpandedSections( page ),
 			// the number of days between now and the time a setting was saved
 			daysDifference;
-		$.each( expandedSections, function ( page, sections ) {
+		Object.keys( expandedSections ).forEach( function ( page ) {
+			var sections = expandedSections[ page ];
 			// clean the setting if it is more than a day old
-			$.each( sections, function ( section, timestamp ) {
+			Object.keys( sections ).forEach( function ( section ) {
+				var timestamp = sections[ section ];
 				daysDifference = Math.floor( ( now - timestamp ) / 1000 / 60 / 60 / 24 );
 				if ( daysDifference >= 1 ) {
 					delete expandedSections[page][section];
@@ -193,7 +195,7 @@
 	 * Reveals an element and its parent section as identified by it's id
 	 *
 	 * @ignore
-	 * @param {String} selector A css selector that identifies a single element
+	 * @param {string} selector A css selector that identifies a single element
 	 * @param {Object} $container jQuery element to search in
 	 */
 	Toggler.prototype.reveal = function ( selector, $container ) {
@@ -222,7 +224,7 @@
 	 * is enabled.
 	 *
 	 * @param {jQuery.Object} $container to apply toggling to
-	 * @param {String} prefix a prefix to use for the id.
+	 * @param {string} prefix a prefix to use for the id.
 	 * @param {Page} [page] to allow storage of session for future visits
 	 * @param {Page} [isClosed] whether the element should begin closed
 	 * @private

@@ -3,8 +3,11 @@
 namespace CirrusSearch\Query;
 
 use LoadBalancer;
-use IDatabase;
+use Wikimedia\Rdbms\IDatabase;
 
+/**
+ * @group CirrusSearch
+ */
 class InCategoryFeatureText extends BaseSimpleKeywordFeatureTest {
 
 	public function parseProvider() {
@@ -153,5 +156,25 @@ class InCategoryFeatureText extends BaseSimpleKeywordFeatureTest {
 			->method( 'getConnection' )
 			->will( $this->returnValue( $db ) );
 		$this->setService( 'DBLoadBalancer', $lb );
+	}
+
+	public function testTooManyCategoriesWarning() {
+		$this->assertWarnings(
+			new InCategoryFeature( new \HashConfig( [
+				'CirrusSearchMaxIncategoryOptions' => 2,
+			] ) ),
+			[ [ 'cirrussearch-feature-too-many-conditions', 'incategory', 2 ] ],
+			'incategory:a|b|c'
+		);
+	}
+
+	public function testCategoriesMustExistWarning() {
+		$this->assertWarnings(
+			new InCategoryFeature( new \HashConfig( [
+				'CirrusSearchMaxIncategoryOptions' => 2,
+			] ) ),
+			[ [ 'cirrussearch-incategory-feature-no-valid-categories', 'incategory' ] ],
+			'incategory:id:74,id:18'
+		);
 	}
 }

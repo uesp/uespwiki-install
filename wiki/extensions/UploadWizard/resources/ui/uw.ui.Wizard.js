@@ -42,6 +42,8 @@
 
 	/**
 	 * Initializes the static stuff above the wizard.
+	 *
+	 * @param {Object} config
 	 */
 	uw.ui.Wizard.prototype.initHeader = function ( config ) {
 		var feedbackLink;
@@ -91,19 +93,16 @@
 	 * @param {Object|string} configAltUploadForm A link or map of languages to links, pointing at an alternate form.
 	 */
 	uw.ui.Wizard.prototype.initAltUploadForm = function ( configAltUploadForm ) {
-		var altUploadForm, userLanguage, title, $altLink;
+		var altUploadForm, userLanguage, title;
 
 		if ( typeof configAltUploadForm === 'object' ) {
 			userLanguage = mw.config.get( 'wgUserLanguage' );
 
-			// Not using .default for ES3 support (IE8)
-			// jscs: disable requireDotNotation
 			if ( configAltUploadForm[ userLanguage ] ) {
 				altUploadForm = configAltUploadForm[ userLanguage ];
-			} else if ( configAltUploadForm[ 'default' ] ) {
-				altUploadForm = configAltUploadForm[ 'default' ];
+			} else if ( configAltUploadForm.default ) {
+				altUploadForm = configAltUploadForm.default;
 			}
-			// jscs: enable requireDotNotation
 		} else {
 			altUploadForm = configAltUploadForm;
 		}
@@ -113,7 +112,7 @@
 			try {
 				title = new mw.Title( altUploadForm );
 
-				$altLink = $( '<a>' )
+				$( '<a>' )
 					.msg( 'mwe-upwiz-subhead-alt-upload' )
 					.addClass( 'contentSubLink' )
 					.attr( 'href', title.getUrl() )

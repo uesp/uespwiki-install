@@ -20,6 +20,9 @@
 			"i18n"
 		]
 	},
+	"ExtensionMessagesFiles": {
+		"UespShortLinksAlias": "UespShortLinks.i18n.alias.php"
+	},
 	"GroupPermissions": {
 		"*": {
 			"uespShortLinksRead" : true,

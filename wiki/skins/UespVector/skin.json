@@ -1,6 +1,8 @@
 {
+	"manifest_version": 2,
 	"name": "UESP Vector",
 	"author": [
+		"[http://www.uesp.net/wiki/User:Enodoc Enodoc]",
 		"[http://www.uesp.net/wiki/User:RobinHood70 RobinHood70]"
 	],
 	"version": "1.27",

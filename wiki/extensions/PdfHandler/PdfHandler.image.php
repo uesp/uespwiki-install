@@ -20,6 +20,7 @@
  */
 
 use MediaWiki\Logger\LoggerFactory;
+use UtfNormal\Validator;
 
 /**
  * inspired by djvuimage from Brion Vibber
@@ -113,14 +114,27 @@ class PdfImage {
 
 		if ( $wgPdfInfo ) {
 			wfProfileIn( 'pdfinfo' );
+
+			// Note in poppler 0.26 the -meta and page data options worked together,
+			// but as of poppler 0.48 they must be queried separately.
+			// https://bugs.freedesktop.org/show_bug.cgi?id=96801
 			$cmd = wfEscapeShellArg( $wgPdfInfo ) .
 				" -enc UTF-8 " . # Report metadata as UTF-8 text...
-				" -l 9999999 " . # Report page sizes for all pages
 				" -meta " .      # Report XMP metadata
 				wfEscapeShellArg( $this->mFilename );
 			$retval = '';
-			$dump = wfShellExec( $cmd, $retval );
+			$resultMeta = wfShellExec( $cmd, $retval );
+
+			$cmd = wfEscapeShellArg( $wgPdfInfo ) .
+				" -enc UTF-8 " . # Report metadata as UTF-8 text...
+				" -l 9999999 " .  # Report page sizes for all pages
+				wfEscapeShellArg( $this->mFilename );
+			$retval = '';
+			$resultPages = wfShellExec( $cmd, $retval );
+
+			$dump = $resultMeta . $resultPages;
 			$data = $this->convertDumpToArray( $dump );
+
 			wfProfileOut( 'pdfinfo' );
 		} else {
 			$data = null;
@@ -140,7 +154,7 @@ class PdfImage {
 				foreach( $pages as $page => $pageText ) {
 					# Get rid of invalid UTF-8, strip control characters
 					# Note we need to do this per page, as \f page feed would be stripped.
-					$pages[$page] = UtfNormal::cleanUp( $pageText );
+					$pages[$page] = Validator::cleanUp( $pageText );
 				}
 				$data['text'] = $pages;
 			}

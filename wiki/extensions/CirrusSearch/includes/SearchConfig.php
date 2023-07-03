@@ -35,12 +35,6 @@ class SearchConfig implements \Config {
 	private $prefix = '';
 
 	/**
-	 * Interwiki name for this wiki
-	 * @var string
-	 */
-	private $interwiki;
-
-	/**
 	 * Wiki id or null for current wiki
 	 * @var string|null
 	 */
@@ -68,20 +62,16 @@ class SearchConfig implements \Config {
 	 * issues when running queries on external wiki such as TextCat lang detection
 	 * see CirrusSearch::searchTextSecondTry().
 	 *
-	 * @param string|null $overrideWiki Interwiki link name for wiki
 	 * @param string|null $overrideName DB name for the wiki
 	 */
-	public function __construct( $overrideWiki = null, $overrideName = null ) {
-		$this->interwiki = $overrideWiki;
-		if ( $overrideWiki && $overrideName ) {
+	public function __construct( $overrideName = null ) {
+		if ( $overrideName && $overrideName != wfWikiID() ) {
 			$this->wikiId = $overrideName;
-			if ( $this->wikiId != wfWikiID() ) {
-				$this->source = new \HashConfig( $this->getConfigVars( $overrideName, self::CIRRUS_VAR_PREFIX ) );
-				$this->prefix = 'wg';
-				// Re-create language object
-				$this->source->set( 'wgContLang', \Language::factory( $this->source->get( 'wgLanguageCode' ) ) );
-				return;
-			}
+			$this->source = new \HashConfig( $this->getConfigVars( $overrideName, self::CIRRUS_VAR_PREFIX ) );
+			$this->prefix = 'wg';
+			// Re-create language object
+			$this->source->set( 'wgContLang', \Language::factory( $this->source->get( 'wgLanguageCode' ) ) );
+			return;
 		}
 		$this->source = new \GlobalVarConfig();
 		$this->wikiId = wfWikiID();
@@ -174,26 +164,11 @@ class SearchConfig implements \Config {
 	}
 
 	/**
-	 * There are times, such as when using the Reindexer, when we aren't completely
-	 * sure if these are old style numeric page id's, or new style prefixed id's.
-	 * Do some magic to decide and self::makeId() when necessary.
-	 *
-	 * @param string|int $pageOrDocId
-	 * @return string
-	 */
-	public function maybeMakeId( $pageOrDocId ) {
-		if ( !is_string( $pageOrDocId ) || ctype_digit( $pageOrDocId ) ) {
-			return $this->makeId( $pageOrDocId );
-		} else {
-			return $pageOrDocId;
-		}
-	}
-
-	/**
 	 * Convert an elasticsearch document id back into a mediawiki page id.
 	 *
 	 * @param string $docId Elasticsearch document id
 	 * @return int Related mediawiki page id
+	 * @throws \Exception
 	 */
 	public function makePageId( $docId ) {
 		if ( !$this->get( self::PREFIX_IDS ) ) {
@@ -222,14 +197,6 @@ class SearchConfig implements \Config {
 		// I suppose using $wgLang would've been more evil than this, but
 		// only marginally so. Find some real context to use here.
 		return RequestContext::getMain()->getLanguage()->getCode();
-	}
-
-	/**
-	 * Get wiki's interwiki code
-	 * @return string
-	 */
-	public function getWikiCode() {
-		return $this->interwiki;
 	}
 
 	/**
@@ -291,7 +258,7 @@ class SearchConfig implements \Config {
 	 * @see DataSender::areIndexesAvailableForWrites()
 	 *
 	 * @param string $cluster
-	 * @retirn bool true is the cluster is writable
+	 * @return bool
 	 */
 	public function canWriteToCluster( $cluster ) {
 		return in_array( $cluster, $this->getWritableClusters() );
@@ -302,7 +269,7 @@ class SearchConfig implements \Config {
 	 * NOTE: this cluster may not be available for writes.
 	 *
 	 * @param string $cluster
-	 * @retirn bool true is the cluster is writable
+	 * @return bool
 	 */
 	public function clusterExists( $cluster ) {
 		return in_array( $cluster, $this->getAvailableClusters() );
@@ -329,5 +296,36 @@ class SearchConfig implements \Config {
 	 */
 	public static function getNonCirrusConfigVarNames() {
 		return self::$nonCirrusVars;
+	}
+
+	/**
+	 * @return true if cross project (same language) is enabled
+	 */
+	public function isCrossProjectSearchEnabled() {
+		// FIXME: temporary hack to support existing config
+		if ( CirrusConfigInterwikiResolver::accepts( $this ) &&
+			!empty( $this->get( 'CirrusSearchInterwikiSources' ) )
+		) {
+			return true;
+		}
+
+		if ( $this->get( 'CirrusSearchEnableCrossProjectSearch' ) ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * @return true if cross language (same project) is enabled
+	 */
+	public function isCrossLanguageSearchEnabled() {
+		// FIXME: temporary hack to support existing config
+		if ( CirrusConfigInterwikiResolver::accepts( $this ) ) {
+			return true;
+		}
+		if ( $this->get( 'CirrusSearchEnableCrossLanguageSearch' ) ) {
+			return true;
+		}
+		return false;
 	}
 }

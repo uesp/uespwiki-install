@@ -1,6 +1,10 @@
 <?php
+
 namespace CirrusSearch\Query;
 
+/**
+ * @group CirrusSearch
+ */
 class FileFeatureTest extends BaseSimpleKeywordFeatureTest {
 
 	public function parseProviderNumeric() {
@@ -12,6 +16,15 @@ class FileFeatureTest extends BaseSimpleKeywordFeatureTest {
 					],
 				] ],
 				'filesize:10',
+			],
+			'filesize allows multi-argument' => [
+				[ 'range' => [
+					'file_size' => [
+						'gte' => 125952,
+						'lte' => 328704,
+					]
+				] ],
+				'filesize:123,321',
 			],
 			'numeric with with no sign - exact match' => [
 				[ 'match' => [
@@ -119,5 +132,36 @@ class FileFeatureTest extends BaseSimpleKeywordFeatureTest {
 		$context = $this->mockContextExpectingAddFilter( $expected );
 		$feature = new FileTypeFeature();
 		$feature->apply( $context, $term );
+	}
+
+	public function warningNumericProvider() {
+		return [
+			'arguments must be numeric' => [
+				[ [ 'cirrussearch-file-numeric-feature-not-a-number', 'filebits', 'celery' ] ],
+				'filebits:celery'
+			],
+			'each argument in a multi-value must be a number' => [
+				[
+					[ 'cirrussearch-file-numeric-feature-not-a-number', 'fileheight', 'something' ],
+					[ 'cirrussearch-file-numeric-feature-not-a-number', 'fileheight', 'voodoo' ]
+				],
+				'fileheight:something,voodoo',
+			],
+			'multi-argument with a sign is invalid' => [
+				[ [ 'cirrussearch-file-numeric-feature-multi-argument-w-sign', 'fileh', '200,400' ] ],
+				'fileh:>200,400',
+			],
+			'unparsable output must still be reported' => [
+				[ [ 'cirrussearch-file-numeric-feature-not-a-number', 'filesize', '>' ] ],
+				'filesize:>',
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider warningNumericProvider
+	 */
+	public function testWarningNumeric( $expected, $term ) {
+		$this->assertWarnings( new FileNumericFeature(), $expected, $term );
 	}
 }

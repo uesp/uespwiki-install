@@ -1,20 +1,11 @@
-// Only turning these jscs options off for ''this file''
-/* jscs:disable disallowDanglingUnderscores, requireCamelCaseOrUpperCaseIdentifiers */
+/* eslint-disable camelcase, no-underscore-dangle */
 ( function ( mw, $, OO ) {
-	mw.FlickrChecker = function ( wizard, upload ) {
-		this.wizard = wizard;
-		this.upload = upload;
+	mw.FlickrChecker = function ( ui, selectButton ) {
+		this.ui = ui;
 		this.imageUploads = [];
 		this.apiUrl = mw.UploadWizard.config.flickrApiUrl;
 		this.apiKey = mw.UploadWizard.config.flickrApiKey;
-
-		this.selectButton = new OO.ui.ButtonWidget( {
-			id: 'mwe-upwiz-select-flickr',
-			label: mw.message( 'mwe-upwiz-add-file-0-free' ).text(),
-			flags: [ 'constructive', 'primary' ]
-		} );
-
-		$( '#mwe-upwiz-flickr-select-list-container' ).append( this.selectButton.$element );
+		this.selectButton = selectButton;
 	};
 
 	/**
@@ -113,7 +104,8 @@
 			} else {
 				// XXX show user the message that the URL entered was not valid
 				mw.errorDialog( mw.message( 'mwe-upwiz-url-invalid', 'Flickr' ).escaped() );
-				this.wizard.flickrInterfaceReset();
+				this.$spinner.remove();
+				this.ui.flickrInterfaceReset();
 			}
 		},
 
@@ -233,16 +225,17 @@
 		 * Constructs an unordered list of sets in the collection.
 		 *
 		 * @param {boolean} appendId True if you want to append
-		 * id="mwe-upwiz-files-collection-chooser"; false otherwise
+		 *  id="mwe-upwiz-files-collection-chooser"; false otherwise
 		 * @param {Object} data The retrieved data
 		 * @see {@link getCollection}
+		 * @return {jQuery}
 		 */
 		buildCollectionLinks: function ( appendId, data ) {
-			var elem = $( '<ul>' ),
+			var $elem = $( '<ul>' ),
 				that = this,
 				li, ul;
 			if ( appendId ) {
-				elem.attr( 'id', 'mwe-upwiz-files-collection-chooser' );
+				$elem.attr( 'id', 'mwe-upwiz-files-collection-chooser' );
 			}
 			$.each( data.collection, function ( index, value ) {
 				li = $( '<li>' );
@@ -266,9 +259,9 @@
 					} );
 					li.append( ul );
 				}
-				elem.append( li );
+				$elem.append( li );
 			} );
-			return elem;
+			return $elem;
 		},
 
 		/**
@@ -470,11 +463,13 @@
 							checker.setImageURL( image )
 						);
 					} ) ).done( function () {
-						// Once this is done for all images, add them to the wizard
-						checker.wizard.addUploads( uploads );
+						checker.ui.emit( 'files-added', uploads );
 					} ).always( function () {
+						// We'll only bind this once, since that selectButton could be
+						// reused later, with a different flickr set (it is not destroyed)
+						checker.selectButton.off( 'click' );
 						checker.$spinner.remove();
-						checker.wizard.flickrInterfaceDestroy();
+						checker.ui.flickrInterfaceDestroy();
 					} );
 				} );
 
@@ -494,7 +489,8 @@
 				}
 			} ).fail( function ( message ) {
 				mw.errorDialog( message );
-				checker.wizard.flickrInterfaceReset();
+				checker.$spinner.remove();
+				checker.ui.flickrInterfaceReset();
 			} );
 		},
 
@@ -575,14 +571,15 @@
 					checker.setUploadDescription( flickrUpload, photo.description._content ),
 					checker.setImageURL( 0 )
 				).done( function () {
-					checker.wizard.addUploads( [ flickrUpload ] );
+					checker.ui.emit( 'files-added', [ flickrUpload ] );
 				} ).always( function () {
 					checker.$spinner.remove();
-					checker.wizard.flickrInterfaceDestroy();
+					checker.ui.flickrInterfaceDestroy();
 				} );
 			} ).fail( function ( message ) {
 				mw.errorDialog( message );
-				checker.wizard.flickrInterfaceReset();
+				checker.$spinner.remove();
+				checker.ui.flickrInterfaceReset();
 			} );
 		},
 
@@ -660,6 +657,8 @@
 		},
 
 		/**
+		 * @param {Object} upload
+		 * @param {string} description
 		 * @return {jQuery.Promise}
 		 */
 		setUploadDescription: function ( upload, description ) {
@@ -674,6 +673,7 @@
 		},
 
 		/**
+		 * @param {Object} upload
 		 * @return {jQuery.Promise}
 		 */
 		setImageDescription: function ( upload ) {
@@ -693,6 +693,7 @@
 		 * as the upload URL.
 		 *
 		 * @param {number} index Index of the image for which we need to set the URL
+		 * @return {jQuery.Promise}
 		 */
 		setImageURL: function ( index ) {
 			var largestSize,
@@ -727,7 +728,8 @@
 					upload.url = largestSize.source;
 				} else {
 					mw.errorDialog( mw.message( 'mwe-upwiz-error-no-image-retrieved', 'Flickr' ).escaped() );
-					checker.wizard.flickrInterfaceReset();
+					checker.$spinner.remove();
+					checker.ui.flickrInterfaceReset();
 					return $.Deferred().reject();
 				}
 			} );
@@ -757,4 +759,4 @@
 		}
 	};
 
-} )( mediaWiki, jQuery, OO );
+}( mediaWiki, jQuery, OO ) );

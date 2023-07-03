@@ -3,7 +3,6 @@
 namespace CirrusSearch;
 
 use CirrusSearch\BuildDocument\Completion\SuggestBuilder;
-use CirrusSearch\BuildDocument\Completion\GeoSuggestionsBuilder;
 use CirrusSearch\BuildDocument\Completion\DefaultSortSuggestionsBuilder;
 use CirrusSearch\BuildDocument\Completion\NaiveSubphrasesSuggestionsBuilder;
 use CirrusSearch\BuildDocument\Completion\SuggestScoringMethodFactory;
@@ -25,13 +24,16 @@ use CirrusSearch\BuildDocument\Completion\SuggestScoringMethodFactory;
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @group CirrusSearch
  */
-class SuggestBuilderTest extends \MediaWikiTestCase {
+class SuggestBuilderTest extends CirrusTestCase {
 	public function testEinstein() {
 		$builder = $this->buildBuilder( 'incomingLinks' );
 		$score = 10;
 		$redirScore = (int) ( $score * SuggestBuilder::REDIRECT_DISCOUNT );
 		$doc = [
+			'id' => 123,
 			'title' => 'Albert Einstein',
 			'namespace' => 0,
 			'redirect' => [
@@ -45,28 +47,34 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 		];
 		$expected = [
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Albert Einstein',
+					'namespace' => 0,
+				],
 				'suggest' => [
 					'input' => [ 'Albert Einstein', 'Albert Enstein',
 						'Albert Einsten', 'Albert Einstine' ],
-					'output' => '1:t:Albert Einstein',
 					'weight' => $score
 				],
 				'suggest-stop' => [
 					'input' => [ 'Albert Einstein', 'Albert Enstein',
 						'Albert Einsten', 'Albert Einstine' ],
-					'output' => '1:t:Albert Einstein',
 					'weight' => $score
 				]
 			],
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Albert Einstein',
+					'namespace' => 0,
+				],
 				'suggest' => [
 					'input' => [ 'Enstein', 'Einstein' ],
-					'output' => '1:r',
 					'weight' => $redirScore
 				],
 				'suggest-stop' => [
 					'input' => [ 'Enstein', 'Einstein' ],
-					'output' => '1:r',
 					'weight' => $redirScore
 				]
 			]
@@ -82,6 +90,7 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 		$score = 10;
 		$redirScore = (int) ( $score * SuggestBuilder::REDIRECT_DISCOUNT );
 		$doc = [
+			'id' => 123,
 			'title' => 'Albert Einstein',
 			'namespace' => 0,
 			'defaultsort' => 'Einstein, Albert',
@@ -93,26 +102,32 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 		];
 		$expected = [
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Albert Einstein',
+					'namespace' => 0,
+				],
 				'suggest' => [
 					'input' => [ 'Albert Einstein', 'Albert Enstein', 'Einstein, Albert' ],
-					'output' => '1:t:Albert Einstein',
 					'weight' => $score
 				],
 				'suggest-stop' => [
 					'input' => [ 'Albert Einstein', 'Albert Enstein', 'Einstein, Albert' ],
-					'output' => '1:t:Albert Einstein',
 					'weight' => $score
 				]
 			],
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Albert Einstein',
+					'namespace' => 0,
+				],
 				'suggest' => [
 					'input' => [ 'Einstein' ],
-					'output' => '1:r',
 					'weight' => $redirScore
 				],
 				'suggest-stop' => [
 					'input' => [ 'Einstein' ],
-					'output' => '1:r',
 					'weight' => $redirScore
 				]
 			]
@@ -126,6 +141,7 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 		// Test Cross namespace the defaultsort should not be added
 		// to cross namespace redirects
 		$doc = [
+			'id' => 123,
 			'title' => 'Guidelines for XYZ',
 			'namespace' => NS_HELP,
 			'defaultsort' => 'XYZ, Guidelines',
@@ -137,26 +153,32 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 		];
 		$expected = [
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Guidelines for XYZ',
+					'namespace' => NS_HELP,
+				],
 				'suggest' => [
 					'input' => [ 'GXYZ' ],
-					'output' => '0:t:GXYZ',
 					'weight' => $crossNsScore
 				],
 				'suggest-stop' => [
 					'input' => [ 'GXYZ' ],
-					'output' => '0:t:GXYZ',
 					'weight' => $crossNsScore
 				]
 			],
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Guidelines for XYZ',
+					'namespace' => NS_HELP,
+				],
 				'suggest' => [
 					'input' => [ 'XYZG' ],
-					'output' => '0:t:XYZG',
 					'weight' => $crossNsScore
 				],
 				'suggest-stop' => [
 					'input' => [ 'XYZG' ],
-					'output' => '0:t:XYZG',
 					'weight' => $crossNsScore
 				]
 			]
@@ -171,6 +193,7 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 		$score = 10;
 		$redirScore = (int) ( $score * SuggestBuilder::REDIRECT_DISCOUNT );
 		$doc = [
+			'id' => 123,
 			'title' => 'Iraq',
 			'namespace' => 0,
 			'redirect' => [
@@ -182,26 +205,32 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 
 		$expected = [
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Iraq',
+					'namespace' => 0
+				],
 				'suggest' => [
 					'input' => [ 'Iraq', 'Irak' ],
-					'output' => '1:t:Iraq',
 					'weight' => $score
 				],
 				'suggest-stop' => [
 					'input' => [ 'Iraq', 'Irak' ],
-					'output' => '1:t:Iraq',
 					'weight' => $score
 				]
 			],
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Iraq',
+					'namespace' => 0
+				],
 				'suggest' => [
 					'input' => [ 'Eraq' ],
-					'output' => '1:r',
 					'weight' => $redirScore
 				],
 				'suggest-stop' => [
 					'input' => [ 'Eraq' ],
-					'output' => '1:r',
 					'weight' => $redirScore
 				]
 			]
@@ -214,6 +243,7 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 		$builder = $this->buildBuilder( 'incomingLinks' );
 		$score = 10;
 		$doc = [
+			'id' => 123,
 			'title' => 'Navigation',
 			'namespace' => 12,
 			'redirect' => [
@@ -227,26 +257,32 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 
 		$expected = [
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Navigation',
+					'namespace' => 12
+				],
 				'suggest' => [
 					'input' => [ 'WP:HN' ],
-					'output' => '0:t:WP:HN', // LinkBatch will set 0...
 					'weight' => $score
 				],
 				'suggest-stop' => [
 					'input' => [ 'WP:HN' ],
-					'output' => '0:t:WP:HN',
 					'weight' => $score
 				],
 			],
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Navigation',
+					'namespace' => 12
+				],
 				'suggest' => [
 					'input' => [ 'WP:NAV' ],
-					'output' => '0:t:WP:NAV',
 					'weight' => $score
 				],
 				'suggest-stop' => [
 					'input' => [ 'WP:NAV' ],
-					'output' => '0:t:WP:NAV',
 					'weight' => $score
 				],
 			]
@@ -260,6 +296,7 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 		$score = 10;
 		$redirScore = (int) ( $score * SuggestBuilder::REDIRECT_DISCOUNT );
 		$doc = [
+			'id' => 123,
 			'title' => 'Ulm',
 			'namespace' => 0,
 			'redirect' => [
@@ -269,214 +306,55 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 				[ 'title' => "Söflingen", 'namespace' => 0 ],
 				[ 'title' => "Should be ignored", 'namespace' => 1 ],
 			],
-			'coordinates' => [
-				[
-					'coord' => [
-						'lat' => 48.3985,
-						'lon' => 9.9918
-					],
-					'region' => "BW",
-					'dim' => 10000,
-					'name' => "",
-					'primary' => true,
-					'type' => "city",
-					'globe' => "earth",
-					'country' => "DE"
-				]
-			],
 			'incoming_links' => $score
 		];
 
 		$expected = [
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Ulm',
+					'namespace' => 0,
+				],
 				'suggest' => [
 					'input' => [ 'Ulm' ],
-					'output' => '1:t:Ulm',
 					'weight' => $score
 				],
 				'suggest-stop' => [
 					'input' => [ 'Ulm' ],
-					'output' => '1:t:Ulm',
 					'weight' => $score
 				],
-				'suggest-geo' => [
-					'input' => [ 'Ulm' ],
-					'output' => '1:t:Ulm',
-					'weight' => $score,
-					'context' => [
-						'location' => [
-							'lat' => 48.3985,
-							'lon' => 9.9918
-						]
-					]
-				],
-				'suggest-stop-geo' => [
-					'input' => [ 'Ulm' ],
-					'output' => '1:t:Ulm',
-					'weight' => $score,
-					'context' => [
-						'location' => [
-							'lat' => 48.3985,
-							'lon' => 9.9918
-						]
-					]
-				]
 			],
 			[
+				'source_doc_id' => 123,
+				'target_title' => [
+					'title' => 'Ulm',
+					'namespace' => 0,
+				],
 				'suggest' => [
 					'input' => [ 'UN/LOCODE:DEULM', 'Ulm, Germany',
 						'Ulm displaced persons camp', 'Söflingen' ],
-					'output' => '1:r',
 					'weight' => $redirScore
 				],
 				'suggest-stop' => [
 					'input' => [ 'UN/LOCODE:DEULM', 'Ulm, Germany',
 						'Ulm displaced persons camp', 'Söflingen' ],
-					'output' => '1:r',
 					'weight' => $redirScore
 				],
-				'suggest-geo' => [
-					'input' => [ 'UN/LOCODE:DEULM', 'Ulm, Germany',
-						'Ulm displaced persons camp', 'Söflingen' ],
-					'output' => '1:r',
-					'weight' => $redirScore,
-					'context' => [
-						'location' => [
-							'lat' => 48.3985,
-							'lon' => 9.9918
-						]
-					]
-				],
-				'suggest-stop-geo' => [
-					'input' => [ 'UN/LOCODE:DEULM', 'Ulm, Germany',
-						'Ulm displaced persons camp', 'Söflingen' ],
-					'output' => '1:r',
-					'weight' => $redirScore,
-					'context' => [
-						'location' => [
-							'lat' => 48.3985,
-							'lon' => 9.9918
-						]
-					]
-				]
 			]
 		];
 		$suggestions = $this->buildSuggestions( $builder, $doc );
 		$this->assertSame( $expected, $suggestions );
 	}
 
-	public function testMultipleCoordinates() {
-		$doc = [
-			'coordinates' => [
-				[
-					'coord' => [
-						'lat' => 0.70777777777778,
-						'lon' => -50.089444444444
-					],
-					'region' => null,
-					'dim' => 10000,
-					'name' => "",
-					'primary' => true,
-					'type' => "river",
-					'globe' => "earth",
-					'country' => "BR"
-				],
-				[
-					'coord' => [
-						'lat' => -15.518055555556,
-						'lon' => -71.765277777778
-					],
-					'region' => null,
-					'dim' => 10000,
-					'name' => "",
-					'primary' => false,
-					'type' => "river",
-					'globe' => "earth",
-					'country' => "BR"
-				]
-			]
-		];
-
-		$builder = new GeoSuggestionsBuilder();
-		$coord = $builder->findPrimaryCoordinates( $doc );
-		$expected = [ 'lat' => 0.70777777777778, 'lon' => -50.089444444444 ];
-		$this->assertSame( $expected, $coord );
-
-		$doc['coordinates'][1]['primary'] = true;
-		$coord = $builder->findPrimaryCoordinates( $doc );
-		$expected = [ 'lat' => 0.70777777777778, 'lon' => -50.089444444444 ];
-		$this->assertSame( $expected, $coord, "With two primaries coord we choose the first one" );
-
-		$doc['coordinates'][0]['primary'] = false;
-		$coord = $builder->findPrimaryCoordinates( $doc );
-		$expected = [ 'lat' => -15.518055555556, 'lon' => -71.765277777778 ];
-		$this->assertSame( $expected, $coord, "Choose primary coord even if it's not the first one." );
-
-		$doc['coordinates'][1]['primary'] = false;
-		$coord = $builder->findPrimaryCoordinates( $doc );
-		$expected = [ 'lat' => 0.70777777777778, 'lon' => -50.089444444444 ];
-		$this->assertSame( $expected, $coord, "Choose first coord if there's no primary." );
-
-		$doc['coordinates'][0]['primary'] = true;
-		$doc['coordinates'][0]['globe'] = 'Magrathea';
-		$coord = $builder->findPrimaryCoordinates( $doc );
-		$expected = [ 'lat' => -15.518055555556, 'lon' => -71.765277777778 ];
-		$this->assertSame( $expected, $coord, "Choose first coord on earth." );
-
-		$doc['coordinates'][1]['globe'] = 'Magrathea';
-		$coord = $builder->findPrimaryCoordinates( $doc );
-		$this->assertNull( $coord, "No coord if none is on earth." );
-	}
-
-	/**
-	 * @dataProvider provideOutputEncoder
-	 */
-	public function testOutputEncoder( $expected, $encoded ) {
-		$this->assertEquals( $expected, SuggestBuilder::decodeOutput( $encoded ) );
-	}
-
-	public function provideOutputEncoder() {
-		return [
-			'title' => [
-				[
-					'docId' => '123',
-					'type' => SuggestBuilder::TITLE_SUGGESTION,
-					'text' => 'This is a title',
-				],
-				SuggestBuilder::encodeTitleOutput( 123, "This is a title" ),
-			],
-			'redirect' => [
-				[
-					'docId' => '123',
-					'type' => SuggestBuilder::REDIRECT_SUGGESTION,
-				],
-				SuggestBuilder::encodeRedirectOutput( 123 ),
-			],
-			'Garbage' => [
-				null,
-				'Garbage',
-			],
-			'Broken title' => [
-				null,
-				'123:t',
-			],
-			'Partial encoding' => [
-				null,
-				'123:',
-			],
-			'null output' => [
-				null,
-				null,
-			],
-		];
-	}
-
 	private function buildSuggestions( $builder, $doc ) {
+		$id = $doc['id'];
+		unset( $doc['id'] );
 		return array_map( function( $x ) {
 				$dat = $x->getData();
 				unset( $dat['batch_id'] );
 				return $dat;
-			}, $builder->build( [ [ 'id' => 1, 'source' => $doc ] ] ) );
+			}, $builder->build( [ [ 'id' => $id, 'source' => $doc ] ] ) );
 	}
 
 	/**
@@ -701,7 +579,6 @@ class SuggestBuilderTest extends \MediaWikiTestCase {
 
 	private function buildBuilder( $scoringMethod ) {
 		$extra = [
-			new GeoSuggestionsBuilder(),
 			new DefaultSortSuggestionsBuilder(),
 		];
 		return new SuggestBuilder( SuggestScoringMethodFactory::getScoringMethod( 'incomingLinks' ), $extra );

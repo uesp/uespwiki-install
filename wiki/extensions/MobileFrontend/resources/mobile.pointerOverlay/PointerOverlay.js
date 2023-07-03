@@ -1,5 +1,5 @@
 ( function ( M, $ ) {
-	var Overlay = M.require( 'mobile.overlays/Overlay' );
+	var Overlay = M.require( 'mobile.startup/Overlay' );
 
 	/**
 	 * Page overlay prompting a user for given action
@@ -28,16 +28,16 @@
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
-		 * @cfg {String} defaults.isCompact whether the pointer overlay should be compact
-		 * @cfg {Number} defaults.timeout in milliseconds. If not zero the pointer overlay will
+		 * @cfg {string} defaults.isCompact whether the pointer overlay should be compact
+		 * @cfg {number} defaults.timeout in milliseconds. If not zero the pointer overlay will
 		 *  hide after this duration of time.
-		 * @cfg {String} defaults.isTutorial whether the pointer overlay contains tutorial like instructions
-		 * @cfg {String} defaults.summary Message describing thing being pointed to.
-		 * @cfg {String} defaults.cancelMsg Cancel message.
-		 * @cfg {String} defaults.appendToElement Where pointer overlay should be appended to.
-		 * @cfg {String} defaults.target jQuery selector to point tutorial at
-		 * @cfg {String} [defaults.alignment] Determines where the pointer should point to. Valid values 'left' or 'center'
-		 * @cfg {String} [defaults.confirmMsg] Label for a confirm message.
+		 * @cfg {string} defaults.isTutorial whether the pointer overlay contains tutorial like instructions
+		 * @cfg {string} defaults.summary Message describing thing being pointed to.
+		 * @cfg {string} defaults.cancelMsg Cancel message.
+		 * @cfg {string} defaults.appendToElement Where pointer overlay should be appended to.
+		 * @cfg {string} defaults.target jQuery selector to point tutorial at
+		 * @cfg {string} [defaults.alignment] Determines where the pointer should point to. Valid values 'left' or 'center'
+		 * @cfg {string} [defaults.confirmMsg] Label for a confirm message.
 		 */
 		defaults: $.extend( {}, Overlay.prototype.defaults, {
 			summary: undefined,
@@ -84,7 +84,7 @@
 		/**
 		 * Refreshes the pointer arrow.
 		 * @method
-		 * @param {String} target jQuery selector
+		 * @param {string} target jQuery selector
 		 */
 		refreshPointerArrow: function ( target ) {
 			this.$pointer.remove();
@@ -96,14 +96,13 @@
 		 * @param {jQuery.Object} $pa An element that should be pointed at by the overlay
 		 */
 		_position: function ( $pa ) {
-			var overlayOffset, left,
+			var left,
 				paOffset = $pa.offset(),
 				h = $pa.outerHeight( true ),
 				y = paOffset.top + h;
 
 			this.$el.css( 'top', y );
 			if ( this.options.autoHide ) {
-				overlayOffset = this.$el.offset();
 				left = paOffset.left;
 				this.$el.css( 'left', left );
 			}

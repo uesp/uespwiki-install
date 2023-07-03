@@ -56,6 +56,7 @@ textarea {
 // We also need a more specific rule for tablet non-JS users who will load skins.minerva.tablet.styles
 .client-nojs .toc-mobile,
 .client-js .no-js-only,
+.client-js .mw-redirectedfrom,
 // FIXME: Use generic rule for print stylesheets
 .printfooter,
 .jsonly {
@@ -68,8 +69,8 @@ textarea {
 .client-js .jsonly {
 	display: inherit;
 }
-/* stylelint-enable no-descending-specificity */
 
+/* stylelint-enable no-descending-specificity */
 .position-fixed {
 	// use !important to override more specific rules (e.g. in Overlay.less)
 	position: fixed !important;
@@ -86,8 +87,8 @@ textarea {
 	display: none !important;
 }
 
-// We need to ensure the content has a white background - otherwise it will
+// We need to ensure the content has the chrome background - otherwise it will
 // overlap the menu during the main menu reveal/hide animation
 #mw-mf-page-center {
-	background-color: #fff;
+	background-color: @chromeColor;
 }

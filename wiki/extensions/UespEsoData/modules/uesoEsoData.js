@@ -1,1 +1,0 @@
-window.uespEsoDataTest = 123;

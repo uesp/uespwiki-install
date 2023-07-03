@@ -1,5 +1,5 @@
 ( function ( M, $ ) {
-	var Overlay = M.require( 'mobile.overlays/Overlay' ),
+	var Overlay = M.require( 'mobile.startup/Overlay' ),
 		Anchor = M.require( 'mobile.startup/Anchor' ),
 		NotificationsOverlay;
 
@@ -8,6 +8,9 @@
 	 * @class NotificationsOverlay
 	 * @extend Overlay
 	 * @uses mw.Api
+	 *
+	 * @constructor
+	 * @param {Object} options Configuration options
 	 */
 	NotificationsOverlay = function ( options ) {
 		var modelManager, unreadCounter, wrapperWidget,
@@ -97,7 +100,7 @@
 		/**
 		 * @inheritdoc
 		 * @cfg {Object} defaults Default options hash.
-		 * @cfg {String} defaults.heading Heading text.
+		 * @cfg {string} defaults.heading Heading text.
 		 */
 		defaults: $.extend( {}, Overlay.prototype.defaults, {
 			heading: mw.msg( 'notifications' ),
@@ -120,7 +123,7 @@
 		 * Check if notifications have finished loading
 		 *
 		 * @method
-		 * @return {Boolean} Notifications list has finished loading
+		 * @return {boolean} Notifications list has finished loading
 		 */
 		isDoneLoading: function () {
 			return this.doneLoading;
@@ -161,21 +164,21 @@
 		/**
 		 * Update the unread number on the notifications badge
 		 *
-		 * @param {Number} count Number of unread notifications
+		 * @param {number} count Number of unread notifications
 		 * @method
 		 */
 		onUnreadCountChange: function ( count ) {
 			var $badgeCounter = this.$badge.find( '.notification-count' );
 			this.count = this.controller.manager.getUnreadCounter().getCappedNotificationCount( count );
 
-			if ( this.count > 0 ) {
-				$badgeCounter.text(
+			if ( this.count >= 0 ) {
+				$badgeCounter.find( 'span' ).text(
 					mw.msg( 'echo-badge-count', mw.language.convertNumber( this.count ) )
 				).show();
-			} else {
-				$badgeCounter.hide();
 			}
-
+			if ( this.count === 0 ) {
+				$badgeCounter.removeClass( 'notification-unseen' );
+			}
 			this.checkShowMarkAllRead();
 		},
 		/**

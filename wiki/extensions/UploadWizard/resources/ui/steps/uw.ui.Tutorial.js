@@ -18,6 +18,8 @@
 ( function ( mw, $, uw, OO ) {
 	/**
 	 * Checkbox with popup information.
+	 *
+	 * @param {Object} config
 	 */
 	function PopupCheckboxInputWidget( config ) {
 		// Parent constructor
@@ -88,13 +90,18 @@
 			ui.emit( 'helpdesk-click' );
 		} );
 
+		this.addPreviousButton();
 		this.addNextButton();
 	};
 
 	OO.inheritClass( uw.ui.Tutorial, uw.ui.Step );
 
-	uw.ui.Tutorial.prototype.moveTo = function ( uploads ) {
-		uw.ui.Step.prototype.moveTo.call( this, uploads );
+	uw.ui.Tutorial.prototype.setSelected = function ( selected ) {
+		this.skipCheckbox.setSelected( selected );
+	};
+
+	uw.ui.Tutorial.prototype.load = function ( uploads ) {
+		uw.ui.Step.prototype.load.call( this, uploads );
 
 		this.$div.prepend(
 			$( '<div>' )
@@ -104,6 +111,8 @@
 					this.tutorialHtml.show()
 				)
 		);
+
+		this.skipCheckbox.popup.updateDimensions();
 	};
 
 	uw.ui.Tutorial.prototype.addNextButton = function () {

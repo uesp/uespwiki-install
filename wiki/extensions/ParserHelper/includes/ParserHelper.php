@@ -1,280 +1,243 @@
 <?php
 
+require_once('RHDebug.php');
+require_once('VersionHelper.php');
+
 /**
  * Provides a number of library routines, mostly related to the parser along with a few generic global methods.
  */
 class ParserHelper
 {
-	const AV_ANY = 'parserhelper-any';
-	const AV_ALWAYS = 'parserhelper-always';
+	#region Public Constants
+	public const AV_ALWAYS = 'parserhelper-always';
 
-	const NA_ALLOWEMPTY = 'parserhelper-allowempty';
-	const NA_CASE = 'parserhelper-case';
-	const NA_DEBUG = 'parserhelper-debug';
-	const NA_IF = 'parserhelper-if';
-	const NA_IFNOT = 'parserhelper-ifnot';
-	const NA_SEPARATOR = 'parserhelper-separator';
+	public const NA_DEBUG = 'parserhelper-debug';
+	public const NA_IF = 'parserhelper-if';
+	public const NA_IFNOT = 'parserhelper-ifnot';
+	public const NA_SEPARATOR  = 'parserhelper-separator';
+	#endregion
 
-	const NA_NSBASE = 'parserhelper-ns_base';
-	const NA_NSID = 'parserhelper-ns_id';
-
+	#region Public Static Functions
 	/**
-	 * Cache for localized magic words.
-	 *
-	 * @var MagicWordArray
-	 */
-	private static $mwArray;
-
-	/**
-	 * Gets a value from an array with proper existence checks beforehand.
-	 * This can be replaced with `$array[$key] ?? $default` if upgraded to PHP 7.
-	 *
-	 * @param array $array The array to search.
-	 * @param mixed $key The key of the value to retrieve.
-	 * @param null $default A value to use if the key is not found in the array.
-	 * If not provided, `null` will be returned.
-	 *
-	 * @return mixed The requested value, or `$default|null` if not found.
-	 */
-	public static function arrayGet(array $array, $key, $default = null)
-	{
-		return (isset($array[$key]) || array_key_exists($key, $array))
-			? $array[$key]
-			: $default;
-	}
-
-	/**
-	 * Caches magic words in a static MagicWordArray. This should include any named arguments or argument values that
-	 * need to be localized, along with any other magic words not already registered with the parser by other means,
-	 * such as parser functions, tags, and so forth.
-	 *
-	 * @param array $magicWords The magic words to cache.
-	 *
-	 * @return void
-	 */
-	public static function cacheMagicWords(array $magicWords)
-	{
-		// TODO: Move most of the calls to this to something more appropriate. Magic Words should be unique and not
-		// appropriated for values. This should be straight-up localization and nothing more. Check how image options
-		// work, as these are likely to be similar.
-		if (!isset(self::$mwArray)) {
-			self::$mwArray = new MagicWordArray($magicWords);
-		} else {
-			self::$mwArray->addArray($magicWords);
-		}
-	}
-
-	/**
-	 * Checks the `case` parameter to see if matches `case=any` or any of the localized equivalents.
-	 *
-	 * @param array $magicArgs The list of arguments to search.
-	 *
-	 * @return boolean True if `case=any` or any localized equivalent was found in the argument list.
-	 */
-	public static function checkAnyCase(array $magicArgs)
-	{
-		return self::magicKeyEqualsValue($magicArgs, self::NA_CASE, self::AV_ANY);
-	}
-
-	/**
-	 * Checks the debug argument to see if it's boolean or 'always'. This variant of checkDebug expects the keys to be
-	 * magic word values rather than magic word IDs.
+	 * Checks the debug argument to see if it's boolean or 'always'.Expects the keys to be magic word values rather
+	 * than magic word IDs.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param array|null $magicArgs The magic word arguments as created by getMagicArgs().
+	 * @param PPFrame $frame The frame in use.
+	 * @param array $magicArgs The magic-word arguments as created by getMagicArgs().
 	 *
-	 * @return boolean
+	 * @return bool
 	 *
 	 */
-	public static function checkDebugMagic(Parser $parser, PPFrame $frame, array $magicArgs)
+	public static function checkDebugMagic(Parser $parser, PPFrame $frame, array $magicArgs): bool
 	{
-		$debug = self::arrayGet($magicArgs, self::NA_DEBUG, false);
-		// show('Debug parameter: ', $debug);
-		return $parser->getOptions()->getIsPreview()
-			? boolval($debug)
-			: MagicWord::get(self::AV_ALWAYS)->matchStartToEnd($debug);
+		$debug = $frame->expand($magicArgs[self::NA_DEBUG] ?? false);
+		$matched = VersionHelper::getInstance()->getMagicWord(self::AV_ALWAYS)->matchStartToEnd($debug);
+		$preview = $parser->getOptions()->getIsPreview();
+		$retval = $preview
+			? (bool)$debug
+			: $matched;
+		#RHshow('Debug', $debug ? 'Yes' : 'No', "\nIn preview mode: ", $preview ? 'Yes' : 'No', "\nDebug word: ", $matched);
+		return $retval;
 	}
 
 	/**
 	 * Checks whether both the `if=` and `ifnot=` conditions have been satisfied.
 	 *
-	 * @param array $magicArgs The magic word array containing the arguments.
+	 * @param PPFrame $frame The frame in use.
+	 * @param array $magicArgs The magic-word arguments as created by getMagicArgs().
 	 *
-	 * @return boolean True if both conditions (if applicable) have been satisfied; otherwise, false.
+	 * @return bool True if both conditions (if applicable) have been satisfied; otherwise, false.
+	 *
 	 */
-	public static function checkIfs(PPFrame $frame, array $magicArgs)
+	public static function checkIfs(PPFrame $frame, array $magicArgs): bool
 	{
-		$if = $frame->expand(self::arrayGet($magicArgs, self::NA_IF, '1'));
-		$ifnot = $frame->expand(self::arrayGet($magicArgs, self::NA_IFNOT, ''));
-
-		return !empty($if) && empty($ifnot);
+		return (isset($magicArgs[self::NA_IF])
+			? trim($frame->expand($magicArgs[self::NA_IF]))
+			: true) &&
+			!(isset($magicArgs[self::NA_IFNOT])
+				? trim($frame->expand($magicArgs[self::NA_IFNOT]))
+				: false);
 	}
 
 	/**
-	 * Expands an entire array of values using the MediaWiki pre-processor.
-	 * This is useful when parsing arguments to parser functions.
+	 * Formats an error message for wikitext output.
 	 *
-	 * @param PPFrame $frame The expansion frame to use.
-	 * @param array $values The values to expand.
-	 * @param int $flags
+	 * @param string $key The message key in en.json.
+	 * @param mixed ...$args Any arguments to be passed to the message.
 	 *
-	 * @return array
-	 */
-	public static function expandArray(PPFrame $frame, array $values, $trim = false)
-	{
-		$retval = [];
-
-		// Micro-optimization: only check outside loop, not inside.
-		if ($trim) {
-			foreach ($values as $value) {
-				$retval[] = trim($frame->expand($value));
-			}
-		} else {
-			foreach ($values as $value) {
-				$retval[] = $frame->expand($value);
-			}
-		}
-
-		return $retval;
-	}
-
-	/**
-	 * Finds the magic word ID that corresponds to the value provided.
-	 *
-	 * @param string $value The value to look up.
-	 *
-	 * @return string|false
+	 * @return string The error text wrapped in div tags with an error class.
 	 *
 	 */
-	public static function findMagicID($value, $default = null)
+	public static function error(string $key, ...$args): string
 	{
-		$match = self::$mwArray->matchStartToEnd($value);
-		return $match === false ? $default : $match;
+		$msg = wfMessage($key)->params($args)->inContentLanguage()->escaped();
+		return "<div class='error'>$msg</div>";
 	}
 
 	/**
 	 * Standardizes debug text formatting for parser functions.
 	 *
 	 * @param string $output The original text being output.
-	 * @param Parser $parser The parser in use.
-	 * @param $magicArgs The list of magic word arguments, typically from getMagicArgs().
+	 * @param bool $debug Whether to return debug or regular text.
 	 *
 	 * @return string The modified text.
 	 *
 	 */
-	public static function formatPFForDebug($output, $debug = false, $noparse = false)
+	public static function formatPFForDebug(string $output, bool $debug, bool $noparse = false, string $header = null): array
 	{
-		return
-			strlen($output) == 0 ? '' :
-			$debug ? ['<pre>' . htmlspecialchars($output) . '</pre>', 'noparse' => false] :
-			[$output, 'noparse' => $noparse];
+		if (!$debug || !strlen($output)) {
+			return [$output, 'noparse' => $noparse];
+		}
+
+		$out =  "<table style='background:transparent; border:0px none; margin:0px; border-collapse:collapse;'>";
+		if ($header) {
+			$out .= "<th style='background:transparent; border:0px none; margin:0px; text-align:center'>$header</th>";
+		}
+
+		$out .= '<tr><td style="background:transparent; border:0px none; margin:0px;"><pre style="margin-top:0">' . htmlspecialchars($output) . '</pre></td></tr></table>';
+		return [$out, 'noparse' => false];
 	}
 
 	/**
 	 * Standardizes debug text formatting for tags.
 	 *
 	 * @param string $output The original text being output.
-	 * @param boolean $debug Whether to format as debug text or as normal.
+	 * @param bool $debug Whether to return debug or regular text.
 	 *
 	 * @return string The modified text.
 	 *
 	 */
-	public static function formatTagForDebug($output, $debug = false)
+	public static function formatTagForDebug(string $output, bool $debug): array
 	{
-		// It ended up that for both the cases of this so far, we needed to process the debug value before getting
-		// here, so I made the debug check a simple boolean.
+		if (!strlen($output)) {
+			return [''];
+		}
+
 		return $debug
-			? ['<pre>' . htmlspecialchars($output) . '</pre>', 'markerType' => 'nowiki']
-			: [$output, 'markerType' => 'none'];
+			// Noparse needs to be false for debugging so that <pre> tag correctly breaks all processing.
+			? ['<pre>' . htmlspecialchars($output) . '</pre>', 'markerType' => 'nowiki', 'noparse' => false]
+			: [$output, 'markerType' => 'none', 'noparse' => false];
 	}
 
 	/**
-	 * Returns a string or part node split into a key/value pair, with the key expanded, if necessary, into a string.
-	 * The return value is always an array. If the argument is of the wrong type, or isn't a key/value pair, the key
-	 * will be returned as null and the value will be the original argument.
+	 * Attempts to find an argument with the given key and returns it as a key/value pair with the key expanded into a
+	 * string. The return value is always an array. If the argument is a value only or isn't a recognized key/value
+	 * pair, the key will be returned as null and the value will be the original argument.
 	 *
-	 * @param PPFrame $frame
-	 * @param string|PPNode_Hash_Tree $arg
+	 * @param PPFrame $frame The frame in use.
+	 * @param string|PPNode_Hash_Tree $arg The argument to work on.
 	 *
-	 * @return array
+	 * @return array tuple<string, PPNode_Hash_Tree|string> The trimmed key and the native value. Because we don't know
+	 *     what the caller wants to do, value is left in its native format and is untrimmed.
 	 */
-	public static function getKeyValue(PPFrame $frame, $arg)
+	public static function getKeyValue(PPFrame $frame, $arg): array
 	{
-		if ($arg instanceof PPNode_Hash_Tree && $arg->getName() === 'part') {
+		if (($arg instanceof PPNode_Hash_Tree && $arg->name === 'part')) {
 			$split = $arg->splitArg();
-			$key = empty($split['index']) ? $frame->expand($split['name']) : null;
-			return [$key, $split['value']];
+			$key = $split['index'] ? null : trim($frame->expand($split['name']));
+			$value = $split['value'];
+			return [$key, $value];
 		}
 
 		if (is_string($arg)) {
 			$split = explode('=', $arg, 2);
 			if (count($split) == 2) {
-				return [$split[0], $split[1]];
+				return [trim($split[0]), $split[1]];
 			}
 		}
 
-		// This handles both value-only nodes and unexpected values.
 		return [null, $arg];
 	}
 
 	/**
-	 * Returns an associative array of the named arguments that are allowed for a magic word or parser function along
-	 * with their values. The function checks all localized variants for a named argument and returns their associated
-	 * values under a single unified key.
+	 * Splits the standard parser function arguments into recognized parameters and all others.
 	 *
-	 * @param PPFrame $frame The expansion frame to use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param array $args The arguments to search.
-	 * @param mixed ...$allowedArgs A list of arguments that should be expanded and returned in the `$magic` portion of
-	 * the returned array. All other arguments will be returned in the `$values` portion of the returned array.
+	 * @param MagicWordArray|mixed ...$allowedArgs A list of arguments that should be expanded and returned in the
+	 *     `$magic` portion of the returned array. All other arguments will be returned in the `$values` portion of
+	 *     the returned array. Currently accepts either an array of magic words constants (e.g. ParserHelper::NA_IF)
+	 *     or a MagicWordArray of the same constants. The former is now deprecated; MagicWordArrays should be used in
+	 *     all future code.
 	 *
-	 * @return [array, array] The return value consists of two sets of array. The first array contains the list of any
-	 * named arguments from `$allowedArgs` that were found. The values will have been expanded before being returned.
-	 * The second array will contain all other arguments. These are left unexpanded to avoid processing conditional code.
+	 * @return array The return value consists of three arrays:
+	 *     Magic Arguments: contains the list of any named arguments where the key appears in $allowedArray. Keys and
+	 *         values are pre-expanded under the assumption that they will be needed that way.
+	 *     Values: The second array will contain any arguments that are anonymous or were not specified in
+	 *         $allowedArgs. Although these are returned unaltered, anything before the first equals sign (if any) will
+	 *         have been expanded as part of processing. If there's no equals sign in the value, none of it will have
+	 *         been expanded.
+	 *
 	 */
-	public static function getMagicArgs(PPFrame $frame, array $args = [], ...$allowedArgs)
+	public static function getMagicArgs(PPFrame $frame, array $args, MagicWordArray $allowedArray): array
 	{
 		$magic = [];
 		$values = [];
-		$dupes = [];
-		$allowedArray = new MagicWordArray($allowedArgs);
-		if (count($args) && count($allowedArgs)) {
-			$args = array_reverse($args); // Make sure last value gets processed and any others go to $dupes.
-			foreach ($args as $arg) {
-				list($name, $value) = self::getKeyValue($frame, $arg);
-				if (is_null($name)) {
-					// show('Add anon: ', $frame->expand($value));
-					$values[] = $value;
+
+		foreach ($args as $arg) {
+			[$name, $value] = self::getKeyValue($frame, $arg);
+			if (is_null($name)) {
+				$values[] = $value;
+			} else {
+				$magKey = $allowedArray->matchStartToEnd(trim($name));
+				if ($magKey && !isset($magic[$magKey])) {
+					$magic[$magKey] = trim($frame->expand($value));
 				} else {
-					$name = trim($name);
-					$magKey = $allowedArray->matchStartToEnd($name);
-					if ($magKey) {
-						if (isset($magic[$magKey])) {
-							// If a key already exists and is one of the allowed keys, add it to the dupes list. This
-							// allows for the possibility of merging the duplicate back into values later on for cases
-							// like #splitargs where it may be desirable to have keys for the called template
-							// (e.g., separator) that overlap with those of the template.
-							if (!isset($dupes[$name])) {
-								$dupes[$name] = $value;
-							}
-						} else {
-							$magic[$magKey] = trim($frame->expand($value));
-						}
-					} else {
-						// show('Add fake k=v: ', $frame->expand($arg));
-						$values[] = $arg;
-					}
+					$values[] = $arg;
 				}
 			}
-
-			$values = array_reverse($values);
 		}
 
-		return [$magic, $values, $dupes];
+		return [$magic, $values];
 	}
 
-	public static function getSeparator(PPFrame $frame, array $magicArgs)
+	/**
+	 * Get separator from $magicArgs, if it exists, then parse it using parseSeparator().
+	 *
+	 * @param array $separator The separator to evaluate. For backwards compatibility, can also be the magic-word
+	 * arguments as created by getMagicArgs().
+	 *
+	 * @return string The parsed string.
+	 *
+	 */
+	public static function getSeparator(array $magicArgs): string
 	{
-		$separator = ParserHelper::arrayGet($magicArgs, self::NA_SEPARATOR, '');
+		return isset($magicArgs[self::NA_SEPARATOR])
+			? self::parseSeparator($magicArgs[self::NA_SEPARATOR])
+			: '';
+	}
+
+	/**
+	 * Determines if the word at a specific key matches a certain value after everything's converted to their
+	 * respective IDs.
+	 *
+	 * @param array $magicArguments The arguments the key can be found in.
+	 * @param string $key The key to search for.
+	 * @param string $value The value to match with.
+	 *
+	 * @return bool True if the value at the specifc key was the same as the value specified.
+	 *
+	 */
+	public static function magicKeyEqualsValue(array $magicArguments, string $key, string $value): bool
+	{
+		$arrayValue = $magicArguments[$key] ?? null;
+		return
+			!is_null($arrayValue) &&
+			VersionHelper::getInstance()->getMagicWord($value)->matchStartToEnd($arrayValue);
+	}
+
+	/**
+	 * Parse separator string for C-like character entities and surrounding quotes.
+	 *
+	 * @param string $separator The separator to evaluate. For backwards compatibility, can also be the magic-word
+	 * arguments as created by getMagicArgs().
+	 *
+	 * @return string The parsed string.
+	 *
+	 */
+	public static function parseSeparator(string $separator): string
+	{
 		if (strlen($separator) > 1) {
 			$separator = stripcslashes($separator);
 			$first = $separator[0];
@@ -287,104 +250,65 @@ class ParserHelper
 	}
 
 	/**
-	 * Initializes ParserHelper, caching all required magic words.
-	 *
-	 * @return void
-	 */
-	public static function init()
-	{
-		self::cacheMagicWords([
-			self::AV_ANY,
-			self::AV_ALWAYS,
-
-			self::NA_ALLOWEMPTY,
-			self::NA_CASE,
-			self::NA_DEBUG,
-			self::NA_IF,
-			self::NA_IFNOT,
-			self::NA_SEPARATOR,
-
-			self::NA_NSBASE, // These are shared here for now. There may be a better way to integrate
-			self::NA_NSID,   // them later as Riven, MetaTemplate and UespCustomCode develop.
-		]);
-	}
-
-	/**
-	 * Determines if the word at a specific key matches a certain value after everything's converted to their
-	 * respective IDs.
-	 *
-	 * @param mixed $magicArguments The arguments they key can be found in.
-	 * @param mixed $key The key to search for.
-	 * @param mixed $value The value to match with.
-	 *
-	 * @return boolean True if the value at the specifc key was the same as the value specified.
-	 *
-	 */
-	public static function magicKeyEqualsValue($magicArguments, $key, $value)
-	{
-		$arrayValue = self::arrayGet($magicArguments, $key);
-		return
-			!is_null($arrayValue) &&
-			MagicWord::get($value)->matchStartToEnd($arrayValue);
-	}
-
-	/**
-	 * Determines whether a plain-text word maps to a Magic Word ID from the specified set.
-	 *
-	 * @param mixed $word The word to check.
-	 * @param mixed $allowedKeys The keys that it should be found in.
-	 *
-	 * @return The key the word maps to, if found.
-	 *
-	 */
-	public static function magicWordIn($word, $allowedKeys)
-	{
-		$allowedMagic = new MagicWordArray($allowedKeys);
-		$key = $allowedMagic->matchStartToEnd($word);
-		return $key;
-	}
-
-	/**
-	 * Primitive null coalescing for older versions of PHP.
-	 *
-	 * @param mixed ...$args The arguments to evaluate.
-	 *
-	 * @return mixed|null
-	 */
-	public static function nullCoalesce(...$args)
-	{
-		// Can be replaced with actual null coalescing operator in PHP 7+.
-		foreach ($args as $arg) {
-			if (!is_null($arg)) {
-				return $arg;
-			}
-		}
-
-		return null;
-	}
-
-	/**
 	 * Calls setHook() for all synonyms of a tag.
 	 *
 	 * @param Parser $parser The parser to register the tag names with.
-	 * @param mixed $id The magic word ID whose synonyms should be registered.
+	 * @param string $id The magic word ID whose synonyms should be registered.
 	 * @param callable $callback The function to call when the tag is used.
 	 *
 	 * @return void
 	 *
 	 */
-	public static function setHookSynonyms(Parser $parser, $id, callable $callback)
+	public static function setHookSynonyms(Parser $parser, string $id, callable $callback): void
 	{
-		foreach (MagicWord::get($id)->getSynonyms() as $synonym) {
+		$synonyms = VersionHelper::getInstance()->getMagicWord($id)->getSynonyms();
+		foreach ($synonyms as $synonym) {
 			$parser->setHook($synonym, $callback);
 		}
 	}
 
-	public static function transformArgs(array $args)
+	/**
+	 * Splits named arguments from unnamed.
+	 *
+	 * @param PPFrame $frame The template frame in use.
+	 * @param ?array $args The arguments to split.
+	 *
+	 * @return array An array of arrays, the first element being the named values and the second element being the anonymous values.
+	 */
+	public static function splitNamedArgs(PPFrame $frame, ?array $args = null): array
+	{
+		$named = [];
+		$unnamed = [];
+		if (!empty($args)) {
+			// $unnamed[] = $args[0];
+			foreach ($args as $ignored => $arg) {
+				[$name, $value] = self::getKeyValue($frame, $arg);
+				if (is_null($name)) {
+					$unnamed[] = $value;
+				} else {
+					$named[$name] = $value;
+				}
+			}
+		}
+
+		return [$named, $unnamed];
+	}
+
+	/**
+	 * Transforms tag attributes so that only wanted elements are present and are represented by their qqq key rather
+	 * than the language-specific word.
+	 *
+	 * @param array $attributes The attributes to transform.
+	 * @param ?MagicWordArray The MagicWordArray to compare against. Defaults to previously registered magic words.
+	 *
+	 * @return array The filtered array.
+	 *k
+	 */
+	public static function transformAttributes(array $attributes, MagicWordArray $magicWords): array
 	{
 		$retval = [];
-		foreach ($args as $key => $value) {
-			$match = self::$mwArray->matchStartToEnd($key);
+		foreach ($attributes as $key => $value) {
+			$match = $magicWords->matchStartToEnd($key);
 			if ($match) {
 				$retval[$match] = $value;
 			}
@@ -392,135 +316,20 @@ class ParserHelper
 
 		return $retval;
 	}
-}
-/**
- * Where to log to for the global functions that need it.
- */
-define('PH_LOG_FILE', 'ParserHelperLog.txt');
 
-/**
- * Tries to send a popup message via Javascript.
- *
- * @param mixed $msg The message to send.
- *
- * @return void
- */
-function alert($msg)
-{
-	if (!isDev()) {
-		return;
+	/**
+	 * Formats an error message for wikitext output. Any HTML in the final result will be escaped so it is displayed on screen.
+	 *
+	 * @param string $key The message key in en.json.
+	 * @param mixed ...$args Any arguments to be passed to the message.
+	 *
+	 * @return string The error text wrapped in div tags with an error class.
+	 *
+	 */
+	public static function unescapedError(string $key, ...$args): string
+	{
+		$msg = wfMessage($key)->params($args)->inContentLanguage()->text();
+		return "<div class='error'>$msg</div>";
 	}
-
-	echo "<script>alert(\" $msg\")</script>";
-}
-
-/**
- * Returns the last query run along with the number of rows affected, if any.
- *
- * @param IDatabase $db
- * @param ResultWrapper|null $result
- *
- * @return string The text of the query and the result count.
- *
- */
-function formatQuery(IDatabase $db, ResultWrapper $result = null)
-{
-	if (!isDev()) {
-		return;
-	}
-
-	// MW 1.28+: $db = $result->getDB();
-	$retval = $result ? $db->numRows($result) . ' rows returned.' : '';
-	return $db->lastQuery() . "\n\n" . $retval;
-}
-
-function isDev()
-{
-	return in_array($_SERVER['SERVER_NAME'], ['content3.uesp.net', 'dev.uesp.net', 'rob-centos']);
-}
-
-/**
- * Logs text to the file provided in the PH_LOG_FILE define.
- *
- * @param string $text The text to add to the log.
- *
- * @return void
- *
- */
-function logFunctionText($text = '')
-{
-	if (!isDev()) {
-		return;
-	}
-
-	$caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)[1];
-	$method = $caller['function'];
-	if (isset($caller['class'])) {
-		$method = $caller['class'] . '::' . $method;
-	}
-
-	writeFile($method, ': ', $text);
-}
-
-/**
- * Displays the provided message(s) on-screen, if possible.
- *
- * @param mixed ...$msgs
- *
- * @return void
- *
- */
-function show(...$msgs)
-{
-	if (!isDev()) {
-		return;
-	}
-
-	echo '<pre>';
-	foreach ($msgs as $msg) {
-		if ($msg) {
-			print_r(htmlspecialchars(print_r($msg, true)));
-		}
-	}
-
-	echo '</pre>';
-}
-
-/**
- * Writes the provided text to the log file specified in PH_LOG_FILE.
- *
- * @param mixed ...$msgs What to log.
- *
- * @return void
- *
- */
-function writeFile(...$msgs)
-{
-	writeAnyFile(PH_LOG_FILE, ...$msgs);
-}
-
-/**
- * Logs the provided text to the specified file.
- *
- * @param mixed $file The file to output to.
- * @param mixed ...$msgs What to log.
- *
- * @return void
- *
- */
-function writeAnyFile($file, ...$msgs)
-{
-	if (!isDev()) {
-		return;
-	}
-
-	$handle = fopen($file, 'a') or die("Cannot open file: $file");
-	foreach ($msgs as $msg) {
-		$msg2 = print_r($msg, true);
-		fwrite($handle, $msg2);
-	}
-
-	fwrite($handle, "\n");
-	fflush($handle);
-	fclose($handle);
+	#endregion
 }

@@ -1,5 +1,7 @@
 <?php
 
+use Wikimedia\TestingAccessWrapper;
+
 /**
  * @group Cache
  * @covers MessageBlobStore
@@ -44,6 +46,46 @@ class MessageBlobStoreTest extends PHPUnit_Framework_TestCase {
 		return $module;
 	}
 
+	/** @covers MessageBlobStore::setLogger */
+	public function testSetLogger() {
+		$blobStore = $this->makeBlobStore();
+		$this->assertSame( null, $blobStore->setLogger( new Psr\Log\NullLogger() ) );
+	}
+
+	/** @covers MessageBlobStore::getResourceLoader */
+	public function testGetResourceLoader() {
+		// Call protected method
+		$blobStore = TestingAccessWrapper::newFromObject( $this->makeBlobStore() );
+		$this->assertInstanceOf(
+			ResourceLoader::class,
+			$blobStore->getResourceLoader()
+		);
+	}
+
+	/** @covers MessageBlobStore::fetchMessage */
+	public function testFetchMessage() {
+		$module = $this->makeModule( [ 'mainpage' ] );
+		$rl = new ResourceLoader();
+		$rl->register( $module->getName(), $module );
+
+		$blobStore = $this->makeBlobStore( null, $rl );
+		$blob = $blobStore->getBlob( $module, 'en' );
+
+		$this->assertEquals( '{"mainpage":"Main Page"}', $blob, 'Generated blob' );
+	}
+
+	/** @covers MessageBlobStore::fetchMessage */
+	public function testFetchMessageFail() {
+		$module = $this->makeModule( [ 'i-dont-exist' ] );
+		$rl = new ResourceLoader();
+		$rl->register( $module->getName(), $module );
+
+		$blobStore = $this->makeBlobStore( null, $rl );
+		$blob = $blobStore->getBlob( $module, 'en' );
+
+		$this->assertEquals( '{"i-dont-exist":"\u29fci-dont-exist\u29fd"}', $blob, 'Generated blob' );
+	}
+
 	public function testGetBlob() {
 		$module = $this->makeModule( [ 'foo' ] );
 		$rl = new ResourceLoader();
@@ -59,6 +101,11 @@ class MessageBlobStoreTest extends PHPUnit_Framework_TestCase {
 		$this->assertEquals( '{"foo":"Example"}', $blob, 'Generated blob' );
 	}
 
+	/**
+	 * Seems to fail sometimes (T176097).
+	 *
+	 * @group Broken
+	 */
 	public function testGetBlobCached() {
 		$module = $this->makeModule( [ 'example' ] );
 		$rl = new ResourceLoader();

@@ -20,6 +20,7 @@
  * @file
  * @ingroup Database
  */
+namespace Wikimedia\Rdbms;
 
 /**
  * Database abstraction object for PHP extension mysql.
@@ -199,6 +200,8 @@ class DatabaseMysql extends DatabaseMysqlBase {
 	protected function mysqlRealEscapeString( $s ) {
 		$conn = $this->getBindingHandle();
 
-		return mysql_real_escape_string( $s, $conn );
+		return mysql_real_escape_string( (string)$s, $conn );
 	}
 }
+
+class_alias( DatabaseMysql::class, 'DatabaseMysql' );

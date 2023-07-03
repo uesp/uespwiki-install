@@ -4,6 +4,7 @@
 	 * Large files are uploaded in chunks.
 	 *
 	 * @param {mw.UploadWizardUpload} upload
+	 * @param {mw.Api} api
 	 */
 	mw.ApiUploadFormDataHandler = function ( upload, api ) {
 		var handler = this;
@@ -22,7 +23,7 @@
 		} );
 
 		this.transport = new mw.FormDataTransport(
-			this.api.defaults.ajax.url,
+			this.api,
 			this.formData
 		).on( 'update-stage', function ( stage ) {
 			upload.ui.setStatus( 'mwe-upwiz-' + stage );
@@ -59,7 +60,7 @@
 				return handler.transport.upload( handler.upload.file, handler.upload.title.getMainText() )
 					.progress( function ( fraction ) {
 						if ( handler.upload.state === 'aborted' ) {
-							handler.transport.xhr.abort();
+							handler.transport.api.abort();
 							return;
 						}
 
@@ -67,19 +68,17 @@
 							handler.upload.setTransportProgress( fraction );
 						}
 					} ).then( function ( result ) {
-						if ( !result || result.error || ( result.upload && result.upload.warnings ) ) {
+						if ( result.upload && result.upload.warnings ) {
 							uw.eventFlowLogger.logApiError( 'file', result );
 						}
 						handler.upload.setTransported( result );
-					}, function ( result ) {
-						if ( !result || result.error || ( result.upload && result.upload.warnings ) ) {
-							uw.eventFlowLogger.logApiError( 'file', result );
-						}
-						handler.upload.setTransported( result );
+					}, function ( code, result ) {
+						uw.eventFlowLogger.logApiError( 'file', result );
+						handler.upload.setTransportError( code, result );
 					} );
-			}, function ( code, info, result ) {
+			}, function ( code, result ) {
 				uw.eventFlowLogger.logApiError( 'file', result );
-				handler.upload.setError( code, info );
+				handler.upload.setTransportError( code, result );
 			} );
 		}
 	};

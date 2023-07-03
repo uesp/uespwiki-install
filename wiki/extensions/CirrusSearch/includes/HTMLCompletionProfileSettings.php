@@ -35,7 +35,7 @@ class HTMLCompletionProfileSettings extends HTMLFormField {
 	 * @param string $value
 	 * @return string
 	 */
-	function getInputHTML( $value ) {
+	public function getInputHTML( $value ) {
 		$html = Html::openElement( 'div' );
 		$html .= Html::element( 'legend',
 			[],
@@ -55,6 +55,7 @@ class HTMLCompletionProfileSettings extends HTMLFormField {
 				$html .= $this->addCompSuggestOption( $prof, $value );
 			}
 		}
+		$html .= Html::element( 'br' );
 
 		$html .= Html::element( 'strong',
 			[],
@@ -84,9 +85,9 @@ class HTMLCompletionProfileSettings extends HTMLFormField {
 		if ( $prof === $value ) {
 			$radioAttrs['checked'] = 'checked';
 		}
-		$html .= Html::input( $this->mID, $prof, 'radio', $radioAttrs );
+		$html .= Html::input( $this->mName, $prof, 'radio', $radioAttrs );
 		$html .= Html::closeElement( 'div' );
-		$html .= Html::openElement( 'div', [ 'style' => 'display:inline-block' ] );
+		$html .= Html::openElement( 'div', [ 'style' => 'display:inline-block; width: 90%' ] );
 		$html .= Html::element( 'label',
 			['for' => $radioId, 'style' => 'font-weight: bold'],
 			wfMessage( "cirrussearch-completion-profile-$prof-pref-name" )->text()

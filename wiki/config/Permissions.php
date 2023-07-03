@@ -11,8 +11,8 @@ $wgExtensionFunctions[] = function() use ( &$wgGroupPermissions ) {
 };
 
 # Rights to add or remove user groups
-$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer' );
-$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer' );
+$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer', 'developer' );
+$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer', 'developer' );
 
 # Removed group rights
 $wgGroupPermissions['*']['createpage'] = false;
@@ -127,6 +127,12 @@ $wgAPIModules['createaccount'] = 'ApiDisabled';
 
 # Restrict viewing of renamed users to those with permission to rename
 $wgLogRestrictions['renameuser'] = 'renameuser';
+
+# Developer specific groups/permissions
+$wgRestrictionLevels[] = 'developer'; 
+$wgGroupPermissions['developer']['developer'] = true;
+$wgGroupPermissions['developer']['autoconfirmed'] = true;
+$wgGroupPermissions['sysop']['developer'] = true;
 
 /* old code to prevent non-bots from accessing API edits
 $wgHooks['APIEditBeforeSave'][] = 'onAPIEditBeforeSave';

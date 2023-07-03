@@ -233,9 +233,9 @@ When(/^I set More Like This Options to bad settings and I search for (.+)$/) do 
 end
 
 Then(/^suggestions should( not)? appear$/) do |not_appear|
+  sleep(5)
   if not_appear
     # Wait to give the element a chance to load if it was going to
-    sleep(5)
     on(SearchPage).search_results_element.should_not be_visible
   else
     on(SearchPage).search_results_element.when_present.should be_visible
@@ -497,6 +497,14 @@ Then(/^within (\d+) seconds typing (.*) into the search box yields (.*) as the f
     step("#{title} is the first suggestion")
   end
 end
+Then(/^within (\d+) seconds (.*) has (.*) as local_sites_with_dupe$/) do |seconds, page, value|
+  on_wiki("commons") do
+    within(seconds) do
+      step("I dump the cirrus data for " + page)
+      step('the page text contains "local_sites_with_dupe":["' + value + '"]')
+    end
+  end
+end
 Then(/^there is (no|a)? link to create a new page from the search result$/) do |modifier|
   with_browser do
     if modifier == "a"
@@ -546,7 +554,6 @@ Then(/there are no errors reported by the api$/) do
 end
 Then(/this error is reported by api: (.+)$/) do |expected_error|
   with_api do
-    @api_error.code.should be == "srsearch-error"
     CGI.unescapeHTML(@api_error.info).should == expected_error.strip
   end
 end
@@ -604,6 +611,20 @@ When(/^I reindex suggestions$/) do
     :'cirrus-suggest-index',
     token_type: false
   )
+end
+When(/^within (\d+) seconds I search deleted pages for (.*)/) do |seconds, search|
+  within(seconds) do
+    with_browser do
+      visit(SpecialUndeletePage)
+      on(SpecialUndeletePage).search_input = search
+      on(SpecialUndeletePage).search_button
+    end
+  end
+end
+Then(/^deleted page search returns (.*) as first result/) do |expected|
+  result = on(SpecialUndeletePage).first_result
+  result = result.gsub(/\s+\(\d+ revisions? deleted\)$/, "") unless result.nil?
+  result.should == expected
 end
 
 def within(seconds)

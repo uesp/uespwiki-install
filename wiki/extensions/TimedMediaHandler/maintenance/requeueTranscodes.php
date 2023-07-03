@@ -17,14 +17,30 @@ class RequeueTranscodes extends Maintenance {
 		$this->addOption( "error", "re-queue formats that previously failed", false, false );
 		$this->addOption( "stalled", "re-queue formats that were started but not finished",
 			false, false );
+		$this->addOption( "missing", "queue formats that were never started",
+			false, false );
 		$this->addOption( "all", "re-queue all output formats", false, false );
+		$this->addOption( "audio", "process audio files (defaults to all media types)", false, false );
+		$this->addOption( "video", "process video files (defaults to all media types)", false, false );
+		$this->addOption( "throttle", "throttle on the queue", false, false );
 		$this->mDescription = "re-queue existing and missing media transcodes.";
 	}
 
 	public function execute() {
 		$this->output( "Cleanup transcodes:\n" );
 		$dbr = wfGetDB( DB_SLAVE );
-		$where = [ 'img_media_type' => 'VIDEO' ];
+		$types = [];
+		if ( $this->hasOption( 'audio' ) ) {
+			$types[] = 'AUDIO';
+		}
+		if ( $this->hasOption( 'video' ) ) {
+			$types[] = 'VIDEO';
+		}
+		if ( !$types ) {
+			// Default to all if none specified
+			$types = [ 'AUDIO', 'VIDEO' ];
+		}
+		$where = [ 'img_media_type' => $types ];
 		if ( $this->hasOption( 'file' ) ) {
 			$title = Title::newFromText( $this->getOption( 'file' ), NS_FILE );
 			if ( !$title ) {
@@ -51,6 +67,8 @@ class RequeueTranscodes extends Maintenance {
 		$transcodeSet = array_merge( $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet );
 		$dbw = wfGetDB( DB_MASTER );
 
+		$state = WebVideoTranscode::cleanupTranscodes( $file );
+
 		if ( $this->hasOption( "all" ) ) {
 			$toAdd = $toRemove = $transcodeSet;
 		} elseif ( $this->hasOption( "key" ) ) {
@@ -69,10 +87,13 @@ class RequeueTranscodes extends Maintenance {
 					$toRemove[] = $key;
 					continue;
 				}
+				if ( $this->hasOption( 'missing' ) &&
+					( !$item['time_addjob'] ) ) {
+					$toRemove[] = $key;
+					continue;
+				}
 			}
 		}
-
-		$state = WebVideoTranscode::cleanupTranscodes( $file );
 
 		if ( $toRemove ) {
 			$state = WebVideoTranscode::getTranscodeState( $file, $dbw );
@@ -95,7 +116,23 @@ class RequeueTranscodes extends Maintenance {
 				}
 				if ( !array_key_exists( $key, $state ) || !$state[$key]['time_addjob'] ) {
 					$this->output( ".. queueing $key\n" );
+
+					if ( $this->hasOption( 'throttle' ) ) {
+						$startSize = WebVideoTranscode::getQueueSize( $file, $key );
+					}
+
 					WebVideoTranscode::updateJobQueue( $file, $key );
+					if ( $this->hasOption( 'throttle' ) ) {
+						while ( true ) {
+							$size = WebVideoTranscode::getQueueSize( $file, $key );
+							if ( $size > $startSize ) {
+								$this->output( ".. waiting (queue size $size)\n" );
+								sleep( 1 );
+							} else {
+								break;
+							}
+						}
+					}
 				}
 			}
 		}

@@ -1,0 +1,40 @@
+{
+	"@metadata": {
+		"authors": [
+			"Gomoko",
+			"Ltrlg",
+			"VIGNERON",
+			"Benjozork",
+			"Orikrin1998",
+			"Djiboun",
+			"Cl3m3n7",
+			"Wladek92",
+			"C13m3n7",
+			"The RedBurn"
+		]
+	},
+	"popups-message": "Aperçus de page",
+	"popups-desc": "Affiche un aperçu quand l’utilisateur survole un lien de page.",
+	"popups-redirects": "redirigé vers <h3>$1</h3>",
+	"popups-settings-title": "Aperçu de la page",
+	"popups-settings-description": "Cet outil vous donne un aperçu des liens vers les pages wiki et les références.",
+	"popups-settings-option-simple": "Activer",
+	"popups-settings-option-simple-description": "Obtenir un aperçu rapide d’un sujet en lisant un article.",
+	"popups-settings-option-advanced": "Avancé",
+	"popups-settings-option-advanced-description": "Voir les aperçus de lien et accéder aux menus des fonctions d’édition. C’est ce qui est utilisé par beaucoup d’éditeurs.",
+	"popups-settings-option-off": "Désactiver",
+	"popups-settings-save": "Enregistrer",
+	"popups-settings-help-ok": "Fermer",
+	"popups-settings-cancel": "Annuler",
+	"popups-settings-help": "Vous pouvez activer des aperçus sur l'utilisation d'un lien dans le pied de page.",
+	"popups-settings-enable": "Activer les aperçus",
+	"popups-send-feedback": "Envoyer des Commentaires (lien externe)",
+	"popups-preview-no-preview": "Il semble qu’il n’y a pas d’aperçu pour cette page",
+	"popups-preview-footer-read": "Lire",
+	"prefs-reading": "Préférences de lecture",
+	"popups-prefs-optin-title": "Aperçus de page\n\n<em>Obtenir des aperçus rapides d’un sujet en lisant un article</em>",
+	"popups-prefs-optin-enabled-label": "Activer",
+	"popups-prefs-optin-disabled-label": "Désactiver",
+	"popups-prefs-disable-nav-gadgets-info": "Vous devez [[$1 |désactiver le Gadget Navigation Popups]] dans l’onglet des Gadgets pour activer les Aperçus de page",
+	"popups-prefs-conflicting-gadgets-info": "Certains gadgets et autres personnalisations peuvent affecter la performance de cette fonctionnalité. Si vous rencontrez des problèmes, veuillez vérifier vos gadgets et scripts utilisateur."
+}

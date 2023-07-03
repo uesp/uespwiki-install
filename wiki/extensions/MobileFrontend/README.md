@@ -147,15 +147,6 @@ Options to control several functions of the mobile editor.  Possible values:
   ]
 ```
 
-#### $wgMFIgnoreEventLoggingBucketing
-
-Disable EventLogging bucketing for purposes of development.  When enabled all
-events are logged regardless of any existing sampling rate specified in the
-schema.
-
-* Type: `Boolean`
-* Default: `false`
-
 #### $wgMFExperiments
 
 A list of experiments active on the skin.
@@ -247,17 +238,6 @@ mobile devices.
 * Type: `String`
 * Default: `'X-Subdomain'`
 
-#### $wgMinervaUseFooterV2
-
-A temporary configuration variable to control display of a new footer which impacts styling
-of the last modified bar and with a slight different arrangement of footer icons.
-
-The config variable currently controls whether the styles and template for new footer should be invoked.
-Enabling this in current state will break rendering of footer in stable.
-
-* Type: `Boolean`
-* Default: `false`
-
 #### $wgMFRemovableClasses
 
 Make the classes, tags and ids stripped from page content configurable. Each
@@ -343,6 +323,25 @@ Define a set of params that should be passed in every gateway query.
   ]
 ```
 
+#### $wgMinervaApplyKnownTemplateHacks
+
+When enabled and hacks.less exists, hacks.less workarounds are included in stylesheet. These should only be needed for Wikimedia based wikis or wikis using common templates such as Template:Infobox on those wikis.
+
+* Type: `Boolean`
+* Default: `false`
+
+#### $wgMinervaPrintStyles
+
+A temporary configuration variable to control roll out of styles to improve the MobileFrontend print experience.
+
+* Type: `Array`
+* Default:
+```php
+  [
+    'beta' => true,
+    'base' => false,
+  ]
+```
 
 #### $wgMinervaPageActions
 
@@ -511,7 +510,7 @@ Make the logos configurable.
 Currently, `copyright`, `copyright-width`, and `copyright-height` elements are
 supported.
 
-* `copyright` is the URL of the logo displayed in the footer
+* `copyright` is the URL of the logo displayed in the header and footer
 * `copyright-width` (optional) is the width in pixels of the copyright image
   you want to display
 * `copyright-height` (optional) is the height in pixels of the copyright image
@@ -519,6 +518,8 @@ supported.
 * If the actual `copyright` dimensions are 200x30, then you may want to set the
   width and height to 100 and 15 respectively (in order to support retina
   screens).
+* Note that if -width and -height are not used sysadmin should ensure the image
+used is appropriately sized (suggested dimensions < 120px width and 18px height).
 
 Example:
 ```php
@@ -557,13 +558,6 @@ message directly.
 #### $wgMFEnableBeta
 
 Whether beta mode is enabled.
-
-* Type: `Boolean`
-* Default: `false`
-
-#### $wgMFDonationUrl
-
-Optional string to mobile friendly url for donation page.
 
 * Type: `Boolean`
 * Default: `false`
@@ -681,6 +675,13 @@ $wgMFDisplayWikibaseDescriptions = [
     'tagline' => false,
   ]
 ```
+
+#### $wgMFAllowNonJavaScriptEditing
+
+Adds support for non-JavaScript editing on mobile skins.
+
+* Type: `Boolean`
+* Default: `false`
 
 #### $wgMFStripResponsiveImages
 

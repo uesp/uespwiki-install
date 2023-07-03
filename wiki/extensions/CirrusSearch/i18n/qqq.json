@@ -7,7 +7,8 @@
 			"Srolanh",
 			"Umherirrender",
 			"Dcausse",
-			"Amire80"
+			"Amire80",
+			"Kghbln"
 		]
 	},
 	"cirrussearch-desc": "{{desc|name=Cirrus Search|url=https://www.mediawiki.org/wiki/Extension:CirrusSearch}}\n\"Elasticsearch\" is a full-text search engine. See http://www.elasticsearch.org/",
@@ -28,6 +29,7 @@
 	"apihelp-cirrus-mapping-dump-example": "{{doc-apihelp-example|cirrus-mapping-dump}}",
 	"apihelp-cirrus-settings-dump-description": "{{doc-apihelp-description|cirrus-settings-dump}}",
 	"apihelp-cirrus-settings-dump-example": "{{doc-apihelp-example|cirrus-settings-dump}}",
+	"apierror-cirrus-requesttoolong": "{{doc-apierror}}\n\nParameters:\n* $1 - Submitted request length\n* $2 - Maximum allowed request length",
 	"cirrussearch-give-feedback": "Used as text for an feedback link shown at the end of Special:Search result ([[mw:Extension:CirrusSearch|$wgCirrusSearchFeedbackLink]])",
 	"cirrussearch-morelikethis-settings": "Settings for the More Like This query.\n\n\"More Like This\" is the English name of the feature. The feature is described at [[:mw:Help:CirrusSearch#Special prefixes]]. The prefix \"morelike\" cannot be translated anywhere, but the full name of the feature \"More Like This\" can be translated.\n\nDon't translate technical names like min_doc_freq, max_query_terms, true|false, field names title, text, auxiliary_text, opening_text, headings, all etc.\n\nFor a definition of \"stopwords\" see [[:w:en:Stop words|Stop words in Wikipedia]].",
 	"cirrussearch-didyoumean-settings": "Settings for the \"Did You Mean?\" suggestions.\n\n\"Did You Mean?\" is the English name of the feature and can be translated. This feature is described at [[:mw:Help:CirrusSearch#Did_you_mean]].\n\nDon't translate technical names like max_errors, confidence, max_term_freq, min_doc_freq and suggest_mode.\n\n\"Stop words\" are words that are explicitly excluded from searching and statistics, usually because they are too frequent to be useful and meaningful. See [[:w:en:Stop words|stop words]] in the English Wikipedia.",
@@ -39,10 +41,15 @@
 	"cirrussearch-completion-profile-normal": "Normal profile for completion (search as you type).",
 	"cirrussearch-completion-profile-normal-subphrases": "Normal profile with subphrases for completion (search as you type).",
 	"cirrussearch-completion-profile-fuzzy": "Fuzzy profile for completion (search as you type).",
+	"cirrussearch-completion-profile-fast-fuzzy": "Experimental fuzzy profile (may be removed at any time)",
 	"cirrussearch-completion-profile-fuzzy-subphrases": "Fuzzy profile with subphrases for completion (search as you type).",
 	"cirrussearch-qi-profile-classic": "Classic query independent search profile (affects fulltext search ranking algorithm).",
 	"cirrussearch-qi-profile-classic-noboostlinks": "Classic query independent search profile without boost links (affects fulltext search ranking algorithm).",
 	"cirrussearch-qi-profile-empty": "Empty query independent search profile (affects fulltext search ranking algorithm).",
+	"cirrussearch-qi-profile-wsum-inclinks-pv": "Weighted sum based on incoming links and weekly pageviews (affects fulltext search ranking algorithm).",
+	"cirrussearch-qi-profile-wsum-inclinks": "Weighted sum based on incoming links (affects fulltext search ranking algorithm).",
+	"cirrussearch-qi-profile-popular-pv": "Page view based query independent search profile (affects fulltext search ranking algorithm). \"Page views\" refers to \"page views ''count''\".",
+	"cirrussearch-qi-profile-popular-inclinks": "Incoming link count based query independent search profile (affects fulltext search ranking algorithm).",
 	"cirrussearch-pref-completion-profile-help": "Help message for completion profile settings in the user preferences.",
 	"prefs-completion": "Section name for completion settings in the user preferences.",
 	"cirrussearch-pref-completion-section-desc": "Name of the subsection Completion Suggester in the user preferences.",
@@ -52,7 +59,7 @@
 	"cirrussearch-completion-profile-fuzzy-subphrases-pref-name": "Name of the completion profile fuzzy-subphrases",
 	"cirrussearch-completion-profile-fuzzy-subphrases-pref-desc": "Description of the completion profile fuzzy-subphrases.",
 	"cirrussearch-completion-profile-strict-pref-name": "Name of the completion profile strict.",
-	"cirrussearch-completion-profile-strict-pref-desc": "Description of the completion profile strict.",
+	"cirrussearch-completion-profile-strict-pref-desc": "Description of the completion profile strict. In case you wonder what accent folding means: See [http://alistapart.com/article/accent-folding-for-auto-complete this article].",
 	"cirrussearch-completion-profile-normal-pref-name": "Name of the completion profile normal.",
 	"cirrussearch-completion-profile-normal-pref-desc": "Description of the completion profile normal.",
 	"cirrussearch-completion-profile-normal-subphrases-pref-name": "Name of the completion profile normal-subphrases.",
@@ -60,5 +67,14 @@
 	"cirrussearch-pref-completion-legacy-section-desc": "Name of the subsection Prefix search in the user preferences",
 	"cirrussearch-pref-completion-legacy-section-legend": "Legend of the subsection Prefix search in the user preferences.",
 	"cirrussearch-completion-profile-classic-pref-name": "Name of the completion profile classic.",
-	"cirrussearch-completion-profile-classic-pref-desc": "Description of the completion profile classic."
+	"cirrussearch-completion-profile-classic-pref-desc": "Description of the completion profile classic.",
+	"cirrussearch-timed-out": "Message displayed to user when the search query gave up due to timeout before completing.",
+	"cirrussearch-regex-timed-out": "Message displayed to user when the regex search query gave up due to timeout before completing.",
+	"cirrussearch-file-numeric-feature-not-a-number": "Warning shown to users when a search keyword for numeric file features used something other than a number.",
+	"cirrusesarch-file-numeric-feature-multi-argument-w-sign": "Warning shown to users when a search keyword for numeric file features used multiple arguments with an invalid sign qualifier.",
+	"cirrussearch-feature-not-available": "Warning shown to users when an unavailable search keyword is used.",
+	"cirrussearch-feature-too-many-conditions": "Warning shown to users when more conditions than are allowed were provided to a keyword feature.",
+	"cirrussearch-incategory-feature-no-valid-categories": "Warning shown to users when no valid categories were found with their incategory keyword.",
+	"cirrussearch-mlt-feature-no-valid-titles": "Warning shown to users when no valid titles were found with the provided 'morelike' keyword.",
+	"cirrussearch-mlt-not-configured": "Warning shown to users when issuing a 'more like this' query and the wiki hasn't configured it."
 }

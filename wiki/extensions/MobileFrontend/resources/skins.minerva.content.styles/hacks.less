@@ -38,7 +38,7 @@ FIXME: Review all of these hacks to see if they still apply.
 		&.infobox {
 			font-size: 90%;
 			position: relative;
-			border: 0;
+			border: 1px solid @colorGray14;
 			margin-bottom: 2em;
 			text-align: left;
 			background-color: @colorGray15;
@@ -46,8 +46,13 @@ FIXME: Review all of these hacks to see if they still apply.
 			th, td {
 				vertical-align: top;
 				border: 0;
-				border-bottom: 1px solid @colorGray13;
-				padding: 0.2em;
+				border-bottom: 1px solid @colorGray14;
+				font-size: 13px;
+				padding: 7px 10px;
+			}
+
+			td {
+				width: 100%;
 			}
 
 			tr:last-child th,
@@ -79,7 +84,8 @@ FIXME: Review all of these hacks to see if they still apply.
  * Makes sure that on small screens column-count is only honored if column-width hint is not violated.
  * https://developer.mozilla.org/en-US/docs/CSS/column-width
  */
-.references-column-count {
+.references-column-count,
+.column-count {
 	-moz-column-width: 35em;
 	-webkit-column-width: 35em;
 	column-width: 35em;
@@ -130,6 +136,18 @@ FIXME: Review all of these hacks to see if they still apply.
 					display: block !important;
 					width: auto !important;
 				}
+			}
+		}
+		// Deal with Template:Multiple_image.  T38030 and T148505
+		.thumb .thumbinner {
+			.flex-display( flex );
+			justify-content: center;
+			flex-wrap: wrap;
+			align-content: flex-start;
+
+			> .thumbcaption {
+				.flex( 1, 0, 100% );
+				display: block;
 			}
 		}
 	}

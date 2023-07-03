@@ -3,6 +3,7 @@
 namespace CirrusSearch\Tests\Maintenance;
 
 use CirrusSearch\Maintenance\IndexCreator;
+use CirrusSearch\CirrusTestCase;
 use Elastica\Response;
 
 /**
@@ -25,7 +26,7 @@ use Elastica\Response;
  *
  * @covers CirrusSearch\Maintenance\IndexCreator
  */
-class IndexCreatorTest extends \PHPUnit_Framework_TestCase {
+class IndexCreatorTest extends CirrusTestCase {
 
 	/**
 	 * @dataProvider createIndexProvider
@@ -43,7 +44,8 @@ class IndexCreatorTest extends \PHPUnit_Framework_TestCase {
 			'0-2', // replicaCount
 			30, // refreshInterval
 			[], // mergeSettings
-			true // searchAllFields
+			true, // searchAllFields
+			[] // extra index settings
 		);
 
 		$this->assertInstanceOf( 'Status', $status );

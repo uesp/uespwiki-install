@@ -1,4 +1,5 @@
 <?php
+
 namespace CirrusSearch\Search;
 
 use SearchEngine;
@@ -42,8 +43,8 @@ abstract class CirrusIndexField extends SearchIndexFieldDefinition {
 
 	/**
 	 * Set flags for specific mapping
-	 * @param $flags
-	 * @return $this
+	 * @param int $flags
+	 * @return self
 	 */
 	public function setMappingFlags( $flags ) {
 		$this->mappingFlags = $flags;
@@ -64,7 +65,7 @@ abstract class CirrusIndexField extends SearchIndexFieldDefinition {
 			'type' => $this->typeName,
 		];
 		if ( $this->checkFlag( SearchIndexField::FLAG_NO_INDEX ) ) {
-			$config['index'] = 'no';
+			$config['index'] = false;
 		}
 		return $config;
 	}

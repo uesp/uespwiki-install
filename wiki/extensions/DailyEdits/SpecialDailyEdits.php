@@ -10,7 +10,7 @@ class SpecialDailyEdits extends SpecialPage {
 	{
 		global $wgArticlePath;
 
-                parent::__construct( 'DailyEdits' );
+		parent::__construct( 'DailyEdits' );
 
 		$this->pageurl   = str_replace( '$1', 'Special:DailyEdits', $wgArticlePath);
 		$this->sortkey   = "none";
@@ -21,7 +21,7 @@ class SpecialDailyEdits extends SpecialPage {
         function execute( $par ) 
 	{
 		$this->getParameters();
-                $this->setHeaders();
+		$this->setHeaders();
 		$this->showHeader();
 		$this->showDailyEdits();
 	}

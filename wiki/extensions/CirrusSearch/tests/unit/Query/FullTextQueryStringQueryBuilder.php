@@ -2,12 +2,15 @@
 
 namespace CirrusSearch\Query;
 
+use CirrusSearch\CirrusTestCase;
 use CirrusSearch\Test\HashSearchConfig;
-use CirrusSearch\Search\Escaper;
 use CirrusSearch\Search\SearchContext;
 use CirrusSearch\Util;
 
-class FullTextQueryStringQueryBuilderTest extends \PHPUnit_Framework_TestCase {
+/**
+ * @group CirrusSearch
+ */
+class FullTextQueryStringQueryBuilderTest extends CirrusTestCase {
 
 	public function syntaxUsedProvider() {
 		return [
@@ -127,9 +130,8 @@ class FullTextQueryStringQueryBuilderTest extends \PHPUnit_Framework_TestCase {
 		// mark stripping which is normally done in Searcher::searchText()
 		$term = Util::stripQuestionMarks( $term, 'all' );
 
-		$config = new HashSearchConfig([]);
-		$escaper = new Escaper('en', false);
-		$builder = new FullTextQueryStringQueryBuilder( $config, $escaper, [] );
+		$config = new HashSearchConfig(['wgLanguageCode' => 'en']);
+		$builder = new FullTextQueryStringQueryBuilder( $config, [] );
 		$searchContext = new SearchContext( $config );
 		$builder->build( $searchContext, $term, false );
 		$actual = $searchContext->getSyntaxUsed();

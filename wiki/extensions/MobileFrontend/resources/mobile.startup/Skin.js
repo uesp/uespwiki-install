@@ -1,33 +1,37 @@
 ( function ( M, $ ) {
 
-	var browser = M.require( 'mobile.browser/Browser' ).getSingleton(),
-		View = M.require( 'mobile.view/View' ),
+	var browser = M.require( 'mobile.startup/Browser' ).getSingleton(),
+		View = M.require( 'mobile.startup/View' ),
 		icons = M.require( 'mobile.startup/icons' );
 
 	/**
 	 * Get the id of the section $el belongs to.
 	 * @param {jQuery.Object} $el
+	 * @return {string|null} either the anchor (id attribute of the section heading
+	 *  or null if none found)
 	 * @ignore
 	 */
 	function getSectionId( $el ) {
-		var hSelector = 'h1,h2,h3,h4,h5,h6',
+		var id,
+			hSelector = 'h1,h2,h3,h4,h5,h6',
+			$parent = $el.parent(),
 			// e.g. matches Subheading in
 			// <h2>H</h2><div><h3 id="subheading">Subh</h3><a class="element"></a></div>
-			id = $el.prevAll( hSelector ).eq( 0 )
-				.find( '.mw-headline' ).attr( 'id' );
+			$heading = $el.prevAll( hSelector ).eq( 0 );
 
-		// if there's no headline preceding the placeholder then it is inside a section
-		// and the id is of the collapsible heading preceding the section.
-		// e.g. matches heading in
-		// <div id="mw-content-text">
-		//   <h2 id="heading">Heading</h2>
-		//   <div><a class="element"></a></div>
-		// </div>
-		if ( id === undefined ) {
-			id = $el.parents( '#mw-content-text > div' ).prevAll( hSelector ).eq( 0 )
-				.find( '.mw-headline' ).attr( 'id' );
+		if ( $heading.length ) {
+			id = $heading.find( '.mw-headline' ).attr( 'id' );
+			if ( id ) {
+				return id;
+			}
 		}
-		return id;
+		if ( $parent.length ) {
+			// if we couldnt find a sibling heading, check the sibling of the parents
+			// consider <div><h2 /><div><$el/></div></div>
+			return getSectionId( $parent );
+		} else {
+			return null;
+		}
 	}
 
 	/**
@@ -37,6 +41,9 @@
 	 * @extends View
 	 * @uses Browser
 	 * @uses Page
+	 *
+	 * @constructor
+	 * @param {Object} options Configuration options
 	 */
 	function Skin( options ) {
 		var self = this;
@@ -151,7 +158,7 @@
 
 		/**
 		 * Return the instance of MainMenu
-		 * @returns {MainMenu}
+		 * @return {MainMenu}
 		 */
 		getMainMenu: function () {
 			return this.mainMenu;
@@ -223,10 +230,8 @@
 			$downloadingImage.on( 'load', function () {
 				// Swap the HTML inside the placeholder (to keep the layout and
 				// dimensions the same and not trigger layouts
-				$placeholder.empty().append( $downloadingImage );
-				// Set the loaded class after insertion of the HTML to trigger the
-				// animations.
-				$placeholder.addClass( 'loaded' );
+				$downloadingImage.addClass( 'image-lazy-loaded' );
+				$placeholder.replaceWith( $downloadingImage );
 			} );
 
 			// Trigger image download after binding the load handler
@@ -236,24 +241,25 @@
 				height: height,
 				src: $placeholder.attr( 'data-src' ),
 				alt: $placeholder.attr( 'data-alt' ),
+				style: $placeholder.attr( 'style' ),
 				srcset: $placeholder.attr( 'data-srcset' )
 			} );
 		},
 
 		/**
-		* Load the references section content from API if it's not already loaded.
-		*
-		* All references tags content will be loaded per section.
-		*
-		* @param {Object} data Information about the section. It's in the following form:
-		*  {
-		*      @property {String} page,
-		*      @property {Boolean} wasExpanded,
-		*      @property {jQuery.Object} $heading,
-		*      @property {Boolean} isReferenceSection
-		* }
-		* @returns {jQuery.Deferred} rejected when not a reference section.
-		*/
+		 * Load the references section content from API if it's not already loaded.
+		 *
+		 * All references tags content will be loaded per section.
+		 *
+		 * @param {Object} data Information about the section. It's in the following form:
+		 * {
+		 *     @property {string} page,
+		 *     @property {boolean} wasExpanded,
+		 *     @property {jQuery.Object} $heading,
+		 *     @property {boolean} isReferenceSection
+		 * }
+		 * @return {jQuery.Deferred} rejected when not a reference section.
+		 */
 		lazyLoadReferences: function ( data ) {
 			var $content, $spinner,
 				gateway = this.referencesGateway,
@@ -334,6 +340,7 @@
 		/**
 		 * Returns the appropriate license message including links/name to
 		 * terms of use (if any) and license page
+		 * @return {string}
 		 */
 		getLicenseMsg: function () {
 			var licenseMsg,
@@ -363,6 +370,7 @@
 		}
 	} );
 
+	Skin.getSectionId = getSectionId;
 	M.define( 'mobile.startup/Skin', Skin );
 
 }( mw.mobileFrontend, jQuery ) );

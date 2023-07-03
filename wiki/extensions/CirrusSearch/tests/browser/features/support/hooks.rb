@@ -26,6 +26,7 @@ setup_main = lambda do |world|
       And a page named वाङ्‌मय exists
       And a page named ChangeMe exists with contents foo
       And a page named Wikitext exists with contents {{#tag:somebug}}
+      And a page named Page with non ascii letters exists with contents ἄνθρωπος, широкий
         )
     main = true
   end
@@ -77,7 +78,7 @@ setup_commons = lambda do |world|
       And I wait 10 seconds
       And a file named File:OnCommons.svg exists on commons with contents OnCommons.svg and description File stored on commons for test purposes
       And a file named File:DuplicatedLocally.svg exists on commons with contents DuplicatedLocally.svg and description File stored on commons and duplicated locally
-      And I wait 10 seconds
+      And I wait 30 seconds
       And a file named File:DuplicatedLocally.svg exists with contents DuplicatedLocally.svg and description Locally stored file duplicated on commons
       And I wait 10 seconds
         )
@@ -674,11 +675,26 @@ setup_suggest = lambda do |world|
         And a page named Zam Wilson exists with contents #REDIRECT [[Sam Wilson]]
         And a page named The Doors exists with contents The Doors were an American rock band formed in 1965 in Los Angeles.
         And a page named Hyperion Cantos/Endymion exists with contents Endymion is the third science fiction novel by Dan Simmons.
+        And a page named はーい exists with contents makes sure we do not fail to index empty tokens (T156234).
+        And I wait 5 seconds
         And I reindex suggestions
     )
     suggest = true
   end
 end
+
+geo = false
+setup_geo = lambda do |world|
+  unless geo
+    world.steps %(
+    Given a page named San Jose exists with contents San Jose is a nice city located at {{#coordinates:primary|37.333333|-121.9}}.
+      And a page named Santa Clara exists with contents Santa Clara is a nice city located at {{#coordinates:primary|37.354444|-121.969167}}.
+      And a page named Cupertino exists with contents Cupertino is a nice city located at {{#coordinates:primary|37.3175|-122.041944}}.
+    )
+    geo = true
+  end
+end
+
 
 ruwiki = false
 setup_ruwiki = lambda do |world|
@@ -933,4 +949,7 @@ Before("@filesearch") do
 end
 Before("@ru") do
   setup_ruwiki.call(self)
+end
+Before("@geo") do
+  setup_geo.call(self)
 end

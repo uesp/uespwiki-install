@@ -5,7 +5,11 @@ namespace CirrusSearch;
 use MediaWiki\MediaWikiServices;
 use Title;
 
-class SearcherTest extends \MediaWikiTestCase {
+/**
+ * @group CirrusSearch
+ */
+class SearcherTest extends CirrusTestCase {
+
 	public function searchTextProvider() {
 		$configs = [
 			'default' => [],
@@ -18,23 +22,30 @@ class SearcherTest extends \MediaWikiTestCase {
 		$tests = [];
 		foreach ( glob( __DIR__ . '/fixtures/searchText/*.query' ) as $queryFile ) {
 			$testName = substr( basename( $queryFile ), 0, -6 );
-			$query = file_get_contents( $queryFile );
+			$querySettings = json_decode( file_get_contents( $queryFile ), true );
+			if ( json_last_error() !== JSON_ERROR_NONE ) {
+				throw new \RuntimeException( "Failed parsing query fixture: $queryFile" );
+			}
 			foreach ( $configs as $configName => $config ) {
 				$expectedFile = substr( $queryFile, 0, -5 ) . $configName . '.expected';
 				$expected = is_file( $expectedFile )
 					? json_decode( file_get_contents( $expectedFile ), true )
 					// Flags test to generate a new fixture
 					: $expectedFile;
+				if ( isset( $querySettings['config'] ) ) {
+					$config = $querySettings['config'] + $config;
+				}
 				$tests["{$testName}-{$configName}"] = [
 					$config,
 					$expected,
-					$query,
+					$querySettings['query'],
 				];
 			}
 		}
 
 		return $tests;
 	}
+
 
 	/**
 	 * @dataProvider searchTextProvider
@@ -48,6 +59,8 @@ class SearcherTest extends \MediaWikiTestCase {
 				'regex' => [ 'build', 'use' ],
 			],
 			'wgCirrusSearchQueryStringMaxDeterminizedStates' => 500,
+			'wgCirrusSearchExtraIndexes' => [],
+			'wgCirrusSearchExtraIndexBoostTemplates' => [],
 			'wgContentNamespaces' => [ NS_MAIN ],
 			// Override the list of namespaces to give more deterministic results
 			'wgHooks' => [
@@ -96,21 +109,26 @@ class SearcherTest extends \MediaWikiTestCase {
 		$engine->setShowSuggestion( true );
 		$engine->setLimitOffset( 20, 0 );
 		$engine->setDumpAndDie( false );
-		$encodedQuery = $engine->searchText( $queryString );
+		$encodedQuery = $engine->searchText( $queryString )->getValue();
+		$elasticQuery = json_decode( $encodedQuery, true );
+		// For extra fun, prefer-recent queries include a 'now' timestamp. We need to normalize that so
+		// the output is actually the same.
+		$elasticQuery = $this->normalizeNow( $elasticQuery );
+		// The helps with ensuring if there are minor code changes that change the ordering,
+		// regenerating the fixture wont cause changes. Do it always, instead of only when
+		// writing, so that the diff's from phpunit are also as minimal as possible.
+		$elasticQuery = $this->normalizeOrdering( $elasticQuery);
+		// The actual name of the index may vary, and doesn't really matter
+		unset( $elasticQuery['path'] );
+
 		if ( is_string( $expected ) ) {
-			// Flag to generate a new fixture
+			// Flag to generate a new fixture.
+			$encodedQuery = json_encode( $elasticQuery, JSON_PRETTY_PRINT );
 			file_put_contents( $expected, $encodedQuery );
 		} else {
-			$elasticQuery = json_decode( $encodedQuery, true );
-
-			// For extra fun, prefer-recent queries include a 'now' timestamp. We need to normalize that so
-			// the output is actually the same.
+			// Repeat normalizations applied to $elasticQuery
 			$expected = $this->normalizeNow( $expected );
-			$elasticQuery = $this->normalizeNow( $elasticQuery );
-
-			// The actual name of the index may vary, and doesn't really matter
 			unset( $expected['path'] );
-			unset( $elasticQuery['path'] );
 
 			// Finally compare some things
 			$this->assertEquals( $expected, $elasticQuery, $encodedQuery );
@@ -125,5 +143,91 @@ class SearcherTest extends \MediaWikiTestCase {
 		} );
 
 		return $query;
+	}
+
+	private function normalizeOrdering( array $query ) {
+		foreach ( $query as $key => $value ) {
+			if ( is_array( $value ) ) {
+				$query[$key] = $this->normalizeOrdering( $value );
+			}
+		}
+		if ( isset( $query[0] ) ) {
+			// list like. Expensive, but sorta-works?
+			usort( $query, function ( $a, $b ) {
+				return strcmp( json_encode( $a ), json_encode( $b ) );
+			} );
+		} else {
+			// dict like
+			ksort( $query );
+		}
+
+		return $query;
+	}
+
+	public function archiveFixtureProvider() {
+		$tests = [];
+		foreach ( glob( __DIR__ . '/fixtures/archiveSearch/*.query' ) as $queryFile ) {
+			$testName = substr( basename( $queryFile ), 0, - 6 );
+			$query = file_get_contents( $queryFile );
+			// Remove trailing newline
+			$query = preg_replace( '/\n$/', '', $query );
+			$expectedFile = substr( $queryFile, 0, - 5 ) . 'expected';
+			$expected =
+				is_file( $expectedFile ) ? json_decode( file_get_contents( $expectedFile ), true )
+					// Flags test to generate a new fixture
+					: $expectedFile;
+			$tests[$testName] = [
+				$expected,
+				$query,
+			];
+
+		}
+		return $tests;
+	}
+
+	/**
+	 * @dataProvider archiveFixtureProvider
+	 * @param $expected
+	 * @param $query
+	 */
+	public function testArchiveQuery( $expected, $query ) {
+		$this->setMwGlobals( [
+				'wgCirrusSearchIndexBaseName' => 'wiki',
+				'wgCirrusSearchQueryStringMaxDeterminizedStates' => 500,
+				'wgContentNamespaces' => [ NS_MAIN ],
+				'wgCirrusSearchEnableArchive' => true,
+		] );
+
+		\RequestContext::getMain()->setRequest( new \FauxRequest( [
+			'cirrusDumpQuery' => 1,
+		] ) );
+
+		$title = Title::newFromText( $query );
+		if ( $title ) {
+			$ns = $title->getNamespace();
+			$termMain = $title->getText();
+		} else {
+			$ns = 0;
+			$termMain = $query;
+		}
+
+		$engine = new \CirrusSearch();
+		$engine->setLimitOffset( 20, 0 );
+		$engine->setNamespaces( [ $ns ] );
+		$engine->setDumpAndDie( false );
+		$elasticQuery = $engine->searchArchiveTitle( $termMain )->getValue();
+		$decodedQuery = json_decode( $elasticQuery, true );
+		unset( $decodedQuery['path'] );
+
+		if ( is_string( $expected ) ) {
+			// Flag to generate a new fixture.
+			file_put_contents( $expected, json_encode( $decodedQuery, JSON_PRETTY_PRINT ) );
+		} else {
+			// Repeat normalizations applied to $elasticQuery
+			unset( $expected['path'] );
+
+			// Finally compare some things
+			$this->assertEquals( $expected, $decodedQuery, $elasticQuery );
+		}
 	}
 }

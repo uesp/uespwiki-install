@@ -2,21 +2,29 @@
 
 namespace CirrusSearch;
 
-use CirrusSearch\Search\Escaper;
+use CirrusSearch\Query\SimpleKeywordFeature;
 use CirrusSearch\Search\FullTextResultsType;
+use CirrusSearch\Search\TitleResultsType;
 use CirrusSearch\Search\ResultsType;
 use CirrusSearch\Search\RescoreBuilder;
 use CirrusSearch\Search\SearchContext;
 use CirrusSearch\Query\FullTextQueryBuilder;
+use CirrusSearch\Elastica\MultiSearch as MultiSearch;
+use Elastica\Exception\RuntimeException;
+use Elastica\Query\BoolQuery;
+use Elastica\Query\MultiMatch;
 use Language;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use ObjectCache;
+use RequestContext;
 use SearchResultSet;
 use Status;
-use Title;
+use ApiUsageException;
 use UsageException;
 use User;
+use WebRequest;
+
 
 /**
  * Performs searches using Elasticsearch.  Note that each instance of this class
@@ -81,7 +89,7 @@ class Searcher extends ElasticsearchIntermediary {
 	/**
 	 * @var ResultsType|null type of results.  null defaults to FullTextResultsType
 	 */
-	private $resultsType;
+	protected $resultsType;
 	/**
 	 * @var string sort type
 	 */
@@ -93,24 +101,19 @@ class Searcher extends ElasticsearchIntermediary {
 	protected $indexBaseName;
 
 	/**
-	 * @var Escaper escapes queries
-	 */
-	private $escaper;
-
-	/**
 	 * @var boolean just return the array that makes up the query instead of searching
 	 */
-	private $returnQuery = false;
+	protected $returnQuery = false;
 
 	/**
 	 * @var boolean return raw Elasticsearch result instead of processing it
 	 */
-	private $returnResult = false;
+	protected $returnResult = false;
 
 	/**
-	 * @var boolean return explanation with results
+	 * @var string|null return explanation with results
 	 */
-	private $returnExplain = false;
+	protected $returnExplain;
 
 	/**
 	 * Search environment configuration
@@ -124,6 +127,12 @@ class Searcher extends ElasticsearchIntermediary {
 	protected $searchContext;
 
 	/**
+	 * Indexing type we'll be using.
+	 * @var string|\Elastica\Type
+	 */
+	private $pageType;
+
+	/**
 	 * Constructor
 	 * @param Connection $conn
 	 * @param int $offset Offset the results by this much
@@ -133,16 +142,8 @@ class Searcher extends ElasticsearchIntermediary {
 	 * @param User|null $user user for which this search is being performed.  Attached to slow request logs.
 	 * @param string|boolean $index Base name for index to search from, defaults to $wgCirrusSearchIndexBaseName
 	 */
-	public function __construct( Connection $conn, $offset, $limit, SearchConfig $config = null, array $namespaces = null,
+	public function __construct( Connection $conn, $offset, $limit, SearchConfig $config, array $namespaces = null,
 		User $user = null, $index = false ) {
-
-		if ( is_null( $config ) ) {
-			// @todo connection has an embedded config ... reuse that? somehow should
-			// at least ensure they are the same.
-			$config = MediaWikiServices::getInstance()
-				->getConfigFactory()
-				->makeConfig( 'CirrusSearch' );
-		}
 
 		parent::__construct( $conn, $user, $config->get( 'CirrusSearchSlowSearch' ), $config->get( 'CirrusSearchExtraBackendLatency' ) );
 		$this->config = $config;
@@ -154,7 +155,6 @@ class Searcher extends ElasticsearchIntermediary {
 		}
 		$this->indexBaseName = $index ?: $config->get( SearchConfig::INDEX_BASE_NAME );
 		$this->language = $config->get( 'ContLang' );
-		$this->escaper = new Escaper( $config->get( 'LanguageCode' ), $config->get( 'CirrusSearchAllowLeadingWildcard' ) );
 		$this->searchContext = new SearchContext( $this->config, $namespaces );
 	}
 
@@ -180,10 +180,18 @@ class Searcher extends ElasticsearchIntermediary {
 	}
 
 	/**
-	 * @param boolean $returnExplain return query explanation
+	 * @param string|null $returnExplain return query explanation
 	 */
 	public function setReturnExplain( $returnExplain ) {
 		$this->returnExplain = $returnExplain;
+	}
+
+	/**
+	 * Is this searcher used to return debugging info?
+	 * @return bool true if the search will return raw output
+	 */
+	public function isReturnRaw() {
+		return $this->returnResult || $this->returnQuery;
 	}
 
 	/**
@@ -210,6 +218,7 @@ class Searcher extends ElasticsearchIntermediary {
 	public function nearMatchTitleSearch( $term ) {
 		$this->checkTitleSearchRequestLength( $term );
 
+		$this->searchContext->setOriginalSearchTerm( $term );
 		// Elasticsearch seems to have trouble extracting the proper terms to highlight
 		// from the default query we make so we feed it exactly the right query to highlight.
 		$highlightQuery = new \Elastica\Query\MultiMatch();
@@ -228,9 +237,9 @@ class Searcher extends ElasticsearchIntermediary {
 			$this->searchContext->addFilter( $highlightQuery );
 		}
 		$this->searchContext->setHighlightQuery( $highlightQuery );
-		$this->searchContext->setSearchType( 'near_match' );
+		$this->searchContext->addSyntaxUsed( 'near_match' );
 
-		return $this->searchOne( $term );
+		return $this->searchOne();
 	}
 
 	/**
@@ -240,8 +249,12 @@ class Searcher extends ElasticsearchIntermediary {
 	 */
 	public function prefixSearch( $term ) {
 		$this->checkTitleSearchRequestLength( $term );
+		$this->searchContext->setOriginalSearchTerm( $term );
+		$this->searchContext->setRescoreProfile(
+			$this->config->get( 'CirrusSearchPrefixSearchRescoreProfile' )
+		);
 
-		$this->searchContext->setSearchType( 'prefix' );
+		$this->searchContext->addSyntaxUsed( 'prefix' );
 		if ( strlen( $term ) > 0 ) {
 			if ( $this->config->get( 'CirrusSearchPrefixSearchStartsWithAnyWord' ) ) {
 				$match = new \Elastica\Query\Match();
@@ -270,7 +283,7 @@ class Searcher extends ElasticsearchIntermediary {
 		/** @suppress PhanDeprecatedFunction */
 		$this->searchContext->setBoostLinks( true );
 
-		return $this->searchOne( $term );
+		return $this->searchOne();
 	}
 
 	/**
@@ -290,55 +303,79 @@ class Searcher extends ElasticsearchIntermediary {
 	 * @return FullTextQueryBuilder
 	 */
 	protected function buildFullTextSearch( $term, $showSuggestion ) {
-		// save original term for logging
-		$originalTerm = $term;
+		// Convert the unicode character 'ideographic whitespace' into standard
+		// whitespace. Cirrussearch treats them both as normal whitespace, but
+		// the preceding isn't appropriately trimmed.
+		// No searching for nothing! That takes forever!
+		$term = trim( str_replace( "\xE3\x80\x80", " ", $term ) );
+		if ( $term === '' ) {
+			$this->searchContext->setResultsPossible( false );
+		}
 
 		$term = Util::stripQuestionMarks( $term, $this->config->get( 'CirrusSearchStripQuestionMarks' ) );
 		// Transform Mediawiki specific syntax to filters and extra (pre-escaped) query string
-		$this->searchContext->setSearchType( 'full_text' );
 
-		$builderProfile = $this->config->get( 'CirrusSearchFullTextQueryBuilderProfile' );
-		$builderSettings = $this->config->getElement( 'CirrusSearchFullTextQueryBuilderProfiles', $builderProfile );
+		$builderSettings = $this->config->getElement( 'CirrusSearchFullTextQueryBuilderProfiles', $this->searchContext->getFulltextQueryBuilderProfile() );
 
+		$features = [
+			// Handle morelike keyword (greedy). This needs to be the
+			// very first item until combining with other queries
+			// is worked out.
+			new Query\MoreLikeFeature( $this->config ),
+			// Handle title prefix notation (greedy)
+			new Query\PrefixFeature(),
+			// Handle prefer-recent keyword
+			new Query\PreferRecentFeature( $this->config ),
+			// Handle local keyword
+			new Query\LocalFeature(),
+			// Handle insource keyword using regex
+			new Query\RegexInSourceFeature( $this->config ),
+			// Handle boost-templates keyword
+			new Query\BoostTemplatesFeature(),
+			// Handle hastemplate keyword
+			new Query\HasTemplateFeature(),
+			// Handle linksto keyword
+			new Query\LinksToFeature(),
+			// Handle incategory keyword
+			new Query\InCategoryFeature( $this->config ),
+			// Handle non-regex insource keyword
+			new Query\SimpleInSourceFeature(),
+			// Handle intitle keyword
+			new Query\InTitleFeature(),
+			// inlanguage keyword
+			new Query\LanguageFeature(),
+			// File types
+			new Query\FileTypeFeature(),
+			// File numeric characteristics - size, resolution, etc.
+			new Query\FileNumericFeature(),
+			// Content model feature
+			new Query\ContentModelFeature(),
+		];
+
+		$extraFeatures = [];
+		\Hooks::run( 'CirrusSearchAddQueryFeatures', [ $this->config, &$extraFeatures ] );
+		foreach ( $extraFeatures as $extra ) {
+			if ( $extra instanceof SimpleKeywordFeature ) {
+				$features[] = $extra;
+			} else {
+				LoggerFactory::getInstance( 'CirrusSearch' )
+					->warning( 'Skipped invalid feature of class ' . get_class( $extra ) .
+					           ' - should be instanceof SimpleKeywordFeature' );
+			}
+		}
+
+		/** @var FullTextQueryBuilder $qb */
 		$qb = new $builderSettings['builder_class'](
 			$this->config,
-			$this->escaper,
-			[
-				// Handle morelike keyword (greedy). This needs to be the
-				// very first item until combining with other queries
-				// is worked out.
-				new Query\MoreLikeFeature( $this->config, [$this, 'get'] ),
-				// Handle title prefix notation (greedy)
-				new Query\PrefixFeature(),
-				// Handle prefer-recent keyword
-				new Query\PreferRecentFeature( $this->config ),
-				// Handle local keyword
-				new Query\LocalFeature(),
-				// Handle insource keyword using regex
-				new Query\RegexInSourceFeature( $this->config ),
-				// Handle neartitle, nearcoord keywords, and their boosted alternates
-				new Query\GeoFeature(),
-				// Handle boost-templates keyword
-				new Query\BoostTemplatesFeature(),
-				// Handle hastemplate keyword
-				new Query\HasTemplateFeature(),
-				// Handle linksto keyword
-				new Query\LinksToFeature(),
-				// Handle incategory keyword
-				new Query\InCategoryFeature( $this->config ),
-				// Handle non-regex insource keyword
-				new Query\SimpleInSourceFeature( $this->escaper ),
-				// Handle intitle keyword
-				new Query\InTitleFeature( $this->escaper ),
-				// inlanguage keyword
-				new Query\LanguageFeature(),
-				// File types
-				new Query\FileTypeFeature(),
-				// File numeric characteristics - size, resolution, etc.
-				new Query\FileNumericFeature(),
-			],
+			$features,
 			$builderSettings['settings']
 		);
+
+
+
+		if ( !( $qb instanceof FullTextQueryBuilder ) ) {
+			throw new RuntimeException( "Bad builder class configured: {$builderSettings['builder_class']}" );
+		}
 
 		$showSuggestion = $showSuggestion && $this->offset == 0
 			&& $this->config->get( 'CirrusSearchEnablePhraseSuggest' );
@@ -355,23 +392,28 @@ class Searcher extends ElasticsearchIntermediary {
 	 */
 	public function searchText( $term, $showSuggestion ) {
 		$checkLengthStatus = $this->checkTextSearchRequestLength( $term );
+		$this->searchContext->setOriginalSearchTerm( $term );
 		if ( !$checkLengthStatus->isOK() ) {
 			return $checkLengthStatus;
 		}
 
 		$qb = $this->buildFullTextSearch( $term, $showSuggestion );
 
-		$result = $this->searchOne( $term );
-		if ( !$result->isOK() && ElasticaErrorHandler::isParseError( $result ) ) {
+		$status = $this->searchOne();
+		if ( !$status->isOK() && ElasticaErrorHandler::isParseError( $status ) ) {
 			if ( $qb->buildDegraded( $this->searchContext ) ) {
 				// If that doesn't work we're out of luck but it should.  There no guarantee it'll work properly
 				// with the syntax we've built above but it'll do _something_ and we'll still work on fixing all
 				// the parse errors that come in.
-				$result = $this->searchOne( $term );
+				$status = $this->searchOne();
 			}
 		}
 
-		return $result;
+		foreach ( $this->searchContext->getWarnings() as $warning ) {
+			call_user_func_array( [ $status, 'warning' ], $warning );
+		}
+
+		return $status;
 	}
 
 	/**
@@ -404,7 +446,7 @@ class Searcher extends ElasticsearchIntermediary {
 						'docIds' => $docIds,
 					] );
 					// Shard timeout not supported on get requests so we just use the client side timeout
-					$this->connection->setTimeout( $this->getTimeout() );
+					$this->connection->setTimeout( $this->getClientTimeout() );
 					// We use a search query instead of _get/_mget, these methods are
 					// theorically well suited for this kind of job but they are not
 					// supported on aliases with multiple indices (content/general)
@@ -448,7 +490,7 @@ class Searcher extends ElasticsearchIntermediary {
 						'timeout' => $this->getTimeout(),
 					];
 
-					$this->connection->setTimeout( $queryOptions['timeout'] );
+					$this->connection->setTimeout( $this->getClientTimeout() );
 					$pageType = $this->connection->getNamespaceType( $this->indexBaseName );
 					$match = new \Elastica\Query\Match();
 					$match->setField( 'name', $name );
@@ -474,8 +516,8 @@ class Searcher extends ElasticsearchIntermediary {
 		}
 
 		$query = new \Elastica\Query();
-		$query->setParam( '_source', $this->resultsType->getSourceFiltering() );
-		$query->setParam( 'fields', $this->resultsType->getFields() );
+		$query->setSource( $this->resultsType->getSourceFiltering() );
+		$query->setStoredFields( $this->resultsType->getStoredFields() );
 
 		$extraIndexes = [];
 		$namespaces = $this->searchContext->getNamespaces();
@@ -484,6 +526,15 @@ class Searcher extends ElasticsearchIntermediary {
 		if ( $namespaces ) {
 			$extraIndexes = $this->getAndFilterExtraIndexes();
 			$this->searchContext->addFilter( new \Elastica\Query\Terms( 'namespace', $namespaces ) );
+			foreach ( $extraIndexes as $extraIndex ) {
+				$extraIndexBoosts = $this->config->getElement( 'CirrusSearchExtraIndexBoostTemplates', $extraIndex );
+				if ( isset( $extraIndexBoosts['wiki'], $extraIndexBoosts['boosts'] ) ) {
+					$this->searchContext->addExtraIndexBoostTemplates(
+						$extraIndexBoosts['wiki'],
+						$extraIndexBoosts['boosts']
+					);
+				}
+			}
 		}
 
 		$this->installBoosts();
@@ -521,8 +572,12 @@ class Searcher extends ElasticsearchIntermediary {
 			$query->setParam( 'rescore', $this->searchContext->getRescore() );
 		}
 
-		$query->addParam( 'stats', $this->searchContext->getSearchType() );
+		foreach ( $this->searchContext->getSyntaxUsed() as $syntax ) {
+			$query->addParam( 'stats', $syntax );
+		}
 		switch ( $this->sort ) {
+		case 'just_match':
+			// Use just matching scores, without any rescoring, and default sort.
 		case 'relevance':
 			break;  // The default
 		case 'title_asc':
@@ -543,6 +598,9 @@ class Searcher extends ElasticsearchIntermediary {
 				'missing' => '_last',
 			] ] );
 			break;
+		case 'none':
+			$query->setSort( [ '_doc' ] );
+			break;
 		default:
 			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
 				"Invalid sort type: {sort}",
@@ -559,8 +617,12 @@ class Searcher extends ElasticsearchIntermediary {
 			$queryOptions[\Elastica\Search::OPTION_SEARCH_TYPE] = \Elastica\Search::OPTION_SEARCH_TYPE_DFS_QUERY_THEN_FETCH;
 		}
 
-		$indexType = $this->connection->pickIndexTypeForNamespaces( $namespaces );
-		$pageType = $this->connection->getPageType( $this->indexBaseName, $indexType );
+		if ( $this->pageType ) {
+			$pageType = $this->pageType;
+		} else {
+			$indexType = $this->connection->pickIndexTypeForNamespaces( $namespaces );
+			$pageType = $this->connection->getPageType( $this->indexBaseName, $indexType );
+		}
 
 		$search = $pageType->createSearch( $query, $queryOptions );
 		foreach ( $extraIndexes as $i ) {
@@ -574,14 +636,18 @@ class Searcher extends ElasticsearchIntermediary {
 		return $search;
 	}
 
-	protected function searchOne( $for ) {
+	/**
+	 * Perform a single-query search.
+	 * @return Status
+	 */
+	protected function searchOne() {
 		$search = $this->buildSearch();
 
 		if ( !$this->searchContext->areResultsPossible() ) {
 			return Status::newGood( new SearchResultSet( true ) );
 		}
 
-		$result = $this->searchMulti( [$search], $for );
+		$result = $this->searchMulti( [$search] );
 		if ( $result->isOK() ) {
 			// Convert array of responses to single value
 			$value = $result->getValue();
@@ -595,12 +661,11 @@ class Searcher extends ElasticsearchIntermediary {
 	 * Powers full-text-like searches including prefix search.
 	 *
 	 * @param \Elastica\Search[] $searches
-	 * @param string $for
 	 * @param ResultsType[] $resultsTypes Specific ResultType instances to use with $searches. Any
 	 *  search without a matching key in this array uses $this->resultsType.
 	 * @return Status results from the query transformed by the resultsType
 	 */
-	protected function searchMulti( $searches, $for, array $resultsTypes = [] ) {
+	protected function searchMulti( $searches, array $resultsTypes = [] ) {
 		if ( $this->limit <= 0 && ! $this->returnQuery ) {
 			if ( $this->returnResult ) {
 				return Status::newGood( [
@@ -609,22 +674,28 @@ class Searcher extends ElasticsearchIntermediary {
 						'result' => [],
 				] );
 			} else {
-				return Status::newGood( $this->resultsType->createEmptyResult() );
+				$this->searchContext->setResultsPossible( false );
+				$retval = [];
+				foreach ( $searches as $key => $search ) {
+					$retval[$key] = $this->resultsType->createEmptyResult();
+				}
+				return Status::newGood( $retval );
 			}
 		}
 
-		$description = "{queryType} search for '{query}'";
 		$log = new MultiSearchRequestLog(
 			$this->connection->getClient(),
 			"{queryType} search for '{query}'",
 			$this->searchContext->getSearchType(),
 			[
-				'query' => $for,
+				'query' => $this->searchContext->getOriginalSearchTerm(),
 				'limit' => $this->limit ?: null,
 				// null means not requested, '' means not found. If found
 				// parent::buildLogContext will replace the '' with an
 				// actual suggestion.
 				'suggestion' => $this->searchContext->getSuggest() ? '' : null,
+				// Used syntax
+				'syntax' => $this->searchContext->getSyntaxUsed(),
 			]
 		);
 
@@ -646,10 +717,10 @@ class Searcher extends ElasticsearchIntermediary {
 		// Similar to indexing support only the bulk code path, rather than
 		// single and bulk. The extra overhead should be minimal, and the
 		// reduced complexity is welcomed.
-		$search = new \Elastica\Multi\Search( $this->connection->getClient() );
+		$search = new MultiSearch( $this->connection->getClient() );
 		$search->addSearches( $searches );
 
-		$this->connection->setTimeout( $this->getTimeout() );
+		$this->connection->setTimeout( $this->getClientTimeout() );
 
 		if ( $this->config->get( 'CirrusSearchMoreAccurateScoringMode' ) ) {
 			$search->setSearchType( \Elastica\Search::OPTION_SEARCH_TYPE_DFS_QUERY_THEN_FETCH );
@@ -677,8 +748,8 @@ class Searcher extends ElasticsearchIntermediary {
 						return $this->failure( $e );
 					}
 				},
-				$this->searchContext->getSearchType() === 'regex'
-					? 'cirrussearch-regex-too-busy-error' : null
+				$this->searchContext->isSyntaxUsed( 'regex' ) ?
+					'cirrussearch-regex-too-busy-error' : null
 			);
 		};
 
@@ -781,7 +852,10 @@ class Searcher extends ElasticsearchIntermediary {
 				$log->getDescription() . " timed out and only returned partial results!",
 				$log->getLogVariables()
 			);
-			$status->warning( 'cirrussearch-timed-out' );
+			$status->warning( $this->searchContext->isSyntaxUsed( 'regex' )
+				? 'cirrussearch-regex-timed-out'
+				: 'cirrussearch-timed-out'
+			);
 		}
 
 		$status->setResult( true, $retval );
@@ -826,13 +900,25 @@ class Searcher extends ElasticsearchIntermediary {
 
 	/**
 	 * @param string $term
+	 * @throws ApiUsageException
 	 * @throws UsageException
 	 */
 	private function checkTitleSearchRequestLength( $term ) {
 		$requestLength = mb_strlen( $term );
 		if ( $requestLength > self::MAX_TITLE_SEARCH ) {
-			throw new UsageException( 'Prefix search request was longer than the maximum allowed length.' .
-				" ($requestLength > " . self::MAX_TITLE_SEARCH . ')', 'request_too_long', 400 );
+			if ( class_exists( ApiUsageException::class ) ) {
+				throw ApiUsageException::newWithMessage(
+					null,
+					[ 'apierror-cirrus-requesttoolong', $requestLength, self::MAX_TITLE_SEARCH ],
+					'request_too_long',
+					[],
+					400
+				);
+			} else {
+				/** @suppress PhanDeprecatedClass */
+				throw new UsageException( 'Prefix search request was longer than the maximum allowed length.' .
+					" ($requestLength > " . self::MAX_TITLE_SEARCH . ')', 'request_too_long', 400 );
+			}
 		}
 	}
 
@@ -890,20 +976,38 @@ class Searcher extends ElasticsearchIntermediary {
 			'regex' => 'CirrusSearch-Regex',
 			'prefix' => 'CirrusSearch-Prefix',
 		);
-		if ( isset( $poolCounterTypes[$this->searchContext->getSearchType()] ) ) {
-			return $poolCounterTypes[$this->searchContext->getSearchType()];
+		foreach ( $poolCounterTypes as $type => $counter ) {
+			if ( $this->searchContext->isSyntaxUsed( $type ) ) {
+				return $counter;
+			}
 		}
 		return 'CirrusSearch-Search';
 	}
 
+	/**
+	 * @return string search retrieval timeout
+	 */
 	private function getTimeout() {
-		if ( $this->searchContext->getSearchType() === 'regex' ) {
+		if ( $this->searchContext->isSyntaxUsed( 'regex' ) ) {
 			$type = 'regex';
 		} else {
 			$type = 'default';
 		}
 
 		return $this->config->getElement( 'CirrusSearchSearchShardTimeout', $type );
+	}
+
+	/**
+	 * @return int the client side timeout
+	 */
+	private function getClientTimeout() {
+		if ( $this->searchContext->getSearchType() === 'regex' ) {
+			$type = 'regex';
+		} else {
+			$type = 'default';
+		}
+
+		return $this->config->getElement( 'CirrusSearchClientSideSearchTimeout', $type );
 	}
 
 	/**
@@ -944,4 +1048,96 @@ class Searcher extends ElasticsearchIntermediary {
 			$extra
 		);
 	}
+
+	/**
+	 * Set search options from request params
+	 * @param WebRequest|null $request
+	 */
+	public function setOptionsFromRequest( WebRequest $request = null ) {
+		if ( !$request ) {
+			return;
+		}
+		$this->returnQuery = $request->getVal( 'cirrusDumpQuery' ) !== null;
+		$this->returnResult = $request->getVal( 'cirrusDumpResult' ) !== null;
+		$this->returnExplain = $request->getVal( 'cirrusExplain' );
+	}
+
+	/**
+	 * If we're supposed to create raw result, create and return it,
+	 * or output it and finish.
+	 * @param mixed $result Search result data
+	 * @param WebRequest $request Request context
+	 * @param bool $dumpAndDie Whether we should dump result to output or just return it.
+	 * @return string The new raw result.
+	 */
+	public function processRawReturn( $result, WebRequest $request, $dumpAndDie = true ) {
+		$header = null;
+
+		if ( $this->returnExplain === 'pretty' ) {
+			$header = 'Content-type: text/html; charset=UTF-8';
+			$printer = new ExplainPrinter();
+			$result = $printer->format( $result );
+		} else {
+			$header = 'Content-type: application/json; charset=UTF-8';
+			if ( $result === null ) {
+				$result = '{}';
+			} else {
+				$result = json_encode( $result, JSON_PRETTY_PRINT );
+			}
+		}
+
+		if ( $dumpAndDie ) {
+			// When dumping the query we skip _everything_ but echoing the query.
+			RequestContext::getMain()->getOutput()->disable();
+			$request->response()->header( $header );
+			echo $result;
+			exit();
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Search titles in archive
+	 * @param string $term
+	 * @return Status<Title[]>
+	 */
+	public function searchArchive( $term ) {
+		list( $term, $fuzzyUnused ) = $this->searchContext->escaper()->fixupWholeQueryString( $term );
+		$this->setResultsType( new TitleResultsType() );
+
+		$this->pageType = $this->connection->getArchiveType( $this->indexBaseName );
+
+		// Setup the search query
+		$query = new BoolQuery();
+
+		$multi = new MultiMatch();
+		$multi->setType( 'best_fields' );
+		$multi->setTieBreaker( 0 );
+		$multi->setQuery( $term );
+		$multi->setFields( [
+			'title.near_match^100',
+			'title.near_match_asciifolding^75',
+			'title.plain^50',
+			'title^25'
+		] );
+		$multi->setOperator( 'AND' );
+
+		$fuzzy = new \Elastica\Query\Match();
+		$fuzzy->setFieldQuery( 'title.plain', $term );
+		$fuzzy->setFieldFuzziness( 'title.plain', 'AUTO' );
+		$fuzzy->setFieldOperator( 'title.plain', 'AND' );
+
+		$query->addShould( $multi );
+		$query->addShould( $fuzzy );
+		$query->setMinimumShouldMatch( 1 );
+
+		$this->sort = 'just_match';
+
+		$this->searchContext->setMainQuery( $query );
+		$this->searchContext->addSyntaxUsed( 'archive' );
+
+		return $this->searchOne();
+	}
+
 }

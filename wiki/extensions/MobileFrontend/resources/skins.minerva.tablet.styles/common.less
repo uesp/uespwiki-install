@@ -6,7 +6,28 @@ A file for css that optimises the Minerva skin on larger devices.
 @import 'minerva.mixins';
 @paddingVertical: 1.4em;
 
-@media all and ( min-width: @deviceWidthTablet ) {
+@media screen and ( min-width: @deviceWidthTablet ) {
+	.client-js {
+		#searchIcon {
+			display: none;
+		}
+	}
+
+	.header {
+		.branding-box {
+			width: @brandingBoxWidth;
+		}
+
+		.search-box {
+			display: table-cell;
+			width: auto;
+
+			.search {
+				width: @searchBoxWidth;
+			}
+		}
+	}
+
 	.toc-mobile {
 		// Reset the rule for mobile mode (but not for .client-nojs)
 		display: block;
@@ -59,7 +80,6 @@ A file for css that optimises the Minerva skin on larger devices.
 	// FIXME: Have a class that identifies all of these selectors
 	.pre-content,
 	.content,
-	.content-overlay,
 	.post-content {
 		max-width: @contentMaxWidthTablet;
 		margin: 0 @contentPaddingTablet;
@@ -90,13 +110,6 @@ A file for css that optimises the Minerva skin on larger devices.
 			}
 		}
 
-		// Blockquotes
-		blockquote {
-			// Increase horizontal padding
-			padding-right: @blockquotePaddingRight + 10px;
-			padding-left: @blockquotePaddingLeft + 10px;
-		}
-
 		// Override rules in common.less
 		table {
 			display: table;
@@ -108,10 +121,6 @@ A file for css that optimises the Minerva skin on larger devices.
 				display: table-row-group;
 			}
 		}
-	}
-
-	#footer {
-		padding: 2em @contentPaddingTablet 1.5em @contentPaddingTablet;
 	}
 
 	#mw-mf-last-modified {
@@ -126,7 +135,7 @@ A file for css that optimises the Minerva skin on larger devices.
 	}
 }
 
-@media all and ( min-width: @wgMFDeviceWidthDesktop ) {
+@media screen and ( min-width: @wgMFDeviceWidthDesktop ) {
 	// FIXME: Zero should use banner-container class or better - append to banner-container
 	#mw-mf-page-center .mw-mf-banner,
 	.banner-container,
@@ -141,7 +150,6 @@ A file for css that optimises the Minerva skin on larger devices.
 	.content-unstyled,
 	.pre-content,
 	.post-content,
-	.content-overlay,
 	// FIXME: remove need for id selector
 	#mw-mf-page-center .pointer-overlay {
 		margin-left: auto;

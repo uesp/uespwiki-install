@@ -1,13 +1,13 @@
 ( function ( M, $ ) {
 	var inSample, inStable, experiment,
-		toast = M.require( 'mobile.toast/toast' ),
-		settings = M.require( 'mobile.settings/settings' ),
-		time = M.require( 'mobile.modifiedBar/time' ),
+		toast = M.require( 'mobile.startup/toast' ),
+		settings = M.require( 'mobile.startup/settings' ),
+		time = M.require( 'mobile.startup/time' ),
 		token = settings.get( 'mobile-betaoptin-token' ),
 		BetaOptinPanel = M.require( 'mobile.betaoptin/BetaOptinPanel' ),
-		loader = M.require( 'mobile.overlays/moduleLoader' ),
+		loader = M.require( 'mobile.startup/rlModuleLoader' ),
 		router = require( 'mediawiki.router' ),
-		context = M.require( 'mobile.context/context' ),
+		context = M.require( 'mobile.startup/context' ),
 		useNewMediaViewer = context.isBetaGroupMember(),
 		overlayManager = M.require( 'skins.minerva.scripts/overlayManager' ),
 		page = M.getCurrentPage(),
@@ -32,7 +32,7 @@
 	 */
 	function initMediaViewer() {
 		if ( !mw.config.get( 'wgImagesDisabled' ) ) {
-			$.each( thumbs, function ( i, thumb ) {
+			thumbs.forEach( function ( thumb ) {
 				thumb.$el.off().data( 'thumb', thumb ).on( 'click', onClickImage );
 			} );
 		}
@@ -65,7 +65,7 @@
 	 * Return the language code of the device in lowercase
 	 *
 	 * @ignore
-	 * @returns {String|undefined}
+	 * @return {string|undefined}
 	 */
 	function getDeviceLanguage() {
 		var lang = navigator && navigator.languages ?
@@ -81,8 +81,8 @@
 	 * @method
 	 * @ignore
 	 * @uses ImageOverlay
-	 * @param {String} title Url of image
-	 * @returns {jQuery.Deferred}
+	 * @param {string} title Url of image
+	 * @return {jQuery.Deferred}
 	 */
 	function loadImageOverlay( title ) {
 		var result = $.Deferred(),
@@ -225,15 +225,44 @@
 		} );
 	}
 
+	/**
+	 * Initialisation function for user creation module.
+	 *
+	 * Enhances an element representing a time
+	 + to show a human friendly date in seconds, minutes, hours, days
+	 * months or years
+	 * @ignore
+	 * @param {JQuery.Object} [$tagline]
+	 */
+	function initRegistrationDate( $tagline ) {
+		var msg, ts;
+
+		ts = $tagline.data( 'userpage-registration-date' );
+
+		if ( ts ) {
+			msg = time.getRegistrationMessage( ts, $tagline.data( 'userpage-gender' ) );
+			$tagline.text( msg );
+		}
+	}
+
+	/**
+	 * Initialisation function for registration date on user page
+	 *
+	 * Enhances .tagline-userpage element
+	 * to show human friendly date in seconds, minutes, hours, days
+	 * months or years
+	 * @ignore
+	 */
+	function initRegistrationInfo() {
+		$( '#tagline-userpage' ).each( function () {
+			initRegistrationDate( $( this ) );
+		} );
+	}
+
 	$( function () {
 		// Update anything else that needs enhancing (e.g. watchlist)
 		initModifiedInfo();
-		// FIXME: Drop id selector when footer v2 in stable (T141002)
-		initHistoryLink( $( '#mw-mf-last-modified a, .last-modifier-tagline a' ) );
-	} );
-
-	// FIXME: Remove after cache clears (T130849) - this removes any artifacts associated with previous EventLogging
-	mw.requestIdleCallback( function () {
-		settings.remove( 'mobile-language-button-tap-count' );
+		initRegistrationInfo();
+		initHistoryLink( $( '.last-modifier-tagline a' ) );
 	} );
 }( mw.mobileFrontend, jQuery ) );

@@ -49,13 +49,13 @@ function uespMobileInit (&$title, &$article, &$output, &$user, $request, $mediaW
 	
 	$stopMobileRedirect = $request->getCookie('stopMobileRedirect', '');
 	if ($stopMobileRedirect == "true") $displayMobile = false;
-
+	
 	$match = preg_match("#^([A-Za-z0-9]+)(?:\.([A-Za-z0-9]+))?\.uesp\.net$#", $host, $matches);
 	if (!$match) return;
 	
 	$domainIsMobile = false;
 	if ($matches[1] == "m" || $matches[2] == "m") $domainIsMobile = true;
-		
+	
 	$shouldRedirectToMobile  = !$domainIsMobile && $displayMobile;
 	$shouldRedirectToDesktop = false;
 	
@@ -86,6 +86,8 @@ function uespMobileInit (&$title, &$article, &$output, &$user, $request, $mediaW
 		{
 			$shouldRedirectToDesktop = false;
 			$shouldRedirectToMobile = false;
+			
+			setupUespMobileHooks();
 		}
 		else 
 		{
@@ -93,8 +95,16 @@ function uespMobileInit (&$title, &$article, &$output, &$user, $request, $mediaW
 			$shouldRedirectToMobile = true;
 		}
 	}
+	else
+	{
+		if ($domainIsMobile)
+		{
+			setupUespMobileHooks();
+		}
+	}
 	
 	//error_log("TestMobile: $displayMobile:$shouldRedirectToMobile:$shouldRedirectToDesktop:$mobileAction:$stopMobileRedirect, $host:{$matches[1]}:{$matches[2]}");
+	
 	if ($domainIsMobile) MobileContext::singleton()->setForceMobileView( true );
 	
 	$subDomain = $matches[1];

@@ -1,4 +1,5 @@
 <?php
+
 namespace CirrusSearch\Search;
 
 use CirrusSearch\Maintenance\MappingConfigBuilder;
@@ -46,7 +47,7 @@ class TextIndexField extends CirrusIndexField {
 	 * Name of the type in Elastic
 	 * @var string
 	 */
-	protected $typeName = 'string';
+	protected $typeName = 'text';
 
 	public function __construct( $name, $type, SearchConfig $config, $extra = [] ) {
 		parent::__construct( $name, $type, $config );
@@ -56,8 +57,8 @@ class TextIndexField extends CirrusIndexField {
 
 	/**
 	 * Set text options for this field if non-default
-	 * @param $options
-	 * @return $this
+	 * @param int $options
+	 * @return self
 	 */
 	public function setTextOptions( $options ) {
 		$this->textOptions = $options;
@@ -66,7 +67,7 @@ class TextIndexField extends CirrusIndexField {
 
 	/**
 	 * Get text options for this field
-	 * @param $mappingFlags
+	 * @param int $mappingFlags
 	 * @return int
 	 */
 	protected function getTextOptions( $mappingFlags ) {
@@ -89,7 +90,7 @@ class TextIndexField extends CirrusIndexField {
 
 	/**
 	 * @param SearchEngine $engine
-	 * @return array|void
+	 * @return array
 	 */
 	public function getMapping( SearchEngine $engine ) {
 		if (!($engine instanceof \CirrusSearch)) {
@@ -111,6 +112,7 @@ class TextIndexField extends CirrusIndexField {
 		}
 
 		$extra = $this->extra;
+
 		if ( $this->mappingFlags & MappingConfigBuilder::PREFIX_START_WITH_ANY ) {
 			$extra[] = [
 				'analyzer' => 'word_prefix',
@@ -121,9 +123,10 @@ class TextIndexField extends CirrusIndexField {
 		if ( $this->checkFlag( SearchIndexField::FLAG_CASEFOLD ) ) {
 			$extra[] = [
 				'analyzer' => 'lowercase_keyword',
-				'norms' => [ 'enabled' => false ],
+				'norms' => false,
 				'index_options' => 'docs',
-				'ignore_above' => KeywordIndexField::KEYWORD_IGNORE_ABOVE,
+				// TODO: Re-enable in ES 5.2 with keyword type and s/analyzer/normalizer/
+				//'ignore_above' => KeywordIndexField::KEYWORD_IGNORE_ABOVE,
 			];
 		}
 
@@ -135,7 +138,7 @@ class TextIndexField extends CirrusIndexField {
 			'similarity' => self::getSimilarity( $this->config, $this->name ),
 			'fields' => [
 				'plain' => [
-					'type' => 'string',
+					'type' => 'text',
 					'analyzer' => 'plain',
 					'search_analyzer' => 'plain_search',
 					'position_increment_gap' => self::POSITION_INCREMENT_GAP,
@@ -145,7 +148,7 @@ class TextIndexField extends CirrusIndexField {
 		];
 		$disableNorms = !$this->checkFlag( self::ENABLE_NORMS );
 		if ( $disableNorms ) {
-			$disableNorms = [ 'norms' => [ 'enabled' => false ] ];
+			$disableNorms = [ 'norms' => false ];
 			$field = array_merge( $field, $disableNorms );
 			$field[ 'fields' ][ 'plain' ] = array_merge( $field[ 'fields' ][ 'plain' ], $disableNorms );
 		}
@@ -154,7 +157,7 @@ class TextIndexField extends CirrusIndexField {
 
 			$field[ 'fields' ][ $extraName ] = array_merge( [
 				'similarity' => self::getSimilarity( $this->config, $this->name, $extraName ),
-				'type' => 'string',
+				'type' => 'text',
 			], $extraField );
 			if ( $disableNorms ) {
 				$field[ 'fields' ][ $extraName ] = array_merge(
@@ -169,7 +172,7 @@ class TextIndexField extends CirrusIndexField {
 	/**
 	 * Adapt the field options according to the highlighter used
 	 * @var mixed[] &$field the mapping options being built
-	 * @var sting[] $subFields list of subfields to configure
+	 * @var string[] $subFields list of subfields to configure
 	 * @var bool $rootField configure the root field (defaults to true)
 	 */
 	protected function configureHighlighting( array &$field, array $subFields, $rootField = true ) {
@@ -218,7 +221,7 @@ class TextIndexField extends CirrusIndexField {
 			'CirrusSearchSimilarityProfiles',
 			$config->get( 'CirrusSearchSimilarityProfile' )
 		);
-		$fieldSimilarity = 'default';
+		$fieldSimilarity = null;
 		if ( isset( $similarity['fields'] ) ) {
 			if( isset( $similarity['fields'][$field] ) ) {
 				$fieldSimilarity = $similarity['fields'][$field];
@@ -229,6 +232,9 @@ class TextIndexField extends CirrusIndexField {
 			if ( $analyzer != null && isset( $similarity['fields']["$field.$analyzer"] ) ) {
 				$fieldSimilarity = $similarity['fields']["$field.$analyzer"];
 			}
+		}
+		if ( is_null ( $fieldSimilarity ) ) {
+			throw new \RuntimeException( "Invalid similarity profile, unable to infer the similarity for the field $field, (defining a __default__ field might solve the issue" );
 		}
 		return $fieldSimilarity;
 	}

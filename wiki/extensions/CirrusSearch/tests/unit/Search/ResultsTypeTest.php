@@ -2,7 +2,7 @@
 
 namespace CirrusSearch\Search;
 
-use MediaWikiTestCase;
+use CirrusSearch\CirrusTestCase;
 
 /**
  * Test escaping search strings.
@@ -21,8 +21,10 @@ use MediaWikiTestCase;
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @group CirrusSearch
  */
-class ResultsTypeTest extends MediaWikiTestCase {
+class ResultsTypeTest extends CirrusTestCase {
 	/**
 	 * @dataProvider fullTextHighlightingConfigurationTestCases
 	 */
@@ -33,7 +35,7 @@ class ResultsTypeTest extends MediaWikiTestCase {
 		array $expected
 	) {
 		$this->setMwGlobals( 'wgCirrusSearchUseExperimentalHighlighter', $useExperimentalHighlighter );
-		$type = new FullTextResultsType( $highlightingConfig, '' );
+		$type = new FullTextResultsType( $highlightingConfig );
 		$this->assertEquals( $expected, $type->getHighlightingConfiguration( $highlightSource ) );
 	}
 

@@ -5,6 +5,9 @@ namespace CirrusSearch\Query;
 use CirrusSearch\Search\Escaper;
 use CirrusSearch\Search\SearchContext;
 
+/**
+ * @group CirrusSearch
+ */
 class InTitleFeatureTest extends BaseSimpleKeywordFeatureTest {
 
 	public function parseProvider() {
@@ -61,7 +64,11 @@ class InTitleFeatureTest extends BaseSimpleKeywordFeatureTest {
 			->with( $isFuzzy );
 
 		// This test is kinda-sorta testing the escaper too ... maybe not optimal but simple
-		$feature = new InTitleFeature( new Escaper( 'en' ) );
+		$context->expects( $this->once() )
+			->method( 'escaper')
+			->will( $this->returnValue( new Escaper( 'en' ) ) );
+
+		$feature = new InTitleFeature();
 		$this->assertEquals(
 			$expectedTerm,
 			$feature->apply( $context, $term )
@@ -73,7 +80,11 @@ class InTitleFeatureTest extends BaseSimpleKeywordFeatureTest {
 			->disableOriginalConstructor()
 			->getMock();
 
-		$feature = new InTitleFeature( new Escaper( 'en' ) );
+		$context->expects( $this->once() )
+			->method( 'escaper')
+			->will( $this->returnValue( new Escaper( 'en' ) ) );
+
+		$feature = new InTitleFeature();
 		$this->assertEquals( '', $feature->apply( $context, '-intitle:mediawiki' ) );
 	}
 }

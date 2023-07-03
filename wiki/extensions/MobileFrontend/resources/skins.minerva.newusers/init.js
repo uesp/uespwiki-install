@@ -1,4 +1,3 @@
-// jscs:disable requireCamelCaseOrUpperCaseIdentifiers
 /* This code currently handles two different editing tutorials/CTAs:
 
 EditTutorial - When an editor registers via the edit page action, upon returning to the
@@ -21,7 +20,7 @@ editable page whilst logged in, although you must be in test group A to see the 
 	/**
 	 * Whether or not the user should see the leftNav guider
 	 * @ignore
-	 * @returns {Boolean}
+	 * @return {boolean}
 	 */
 	function shouldShowLeftNavEditTutorial() {
 		return mw.util.getParamValue( 'campaign' ) === 'leftNavSignup' &&
@@ -31,7 +30,7 @@ editable page whilst logged in, although you must be in test group A to see the 
 	/**
 	 * If the user came from an edit button signup, show guider.
 	 * @ignore
-	 * @returns {Boolean}
+	 * @return {boolean}
 	 */
 	function shouldShowTutorial() {
 		var shouldShowEditTutorial = mw.util.getParamValue( 'article_action' ) === 'signup-edit' && !inEditor;

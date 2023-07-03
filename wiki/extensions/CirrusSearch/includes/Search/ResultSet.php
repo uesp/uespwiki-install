@@ -25,6 +25,7 @@ use SearchResultSet;
  * http://www.gnu.org/copyleft/gpl.html
  */
 class ResultSet extends SearchResultSet {
+
 	/**
 	 * @var \Elastica\ResultSet
 	 */
@@ -56,11 +57,6 @@ class ResultSet extends SearchResultSet {
 	private $searchContainedSyntax;
 
 	/**
-	 * @var string
-	 */
-	private $interwikiPrefix;
-
-	/**
 	 * @var array
 	 */
 	private $interwikiResults = [];
@@ -80,14 +76,12 @@ class ResultSet extends SearchResultSet {
 	 * @param string[] $suggestSuffixes
 	 * @param \Elastica\ResultSet $res
 	 * @param bool $searchContainedSyntax
-	 * @param string $interwiki
 	 */
-	public function __construct( array $suggestPrefixes, array $suggestSuffixes, \Elastica\ResultSet $res, $searchContainedSyntax, $interwiki = '' ) {
+	public function __construct( array $suggestPrefixes, array $suggestSuffixes, \Elastica\ResultSet $res, $searchContainedSyntax ) {
 		$this->result = $res;
 		$this->searchContainedSyntax = $searchContainedSyntax;
 		$this->hits = $res->count();
 		$this->totalHits = $res->getTotalHits();
-		$this->interwikiPrefix = $interwiki;
 		$this->preCacheContainedTitles( $this->result );
 		$suggestion = $this->findSuggestion();
 		if ( $suggestion && ! $this->resultContainsFullyHighlightedMatch() ) {
@@ -190,14 +184,14 @@ class ResultSet extends SearchResultSet {
 	 *
 	 * @param \Elastica\ResultSet $resultSet Result set from which the titles come
 	 */
-	private function preCacheContainedTitles( \Elastica\ResultSet $resultSet ) {
+	protected function preCacheContainedTitles( \Elastica\ResultSet $resultSet ) {
 		// We can only pull in information about the local wiki
- 		if ( $this->interwikiPrefix !== '' ) {
- 			return;
- 		}
 		$lb = new LinkBatch;
 		foreach ( $resultSet->getResults() as $result ) {
-			$lb->add( $result->namespace, $result->title );
+			if ( !TitleHelper::isExternal( $result ) ) {
+
+				$lb->add( $result->namespace, $result->title );
+			}
 		}
 		if ( !$lb->isEmpty() ) {
 			$lb->setCaller( __METHOD__ );
@@ -247,7 +241,7 @@ class ResultSet extends SearchResultSet {
 		$current = $this->result->current();
 		if ( $current ) {
 			$this->result->next();
-			$result = new Result( $this->result, $current, $this->interwikiPrefix );
+			$result = new Result( $this->result, $current );
 			$this->augmentResult( $result );
 			return $result;
 		}

@@ -1,10 +1,22 @@
 {
 	"@metadata": {
 		"authors": [
-			"Milicevic01"
+			"Milicevic01",
+			"Zoranzoki21",
+			"Сербијана",
+			"Obsuser"
 		]
 	},
+	"cirrussearch-backend-error": "Нисмо могли завршити претрагу због привременог проблема. Покушајте поново касније.",
+	"cirrussearch-parse-error": "Упит није разуман. Молимо Вас да поједноставите. Упит је био пријављен за побољшање система за претрагу.",
+	"cirrussearch-too-busy-error": "Претрага је тренутно презаузета. Покушајте поново касније.",
+	"cirrussearch-regex-syntax-error": "Регуларни израз грешке синтаксе у $2: $1",
+	"cirrussearch-regex-too-busy-error": "Превише регуларних израза претраживања тренутно ради. Покушајте поново касније.",
 	"cirrussearch-now-using": "Овај вики има нови начин претраге. ([[mw:Special:MyLanguage/Help:CirrusSearch|Сазнајте више]])",
 	"cirrussearch-pref-label": "Нова претрага",
-	"cirrussearch-give-feedback": "Дајте нам Ваше мишљење."
+	"cirrussearch-give-feedback": "Дајте нам Ваше мишљење.",
+	"cirrussearch-completion-profile-fast-fuzzy": "Експериментални фази профил (може се уклонити било када)",
+	"cirrussearch-qi-profile-wsum-inclinks-pv": "Пондерисана сума на основу долазних веза и седмичног броја прегледа",
+	"cirrussearch-qi-profile-wsum-inclinks": "Пондерисана сума на основу долазних веза",
+	"prefs-completion": "Довршавање претраге"
 }

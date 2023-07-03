@@ -3,8 +3,12 @@
 	/**
 	 * A descriptions field in UploadWizard's "Details" step form.
 	 *
+	 * @class uw.DescriptionsDetailsWidgets
 	 * @extends uw.DetailsWidget
 	 * @mixins OO.ui.mixin.GroupElement
+	 * @constructor
+	 * @param {Object} [config]
+	 * @cfg {boolean} [required=true]
 	 */
 	uw.DescriptionsDetailsWidget = function UWDescriptionsDetailsWidget( config ) {
 		config = $.extend( { required: true }, config );
@@ -19,7 +23,14 @@
 			// Messages: mwe-upwiz-desc-add-0, mwe-upwiz-desc-add-n
 			label: mw.msg( 'mwe-upwiz-desc-add-' + ( !this.required ? '0' : 'n' ) )
 		} );
-		this.addDescriptionButton.connect( this, { click: 'addDescription' } );
+		this.addDescriptionButton.connect( this, { click: [ 'addDescriptions', 1 ] } );
+
+		this.connect( this, { change: 'recountDescriptions' } );
+
+		// Aggregate 'change' event
+		this.aggregate( {
+			change: 'change'
+		} );
 
 		this.$element.addClass( 'mwe-upwiz-descriptionsDetailsWidget' );
 		this.$element.append(
@@ -27,21 +38,25 @@
 			this.addDescriptionButton.$element
 		);
 
+		// Add empty non-removable description if this field is required
 		if ( this.required ) {
-			this.addItems( [ new uw.FieldLayout( new uw.DescriptionDetailsWidget() ) ] );
-			// Hide the "Remove" button for first description if this field is required
-			this.items[ 0 ].$element.next().hide();
+			this.addItems( [ new uw.DescriptionDetailsWidget( { canBeRemoved: false } ) ] );
 		}
 	};
 	OO.inheritClass( uw.DescriptionsDetailsWidget, uw.DetailsWidget );
 	OO.mixinClass( uw.DescriptionsDetailsWidget, OO.ui.mixin.GroupElement );
 
 	/**
-	 * Add a description in another language.
+	 * Add multiple descriptions in another language.
+	 *
+	 * @param {number} n Number of descriptions
 	 */
-	uw.DescriptionsDetailsWidget.prototype.addDescription = function () {
-		this.addItems( [ new uw.FieldLayout( new uw.DescriptionDetailsWidget() ) ] );
-		this.recountDescriptions();
+	uw.DescriptionsDetailsWidget.prototype.addDescriptions = function ( n ) {
+		var items = [];
+		while ( n-- ) {
+			items.push( new uw.DescriptionDetailsWidget() );
+		}
+		this.addItems( items );
 	};
 
 	/**
@@ -51,35 +66,6 @@
 		// Messages: mwe-upwiz-desc-add-0, mwe-upwiz-desc-add-n
 		var label = mw.msg( 'mwe-upwiz-desc-add-' + ( this.items.length === 0 ? '0' : 'n' ) );
 		this.addDescriptionButton.setLabel( label );
-		this.emit( 'change' );
-	};
-
-	/**
-	 * @inheritdoc
-	 */
-	uw.DescriptionsDetailsWidget.prototype.addItems = function ( items, index ) {
-		// Mixin method
-		OO.ui.mixin.GroupElement.prototype.addItems.call( this, items, index );
-		items.forEach( function ( item ) {
-			// Insert "Remove" button
-			var removeButton = new OO.ui.ButtonWidget( {
-				classes: [ 'mwe-upwiz-remove-ctrl', 'mwe-upwiz-descriptionsDetailsWidget-removeItem' ],
-				icon: 'remove',
-				framed: false,
-				flags: [ 'destructive' ],
-				title: mw.message( 'mwe-upwiz-remove-description' ).text()
-			} );
-			removeButton.on( 'click', function () {
-				removeButton.$element.remove();
-				this.removeItems( [ item ] );
-				this.recountDescriptions();
-			}.bind( this ) );
-			item.$element.after( removeButton.$element );
-
-			// Aggregate 'change' event
-			item.fieldWidget.connect( this, { change: [ 'emit', 'change' ] } );
-		}.bind( this ) );
-		return this;
 	};
 
 	/**
@@ -88,7 +74,7 @@
 	uw.DescriptionsDetailsWidget.prototype.getErrors = function () {
 		// Gather errors from each item
 		var errorPromises = this.getItems().map( function ( item ) {
-			return item.fieldWidget.getErrors();
+			return item.getErrors();
 		} );
 		return $.when.apply( $, errorPromises ).then( function () {
 			var i, errors;
@@ -117,8 +103,8 @@
 	uw.DescriptionsDetailsWidget.prototype.getWikiText = function () {
 		// Some code here and in mw.UploadWizardDetails relies on this function returning an empty
 		// string when there are some descriptions, but all are empty.
-		return this.getItems().map( function ( layout ) {
-			return layout.fieldWidget.getWikiText();
+		return this.getItems().map( function ( widget ) {
+			return widget.getWikiText();
 		} ).filter( function ( wikiText ) {
 			return !!wikiText;
 		} ).join( '\n' );
@@ -129,8 +115,8 @@
 	 * @return {Object} See #setSerialized
 	 */
 	uw.DescriptionsDetailsWidget.prototype.getSerialized = function () {
-		var descriptions = this.getItems().map( function ( layout ) {
-			return layout.fieldWidget.getSerialized();
+		var descriptions = this.getItems().map( function ( widget ) {
+			return widget.getSerialized();
 		} );
 		return {
 			descriptions: descriptions
@@ -144,19 +130,20 @@
 	 *   see uw.DescriptionDetailsWidget#setSerialized
 	 */
 	uw.DescriptionsDetailsWidget.prototype.setSerialized = function ( serialized ) {
-		var items = serialized.descriptions.map( function ( serialized ) {
-			var layout = new uw.FieldLayout( new uw.DescriptionDetailsWidget() );
-			layout.fieldWidget.setSerialized( serialized );
-			return layout;
-		}.bind( this ) );
-		this.clearItems();
-		this.$group.empty(); // Kill the stupid "Remove" buttons
-		this.addItems( items );
-		if ( this.required ) {
-			// Hide the "Remove" button for first description if this field is required
-			this.items[ 0 ].$element.next().hide();
+		var i, items;
+		items = this.getItems();
+		if ( items.length > serialized.descriptions.length ) {
+			// Remove any additional, no longer needed descriptions
+			this.removeItems( items.slice( /* start= */ serialized.descriptions.length ) );
+		} else if ( items.length < serialized.descriptions.length ) {
+			// Add more descriptions if we had too few
+			this.addDescriptions( serialized.descriptions.length - items.length );
 		}
-		this.recountDescriptions();
+		items = this.getItems();
+		// Copy contents
+		for ( i = 0; i < serialized.descriptions.length; i++ ) {
+			items[ i ].setSerialized( serialized.descriptions[ i ] );
+		}
 	};
 
-} )( mediaWiki, mediaWiki.uploadWizard, jQuery, OO );
+}( mediaWiki, mediaWiki.uploadWizard, jQuery, OO ) );

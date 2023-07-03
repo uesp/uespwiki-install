@@ -52,7 +52,7 @@
 
 	(function() {
 
-	  var OGVVersion = ("1.2.1-20160924234040-a1a879e");
+	  var OGVVersion = ("1.4.1-20170407171329-c48dd8c2");
 
 	  if (window) {
 	    // 1.0-compat globals

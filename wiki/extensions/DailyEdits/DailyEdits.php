@@ -16,10 +16,9 @@ $wgExtensionCredits['dailyedits'][] = array(
         "description" => "Displays the count of edits per day.",
 );
  
-$dir = dirname(__FILE__) . '/';
- 
-$wgAutoloadClasses['SpecialDailyEdits'] = $dir . 'SpecialDailyEdits.php'; 
-$wgExtensionMessagesFiles['DailyEdits'] = $dir . 'DailyEdits.i18n.php';
+$wgAutoloadClasses['SpecialDailyEdits'] = __DIR__ . '/SpecialDailyEdits.php'; 
+$wgMessagesDirs['DailyEdits'] = __DIR__ . '/i18n';
+$wgExtensionMessagesFiles['DailyEditsAlias'] = __DIR__ . '/DailyEdits.i18n.alias.php';
 $wgSpecialPages['DailyEdits'] = 'SpecialDailyEdits'; 
 $wgSpecialPageGroups['DailyEdits'] = 'other';
 

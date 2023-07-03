@@ -1,8 +1,7 @@
 <?php
+
 namespace CirrusSearch\Search;
 
-use CirrusSearch\Maintenance\MappingConfigBuilder;
-use SearchIndexField;
 use CirrusSearch\SearchConfig;
 use SearchEngine;
 
@@ -36,12 +35,12 @@ class SourceTextIndexField extends TextIndexField {
 		$this->initFlags();
 
 		$field = [
-			'index' => 'no', // We only use the .plain field
-			'type' => 'string',
+			'index' => false, // We only use the .plain field
+			'type' => 'text',
 			'fields' => [
 				'plain' => [
-					'type' => 'string',
-					'norms' => ['enabled' => false],
+					'type' => 'text',
+					'norms' => false,
 					'analyzer' => 'source_text_plain',
 					'search_analyzer' => 'source_text_plain_search',
 					'position_increment_gap' => self::POSITION_INCREMENT_GAP,
@@ -52,8 +51,8 @@ class SourceTextIndexField extends TextIndexField {
 
 		if ( $this->withTrigrams ) {
 			$field['fields']['trigram'] = [
-				'norms' => ['enabled' => false],
-				'type' => 'string',
+				'norms' => false,
+				'type' => 'text',
 				'analyzer' => 'trigram',
 				'index_options' => 'docs',
 			];

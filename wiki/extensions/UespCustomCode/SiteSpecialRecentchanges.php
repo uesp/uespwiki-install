@@ -126,16 +126,16 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 	// NB when running actual query, I want to make use of the new_name_timestamp index if either
 	// of my conditions are in effect (filtering by namespace should be much faster with index)
 	// easiest way to "force" that is by setting $opts['namespace'] to a bogus value
-	public function doMainQuery( $conds, $opts ) {
-	//1.29 public function doMainQuery( $tables, $fields, $conds, $query_options, $join_conds, FormOptions $opts ) {
+	// pre-1.29: public function doMainQuery( $conds, $opts ) {
+	public function doMainQuery( $tables, $fields, $conds, $query_options, $join_conds, FormOptions $opts ) {
 		global $wgUser;
 		if (($opts['usecustomns'] || $opts['hideuserspace']) && empty($opts['namespace'])) {
 			$opts->setValue('invert', false);
 			$opts->setValue('namespace', -1);
 			
 		}
-		$res = parent::doMainQuery( $conds, $opts );
-		//1.29 $res = parent::doMainQuery( $tables, $fields, $conds, $query_options, $join_conds, $opts );
+		// pre-1.29: $res = parent::doMainQuery( $conds, $opts );
+		$res = parent::doMainQuery( $tables, $fields, $conds, $query_options, $join_conds, $opts );
 		$opts->setValue('namespace', NULL);
 		return $res;
 	}
@@ -230,9 +230,9 @@ class SiteSpecialRecentChanges extends SpecialRecentChanges {
 		$timenow = $wgLang->userTime( $timestamp, $wgUser );
 		$datenow = $wgLang->userdate( $timestamp, $wgUser );
 		
-		$rclinks = wfMessage( 'rclinks' )->rawParams( $cl, $dl, $hl )->parse();
+		$rclinks = wfMessage( 'rclinks' )->rawParams( $cl, $dl )->parse();
 		$rclistfrom = wfMessage( 'rclistfrom' )->rawParams( $now, $timenow, $datenow )->parse();
-		return "{$note}$rclinks<br />$rclistfrom";
+		return "{$note}$rclinks<br>$hl<br>$rclistfrom";
 	}
 	
 	protected function namespaceFilterForm( FormOptions $opts ) {

@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\MediaWikiServices;
-
 /* To disable tags, comment out lines in $tagInfo.
  * To disable variables, comment out lines in onMagicWordwgVariableIDs.
  * To disable parser functions, comment out lines in initParserFunctions.
@@ -10,13 +8,23 @@ use MediaWiki\MediaWikiServices;
 /**
  * MediaWiki hooks for Riven.
  */
-class RivenHooks
+class RivenHooks /* implements
+	\MediaWiki\Hook\ParserFirstCallInitHook */
 {
-	/** Tag hooks. To disable a tag, comment the line out. */
-	private static $tagInfo = [
-		Riven::TG_CLEANSPACE => 'Riven::doCleanSpace',
-		Riven::TG_CLEANTABLE => 'Riven::doCleanTable'
-	];
+	public const PF_ARG         = 'arg'; // From DynamicFunctions
+	public const PF_EXPLODEARGS = 'explodeargs';
+	public const PF_FINDFIRST   = 'findfirst';
+	public const PF_IFEXISTX    = 'ifexistx';
+	public const PF_INCLUDE     = 'include';
+	public const PF_PICKFROM    = 'pickfrom';
+	public const PF_RAND        = 'rand'; // From DynamicFunctions
+	public const PF_SPLITARGS   = 'splitargs';
+	public const PF_TRIMLINKS   = 'trimlinks';
+
+	public const TG_CLEANSPACE = 'cleanspace';
+	public const TG_CLEANTABLE = 'cleantable';
+
+	public const VR_SKINNAME = 'skinname'; // From DynamicFunctions
 
 	/**
 	 * Register variables.
@@ -26,9 +34,9 @@ class RivenHooks
 	 * @return void
 	 *
 	 */
-	public static function onMagicWordwgVariableIDs(array &$aCustomVariableIds)
+	public static function onMagicWordwgVariableIDs(array &$aCustomVariableIds): void
 	{
-		$aCustomVariableIds[] = Riven::VR_SKINNAME;
+		$aCustomVariableIds[] = self::VR_SKINNAME;
 	}
 
 	/**
@@ -39,12 +47,18 @@ class RivenHooks
 	 * @return void
 	 *
 	 */
-	public static function onParserFirstCallInit(Parser $parser)
+	public static function onParserFirstCallInit(Parser $parser): void
 	{
-		ParserHelper::init();
+		/* Force parser to use Preprocessor_Hash if it isn't already since this entire extension is predicated on that
+		 * assumption. In later versions, Preprocessor_Hash is the only built-in option anyway. This should work up to
+		 * 1.34. After that, PPNode_DOM no longer exists, so PPNode_Hash should always be in use.
+		 */
+		if (get_class($parser->getPreprocessor()) === 'PPNode_DOM') {
+			VersionHelper::getInstance()->setPreprocessor($parser, new Preprocessor_Hash($parser));
+		}
+
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
-		Riven::init();
 	}
 
 	/**
@@ -56,19 +70,15 @@ class RivenHooks
 	 * @param mixed $ret Return value.
 	 * @param PPFrame $frame The frame in use.
 	 *
-	 * @return bool
+	 * @return bool Always true, per Wikipedia documentation.
 	 *
 	 */
-	public static function onParserGetVariableValueSwitch(Parser $parser, array &$variableCache, $magicWordId, &$ret, PPFrame $frame)
+	public static function onParserGetVariableValueSwitch(Parser $parser, array &$variableCache, $magicWordId, &$ret, PPFrame $frame): bool
 	{
 		switch ($magicWordId) {
-			case Riven::VR_SKINNAME:
+			case self::VR_SKINNAME:
 				$ret = Riven::doSkinName($parser);
-
-				// Cached, but only for the current request (presumably), since user could change their settings at any
-				// time.
 				$variableCache[$magicWordId] = $ret;
-				$parser->getOutput()->updateCacheExpiry(5);
 		}
 
 		return true;
@@ -82,17 +92,17 @@ class RivenHooks
 	 * @return void
 	 *
 	 */
-	private static function initParserFunctions(Parser $parser)
+	private static function initParserFunctions(Parser $parser): void
 	{
-		$parser->setFunctionHook(Riven::PF_ARG, 'Riven::doArg', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(Riven::PF_EXPLODEARGS, 'Riven::doExplodeargs', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(Riven::PF_FINDFIRST, 'Riven::doFindFirst', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(Riven::PF_IFEXISTX, 'Riven::doIfExistX', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(Riven::PF_INCLUDE, 'Riven::doInclude', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(Riven::PF_PICKFROM, 'Riven::doPickFrom', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(Riven::PF_RAND, 'Riven::doRand', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(Riven::PF_SPLITARGS, 'Riven::doSplitargs', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(Riven::PF_TRIMLINKS, 'Riven::doTrimLinks', SFH_OBJECT_ARGS);
+		$parser->setFunctionHook(self::PF_ARG, 'Riven::doArg', SFH_OBJECT_ARGS);
+		$parser->setFunctionHook(self::PF_EXPLODEARGS, 'Riven::doExplodeargs', SFH_OBJECT_ARGS);
+		$parser->setFunctionHook(self::PF_FINDFIRST, 'Riven::doFindFirst', SFH_OBJECT_ARGS);
+		$parser->setFunctionHook(self::PF_IFEXISTX, 'Riven::doIfExistX', SFH_OBJECT_ARGS);
+		$parser->setFunctionHook(self::PF_INCLUDE, 'Riven::doInclude', SFH_OBJECT_ARGS);
+		$parser->setFunctionHook(self::PF_PICKFROM, 'Riven::doPickFrom', SFH_OBJECT_ARGS);
+		$parser->setFunctionHook(self::PF_RAND, 'Riven::doRand', SFH_OBJECT_ARGS);
+		$parser->setFunctionHook(self::PF_SPLITARGS, 'Riven::doSplitargs', SFH_OBJECT_ARGS);
+		$parser->setFunctionHook(self::PF_TRIMLINKS, 'Riven::doTrimLinks', SFH_OBJECT_ARGS);
 	}
 
 	/**
@@ -103,10 +113,9 @@ class RivenHooks
 	 * @return void
 	 *
 	 */
-	private static function initTagFunctions(Parser $parser)
+	private static function initTagFunctions(Parser $parser): void
 	{
-		foreach (self::$tagInfo as $key => $value) {
-			ParserHelper::setHookSynonyms($parser, $key, $value);
-		}
+		ParserHelper::setHookSynonyms($parser, self::TG_CLEANSPACE, 'Riven::doCleanSpace');
+		ParserHelper::setHookSynonyms($parser, self::TG_CLEANTABLE, 'Riven::doCleanTable');
 	}
 }

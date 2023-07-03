@@ -1,0 +1,33 @@
+{
+	"@metadata": {
+		"authors": [
+			"Okras",
+			"Putnik",
+			"Mariya",
+			"Ole Yves",
+			"Amire80",
+			"Kaganer",
+			"Redredsonia"
+		]
+	},
+	"popups-message": "Предварительный просмотр страницы",
+	"popups-desc": "Показывает всплывающее окно предварительного просмотра при наведении курсора на ссылку, ведущую на страницу.",
+	"popups-redirects": "перенаправляет на <h3>$1</h3>",
+	"popups-settings-title": "Предпросмотр страницы",
+	"popups-settings-description": "Этот инструмент позволяет просматривать ссылки на вики-страницы и примечания.",
+	"popups-settings-option-simple": "Включить",
+	"popups-settings-option-simple-description": "Получить быстрый предпросмотр темы при чтении статьи.",
+	"popups-settings-option-advanced": "Расширенный",
+	"popups-settings-option-advanced-description": "Показывать предпросмотр ссылок и получать меню для функций правки. Это используют многие редакторы.",
+	"popups-settings-option-off": "Отключить",
+	"popups-settings-save": "Сохранить",
+	"popups-settings-help-ok": "Готово",
+	"popups-settings-cancel": "Отмена",
+	"popups-settings-help": "Можно вновь включить предпросмотр используя ссылку в конце страницы.",
+	"popups-settings-enable": "Включить предпросмотр",
+	"popups-send-feedback": "Отправить отзыв (внешняя ссылка)",
+	"popups-preview-no-preview": "Предварительный просмотр страницы недоступен",
+	"popups-preview-footer-read": "Читать",
+	"popups-prefs-optin-enabled-label": "Включить",
+	"popups-prefs-optin-disabled-label": "Отключить"
+}

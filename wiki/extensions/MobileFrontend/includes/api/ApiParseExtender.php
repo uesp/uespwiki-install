@@ -28,7 +28,7 @@ class ApiParseExtender {
 	 * APIGetParamDescription hook handler
 	 * @see: https://www.mediawiki.org/wiki/Manual:Hooks/APIGetParamDescription
 	 * @param ApiBase $module
-	 * @param Array|bool $params
+	 * @param array|bool $params
 	 * @return bool
 	 */
 	public static function onAPIGetParamDescription( ApiBase &$module, &$params ) {
@@ -44,7 +44,7 @@ class ApiParseExtender {
 	 * APIGetDescription hook handler
 	 * @see: https://www.mediawiki.org/wiki/Manual:Hooks/APIGetDescription
 	 * @param ApiBase $module
-	 * @param Array|string $desc
+	 * @param array|string $desc
 	 * @return bool
 	 */
 	public static function onAPIGetDescription( ApiBase &$module, &$desc ) {
@@ -88,6 +88,7 @@ class ApiParseExtender {
 				$mf->setRemoveMedia( $params['noimages'] );
 				$mf->setIsMainPage( $params['mainpage'] && $mfSpecialCaseMainPage );
 				$mf->enableExpandableSections( !$params['mainpage'] );
+				$mf->disableScripts();
 				// HACK: need a nice way to request a TOC- and edit link-free HTML in the first place
 				// FIXME: Should this be .mw-editsection?
 				$mf->remove( [ '.toc', 'mw-editsection', '.mw-headline-anchor' ] );

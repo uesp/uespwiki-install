@@ -2,7 +2,7 @@
 
 namespace CirrusSearch\Job;
 
-use PHPUnit_Framework_TestCase;
+use CirrusSearch\CirrusTestCase;
 use Title;
 
 /**
@@ -22,8 +22,10 @@ use Title;
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @group CirrusSearch
  */
-class MassIndexTest extends PHPUnit_Framework_TestCase {
+class MassIndexTest extends CirrusTestCase {
 	/**
 	 * @dataProvider workItemCountTestCases
 	 */

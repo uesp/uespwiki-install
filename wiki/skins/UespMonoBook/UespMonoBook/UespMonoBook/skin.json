@@ -1,0 +1,45 @@
+{
+	"name": "UESP MonoBook",
+	"author": [
+		"[http://www.uesp.net/wiki/User:RobinHood70 RobinHood70]",
+		"[http://www.uesp.net/wiki/User:Daveh Dave Humphrey]"
+	],
+	"version": "1.26",
+	"url": "http://www.uesp.net/UESPWiki:UespMonoBook",
+	"descriptionmsg": "uespmonobook-desc",
+	"namemsg": "skinname-uespmonobook",
+	"license-name": "GPL-2.0+",
+	"type": "skin",
+	"ValidSkinNames": {
+		"uespmonobook": "UespMonoBook"
+	},
+	"MessagesDirs": {
+		"UespMonoBook": [
+			"i18n"
+		]
+	},
+	"ResourceModules": {
+		"skins.monobook.styles": {
+			"styles": {
+				"../MonoBook/main.css": {
+					"media": "screen"
+				}
+			}
+		},
+		"skins.uespmonobook": {
+			"styles": {
+				"main.css": {
+					"media": "screen"
+				}
+			}
+		}
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteSkinPath": "UespMonoBook"
+	},
+	"AutoloadClasses": {
+		"SkinUespMonoBook": "SkinUespMonoBook.php",
+		"UespMonoBookTemplate": "UespMonoBookTemplate.php"
+	}
+}

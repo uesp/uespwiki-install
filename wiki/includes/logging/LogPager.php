@@ -61,10 +61,11 @@ class LogPager extends ReverseChronologicalPager {
 	 * @param int|bool $month The month to start from. Default: false
 	 * @param string $tagFilter Tag
 	 * @param string $action Specific action (subtype) requested
+	 * @param int $logId Log entry ID, to limit to a single log entry.
 	 */
 	public function __construct( $list, $types = [], $performer = '', $title = '',
 		$pattern = '', $conds = [], $year = false, $month = false, $tagFilter = '',
-		$action = ''
+		$action = '', $logId = false
 	) {
 		parent::__construct( $list->getContext() );
 		$this->mConds = $conds;
@@ -77,6 +78,7 @@ class LogPager extends ReverseChronologicalPager {
 		$this->limitAction( $action );
 		$this->getDateCond( $year, $month );
 		$this->mTagFilter = $tagFilter;
+		$this->limitLogId( $logId );
 
 		$this->mDb = wfGetDB( DB_REPLICA, 'logpager' );
 	}
@@ -181,7 +183,7 @@ class LogPager extends ReverseChronologicalPager {
 		} else {
 			$this->mConds['log_user'] = $userid;
 		}
-		// Paranoia: avoid brute force searches (bug 17342)
+		// Paranoia: avoid brute force searches (T19342)
 		$user = $this->getUser();
 		if ( !$user->isAllowed( 'deletedhistory' ) ) {
 			$this->mConds[] = $this->mDb->bitAnd( 'log_deleted', LogPage::DELETED_USER ) . ' = 0';
@@ -256,7 +258,7 @@ class LogPager extends ReverseChronologicalPager {
 		} else {
 			$this->mConds['log_title'] = $title->getDBkey();
 		}
-		// Paranoia: avoid brute force searches (bug 17342)
+		// Paranoia: avoid brute force searches (T19342)
 		$user = $this->getUser();
 		if ( !$user->isAllowed( 'deletedhistory' ) ) {
 			$this->mConds[] = $db->bitAnd( 'log_deleted', LogPage::DELETED_ACTION ) . ' = 0';
@@ -289,6 +291,17 @@ class LogPager extends ReverseChronologicalPager {
 				$this->action = $action;
 			}
 		}
+	}
+
+	/**
+	 * Limit to the (single) specified log ID.
+	 * @param int $logId The log entry ID.
+	 */
+	protected function limitLogId( $logId ) {
+		if ( !$logId ) {
+			return;
+		}
+		$this->mConds['log_id'] = $logId;
 	}
 
 	/**

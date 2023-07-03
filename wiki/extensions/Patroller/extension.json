@@ -1,17 +1,17 @@
 {
 	"name": "Patroller",
-	"version": "2.0",
+	"version": "2.1",
 	"author": [
 		"Rob Church",
-		"Kris Blair (Cblair91)"
+		"Kris Blair (Developaws)"
 	],
 	"url": "https://www.mediawiki.org/wiki/Extension:Patroller",
-	"descriptionmsg": "patroller-desc",
+	"descriptionmsg": "patrol-desc",
 	"license-name": "GPL-2.0",
 	"type": "special",
 	"GroupPermissions": {
 		"sysop": {
-		 	"patroller": true
+			"patroller": true
 		},
 		"patroller": {
 			"patroller": true
@@ -26,7 +26,7 @@
 		]
 	},
 	"ExtensionMessagesFiles": {
-		"Patroller": "Patroller.i18n.php"
+		"PatrollerAlias": "Patroller.alias.php"
 	},
 	"AutoloadClasses": {
 		"PatrollerHooks": "Patroller.hooks.php",

@@ -4,7 +4,6 @@ namespace CirrusSearch;
 
 use CirrusSearch\Test\HashSearchConfig;
 use MediaWiki\MediaWikiServices;
-use MediaWikiTestCase;
 use Language;
 
 /**
@@ -24,8 +23,10 @@ use Language;
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @group CirrusSearch
  */
-class UtilTest extends MediaWikiTestCase {
+class UtilTest extends CirrusTestCase {
 	/**
 	 * @dataProvider recursiveSameTestCases
 	 */
@@ -47,22 +48,6 @@ class UtilTest extends MediaWikiTestCase {
 			[ true, [ 'candle' => [ 'wax' => 'foo' ] ], [ 'candle' => [ 'wax' => 'foo' ] ] ],
 			[ false, [ 'candle' => [ 'wax' => 'foo' ] ], [ 'candle' => [ 'wax' => 'bar' ] ] ],
 		];
-	}
-
-	public function testChooseBestRedirect() {
-		$convert = function( $x ) {
-			$redirect = [];
-			foreach( $x as $t ) {
-				$redirect[] = [ 'title' => $t, 'namespace' => 0 ];
-			}
-			return $redirect;
-		};
-		$input = $convert( [ 'Al. Einstein', 'Albert Einstein', 'A. Einstein', 'Einstein, Albert' ] );
-		$this->assertEquals( 'Al. Einstein', Util::chooseBestRedirect( 'a', $input ) );
-		$this->assertEquals( 'Al. Einstein', Util::chooseBestRedirect( 'al', $input ) );
-		$this->assertEquals( 'Albert Einstein', Util::chooseBestRedirect( 'albet', $input ) );
-		$this->assertEquals( 'Einstein, Albert', Util::chooseBestRedirect( 'Einstein', $input ) );
-		$this->assertEquals( 'Einstein, Albert', Util::chooseBestRedirect( 'Ens', $input ) );
 	}
 
 	public function teststripQuestionMarks() {
@@ -112,9 +97,9 @@ class UtilTest extends MediaWikiTestCase {
 	/**
 	 * Set message cache instance to given object.
 	 * TODO: we wouldn't have to do this if we had some proper way to mock message cache.
-	 * @param $class
-	 * @param $var
-	 * @param $value
+	 * @param string $class
+	 * @param string $var
+	 * @param mixed $value
 	 */
 	private function setPrivateVar( $class, $var, $value ) {
 		// nasty hack - reset message cache instance
@@ -145,7 +130,7 @@ class UtilTest extends MediaWikiTestCase {
 	/**
 	 * Put data for a wiki into test cache.
 	 * @param \BagOStuff $cache
-	 * @param            $wiki
+	 * @param string $wiki
 	 */
 	private function putDataIntoCache( \BagOStuff $cache, $wiki ) {
 		$key = $cache->makeGlobalKey( 'cirrussearch-boost-templates', $wiki );
@@ -161,7 +146,7 @@ class UtilTest extends MediaWikiTestCase {
 			'wgMainCacheType' => 'UtilTest',
 			'wgObjectCaches' => [ 'UtilTest' => [ 'class' => \HashBagOStuff::class ] ]
 		] );
-		$services = \MediaWiki\MediaWikiServices::getInstance();
+		$services = MediaWikiServices::getInstance();
 		if ( method_exists( $services, 'getLocalClusterObjectCache' ) ) {
 			$services->resetServiceForTesting( 'LocalClusterObjectCache' );
 			$services->redefineService( 'LocalClusterObjectCache', function () {

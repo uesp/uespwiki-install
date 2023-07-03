@@ -1,0 +1,37 @@
+{
+	"@metadata": {
+		"authors": [
+			"Fitoschido",
+			"Macofe",
+			"Jduranboger",
+			"Tusca",
+			"Peter Bowman",
+			"Dgstranz",
+			"Joaquin Oltra"
+		]
+	},
+	"popups-message": "Vistas previas de páginas",
+	"popups-desc": "Muestra una previsualización cuando el usuario posa el ratón sobre un enlace.",
+	"popups-redirects": "redirige a <h3>$1</h3>",
+	"popups-settings-title": "Previsualización de página",
+	"popups-settings-description": "Esta herramienta permite previsualizar enlaces a páginas wikis y a referencias.",
+	"popups-settings-option-simple": "Activar",
+	"popups-settings-option-simple-description": "Obtener resúmenes rápidos de un tema durante la lectura de un artículo.",
+	"popups-settings-option-advanced": "Avanzado",
+	"popups-settings-option-advanced-description": "Ver vistas previas de enlace y acceso a los menús de la función de edición. Esta opción es recomendada para editores.",
+	"popups-settings-option-off": "Desactivar",
+	"popups-settings-save": "Guardar",
+	"popups-settings-help-ok": "Hecho",
+	"popups-settings-cancel": "Cancelar",
+	"popups-settings-help": "Puedes volver a habilitar las vistas previas usando un enlace al pie de la página.",
+	"popups-settings-enable": "Activar previsualizaciones",
+	"popups-send-feedback": "Enviar comentario (enlace externo)",
+	"popups-preview-no-preview": "Parece que no hay una previsualización de esta página",
+	"popups-preview-footer-read": "Leer",
+	"prefs-reading": "Preferencias de lectura",
+	"popups-prefs-optin-title": "Vistas previas de páginas\n\n<em>Obtén vistas previas de un tema mientras lees un articulo</em>",
+	"popups-prefs-optin-enabled-label": "Activar",
+	"popups-prefs-optin-disabled-label": "Desactivar",
+	"popups-prefs-disable-nav-gadgets-info": "Tienes que [[$1|desactivar \"Popups de navegación\"]] en la pestaña de Accesorios para habilitar Vistas previas.",
+	"popups-prefs-conflicting-gadgets-info": "Ciertos accesorios y otras personalizaciones pueden afectar al funcionamiento de esta funcionalidad. Si tienes problemas por favor revisa tus accesorios y scripts de usuario."
+}

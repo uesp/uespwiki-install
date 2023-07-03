@@ -64,6 +64,12 @@ class Connection extends ElasticaConnection {
 	const TITLE_SUGGEST_TYPE_NAME = 'titlesuggest';
 
 	/**
+	 * Name of the archive type
+	 * @var string
+	 */
+	const ARCHIVE_TYPE_NAME = 'archive';
+
+	/**
 	 * @var SearchConfig
 	 */
 	protected $config;
@@ -165,20 +171,6 @@ class Connection extends ElasticaConnection {
 			throw new \RuntimeException( "No configuration available for cluster: {$this->cluster}" );
 		}
 
-		// Elastica will only create transports from within it's own
-		// namespace. To use the CirrusSearch PooledHttp(s) this
-		// clause is necessary.
-		foreach ( $config as $idx => $server ) {
-			if (
-				isset( $server['transport'] ) &&
-				is_string( $server['transport'] ) &&
-				class_exists( $server['transport'] )
-			) {
-				$transportClass = $server['transport'];
-				$config[$idx]['transport'] = new $transportClass;
-			}
-		}
-
 		return $config;
 	}
 
@@ -205,7 +197,17 @@ class Connection extends ElasticaConnection {
 	 * @return \Elastica\Type
 	 */
 	public function getPageType( $name, $type = false ) {
-		return $this->getIndex( $name, $type )->getType( self::PAGE_TYPE_NAME );
+		return $this->getIndexType( $name, $type, self::PAGE_TYPE_NAME );
+	}
+
+	/**
+	 * Fetch the Elastica Type for pages.
+	 * @param mixed $name basename of index
+	 * @param mixed $type type of index (content or general or false to get all)
+	 * @return \Elastica\Type
+	 */
+	public function getIndexType( $name, $cirrusType, $elasticType ) {
+		return $this->getIndex( $name, $cirrusType )->getType( $elasticType );
 	}
 
 	/**
@@ -216,6 +218,15 @@ class Connection extends ElasticaConnection {
 	public function getNamespaceType( $name ) {
 		$type = 'general'; // Namespaces are always stored in the 'general' index.
 		return $this->getIndex( $name, $type )->getType( self::NAMESPACE_TYPE_NAME );
+	}
+
+	/**
+	 * Fetch the Elastica Type for archive.
+	 * @param mixed $name basename of index
+	 * @return \Elastica\Type
+	 */
+	public function getArchiveType( $name ) {
+		return $this->getIndex( $name, 'general' )->getType( self::ARCHIVE_TYPE_NAME );
 	}
 
 	/**
@@ -324,7 +335,7 @@ class Connection extends ElasticaConnection {
 	}
 
 	/**
-	 * @param string[] array of cluter names
+	 * @param string[] $clusters array of cluster names
 	 * @param SearchConfig $config the search config
 	 * @return Connection[] array of connection indexed by cluster name
 	 */

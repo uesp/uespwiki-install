@@ -38,7 +38,7 @@ $wgExtensionCredits['specialpage'][] = array(
 $wgAutoloadClasses['SpecialEsoSkills'] = __DIR__ . '/SpecialEsoSkills.php';
 $wgAutoloadClasses['SpecialEsoCps'] = __DIR__ . '/SpecialEsoCps.php';
 $wgMessagesDirs['EsoSkills'] = __DIR__ . "/i18n";
-$wgExtensionMessagesFiles['EsoSkills'] = __DIR__ . '/EsoSkills.alias.php';
+$wgExtensionMessagesFiles['EsoSkillsAlias'] = __DIR__ . '/EsoSkills.alias.php';
 $wgSpecialPages['EsoSkills'] = 'SpecialEsoSkills';
 $wgSpecialPages['EsoCps'] = 'SpecialEsoCps';
 
@@ -128,7 +128,7 @@ function ParseEsoLevel($level)
 		if ($value > 66) $value = 66;
 		return $value;
 	}
-
+	
 	if (preg_match("#^[vV]([0-9]+)#", trim($level), $matches))
 	{
 		$value = intval($matches[1]) + 50;
@@ -136,7 +136,7 @@ function ParseEsoLevel($level)
 		if ($value > 66) $value = 66;
 		return $value;
 	}
-
+	
 	return 66;
 }
 

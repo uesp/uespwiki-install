@@ -64,12 +64,11 @@ class TextHandler {
 				return $this->remoteNs;
 			}
 			
-			//UESP Fix for error
+				//UESP Fix for error
 			if (!method_exists($this->file->repo, "fetchImageQuery"))
 			{
 				return false;
 			}
-			
 			// Get the namespace data from the image api repo:
 			// fetchImageQuery query caches results
 			$data = $this->file->getRepo()->fetchImageQuery( [
@@ -171,13 +170,6 @@ class TextHandler {
 		if ( $query === false ) {
 			return [];
 		}
-		
-		//UESP Fix for error
-		if (!method_exists($file->repo, "fetchImageQuery"))
-		{
-			return [];
-		}
-			
 		$data = $this->file->getRepo()->fetchImageQuery( $query );
 		$textTracks = $this->getTextTracksFromData( $data );
 		if ( $data && $this->file->repo->descriptionCacheExpiry > 0 ) {
@@ -282,7 +274,7 @@ class TextHandler {
 		$textTracks = [];
 		if ( $data !== null && $data['query'] && $data['query']['pages'] ) {
 			foreach ( $data['query']['pages'] as $page ) {
-				if ( $page['videoinfo'] ) {
+				if ( isset( $page['videoinfo'] ) && $page['videoinfo'] ) {
 					foreach ( $page['videoinfo'] as $info ) {
 						if ( $info['timedtext'] ) {
 							foreach ( $info['timedtext'] as $track ) {

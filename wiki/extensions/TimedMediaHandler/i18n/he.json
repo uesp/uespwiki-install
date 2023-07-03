@@ -81,7 +81,6 @@
 	"timedmedia-derivative-desc-2160p.webm": "WebM באיכות UHD מלאה (2160P)",
 	"timedmedia-derivative-desc-160p.vp9.webm": "VP9 לרוחב פס נמוך (160P)",
 	"timedmedia-derivative-desc-240p.vp9.webm": "VP9 קטן (240P)",
-	"timedmedia-derivative-desc-360p.vp9.webm": "WebM VP9 ניתן להזרמה ברשת (360P)",
 	"timedmedia-derivative-desc-480p.vp9.webm": "SD VP9&rlm; (480P)",
 	"timedmedia-derivative-desc-720p.vp9.webm": "HD VP9&rlm; (720P)",
 	"timedmedia-derivative-desc-1080p.vp9.webm": "VP9 באיכות HD מלאה (1080P)",
@@ -89,7 +88,6 @@
 	"timedmedia-derivative-desc-2160p.vp9.webm": "4K UHD VP9&rlm; (2160P)",
 	"timedmedia-derivative-desc-160p.mp4": "MP4 H.264 לרוחב פס נמוך (160P)",
 	"timedmedia-derivative-desc-240p.mp4": "MP4 H.264 קטן (240P)",
-	"timedmedia-derivative-desc-320p.mp4": "MP4 ידידותי למכשיר (320P)",
 	"timedmedia-derivative-desc-480p.mp4": "SD MP4 H.264&rlm; (480P)",
 	"timedmedia-derivative-desc-720p.mp4": "HD MP4 H.264&rlm; (720P)",
 	"timedmedia-derivative-desc-1080p.mp4": "MP4 H.264 באיכות HD מלאה (1080P)",
@@ -129,7 +127,11 @@
 	"beta-feature-timedmediahandler-description-videojs": "נגן צלילים וסרטים מעודכן עם מראה נקי יותר ותאימות למכשירים ניידים.",
 	"right-transcode-reset": "אתחול סרטים שקידוד המשנה שלהם הושלם או נכשל והכנסתם מחדש לתור המשימות",
 	"right-transcode-status": "צפייה ב[[Special:TimedMediaHandler|מידע על פעילות המרת־המשנה הנוכחית]]",
+	"action-transcode-reset": "לאתחל המרה משנית",
 	"action-transcode-status": "לצפות במצב המרת־המשנה הנוכחי",
+	"log-name-timedmediahandler": "יומן TimedMediaHandler",
+	"log-description-timedmediahandler": "זהו יומן של פעולות שקשורות להמרה משנית של מדיה מתוזמנת.",
+	"logentry-timedmediahandler-resettranscode": "$1 {{GENDER:$2|אתחל|אתחלה}} המרה משנית של $3 לתסדיר \"$4\"",
 	"orphanedtimedtext": "דפי טקסט מתוזמן יתומים",
 	"orphanedtimedtext-summary": "רשימה של כל דפי [[{{#special:AllPages/TimedText:}}|{{ns:TimedText}}]] שלא משויך להם קובץ.",
 	"orphanedtimedtext-unsupported": "הדף המיוחד הזה נתמך רק במסדי נתונים MySQL.",
@@ -144,5 +146,9 @@
 	"apihelp-transcodereset-param-title": "כותרת קובץ המדיה.",
 	"apihelp-transcodereset-param-transcodekey": "מפתח המרת־המשנה שברצונך לאפס. יש לאחזר אותו מ־[[Special:ApiHelp/query+transcodestatus|action=query&prop=transcodestatus]].",
 	"apihelp-transcodereset-example-1": "איפוס כל המרות־המשנה עבור [[:File:Clip.webm]]",
-	"apihelp-transcodereset-example-2": "איפוס מפתח המרת המשנה '<span dir=\"ltr\">360_560kbs.webm</span>' עבור [[:File:Clip.webm]]"
+	"apihelp-transcodereset-example-2": "איפוס מפתח המרת המשנה '<span dir=\"ltr\">360_560kbs.webm</span>' עבור [[:File:Clip.webm]]",
+	"apierror-timedmedia-disabledtranscode": "המרה משניות כבויה בוויקי הזה.",
+	"apierror-timedmedia-invalidtranscodetitle": "אי־אפשר לעשות המרה משנית ל{{GRAMMAR:תחילית|$1}}.",
+	"apierror-timedmedia-badtranscodekey": "מפתח המרה משנית בלתי־תקין או כבוי: $1",
+	"apierror-timedmedia-notenoughtimereset": "לא עבר מספיק זמן מאז האתחול האחרון של ההמרה המשנית הזאת. $1 עד שאפשר לאתחל את ההמרה המשנית הזאת."
 }

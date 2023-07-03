@@ -1,9 +1,12 @@
 <?php
 namespace JsonConfig;
 
+use ApiModuleManager;
+use Article;
 use ContentHandler;
 use Exception;
 use GenderCache;
+use Html;
 use Language;
 use MalformedTitleException;
 use MapCacheLRU;
@@ -14,6 +17,7 @@ use Status;
 use stdClass;
 use TitleValue;
 use Title;
+use User;
 
 /**
  * Static utility methods and configuration page hook handlers for JsonConfig extension.
@@ -31,24 +35,24 @@ class JCSingleton {
 	 * The structure is an array of array of ...:
 	 * { int_namespace => { name => { allows-sub-namespaces => configuration_array } } }
 	 */
-	static $titleMap = array();
+	static $titleMap = [];
 
 	/**
 	 * @var string[]|false[] containing all the namespaces handled by JsonConfig
 	 * Maps namespace id (int) => namespace name (string).
 	 * If false, presumes the namespace has been registered by core or another extension
 	 */
-	static $namespaces = array();
+	static $namespaces = [];
 
 	/**
 	 * @var MapCacheLRU[] contains a cache of recently resolved JCTitle's as namespace => MapCacheLRU
 	 */
-	static $titleMapCacheLru = array();
+	static $titleMapCacheLru = [];
 
 	/**
 	 * @var MapCacheLRU[] contains a cache of recently requested content objects as namespace => MapCacheLRU
 	 */
-	static $mapCacheLru = array();
+	static $mapCacheLru = [];
 
 	/**
 	 * @var TitleParser cached invariant title parser
@@ -87,8 +91,8 @@ class JCSingleton {
 		$defaultModelId = 'JsonConfig';
 		$warnFunc = $warn ? 'wfLogWarning' : function() {};
 
-		$namespaces = array();
-		$titleMap = array();
+		$namespaces = [];
+		$titleMap = [];
 		foreach ( $configs as $confId => &$conf ) {
 			if ( !is_string( $confId ) ) {
 				$warnFunc( "JsonConfig: Invalid \$wgJsonConfigs['$confId'], the key must be a string" );
@@ -133,6 +137,7 @@ class JCSingleton {
 			self::getConfVal( $conf, 'cacheExp', 24 * 60 * 60 );
 			self::getConfVal( $conf, 'cacheKey', '' );
 			self::getConfVal( $conf, 'flaggedRevs', false );
+			self::getConfVal( $conf, 'license', false );
 			$islocal = self::getConfVal( $conf, 'isLocal', true );
 
 			// Decide if matching configs should be stored on this wiki
@@ -228,7 +233,7 @@ class JCSingleton {
 			}
 
 			if ( !array_key_exists( $ns, $titleMap ) ) {
-				$titleMap[$ns] = array( $conf );
+				$titleMap[$ns] = [ $conf ];
 			} else {
 				$titleMap[$ns][] = $conf;
 			}
@@ -291,7 +296,7 @@ class JCSingleton {
 			$val = (object)$val;
 		} elseif ( is_string( $val ) && $treatAsField !== null ) {
 			// treating this string value as a sub-field
-			$val = (object) array( $treatAsField => $val );
+			$val = (object) [ $treatAsField => $val ];
 		} elseif ( !is_object( $val ) ) {
 			$warnFunc( "JsonConfig: Invalid \$wgJsonConfigs" . ( $confId ? "['$confId']" : "" ) .
 					   "['$field'], the value must be either an array or an object" );
@@ -382,6 +387,11 @@ class JCSingleton {
 		return self::$titleMap;
 	}
 
+	/**
+	 * Get the name of the class for a given content model
+	 * @param string $modelId
+	 * @return null|string
+	 */
 	public static function getContentClass( $modelId ) {
 		global $wgJsonConfigModels;
 		$configModels = array_replace_recursive( \ExtensionRegistry::getInstance()->getAttribute( 'JsonConfigModels' ), $wgJsonConfigModels );
@@ -451,28 +461,40 @@ class JCSingleton {
 			// Parse string if needed
 			// TODO: should the string parsing also be cached?
 			if ( is_string( $value ) ) {
+				$language = Language::factory( 'en' );
 				if ( !self::$titleParser ) {
 					self::$titleParser =
-						new MediaWikiTitleCodec( Language::factory( 'en' ), new GenderCache() );
+						new MediaWikiTitleCodec(
+							$language,
+							new GenderCache(),
+							[],
+							new FauxInterwikiLookup() );
 				}
-				// Major hack, but until MediaWikiTitleCodec has global state, I can't think of a
-				// better way. Interwiki prefixes are a special case for title parsing:
+				// Interwiki prefixes are a special case for title parsing:
 				// first letter is not capitalized, namespaces are not resolved, etc.
 				// So we prepend an interwiki prefix to fool title codec, and later remove it.
-				global $wgJsonConfigInterwikiPrefix;
 				try {
-					$value = $wgJsonConfigInterwikiPrefix . ':' . $value;
+					$value = FauxInterwikiLookup::INTERWIKI_PREFIX . ':' . $value;
 					$parts = self::$titleParser->splitTitleString( $value );
+
+					// Defensive coding - ensure the parsing has proceeded as expected
 					if ( $parts['dbkey'] === '' || $parts['namespace'] !== 0 ||
 						 $parts['fragment'] !== '' || $parts['local_interwiki'] !== false ||
-						 $parts['interwiki'] !== $wgJsonConfigInterwikiPrefix
+						 $parts['interwiki'] !== FauxInterwikiLookup::INTERWIKI_PREFIX
 					) {
 						return null;
 					}
 				} catch ( MalformedTitleException $e ) {
 					return null;
 				}
-				$dbKey = $parts['dbkey'];
+
+				// At this point, only support wiki namespaces that capitalize title's first char,
+				// but do not enable sub-pages.
+				// This way data can already be stored on Mediawiki namespace everywhere, or
+				// places like commons and zerowiki.
+				// Another implicit limitation: there might be an issue if data is stored on a wiki
+				// with the non-default ucfirst(), e.g. az, kaa, kk, tr -- they convert "i" to "İ"
+				$dbKey = $language->ucfirst( $parts['dbkey'] );
 			} else {
 				$dbKey = $value->getDBkey();
 			}
@@ -589,13 +611,37 @@ class JCSingleton {
 	}
 
 	/**
+	 * CustomEditor hook handler
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/CustomEditor
+	 *
+	 * @param Article $article
+	 * @param User $user
+	 * @return bool
+	 */
+	public static function onCustomEditor( $article, $user ) {
+		if ( !$article || !self::jsonConfigIsStorage() ) {
+			return true;
+		}
+		$jct = self::parseTitle( $article->getTitle() );
+		if ( !$jct ) {
+			return true;
+		}
+
+		$editor = new \EditPage( $article );
+		$editor->contentFormat = JCContentHandler::CONTENT_FORMAT_JSON_PRETTY;
+		$editor->edit();
+
+		return false;
+	}
+
+	/**
 	 * Declares JSON as the code editor language for Config: pages.
 	 * This hook only runs if the CodeEditor extension is enabled.
 	 * @param Title $title
 	 * @param string &$lang Page language.
 	 * @return bool
 	 */
-	static function onCodeEditorGetPageLanguage( $title, &$lang ) {
+	public static function onCodeEditorGetPageLanguage( $title, &$lang ) {
 		if ( !self::jsonConfigIsStorage() ) {
 			return true;
 		}
@@ -619,7 +665,7 @@ class JCSingleton {
 	 * @param bool $minoredit
 	 * @return bool
 	 */
-	static function onEditFilterMergedContent( /** @noinspection PhpUnusedParameterInspection */
+	public static function onEditFilterMergedContent( /** @noinspection PhpUnusedParameterInspection */
 		$context, $content, $status, $summary, $user, $minoredit ) {
 		if ( !self::jsonConfigIsStorage() ) {
 			return true;
@@ -635,12 +681,86 @@ class JCSingleton {
 	}
 
 	/**
+	 * Override a per-page specific edit page copyright warning
+	 *
+	 * @param Title $title
+	 * @param string[] $msg
+	 *
+	 * @return bool
+	 */
+	public static function onEditPageCopyrightWarning( $title, &$msg ) {
+		if ( self::jsonConfigIsStorage() ) {
+			$jct = self::parseTitle( $title );
+			if ( $jct ) {
+				$code = $jct->getConfig()->license;
+				if ( $code ) {
+					$msg = [ 'jsonconfig-license-copyrightwarning-' . $code ];
+					return false; // Do not allow any other hook handler to override this
+				}
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Display a page-specific edit notice
+	 *
+	 * @param Title $title
+	 * @param integer $oldid
+	 * @param array &$notices
+	 * @return bool
+	 */
+	public static function onTitleGetEditNotices( Title $title, $oldid, array &$notices ) {
+		if ( self::jsonConfigIsStorage() ) {
+			$jct = self::parseTitle( $title );
+			if ( $jct ) {
+				$code = $jct->getConfig()->license;
+				if ( $code ) {
+					$noticeText = wfMessage( 'jsonconfig-license-notice-' . $code )->parse();
+					$notices['jsonconfig'] =
+						wfMessage( 'jsonconfig-license-notice-box-' . $code )
+							->rawParams( $noticeText )
+							->parseAsBlock();
+				}
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Override with per-page specific copyright message
+	 *
+	 * @param Title $title
+	 * @param string $type
+	 * @param string $msg
+	 * @param $link
+	 *
+	 * @return bool
+	 */
+	public static function onSkinCopyrightFooter( $title, $type, &$msg, &$link ) {
+		if ( self::jsonConfigIsStorage() ) {
+			$jct = self::parseTitle( $title );
+			if ( $jct ) {
+				$code = $jct->getConfig()->license;
+				if ( $code ) {
+					$msg = 'jsonconfig-license';
+					$link = Html::element( 'a', [
+						'href' => wfMessage( 'jsonconfig-license-url-' . $code )->plain()
+					], wfMessage( 'jsonconfig-license-name-' . $code )->plain() );
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Adds CSS for pretty-printing configuration on NS_CONFIG pages.
 	 * @param \OutputPage &$out
 	 * @param \Skin &$skin
 	 * @return bool
 	 */
-	static function onBeforePageDisplay( /** @noinspection PhpUnusedParameterInspection */ &$out, &$skin ) {
+	public static function onBeforePageDisplay( /** @noinspection PhpUnusedParameterInspection */ &$out, &$skin ) {
 		if ( !self::jsonConfigIsStorage() ) {
 			return true;
 		}
@@ -689,6 +809,21 @@ class JCSingleton {
 			return false;
 		}
 
+		return true;
+	}
+
+	/**
+	 * Conditionally load API module 'jsondata' depending on whether or not
+	 * this wiki stores any jsonconfig data
+	 *
+	 * @param ApiModuleManager $moduleManager Module manager instance
+	 * @return bool
+	 */
+	public static function onApiMainModuleManager( ApiModuleManager $moduleManager ) {
+		global $wgJsonConfigEnableLuaSupport;
+		if ( $wgJsonConfigEnableLuaSupport ) {
+			$moduleManager->addModule( 'jsondata', 'action', 'JsonConfig\\JCDataApi' );
+		}
 		return true;
 	}
 
@@ -760,12 +895,12 @@ class JCSingleton {
 						JCUtils::initApiRequestObj( $store->notifyUrl, $store->notifyUsername,
 							$store->notifyPassword );
 					if ( $req ) {
-						$query = array(
+						$query = [
 							'format' => 'json',
 							'action' => 'jsonconfig',
 							'command' => 'reload',
 							'title' => $jct->getNamespace() . ':' . $jct->getDBkey(),
-						);
+						];
 						JCUtils::callApi( $req, $query, 'notify remote JsonConfig client' );
 					}
 				}

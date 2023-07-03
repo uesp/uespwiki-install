@@ -46,7 +46,8 @@ class DataSender extends ElasticsearchIntermediary {
 	private $searchConfig;
 
 	/**
-	 * @var Connection
+	 * @param Connection $conn
+	 * @param SearchConfig $config
 	 */
 	public function __construct( Connection $conn, SearchConfig $config ) {
 		parent::__construct( $conn, null, 0 );
@@ -158,9 +159,10 @@ class DataSender extends ElasticsearchIntermediary {
 	/**
 	 * @param string $indexType type of index to which to send $data
 	 * @param (\Elastica\Script|\Elastica\Document)[] $data documents to send
+	 * @param string $elasticType Mapping type to use for the document
 	 * @return Status
 	 */
-	public function sendData( $indexType, $data ) {
+	public function sendData( $indexType, $data, $elasticType = Connection::PAGE_TYPE_NAME ) {
 		$documentCount = count( $data );
 		if ( $documentCount === 0 ) {
 			return Status::newGood();
@@ -174,7 +176,7 @@ class DataSender extends ElasticsearchIntermediary {
 		$responseSet = null;
 		$justDocumentMissing = false;
 		try {
-			$pageType = $this->connection->getPageType( $this->indexBaseName, $indexType );
+			$pageType = $this->connection->getIndexType( $this->indexBaseName, $indexType, $elasticType );
 			$this->start( new BulkUpdateRequestLog(
 				$this->connection->getClient(),
 				'sending {numBulk} documents to the {index} index(s)',
@@ -201,9 +203,13 @@ class DataSender extends ElasticsearchIntermediary {
 			$exception = $e;
 		}
 
+		// TODO: rewrite error handling, the logic here is hard to follow
 		$validResponse = $responseSet !== null && count( $responseSet->getBulkResponses() ) > 0;
 		if ( $exception === null && ( $justDocumentMissing || $validResponse ) ) {
 			$this->success();
+			if ( $validResponse ) {
+				$this->reportUpdateMetrics( $responseSet, $indexType, count( $data ) );
+			}
 			return Status::newGood();
 		} else {
 			$this->failure( $exception );
@@ -219,17 +225,56 @@ class DataSender extends ElasticsearchIntermediary {
 	}
 
 	/**
+	 * @param \Elastica\Bulk\ResponseSet $responseSet
+	 * @param string $indexType
+	 * @param int $sent
+	 */
+	private function reportUpdateMetrics( \Elastica\Bulk\ResponseSet $responseSet, $indexType, $sent ) {
+		$updateStats = [
+			'sent' => $sent,
+		];
+		$allowedOps = [ 'created', 'updated', 'noop' ];
+		foreach( $responseSet->getBulkResponses() as $bulk ) {
+			$opRes = 'unknown';
+			if ( $bulk instanceof \Elastica\Bulk\Response ) {
+				if ( isset( $bulk->getData()['result'] )
+					&& in_array( $bulk->getData()['result'], $allowedOps )
+				) {
+					$opRes = $bulk->getData()['result'];
+				}
+			}
+			if ( isset ( $updateStats[$opRes] ) ) {
+				$updateStats[$opRes]++;
+			} else {
+				$updateStats[$opRes] = 1;
+			}
+		}
+		$stats = \MediaWiki\MediaWikiServices::getInstance()->getStatsdDataFactory();
+		$cluster = $this->connection->getClusterName();
+		$metricsPrefix = "CirrusSearch.$cluster.updates";
+		foreach( $updateStats as $what => $num ) {
+			$stats->updateCount( "$metricsPrefix.details.{$this->indexBaseName}.$indexType.$what", $num );
+			$stats->updateCount( "$metricsPrefix.all.$what", $num );
+		}
+	}
+
+	/**
 	 * Send delete requests to Elasticsearch.
 	 *
 	 * @param string[] $docIds elasticsearch document ids to delete
 	 * @param string|null $indexType index from which to delete.  null means all.
+	 * @param string|null $elasticType Mapping type to use for the document. null means all types.
 	 * @return Status
 	 */
-	public function sendDeletes( $docIds, $indexType = null ) {
+	public function sendDeletes( $docIds, $indexType = null, $elasticType = null ) {
 		if ( $indexType === null ) {
 			$indexes = $this->connection->getAllIndexTypes();
 		} else {
 			$indexes = [ $indexType ];
+		}
+
+		if ( $elasticType === null ) {
+			$elasticType = Connection::PAGE_TYPE_NAME;
 		}
 
 		if ( !$this->areIndexesAvailableForWrites( $indexes ) ) {
@@ -240,11 +285,14 @@ class DataSender extends ElasticsearchIntermediary {
 		if ( $idCount !== 0 ) {
 			try {
 				foreach ( $indexes as $indexType ) {
-					$this->startNewLog( 'deleting {numIds} from {indexType}', 'send_deletes', [
+					$this->startNewLog( 'deleting {numIds} from {indexType}/{elasticType}', 'send_deletes', [
 						'numIds' => $idCount,
 						'indexType' => $indexType,
+						'elasticType' => $elasticType,
 					] );
-					$this->connection->getPageType( $this->indexBaseName, $indexType )->deleteIds( $docIds );
+					$this->connection
+						->getIndexType( $this->indexBaseName, $indexType, $elasticType )
+						->deleteIds( $docIds );
 					$this->success();
 				}
 			} catch ( \Elastica\Exception\ExceptionInterface $e ) {
@@ -305,7 +353,7 @@ class DataSender extends ElasticsearchIntermediary {
 					'send_data_other_idx_write'
 				) );
 				$bulk->send();
-			} catch ( \Elastica\Exception\Bulk\ResponseException $e ) {
+			} catch ( ResponseException $e ) {
 				if ( !$this->bulkResponseExceptionIsJustDocumentMissing( $e ) ) {
 					$exception = $e;
 				}

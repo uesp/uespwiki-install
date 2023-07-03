@@ -17,9 +17,9 @@
 
 ( function ( mw, uw ) {
 	/**
-	 * @class uw.EventFlowLogger
 	 * Event logging helper for funnel analysis. Should be instantiated at the very beginning; uses internal state
 	 * to link events together.
+	 * @class uw.EventFlowLogger
 	 * @constructor
 	 */
 	uw.EventFlowLogger = function UWEventFlowLogger() {
@@ -207,6 +207,15 @@
 		} );
 
 		mw.trackSubscribe( 'resourceloader.exception', function ( topic, data ) {
+			// Ignore noise about 'localStorage' being undefined or module store exceeding the quota
+			if (
+				data.source === 'store-localstorage-init' ||
+				data.source === 'store-localstorage-json' ||
+				data.source === 'store-localstorage-update'
+			) {
+				return;
+			}
+
 			self.log( 'UploadWizardExceptionFlowEvent', {
 				message: data.exception.message,
 				url: 'resourceLoader://' + data.source + '/' + data.module, // Bleh

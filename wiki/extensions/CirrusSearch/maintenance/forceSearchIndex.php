@@ -6,14 +6,13 @@ use BatchRowIterator;
 use CirrusSearch;
 use CirrusSearch\Iterator\CallbackIterator;
 use CirrusSearch\Maintenance\Maintenance;
-use IDatabase;
 use JobQueueGroup;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\MediaWikiServices;
 use MWException;
 use MWTimestamp;
 use Title;
 use WikiPage;
+use Wikimedia\Rdbms\IDatabase;
 
 /**
  * Force reindexing change to the wiki.
@@ -47,6 +46,7 @@ class ForceSearchIndex extends Maintenance {
 	public $toDate = null;
 	public $toId = null;
 	public $indexUpdates;
+	public $archiveOnly;
 	public $limit;
 	public $queue;
 	public $maxJobs;
@@ -80,6 +80,7 @@ class ForceSearchIndex extends Maintenance {
 		$this->addOption( 'toId', 'Stop indexing at a specific page_id.  Not useful with --deletes or --from or --to.', false, true );
 		$this->addOption( 'ids', 'List of page ids (comma separated) to reindex. Not allowed with deletes/from/to/fromId/toId/limit.', false, true );
 		$this->addOption( 'deletes', 'If this is set then just index deletes, not updates or creates.', false );
+		$this->addOption( 'archiveOnly', 'Don\'t delete pages, only index them into the archive. Only useful with --deletes', false, false );
 		$this->addOption( 'limit', 'Maximum number of pages to process before exiting the script. Default to unlimited.', false, true );
 		$this->addOption( 'buildChunks', 'Instead of running the script spit out commands that can be farmed out to ' .
 			'different processes or machines to rebuild the index.  Works with fromId and toId, not from and to.  ' .
@@ -129,6 +130,7 @@ class ForceSearchIndex extends Maintenance {
 		}
 		$this->toId = $this->getOption( 'toId' );
 		$this->indexUpdates = !$this->getOption( 'deletes', false );
+		$this->archiveOnly = (bool) $this->getOption( 'archiveOnly', false );
 		$this->limit = $this->getOption( 'limit' );
 		$buildChunks = $this->getOption( 'buildChunks' );
 		if ( $buildChunks !== null ) {
@@ -190,7 +192,10 @@ class ForceSearchIndex extends Maintenance {
 			} else {
 				$size = count( $batch['titlesToDelete'] );
 				$updater = $this->createUpdater();
-				$updater->deletePages( $batch['titlesToDelete'], $batch['docIdsToDelete'] );
+				$updater->archivePages( $batch['archive'] );
+				if ( !$this->archiveOnly ) {
+					$updater->deletePages( $batch['titlesToDelete'], $batch['docIdsToDelete'] );
+				}
 			}
 
 
@@ -338,7 +343,7 @@ class ForceSearchIndex extends Maintenance {
 	}
 
 	protected function getDeletesIterator() {
-		$dbr = $this->getDB( DB_REPLICA );
+		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
 		$it = new BatchRowIterator(
 			$dbr,
 			'archive',
@@ -354,14 +359,22 @@ class ForceSearchIndex extends Maintenance {
 		return new CallbackIterator( $it, function ( $batch ) {
 			$titlesToDelete = [];
 			$docIdsToDelete = [];
+			$archive = [];
 			foreach ( $batch as $row ) {
-				$titlesToDelete[] = Title::makeTitle( $row->ar_namespace, $row->ar_title );
-				$docIdsToDelete[] = $this->getSearchConfig()->makeId( $row->ar_page_id );
+				$title = Title::makeTitle( $row->ar_namespace, $row->ar_title );
+				$id = $this->getSearchConfig()->makeId( $row->ar_page_id );
+				$titlesToDelete[] = $title;
+				$docIdsToDelete[] = $id;
+				$archive[] = [
+					'title' => $title,
+					'page' => $id,
+				];
 			}
 
 			return [
 				'titlesToDelete' => $titlesToDelete,
 				'docIdsToDelete' => $docIdsToDelete,
+				'archive' => $archive,
 				'endingAt' => isset( $row )
 					? ( new MWTimestamp( $row->ar_timestamp ) )->getTimestamp( TS_ISO_8601 )
 					: 'unknown',
@@ -371,7 +384,7 @@ class ForceSearchIndex extends Maintenance {
 
 
 	protected function getIdsIterator() {
-		$dbr = $this->getDB( DB_REPLICA );
+		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
 		$it = new BatchRowIterator( $dbr, 'page', 'page_id', $this->mBatchSize );
 		$it->addConditions( [
 			'page_id in (' . $dbr->makeList( $this->pageIds, LIST_COMMA ) . ')',
@@ -382,7 +395,7 @@ class ForceSearchIndex extends Maintenance {
 	}
 
 	protected function getUpdatesByDateIterator() {
-		$dbr = $this->getDB( DB_REPLICA );
+		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
 		$it = new BatchRowIterator(
 			$dbr,
 			[ 'page', 'revision' ],
@@ -401,7 +414,7 @@ class ForceSearchIndex extends Maintenance {
 	}
 
 	protected function getUpdatesByIdIterator() {
-		$dbr = $this->getDB( DB_REPLICA );
+		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
 		$it = new BatchRowIterator( $dbr, 'page', 'page_id', $this->mBatchSize );
 		$fromId = $this->getOption( 'fromId', 0 );
 		if ( $fromId > 0 ) {
@@ -454,6 +467,7 @@ class ForceSearchIndex extends Maintenance {
 
 	/**
 	 * @param BatchRowIterator $it
+	 * @param string $endingAtColumn
 	 * @return CallbackIterator
 	 */
 	private function wrapDecodeResults( BatchRowIterator $it, $endingAtColumn ) {
@@ -546,7 +560,7 @@ class ForceSearchIndex extends Maintenance {
 	 *  will be spat out sized to cover the entire wiki.
 	 */
 	private function buildChunks( $buildChunks ) {
-		$dbr = $this->getDB( DB_REPLICA );
+		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
 		if ( $this->toId === null ) {
 			$this->toId = $dbr->selectField( 'page', 'MAX(page_id)' );
 			if ( $this->toId === false ) {

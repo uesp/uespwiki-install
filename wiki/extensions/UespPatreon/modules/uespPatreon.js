@@ -17,6 +17,37 @@ window.uesppatOnShowTierSubmit = function() {
 	return true;
 }
 
+window.uesppatOnEditTagsSubmit = function() {
+	
+	$("#uesppatSaveTagsForm input[name='deletetagcheck[]']").each(function() {
+		var $this = $(this);
+		
+		if(this.checked)
+		{
+			$this.prev().val('1');
+		}
+		else
+		{
+			$this.prev().val('0');
+		}
+	});
+	
+	$("#uesppatSaveTagsForm input[name='modifytagcheck[]']").each(function() {
+		var $this = $(this);
+		
+		if(this.checked)
+		{
+			$this.prev().val('1');
+		}
+		else
+		{
+			$this.prev().val('0');
+		}
+	});
+	
+	return true;
+}
+
 
 window.uesppatOnPatronTableHeaderCheckbox = function() {
 	var isChecked = $("#uesppatPatronTableHeaderCheckbox").is(":checked");
@@ -44,12 +75,31 @@ window.uesppatOnCreateShipmentButton = function() {
 }
 
 
+window.uesppatOnCreateCustomShipmentButton = function() {
+	var checkedBoxes = $(".uesppatPatronRowCheckbox:checked");
+	if (checkedBoxes.length == 0) return;
+	
+	$("#uesppatPatronTableAction").val("createcustomship");
+	$("#uesppatPatronTableForm").submit();
+}
+
+
 window.uesppatOnEmailButton = function()
 {
 	var checkedBoxes = $(".uesppatPatronRowCheckbox:checked");
 	if (checkedBoxes.length == 0) return;
 	
 	$("#uesppatPatronTableAction").val("createemail");
+	$("#uesppatPatronTableForm").submit();
+}
+
+
+window.uesppatOnEditTagsButton = function()
+{
+	var checkedBoxes = $(".uesppatPatronRowCheckbox:checked");
+	if (checkedBoxes.length == 0) return;
+	
+	$("#uesppatPatronTableAction").val("edittags");
 	$("#uesppatPatronTableForm").submit();
 }
 
@@ -71,6 +121,60 @@ window.uesppatOnExportCsvShipmentButton = function()
 	
 	$("#uesppatShipmentTableAction").val("exportshipment");
 	$("#uesppatShipmentTableForm").submit();
+}
+
+
+window.uesppatOnUpdateCustomShipmentRewardValueButton = function()
+{
+	var rows = $("#uesppatCreateShipments tr");
+	var rewardValue = parseFloat($("#uesppatCustomShipRewardValue").val().replace(/[^0-9.]/g, '')).toFixed(2);
+	var adjustYearly = $("#uesppatCustomShipAdjustValues").is(":checked");
+	var yearlyValue = (rewardValue * 0.90).toFixed(2);
+	
+	rows.each(function(){
+		var $this = $(this);
+		var reward = $this.find("td").last();
+		var cadence = parseInt($this.find("td").eq(-3).text());
+		var isYearly = (cadence > 1);
+		
+		if (isYearly && adjustYearly)
+		{
+			reward.text("$" + yearlyValue);
+		}
+		else
+		{
+			reward.text("$" + rewardValue);
+		}
+	});
+}
+
+
+window.uesppatOnUpdateCustomShipmentValueButton = function()
+{
+	var rows = $("#uesppatCreateShipments tr");
+	var shipValue = parseFloat($("#uesppatCustomShipValue").val().replace(/[^0-9.]/g, '')).toFixed(2);
+	
+	rows.each(function(){
+		var $this = $(this);
+		var value = $this.find("td").eq(-2);
+		value.text("$" + shipValue);
+	});
+	
+	uespPatUpdateAllShipmentsDeminis();
+}
+
+
+window.uesppatOnUpdateCustomShipmentSkuButton = function()
+{
+	var rows = $("#uesppatCreateShipments tr");
+	var skuValue = $("#uesppatCustomShipSku").val().trim();
+	
+	rows.each(function(){
+		var $this = $(this);
+		var sku = $this.find("td").eq(5);
+		
+		sku.text(skuValue);
+	});
 }
 
 
@@ -139,8 +243,8 @@ window.uesppatSetEditShipmentValues = function(shipmentId, rowElement) {
 	var email = cols.eq(15).text();
 	var addressPhone = cols.eq(16).text();
 	var pledgeCadence = cols.eq(17).text();
-	var rewardValue = cols.eq(18).text();
-	var shippingValue = rowElement.attr("shippingvalue");
+	var shippingValue = cols.eq(18).text();
+	var rewardValue = cols.eq(19).text();
 	
 	uesppatEditShipBox.children("#uesppatEditShipTitle").text("Editing Shipment #" + shipmentId);
 	uesppatEditShipBox.children("#uesppatEditShipName").val(name);
@@ -251,6 +355,9 @@ window.uesppatGetEditShipmentValues = function() {
 	var rewardValue = uesppatEditShipBox.children("#uesppatEditShipRewardValue").val();
 	var shippingValue = uesppatEditShipBox.children("#uesppatEditShipValue").val();
 	
+	rewardValue = "$" + parseFloat(rewardValue.replace(/[^0-9.]/g, '')).toFixed(2);
+	shippingValue = "$" + parseFloat(shippingValue.replace(/[^0-9.]/g, '')).toFixed(2);
+	
 	cols.eq(4).text(orderNumber);
 	cols.eq(5).text(orderSku);
 	cols.eq(6).text(orderQnt);
@@ -264,9 +371,8 @@ window.uesppatGetEditShipmentValues = function() {
 	cols.eq(14).text(addressCountry);
 	cols.eq(15).text(email);
 	cols.eq(16).text(addressPhone);
-	cols.eq(18).text(rewardValue);
-	
-	rowElement.attr("shippingvalue", shippingValue);
+	cols.eq(18).text(shippingValue);
+	cols.eq(19).text(rewardValue);
 	
 	uesppatUpdateEditShipmentBadStatus(uesppatEditShipId);
 	
@@ -290,6 +396,10 @@ window.uesppatUpdateEditShipmentBadStatusRow = function(rowElement)
 {
 	var shipmentId = rowElement.attr("shipmentid");
 	var cols = rowElement.children("td");
+	var isCustom = rowElement.attr("iscustom");
+	
+	if (isCustom == null) isCustom = "0";
+	isCustom = parseInt(isCustom);
 	
 	var orderNumber = uesppatEditShipBox.children("#uesppatEditShipOrderNumber").val();
 	var orderSku = uesppatEditShipBox.children("#uesppatEditShipOrderSku").val();
@@ -302,12 +412,12 @@ window.uesppatUpdateEditShipmentBadStatusRow = function(rowElement)
 	var isBad = false;
 	var badMessages = [];
 	
-	if (orderNumber == "") {
+	if (orderNumber == "" && !isCustom) {
 		isBad = true;
 		badMessages.push("Missing order number!");
 	} 
 	
-	if (orderSku == "") {
+	if (orderSku == "" && !isCustom) {
 		isBad = true;
 		badMessages.push("Missing order SKU!");
 	}
@@ -437,9 +547,9 @@ window.uespPatUpdateAllShipmentsDeminis = function()
 	
 	shipments.each(function() {
 		var $this = $(this);
-		var shippingvalue = parseFloat($this.attr("shippingvalue"));
 		var flagDeminisValue = false;
 		var cells = $this.find("td");
+		var shippingvalue = parseFloat(cells.eq(-2).text().replace(/[^0-9.]/g, ''));
 		var shipMethodCell = cells.eq(7);
 		var countryCode = cells.eq(14).text();
 		var deminis = 0;
@@ -475,7 +585,7 @@ window.uesppatOnEditShipCountryCodeClicked = function()
 
 window.uesppatOnEditShipCountryChanged = function()
 {
-	var input = $("#uesppa tEditShipAddressCountry");
+	var input = $("#uesppatEditShipAddressCountry");
 	var addressCountry = input.val();
 	
 	if (!uesppatIsValidCountryCode(addressCountry))
@@ -556,11 +666,62 @@ window.uesppatEscapeHtml = function(unsafeText) {
 }
 
 
+window.uesppatOnUpdateCustomOrderNumberButton = function() {
+	//getordernumbers
+	var rows = $("#uesppatCreateShipments tbody tr");
+	
+	var qnt = rows.length;
+	if (qnt <= 0) return;
+	
+	var url = "/wiki/Special:UespPatreon/getordernumbers?qnt=" + qnt;
+	
+	$.ajax({
+		url: url,
+	}).done(uesppatOnGetShipOrderNumbersRequest);
+	
+}
+
+
+window.uesppatOnGetShipOrderNumbersRequest = function(data)
+{
+	if (data && data.orderIndex && data.qnt && data.orderPrefix)
+	{
+		var rows = $("#uesppatCreateShipments tbody tr");
+		var orderIndex = data.orderIndex;
+		var orderPrefix = $("#uespPatCustomOrderNumber").val().trim();
+		
+		rows.each(function() {
+			var $this = $(this);
+			var cols = $(this).children("td");
+			var orderNumber = data.orderPrefix + orderIndex;
+			if (orderPrefix != '')orderNumber = orderPrefix + orderIndex;
+			
+			++orderIndex;
+			
+			cols.eq(4).text(orderNumber);
+		});
+	}
+}
+
+
+
 window.uesppatOnSaveNewShipments = function() {
 	var form = $("#uesppatSaveNewShipmentForm");
 	var rows = $("#uesppatCreateShipments tbody tr");
+	var customDate = $("#uespPatCustomShipDate");
+	var markAsProcessed = $("#uesppatCustomShipMarkProcess");
 	
 	console.log("uesppatOnSaveNewShipments", rows);
+	
+	if (customDate.length > 0)
+	{
+		$("<input />").attr("type", "hidden").attr("name", "customshipdate").val(customDate.val()).appendTo(form);
+	}
+	
+	if (markAsProcessed.length > 0)
+	{
+		$("<input />").attr("type", "hidden").attr("name", "customshipmarkprocess").val(markAsProcessed.is(":checked") ? 1 : 0).appendTo(form);
+	}
 	
 	rows.each(function(i,e) {
 		if ($(this).hasClass("uesppatBadShipment")) return;
@@ -586,7 +747,8 @@ window.uesppatOnSaveNewShipments = function() {
 		var email = cols.eq(15).text();
 		var addressPhone = cols.eq(16).text();
 		var pledgeCadence = cols.eq(17).text();
-		var rewardValue = cols.eq(18).text().replace("$", "");
+		var shipValue = cols.eq(18).text().replace("$", "");
+		var rewardValue = cols.eq(19).text().replace("$", "");
 		
 		$("<input />").attr("type", "hidden").attr("name", "patreon_id[]").val(patronId).appendTo(form);
 		$("<input />").attr("type", "hidden").attr("name", "orderNumber[]").val(orderNumber).appendTo(form);
@@ -785,6 +947,40 @@ window.uespatUpdateEditShipmentDeminis = function()
 }
 
 
+window.uesppatOnEditTagButtonClick = function()
+{
+	var $this = $(this);
+	
+	$this.prev().val("");
+}
+
+
+window.uesppatOnSetShipmentMethod = function()
+{
+	$("#uesppatCreateShipments .uesppatShipMethodDeminisWarning").each(function() {
+		var $this = $(this);
+		
+		var country = $this.siblings('.uesppatCountryCell').text().toUpperCase();
+		
+		if (country == 'CA')
+			$this.text('Asendia ePacket Canada Duties Paid');
+		else
+			$this.text('Asendia Tracked Duties Paid');
+		
+	});
+}
+
+
+window.uesppatOnResetShipmentMethod = function()
+{
+	
+	$("#uesppatCreateShipments .uesppatShipMethodCell").each(function() {
+		var $this = $(this);
+		$this.text('');
+	});
+}
+
+
 $(function() {
 	$("#uesppatPatronTableHeaderCheckbox").on("change", uesppatOnPatronTableHeaderCheckbox);
 	$("#uesppatShipmentTableHeaderCheckbox").on("change", uesppatOnPatronShipmentHeaderCheckbox);
@@ -806,6 +1002,11 @@ $(function() {
 	$("#uespPatEditShipmentForm input[name='shipmentCountry']").on("input", uespatOnEditShipmentCountryChange);
 	
 	if ($("#uespPatEditShipmentForm").length > 0) uespatUpdateEditShipmentDeminis();
+	
+	$(".uesppatEditTagButton").on("click", uesppatOnEditTagButtonClick);
+	
+	$("#uesppatSetShipMethodButton").on("click", uesppatOnSetShipmentMethod);
+	$("#uesppatResetShipMethodButton").on("click", uesppatOnResetShipmentMethod);
 	
 	uespPatUpdateAllShipmentsDeminis();
 });

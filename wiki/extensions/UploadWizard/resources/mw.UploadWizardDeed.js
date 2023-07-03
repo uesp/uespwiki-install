@@ -2,12 +2,12 @@
 
 	/**
 	 * Sort of an abstract class for deeds
+	 *
+	 * @class mw.UploadWizardDeed
+	 * @abstract
 	 */
 	mw.UploadWizardDeed = function () {
 		mw.UploadWizardDeed.prototype.instanceCount++;
-
-		// prevent from instantiating directly?
-		return false;
 	};
 
 	mw.UploadWizardDeed.prototype = {
@@ -41,7 +41,25 @@
 		 */
 		getLicenseWikiText: function () {
 			return this.licenseInput.getWikiText();
+		},
+
+		/**
+		 * @return {Object}
+		 */
+		getSerialized: function () {
+			return {
+				name: this.name
+			};
+		},
+
+		/**
+		 * @param {Object} serialized
+		 */
+		setSerialized: function ( serialized ) {
+			if ( serialized.name ) {
+				this.name = serialized.name;
+			}
 		}
 	};
 
-} )( mediaWiki );
+}( mediaWiki ) );

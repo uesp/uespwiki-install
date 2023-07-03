@@ -1,0 +1,27 @@
+{
+	"@metadata": {
+		"authors": [
+			"Teemeah",
+			"Csega",
+			"Dorgan",
+			"Tacsipacsi",
+			"Tgr"
+		]
+	},
+	"popups-message": "Lapelőnézetek",
+	"popups-desc": "Amikor a felhasználó egy belső hivatkozás fölé viszi az egérmutatót, megjelenik az előnézete.",
+	"popups-redirects": "Átirányítás a(z) <h3>$1</h3> oldalra",
+	"popups-settings-title": "Lapok előnézete",
+	"popups-settings-description": "Ez az eszköz lehetővé teszi wikilapokra és forrásokra mutató linkek előnézetének megtekintését.",
+	"popups-settings-option-simple": "Egyszerű",
+	"popups-settings-option-simple-description": "Bevezető mondat és egy kép megjelenítése. Ez ajánlott az olvasóknak.",
+	"popups-settings-option-advanced": "Haladó",
+	"popups-settings-option-advanced-description": "Linkek előnézetének megjelenítése és hozzáférés szerkesztési funkciók menüihez. Ezt sok szerkesztő használja.",
+	"popups-settings-option-off": "Előnézetek letiltása",
+	"popups-settings-save": "Mentés",
+	"popups-settings-help-ok": "OK",
+	"popups-settings-cancel": "Mégse",
+	"popups-settings-help": "Az előnézetet a lap alján található link segítségével kapcsolhatod vissza.",
+	"popups-settings-enable": "Előnézetek engedélyezése",
+	"popups-send-feedback": "Visszajelzés küldése (külső link)"
+}

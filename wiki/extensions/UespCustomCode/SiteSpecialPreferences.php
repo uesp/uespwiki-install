@@ -48,8 +48,10 @@ class SitePreferencesForm extends SpecialPreferences {
 		$user->resetOptions( 'all', $this->getContext() );
 		$user->saveSettings();
 		
-		$url = $this->getPageTitle()->getFullURL( 'success' );
-		
+		// Set session data for the success message
+		$this->getRequest()->getSession()->set( 'specialPreferencesSaveSuccess', 1 );
+
+		$url = $this->getPageTitle()->getFullUrlForRedirect();
 		$this->getOutput()->redirect( $url );
 		
 		return true;
@@ -173,6 +175,8 @@ class SitePreferencesForm extends SpecialPreferences {
 		return "<input type='checkbox' value='1' name='{$prefix}{$nsnum}' id='{$prefix}{$nsnum}' {$checked}/><label for='{$prefix}{$nsnum}'>{$nsshowname}</label><br/>\n";
 	}
 	
+	
+		// Hasn't been used in a long time (unknown exact version it stopped working)
 	function mainPrefsForm( $status , $message = '' ) {
 		global $wgOut, $wgUser;
 		// generate some of HTML before calling parent function... saves trouble of setting mUsedToggles
@@ -220,6 +224,7 @@ class SitePreferencesForm extends SpecialPreferences {
 		$wgOut->addHTML($newHTML);
 	}
 	
+		// Not used since 1.16?
 	function savePreferences() {
 		global $wgUser;
 		# Set recent changes namespace options

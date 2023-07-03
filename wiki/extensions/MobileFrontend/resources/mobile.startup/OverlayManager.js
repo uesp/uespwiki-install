@@ -52,7 +52,7 @@
 		 * @method
 		 * @private
 		 * @param {Overlay} overlay to hide
-		 * @returns {Boolean} Whether the overlay has been hidden
+		 * @return {boolean} Whether the overlay has been hidden
 		 */
 		_hideOverlay: function ( overlay ) {
 			var result;
@@ -124,15 +124,12 @@
 		 */
 		_checkRoute: function ( ev ) {
 			var
-				self = this,
 				current = this.stack[0],
 				match;
 
-			$.each( this.entries, function ( id, entry ) {
-				match = self._matchRoute( ev.path, entry );
-				// if matched (match not equal to null), break out of the loop
-				return match === null;
-			} );
+			match = Object.keys( this.entries ).reduce( function ( m, id ) {
+				return m || this._matchRoute( ev.path, this.entries[ id ] );
+			}.bind( this ), null );
 
 			// if there is an overlay in the stack and it's opened, try to close it
 			if (
@@ -156,7 +153,7 @@
 		 * Check if a given path matches one of the entries.
 		 * @method
 		 * @private
-		 * @param {String} path Path (hash) to check.
+		 * @param {string} path Path (hash) to check.
 		 * @param {Object} entry Entry object created in OverlayManager#add.
 		 * @return {Object|null} Match object with factory function's result. Returns null if no match.
 		 * or null if no match.

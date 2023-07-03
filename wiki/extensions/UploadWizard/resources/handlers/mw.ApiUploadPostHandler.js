@@ -13,27 +13,33 @@
 
 	mw.ApiUploadPostHandler.prototype = {
 		start: function () {
-			var handler = this;
+			var handler = this,
+				tempname = this.upload.getFilename(),
+				ext = tempname.split( '.' ).pop();
 
-			this.beginTime = ( new Date() ).getTime();
+			// Limit filename length to 240 bytes (limit hardcoded in UploadBase.php).
+			if ( tempname.length > 240 ) {
+				tempname = tempname.substr( 0, 240 - ext.length - 1 ) + '.' + ext;
+			}
+
 			this.upload.ui.setStatus( 'mwe-upwiz-transport-started' );
 
 			return this.api.postWithToken( 'csrf', {
 				action: 'upload',
 				stash: 1,
 				ignorewarnings: 1,
-				url: this.upload.providedFile.url,
-				filename: this.beginTime.toString() + this.upload.filename
+				url: this.upload.file.url,
+				filename: tempname
 			} )
-				.fail( function ( code, info, result ) {
-					uw.eventFlowLogger.logApiError( 'file', result );
-					handler.upload.setError( code, info );
-				} )
 				.done( function ( result ) {
-					if ( !result || result.error || ( result.upload && result.upload.warnings ) ) {
+					if ( result.upload && result.upload.warnings ) {
 						uw.eventFlowLogger.logApiError( 'file', result );
 					}
 					handler.upload.setTransported( result );
+				} )
+				.fail( function ( code, result ) {
+					uw.eventFlowLogger.logApiError( 'file', result );
+					handler.upload.setTransportError( code, result );
 				} );
 		}
 	};

@@ -20,7 +20,8 @@
 	 * @return {jQuery.Promise}
 	 */
 	mw.FirefoggTransport.prototype.upload = function () {
-		var fileToUpload = this.fileToUpload,
+		var filteredError,
+			fileToUpload = this.fileToUpload,
 			deferred = $.Deferred();
 
 		// Encode or passthrough Firefogg before upload
@@ -30,31 +31,44 @@
 
 		deferred.notify( 'encoding' );
 
-		this.fogg.encode( JSON.stringify( this.getEncodeSettings() ),
-			function ( result, file ) {
-				result = JSON.parse( result );
-				if ( result.progress === 1 ) {
-					// encoding done
-					deferred.resolve( file );
-				} else {
-					// encoding failed
-					deferred.reject( {
-						error: {
-							code: 'firefogg',
-							info: 'Encoding failed'
-						}
-					} );
+		try {
+			this.fogg.encode( JSON.stringify( this.getEncodeSettings() ),
+				function ( result, file ) {
+					result = JSON.parse( result );
+					if ( result.progress === 1 ) {
+						// encoding done
+						deferred.resolve( file );
+					} else {
+						// encoding failed
+						deferred.reject( 'firefogg', {
+							error: {
+								code: 'firefogg',
+								html: mw.message( 'api-error-firefogg' ).parse()
+							}
+						} );
+					}
+				}, function ( progress ) {
+					deferred.notify( JSON.parse( progress ) );
 				}
-			}, function ( progress ) {
-				deferred.notify( JSON.parse( progress ) );
-			}
-		);
+			);
+		} catch ( e ) {
+			// File paths sometimes leak here, because ffmpeg is called by Firefogg
+			filteredError = e.toString()
+				// UNIX-y error message if ffmpeg is not a valid binary, sanitize
+				.replace( /File '.*'/, 'File \'...\'' )
+				// Windows-y error message if ffmpeg is not found, sanitize
+				.replace( /Could not launch subprocess '.*'/, 'Could not launch subprocess \'...\'' );
+
+			throw new Error( filteredError );
+		}
 
 		return deferred.promise();
 	};
 
 	/**
 	 * Check if the asset is in a format that can be upload without encoding.
+	 *
+	 * @return {boolean}
 	 */
 	mw.FirefoggTransport.prototype.isUploadFormat = function () {
 		// Check if the server supports webm uploads:
@@ -118,6 +132,8 @@
 
 	/**
 	 * Get the source file info for the current file selected into this.fogg
+	 *
+	 * @return {Object}
 	 */
 	mw.FirefoggTransport.prototype.getSourceFileInfo = function () {
 		if ( !this.fogg.sourceInfo ) {
@@ -157,6 +173,8 @@
 
 	/**
 	 * Get the encode settings from configuration and the current selected video type
+	 *
+	 * @return {Object}
 	 */
 	mw.FirefoggTransport.prototype.getEncodeSettings = function () {
 		var encodeSettings;
@@ -168,7 +186,7 @@
 		// Update the format:
 		this.fogg.setFormat( ( this.getEncodeExt() === 'webm' ) ? 'webm' : 'ogg' );
 
-		mw.log( 'FirefoggTransport::getEncodeSettings> ' +  JSON.stringify(  encodeSettings ) );
+		mw.log( 'FirefoggTransport::getEncodeSettings> ' + JSON.stringify( encodeSettings ) );
 		return encodeSettings;
 	};
 }( mediaWiki, jQuery ) );

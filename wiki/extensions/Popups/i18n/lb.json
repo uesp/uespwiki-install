@@ -1,0 +1,24 @@
+{
+	"@metadata": {
+		"authors": [
+			"Robby"
+		]
+	},
+	"popups-message": "Biller wéi Säiten ausgesinn",
+	"popups-desc": "Weist Biller wéi et ausgesäit wann de Benotzer mat der Maus iwwer e Säitelink fiert.",
+	"popups-redirects": "Viruleedung op <h3>$1</h3",
+	"popups-settings-title": "Säit kucken ouni ofzespäicheren",
+	"popups-settings-description": "Dësen Tool erlaabt et Linken op Wikisäiten an op Referenzen ze kucken ouni se ze späicheren.",
+	"popups-settings-option-simple": "Aschalten",
+	"popups-settings-option-advanced": "Erweidert",
+	"popups-settings-option-off": "Ausschalten",
+	"popups-settings-save": "Späicheren",
+	"popups-settings-help-ok": "Fäerdeg",
+	"popups-settings-cancel": "Ofbriechen",
+	"popups-settings-enable": "Kucken ouni ze späicheren aktivéieren",
+	"popups-send-feedback": "Feedback schécken (externe Link)",
+	"popups-preview-footer-read": "Liesen",
+	"prefs-reading": "Lies-Astellungen",
+	"popups-prefs-optin-enabled-label": "Aschalten",
+	"popups-prefs-optin-disabled-label": "Ausschalten"
+}

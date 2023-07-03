@@ -29,13 +29,16 @@
 			'deeds'
 		);
 
+		this.addPreviousButton();
 		this.addNextButton();
 	};
 
 	OO.inheritClass( uw.ui.Deed, uw.ui.Step );
 
-	uw.ui.Deed.prototype.moveTo = function ( uploads ) {
-		uw.ui.Step.prototype.moveTo.call( this, uploads );
+	uw.ui.Deed.prototype.load = function ( uploads ) {
+		var ui = this;
+
+		uw.ui.Step.prototype.load.call( this, uploads );
 
 		this.$div.prepend(
 			$( '<div>' )
@@ -48,12 +51,6 @@
 				.attr( 'id', 'mwe-upwiz-deeds-custom' )
 				.addClass( 'ui-helper-clearfix' )
 		);
-	};
-
-	uw.ui.Deed.prototype.addNextButton = function () {
-		var ui = this;
-
-		uw.ui.Step.prototype.addNextButton.call( this );
 
 		this.nextButtonPromise.done( function () {
 			// hide "next" button, controller will only show it once license has

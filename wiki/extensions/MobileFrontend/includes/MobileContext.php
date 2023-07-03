@@ -5,11 +5,17 @@
 
 use MediaWiki\MediaWikiServices;
 use MobileFrontend\Devices\DeviceDetectorService;
+use MobileFrontend\WMFBaseDomainExtractor;
 
 /**
  * Provide various request-dependant methods to use in mobile context
  */
 class MobileContext extends ContextSource {
+	const MODE_BETA = 'beta';
+	const MODE_STABLE = 'stable';
+	const DISABLE_IMAGES_COOKIE_NAME = 'disableImages';
+	const OPTIN_COOKIE_NAME = 'optin';
+	const STOP_MOBILE_REDIRECT_COOKIE_NAME = 'stopMobileRedirect';
 	const USEFORMAT_COOKIE_NAME = 'mf_useformat';
 	const USER_MODE_PREFERENCE_NAME = 'mfMode';
 	const LAZY_LOAD_IMAGES_COOKIE_NAME = 'mfLazyLoadImages';
@@ -112,10 +118,6 @@ class MobileContext extends ContextSource {
 	 */
 	private $viewChange = '';
 	/**
-	 * @var Config MobileFrontend's config object
-	 */
-	private $configObj;
-	/**
 	 * @var String Domain to use for the stopMobileRedirect cookie
 	 */
 	public static $mfStopRedirectCookieHost = null;
@@ -155,16 +157,58 @@ class MobileContext extends ContextSource {
 	 * @return Config
 	 */
 	public function getMFConfig() {
-		return MediaWikiServices::getInstance()->getService( 'MobileFrontend.Config' );
+		/** @var Config $config */
+		$config =  MediaWikiServices::getInstance()->getService( 'MobileFrontend.Config' );
+		return $config;
 	}
 
 	/**
-	 * Utility function that returns a config variable depending on the mobile mode.
+	 * Gets the value of a config variable whose value depends on whether the
+	 * user is a member of the beta group.
+	 *
+	 * @warning If the value of the config variable doesn't behave this way, then
+	 *  `null` is returned.
+	 *
+	 * @example
+	 * ```
+	 * $wgFoo = [
+	 *   'beta' => 'bar',
+	 *   'base' => 'baz',
+	 * ];
+	 * $wgQux = 'quux';
+	 * $wgCorge = [
+	 *   'grault' => 'garply',
+	 * ];
+	 *
+	 * $context = MobileContext::singleton();
+	 * $context->getConfigVariable( 'Foo' ); // => 'baz'
+	 *
+	 * $context->setMobileMode( 'beta' );
+	 * $context->getConfigVariable( 'Foo' ); // => 'bar'
+	 *
+	 * // If the config variable isn't a dictionary, then its value will be
+	 * // returned returned regardless of whether the user is a member of the beta
+	 * // group.
+	 * $context->getConfigVariable( 'Qux' ); // => 'quux'
+	 *
+	 * // If the config variable is a dictionary but doesn't have "beta" or "base"
+	 * // entries, then `null` will be returned.
+	 * $context->getConfigVariable( 'Corge' ); // => null
+	 * ```
+	 *
 	 * @param $variableName
 	 * @return mixed|null
+	 * @throws ConfigException If the config variable doesn't exist
+	 *
+	 * @TODO Should this be renamed, e.g. `getFlag`, or extracted?
 	 */
-	private function getConfigVariable( $variableName ) {
+	public function getConfigVariable( $variableName ) {
 		$configVariable = $this->getMFConfig()->get( $variableName ) ?: [];
+
+		if ( !is_array( $configVariable ) ) {
+			return $configVariable;
+		}
+
 		if ( $this->isBetaGroupMember() && array_key_exists( 'beta', $configVariable ) ) {
 			return $configVariable['beta'];
 		} elseif ( array_key_exists( 'base', $configVariable ) ) {
@@ -219,8 +263,9 @@ class MobileContext extends ContextSource {
 	public function imagesDisabled() {
 		if ( is_null( $this->disableImages ) ) {
 			$this->disableImages = (
-				( isset( $_COOKIE['disableImages'] ) && $_COOKIE['disableImages'] === '1' ) ||
-				(bool) $this->getRequest()->getCookie( 'disableImages' )
+				( isset( $_COOKIE[ self::DISABLE_IMAGES_COOKIE_NAME ] )
+				  && $_COOKIE[ self::DISABLE_IMAGES_COOKIE_NAME ] === '1' ) ||
+				(bool) $this->getRequest()->getCookie( self::DISABLE_IMAGES_COOKIE_NAME )
 			);
 		}
 
@@ -301,7 +346,7 @@ class MobileContext extends ContextSource {
 	 * If the cookie is not set the value will be an empty string.
 	 */
 	private function loadMobileModeCookie() {
-		$this->mobileMode = $this->getRequest()->getCookie( 'optin', '' );
+		$this->mobileMode = $this->getRequest()->getCookie( self::OPTIN_COOKIE_NAME, '' );
 	}
 
 	/**
@@ -316,7 +361,7 @@ class MobileContext extends ContextSource {
 		}
 		if ( is_null( $this->mobileMode ) ) {
 			$mobileAction = $this->getMobileAction();
-			if ( $mobileAction === 'beta' || $mobileAction === 'stable' ) {
+			if ( $mobileAction === self::MODE_BETA || $mobileAction === self::MODE_STABLE ) {
 				$this->mobileMode = $mobileAction;
 			} else {
 				$user = $this->getUser();
@@ -342,29 +387,36 @@ class MobileContext extends ContextSource {
 	 * @param string $mode Mode to set
 	 */
 	public function setMobileMode( $mode ) {
-		if ( $mode !== 'beta' ) {
+		if ( $mode !== self::MODE_BETA ) {
 			$mode = '';
 		}
 		// Update statistics
-		if ( $mode === 'beta' ) {
+		if ( $mode === self::MODE_BETA ) {
 			wfIncrStats( 'mobile.opt_in_cookie_set' );
 		}
 		if ( !$mode ) {
 			wfIncrStats( 'mobile.opt_in_cookie_unset' );
 		}
 		$this->mobileMode = $mode;
-		$user = $this->getUser();
-		$user->setOption( self::USER_MODE_PREFERENCE_NAME, $mode );
-		$user->saveSettings();
 
-		$host = $this->getBaseDomain();
-		// Deal with people running off localhost. see http://curl.haxx.se/rfc/cookie_spec.html
-		if ( strpos( $host, '.' ) === false ) {
-			$host = false;
+		$user = $this->getUser();
+		if ( $user->getId() ) {
+			$user->setOption( self::USER_MODE_PREFERENCE_NAME, $mode );
+			DeferredUpdates::addCallableUpdate( function () use ( $user, $mode ) {
+				if ( wfReadOnly() ) {
+					return;
+				}
+
+				$latestUser = $user->getInstanceForUpdate();
+				$latestUser->setOption( self::USER_MODE_PREFERENCE_NAME, $mode );
+				$latestUser->saveSettings();
+			} );
 		}
-		$this->getRequest()->response()->setcookie( 'optin', $mode, 0,
-			[ 'prefix' => '', 'domain' => $host ]
-		);
+
+		$this->getRequest()->response()->setCookie( self::OPTIN_COOKIE_NAME, $mode, 0, [
+			'prefix' => '',
+			'domain' => $this->getCookieDomain()
+		] );
 	}
 
 	/**
@@ -372,7 +424,7 @@ class MobileContext extends ContextSource {
 	 * @return boolean
 	 */
 	public function isBetaGroupMember() {
-		return $this->getMobileMode() === 'beta';
+		return $this->getMobileMode() === self::MODE_BETA;
 	}
 
 	/**
@@ -567,7 +619,8 @@ class MobileContext extends ContextSource {
 			$expiry = $this->getUseFormatCookieExpiry();
 		}
 
-		$this->getRequest()->response()->setcookie( 'stopMobileRedirect', 'true', $expiry,
+		$this->getRequest()->response()->setcookie(
+			self::STOP_MOBILE_REDIRECT_COOKIE_NAME, 'true', $expiry,
 			[
 				'domain' => $this->getStopMobileRedirectCookieDomain(),
 				'prefix' => '',
@@ -593,7 +646,8 @@ class MobileContext extends ContextSource {
 	 * @return string
 	 */
 	public function getStopMobileRedirectCookie() {
-		$stopMobileRedirectCookie = $this->getRequest()->getCookie( 'stopMobileRedirect', '' );
+		$stopMobileRedirectCookie = $this->getRequest()
+			->getCookie( self::STOP_MOBILE_REDIRECT_COOKIE_NAME, '' );
 
 		return $stopMobileRedirectCookie;
 	}
@@ -619,45 +673,35 @@ class MobileContext extends ContextSource {
 	public function setDisableImagesCookie( $shouldDisableImages ) {
 		$resp = $this->getRequest()->response();
 		if ( $shouldDisableImages ) {
-			$resp->setCookie( 'disableImages', 1, 0, [ 'prefix' => '' ] );
+			$resp->setCookie( self::DISABLE_IMAGES_COOKIE_NAME, 1, 0, [ 'prefix' => '' ] );
 		} else {
-			$resp->clearCookie( 'disableImages', [ 'prefix' => '' ] );
+			$resp->clearCookie( self::DISABLE_IMAGES_COOKIE_NAME, [ 'prefix' => '' ] );
 		}
 	}
 
 	/**
-	 * Return the basic second level domain or just IP adress
+	 * Return the base level domain or IP address
+	 *
 	 * @return string
 	 */
-	public function getBaseDomain() {
-		$server = $this->getConfig()->get( 'Server' );
-
-		$parsedUrl = wfParseUrl( $server );
-		$host = $parsedUrl['host'];
-		// Validates value as IP address
-		if ( !IP::isValid( $host ) ) {
-			$domainParts = explode( '.', $host );
-			$domainParts = array_reverse( $domainParts );
-			// Although some browsers will accept cookies without the initial .,
-			// » RFC 2109 requires it to be included.
-			$host = count( $domainParts ) >= 2 ? '.' . $domainParts[1] . '.' . $domainParts[0] : $host;
-		}
-
-		return $host;
+	public function getCookieDomain() {
+		$helper = new WMFBaseDomainExtractor();
+		return $helper->getCookieDomain( $this->getMFConfig()->get( 'Server' ) );
 	}
 
 	/**
 	 * Determine the correct domain to use for the stopMobileRedirect cookie
 	 *
 	 * Will use $wgMFStopRedirectCookieHost if it's set, otherwise will use
-	 * result of getBaseDomain()
+	 * result of getCookieDomain()
 	 * @return string
 	 */
 	public function getStopMobileRedirectCookieDomain() {
 		$mfStopRedirectCookieHost = $this->getMFConfig()->get( 'MFStopRedirectCookieHost' );
 
 		if ( !$mfStopRedirectCookieHost ) {
-			self::$mfStopRedirectCookieHost = $this->getBaseDomain();
+			self::$mfStopRedirectCookieHost = $this->getCookieDomain();
+
 		} else {
 			self::$mfStopRedirectCookieHost = $mfStopRedirectCookieHost;
 		}

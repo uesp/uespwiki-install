@@ -22,7 +22,7 @@ class JCUtils {
 	 */
 	public static function warn( $msg, $vals, $query = false ) {
 		if ( !is_array( $vals ) ) {
-			$vals = array( $vals );
+			$vals = [ $vals ];
 		}
 		if ( $query ) {
 			foreach ( $query as $k => &$v ) {
@@ -60,37 +60,42 @@ class JCUtils {
 	 * @return \CurlHttpRequest|\PhpHttpRequest|false
 	 */
 	public static function initApiRequestObj( $url, $username, $password ) {
-		$apiUri = wfAppendQuery( $url, array( 'format' => 'json' ) );
-		$options = array(
+		$apiUri = wfAppendQuery( $url, [ 'format' => 'json' ] );
+		$options = [
 			'timeout' => 3,
 			'connectTimeout' => 'default',
 			'method' => 'POST',
-		);
+		];
 		$req = MWHttpRequest::factory( $apiUri, $options );
 
 		if ( $username && $password ) {
-			$query = array(
+			$tokenQuery = [
+				'action' => 'query',
+				'meta' => 'tokens',
+				'type' => 'login',
+			];
+			$query = [
 				'action' => 'login',
 				'lgname' => $username,
 				'lgpassword' => $password,
-			);
-			$res = self::callApi( $req, $query, 'login' );
+			];
+			$res = self::callApi( $req, $tokenQuery, 'get login token' );
 			if ( $res !== false ) {
-				if ( isset( $res['login']['token'] ) ) {
-					$query['lgtoken'] = $res['login']['token'];
+				if ( isset( $res['query']['tokens']['logintoken'] ) ) {
+					$query['lgtoken'] = $res['query']['tokens']['logintoken'];
 					$res = self::callApi( $req, $query, 'login with token' );
 				}
 			}
 			if ( $res === false ) {
 				$req = false;
 			} elseif ( !isset( $res['login']['result'] ) ||
-			     $res['login']['result'] !== 'Success'
+				$res['login']['result'] !== 'Success'
 			) {
-				self::warn( 'Failed to login', array(
+				self::warn( 'Failed to login', [
 						'url' => $url,
 						'user' => $username,
 						'result' => isset( $res['login']['result'] ) ? $res['login']['result'] : '???'
-					) );
+				] );
 				$req = false;
 			}
 		}
@@ -108,17 +113,17 @@ class JCUtils {
 		$req->setData( $query );
 		$status = $req->execute();
 		if ( !$status->isGood() ) {
-			self::warn( 'API call failed to ' . $debugMsg, array( 'status' => $status->getWikiText() ),
+			self::warn( 'API call failed to ' . $debugMsg, [ 'status' => $status->getWikiText() ],
 				$query );
 			return false;
 		}
 		$res = FormatJson::decode( $req->getContent(), true );
 		if ( isset( $res['warnings'] ) ) {
 			self::warn( 'API call had warnings trying to ' . $debugMsg,
-				array( 'warnings' => $res['warnings'] ), $query );
+				[ 'warnings' => $res['warnings'] ], $query );
 		}
 		if ( isset( $res['error'] ) ) {
-			self::warn( 'API call failed trying to ' . $debugMsg, array( 'error' => $res['error'] ), $query );
+			self::warn( 'API call failed trying to ' . $debugMsg, [ 'error' => $res['error'] ], $query );
 			return false;
 		}
 		return $res;
@@ -155,6 +160,17 @@ class JCUtils {
 		return is_array( $array ) && count( array_filter( $array, 'is_string' ) ) === count( $array );
 	}
 
+	/** Helper function to check if the given value is a valid string no longer than maxlength,
+	 * that it has no tabs or new line chars, and that it does not begin or end with spaces
+	 * @param $str
+	 * @param int $maxlength
+	 * @return bool
+	 */
+	public static function isValidLineString( $str, $maxlength ) {
+		return is_string( $str ) && mb_strlen( $str ) <= $maxlength &&
+			   !preg_match( '/^\s|[\r\n\t]|\s$/', $str );
+	}
+
 	/**
 	 * Converts an array representing path to a field into a string in 'a/b/c[0]/d' format
 	 * @param array $fieldPath
@@ -185,7 +201,7 @@ class JCUtils {
 		if ( is_a( $data, '\JsonConfig\JCValue' ) ) {
 			$value = $data->getValue();
 			if ( $skipDefaults && $data->defaultUsed() ) {
-				return is_array( $value ) ? array() : ( is_object( $value ) ? new stdClass() : null );
+				return is_array( $value ) ? [] : ( is_object( $value ) ? new stdClass() : null );
 			}
 		} else {
 			$value = $data;
@@ -222,7 +238,6 @@ class JCUtils {
 		return $result;
 	}
 
-
 	/**
 	 * Returns true if each of the array's values is a valid language code
 	 * @param array $arr
@@ -235,13 +250,35 @@ class JCUtils {
 	}
 
 	/**
+	 * Returns true if the array is a valid key->value localized nonempty array
+	 * @param array $arr
+	 * @param int $maxlength
+	 * @return bool
+	 */
+	public static function isLocalizedArray( $arr, $maxlength ) {
+		if ( is_array( $arr ) &&
+			   $arr &&
+			   self::isListOfLangs( array_keys( $arr ) )
+		) {
+			$validStrCount = count( array_filter( $arr, function ( $str ) use ( $maxlength ) {
+				return self::isValidLineString( $str, $maxlength );
+			} ) );
+			if ( $validStrCount === count( $arr ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Find a message in a dictionary for the given language,
 	 * or use language fallbacks if message is not defined.
 	 * @param stdClass $map Dictionary of languageCode => string
 	 * @param Language|StubUserLang $lang language object
+	 * @param bool|string $defaultValue if non-false, use this value in case no fallback and no 'en'
 	 * @return string message from the dictionary or "" if nothing found
 	 */
-	public static function pickLocalizedString( stdClass $map, $lang ) {
+	public static function pickLocalizedString( stdClass $map, $lang, $defaultValue = false ) {
 		$langCode = $lang->getCode();
 		if ( property_exists( $map, $langCode ) ) {
 			return $map->$langCode;
@@ -255,6 +292,12 @@ class JCUtils {
 		if ( property_exists( $map, 'en' ) ) {
 			return $map->en;
 		}
+
+		// We have a custom default, return that
+		if ( $defaultValue !== false ) {
+			return $defaultValue;
+		}
+
 		// Return first available value, or an empty string
 		// There might be a better way to get the first value from an object
 		$map = (array)$map;
