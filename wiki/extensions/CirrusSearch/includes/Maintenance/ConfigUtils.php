@@ -91,7 +91,7 @@ class ConfigUtils {
 			} else {
 				$identifier = 'first';
 			}
-			$this->output( "${typeName}_${identifier}\n");
+			$this->output( "${typeName}_${identifier}\n" );
 			return $identifier;
 		}
 		return $option;
@@ -167,8 +167,6 @@ class ConfigUtils {
 	 */
 	public function scanAvailableModules() {
 		$this->outputIndented( "Scanning available modules..." );
-		$result = $this->client->request( '_nodes' );
-		$result = $result->getData();
 		$availableModules = $this->scanModulesOrPlugins( 'modules' );
 		if ( count( $availableModules ) === 0 ) {
 			$this->output( 'none' );
@@ -241,21 +239,21 @@ class ConfigUtils {
 	 *
 	 * @param string $indexName
 	 * @param int $timeout
-	 * @return boolean true if the index is green false otherwise.
+	 * @return bool true if the index is green false otherwise.
 	 */
 	public function waitForGreen( $indexName, $timeout ) {
 		$startTime = time();
-		while( ( $startTime + $timeout ) > time() ) {
+		while ( ( $startTime + $timeout ) > time() ) {
 			try {
 				$response = $this->getIndexHealth( $indexName );
-				$status = isset ( $response['status'] ) ? $response['status'] : 'unknown';
+				$status = isset( $response['status'] ) ? $response['status'] : 'unknown';
 				if ( $status == 'green' ) {
 					$this->outputIndented( "\tGreen!\n" );
 					return true;
 				}
 				$this->outputIndented( "\tIndex is $status retrying...\n" );
 				sleep( 5 );
-			} catch( \Exception $e ) {
+			} catch ( \Exception $e ) {
 				$this->output( "Error while waiting for green ({$e->getMessage()}), retrying...\n" );
 			}
 		}

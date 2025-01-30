@@ -12,7 +12,7 @@ window.CreateEsoItemLinkPopup = function()
 }
 
 
-window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSummary, intLevel, intType, itemLink, setCount, questId, collectId, enchantId, enchantIntLevel, enchantIntType, enchantFactor, potionData, extraData, version, extraArmor, trait, antiquityId, weaponTraitFactor)
+window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSummary, intLevel, intType, itemLink, setCount, questId, collectId, enchantId, enchantIntLevel, enchantIntType, enchantFactor, potionData, extraData, version, extraArmor, trait, antiquityId, weaponTraitFactor, perfectCount, enchantDisabled)
 {
 	EsoItemLinkPopup_LastElement = parent;
 	
@@ -40,6 +40,8 @@ window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSumm
 	if (weaponTraitFactor) linkSrc += "&weapontraitfactor=" + weaponTraitFactor;
 	if (showSummary) linkSrc += "&summary";
 	if (setCount != null && setCount >= 0) linkSrc += "&setcount=" + setCount;
+	if (perfectCount != null && perfectCount >= 0) linkSrc += "&perfectcount=" + perfectCount;
+	if (enchantDisabled != null && enchantDisabled > 0) linkSrc += "&enchantdisable=" + enchantDisabled;
 	
 	if (!dataOk) return false;
 	
@@ -58,7 +60,7 @@ window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSumm
 	}
 	else if (intLevel && intType)
 	{
-		cacheId = itemId.toString() + "_INT_" + intLevel.toString() + "_" + intType.toString();		
+		cacheId = itemId.toString() + "_INT_" + intLevel.toString() + "_" + intType.toString();
 	}
 	else if (itemId) 
 	{
@@ -81,6 +83,8 @@ window.ShowEsoItemLinkPopup = function (parent, itemId, level, quality, showSumm
 	if (quality) cacheId += "-Q" + quality.toString();
 	if (showSummary) cacheId += "-S";
 	if (setCount) cacheId += "-SC" + setCount.toString();
+	if (perfectCount) cacheId += "-PC" + perfectCount.toString();
+	if (enchantDisabled) cacheId += "-ED" + enchantDisabled.toString();
 	if (enchantFactor) cacheId += "-EF" + enchantFactor.toString();
 	if (potionData) cacheId += "-PD" + potionData.toString();
 	if (extraData) cacheId += "-EX" + extraData.toString();
@@ -199,7 +203,7 @@ window.AdjustEsoItemLinkTooltipPosition = function(tooltip, parent)
 }
 
 
-window. HideEsoItemLinkPopup = function()
+window.HideEsoItemLinkPopup = function()
 {
 	EsoItemLinkPopup_Visible = false;
 	if (EsoItemLinkPopup == null) return;
@@ -217,7 +221,7 @@ window.OnEsoItemLinkEnter = function()
 			$this.attr('questid'), $this.attr('collectid'), $this.attr('enchantid'), $this.attr('enchantintlevel'),
 			$this.attr('enchantinttype'), $this.attr('enchantfactor'), $this.attr('potiondata'), $this.attr('extradata'),
 			$this.attr('version'), $this.attr('extraarmor'), $this.attr('trait'), $this.attr('antiquityid'),
-			$this.attr('weapontraitfactor'));
+			$this.attr('weapontraitfactor'), $this.attr('perfectcount'), $this.attr('enchantdisabled'));
 }
 
 

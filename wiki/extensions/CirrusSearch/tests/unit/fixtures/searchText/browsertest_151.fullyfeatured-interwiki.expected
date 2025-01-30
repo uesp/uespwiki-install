@@ -182,7 +182,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.25"
+                                        "weight": 0.25
                                     },
                                     {
                                         "filter": {
@@ -192,7 +192,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.05"
+                                        "weight": 0.05
                                     },
                                     {
                                         "filter": {
@@ -202,7 +202,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.0125"
+                                        "weight": 0.0125
                                     }
                                 ]
                             }
@@ -215,6 +215,7 @@
             ],
             "size": 5,
             "stats": [
+                "filter_only",
                 "full_text",
                 "incategory"
             ],
@@ -399,7 +400,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.25"
+                                        "weight": 0.25
                                     },
                                     {
                                         "filter": {
@@ -409,7 +410,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.05"
+                                        "weight": 0.05
                                     },
                                     {
                                         "filter": {
@@ -419,7 +420,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.0125"
+                                        "weight": 0.0125
                                     }
                                 ]
                             }
@@ -455,6 +456,7 @@
             ],
             "size": 5,
             "stats": [
+                "filter_only",
                 "full_text",
                 "incategory"
             ],
@@ -646,7 +648,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.25"
+                                        "weight": 0.25
                                     },
                                     {
                                         "filter": {
@@ -656,7 +658,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.05"
+                                        "weight": 0.05
                                     },
                                     {
                                         "filter": {
@@ -666,7 +668,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.0125"
+                                        "weight": 0.0125
                                     }
                                 ]
                             }
@@ -679,6 +681,7 @@
             ],
             "size": 5,
             "stats": [
+                "filter_only",
                 "full_text",
                 "incategory"
             ],
@@ -870,7 +873,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.25"
+                                        "weight": 0.25
                                     },
                                     {
                                         "filter": {
@@ -880,7 +883,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.05"
+                                        "weight": 0.05
                                     },
                                     {
                                         "filter": {
@@ -890,7 +893,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.0125"
+                                        "weight": 0.0125
                                     }
                                 ]
                             }
@@ -903,6 +906,7 @@
             ],
             "size": 20,
             "stats": [
+                "filter_only",
                 "full_text",
                 "incategory"
             ],

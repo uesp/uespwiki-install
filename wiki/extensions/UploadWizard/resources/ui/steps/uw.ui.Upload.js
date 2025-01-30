@@ -115,6 +115,7 @@
 
 			// The input that will hold a flickr URL entered by the user; will be appended to a form
 			this.$flickrInput = $( '<input id="mwe-upwiz-flickr-input" type="text" />' )
+				.attr( 'placeholder', mw.message( 'mwe-upwiz-flickr-input-placeholder' ).text() )
 				.prependTo( this.$flickrForm );
 
 			this.flickrButton = new OO.ui.ButtonInputWidget( {
@@ -451,25 +452,14 @@
 	 * @param {string} extension
 	 */
 	uw.ui.Upload.prototype.showBadExtensionError = function ( filename, extension ) {
-		var $errorMessage;
-		// Check if firefogg should be recommended to be installed ( user selects an extension that can be converted)
-		if ( mw.UploadWizard.config.enableFirefogg &&
-			$.inArray( extension.toLowerCase(), mw.UploadWizard.config.transcodeExtensionList ) !== -1
-		) {
-			$errorMessage = $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-extension-video-firefogg',
-				mw.Firefogg.getFirefoggInstallUrl(),
-				'https://commons.wikimedia.org/wiki/Help:Converting_video'
-			);
-		} else {
-			$errorMessage = $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-filename-extension', extension );
-		}
+		var $errorMessage = $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-filename-extension', extension );
 		this.showFilenameError( $errorMessage );
 	};
 
 	uw.ui.Upload.prototype.showMissingExtensionError = function () {
 		var $errorMessage = $( '<p>' ).msg( 'mwe-upwiz-upload-error-bad-filename-no-extension' );
 		this.showFilenameError(
-			$( '<div></div>' ).append(
+			$( '<div>' ).append(
 				$errorMessage,
 				$( '<p>' ).msg( 'mwe-upwiz-allowed-filename-extensions' ),
 				$( '<blockquote>' ).append( $( '<tt>' ).append(
@@ -534,9 +524,6 @@
 		this.flickrSelectButton.$element.show();
 		this.flickrButton.setDisabled( false );
 
-		// Add placeholder text to the Flickr URL input field
-		this.$flickrInput.placeholder( mw.message( 'mwe-upwiz-flickr-input-placeholder' ).text() );
-
 		// Insert form into the page
 		this.$div.find( '#mwe-upwiz-files' ).prepend( this.$flickrContainer );
 
@@ -574,7 +561,7 @@
 	uw.ui.Upload.prototype.flickrInterfaceDestroy = function () {
 		this.$flickrInput.val( '' );
 		this.$flickrSelectList.empty();
-		this.$flickrSelectListContainer.unbind();
+		this.$flickrSelectListContainer.off();
 		this.$flickrSelectListContainer.hide();
 		this.$flickrContainer.hide();
 		this.flickrButton.setDisabled( true );

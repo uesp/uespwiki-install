@@ -3,6 +3,7 @@
 namespace CirrusSearch\Maintenance;
 
 use CirrusSearch\Connection;
+use GitInfo;
 
 /**
  * This program is free software; you can redistribute it and/or modify
@@ -37,7 +38,7 @@ class MetaStoreIndex {
 	 * @const int minor version increment only when adding a new field to
 	 * an existing mapping or a new mapping
 	 */
-	const METASTORE_MINOR_VERSION = 2;
+	const METASTORE_MINOR_VERSION = 3;
 
 	/**
 	 * @const string the doc id used to store version information related
@@ -105,7 +106,9 @@ class MetaStoreIndex {
 	 * @param Maintenance $out
 	 * @param string $masterTimeout
 	 */
-	public function __construct( Connection $connection, Maintenance $out, $masterTimeout = '10000s' ) {
+	public function __construct(
+		Connection $connection, Maintenance $out, $masterTimeout = '10000s'
+	) {
 		$this->connection = $connection;
 		$this->client = $connection->getClient();
 		$this->configUtils = new ConfigUtils( $this->client, $out );
@@ -144,11 +147,20 @@ class MetaStoreIndex {
 			if ( $major < self::METASTORE_MAJOR_VERSION ) {
 				$this->log( self::INDEX_NAME . " major version mismatch upgrading.\n" );
 				$this->majorUpgrade();
-			} elseif( $major == self::METASTORE_MAJOR_VERSION && $minor < self::METASTORE_MINOR_VERSION ) {
-				$this->log( self::INDEX_NAME . " minor version mismatch trying to upgrade mapping.\n" );
+			} elseif ( $major == self::METASTORE_MAJOR_VERSION &&
+				$minor < self::METASTORE_MINOR_VERSION
+			) {
+				$this->log(
+					self::INDEX_NAME . " minor version mismatch trying to upgrade mapping.\n"
+				);
 				$this->minorUpgrade();
-			} elseif ( $major > self::METASTORE_MAJOR_VERSION || $minor > self::METASTORE_MINOR_VERSION ) {
-				throw new \Exception( "Metastore version $major.$minor found, cannot upgrade to a lower version: " . self::METASTORE_MAJOR_VERSION . "." . self::METASTORE_MINOR_VERSION );
+			} elseif ( $major > self::METASTORE_MAJOR_VERSION ||
+				$minor > self::METASTORE_MINOR_VERSION
+			) {
+				throw new \Exception(
+					"Metastore version $major.$minor found, cannot upgrade to a lower version: " .
+						self::METASTORE_MAJOR_VERSION . "." . self::METASTORE_MINOR_VERSION
+				);
 			}
 		}
 	}
@@ -201,6 +213,9 @@ class MetaStoreIndex {
 					'mapping_maj' => [ 'type' => 'long', 'include_in_all' => false ],
 					'mapping_min' => [ 'type' => 'long', 'include_in_all' => false ],
 					'shard_count' => [ 'type' => 'long', 'include_in_all' => false ],
+					'mediawiki_version' => [ 'type' => 'keyword', 'include_in_all' => false ],
+					'mediawiki_commit' => [ 'type' => 'keyword', 'include_in_all' => false ],
+					'cirrus_commit' => [ 'type' => 'keyword', 'include_in_all' => false ],
 				],
 			],
 			self::FROZEN_TYPE => [
@@ -243,7 +258,7 @@ class MetaStoreIndex {
 
 	private function minorUpgrade() {
 		$index = $this->connection->getIndex( self::INDEX_NAME );
-		foreach( $this->buildMapping() as $type => $mapping ) {
+		foreach ( $this->buildMapping() as $type => $mapping ) {
 			$index->getType( $type )->request(
 				'_mapping',
 				\Elastica\Request::PUT,
@@ -270,7 +285,9 @@ class MetaStoreIndex {
 		}
 
 		if ( $oldIndexName == $name ) {
-			throw new \Exception( "Cannot switch aliases old and new index names are identical: $name" );
+			throw new \Exception(
+				"Cannot switch aliases old and new index names are identical: $name"
+			);
 		}
 		// Create the alias
 		$path = '_aliases';
@@ -312,10 +329,11 @@ class MetaStoreIndex {
 		}
 		$resp = $this->client->request( '_alias/' . self::INDEX_NAME, \Elastica\Request::GET, [] );
 		$indexName = null;
-		foreach( $resp->getData() as $index => $aliases ) {
+		foreach ( $resp->getData() as $index => $aliases ) {
 			if ( isset( $aliases['aliases'][self::INDEX_NAME] ) ) {
 				if ( $indexName !== null ) {
-					throw new \Exception( "Multiple indices are aliased with " . self::INDEX_NAME . ", please fix manually." );
+					throw new \Exception( "Multiple indices are aliased with " . self::INDEX_NAME .
+						", please fix manually." );
 				}
 				$indexName = $index;
 			}
@@ -323,13 +341,12 @@ class MetaStoreIndex {
 		return $indexName;
 	}
 
-
 	private function majorUpgrade() {
 		$plugins = $this->configUtils->scanAvailableModules();
 		if ( !array_search( 'reindex', $plugins ) ) {
 			throw new \Exception( "The reindex module is mandatory to upgrade the metastore" );
 		}
-		$index = $this->createNewIndex( (string) time() );
+		$index = $this->createNewIndex( (string)time() );
 		// Reindex everything except the internal type, it's not clear
 		// yet if we just need to filter the metastore version info or
 		// the whole internal type. Currently we only use the internal
@@ -350,7 +367,7 @@ class MetaStoreIndex {
 		// reindex is extremely fast so we can wait for it
 		// we might consider using the task manager if this process
 		// becomes longer and/or prone to curl timeouts
-		$resp = $this->client->request( '_reindex',
+		$this->client->request( '_reindex',
 			\Elastica\Request::POST,
 			$reindex,
 			[ 'wait_for_completion' => true ]
@@ -414,7 +431,7 @@ class MetaStoreIndex {
 	 * @param string $msg log message
 	 */
 	private function log( $msg ) {
-		if ($this->out ) {
+		if ( $this->out ) {
 			$this->out->output( $msg );
 		}
 	}
@@ -444,11 +461,11 @@ class MetaStoreIndex {
 	}
 
 	/**
-	 * Get the internal index type
-	 * @return \Elastica\Type $type
+	 * Update versions for all types on the index.
+	 * @param $baseName
 	 */
-	private function internalType() {
-		return self::getInternalType( $this->connection );
+	public function updateAllVersions( $baseName ) {
+		self::updateAllMetastoreVersions( $this->connection, $baseName );
 	}
 
 	/**
@@ -504,10 +521,11 @@ class MetaStoreIndex {
 	 */
 	public static function getMetastoreVersion( Connection $connection ) {
 		try {
-			$doc = self::getInternalType( $connection )->getDocument( self::METASTORE_VERSION_DOCID );
+			$doc = self::getInternalType( $connection )
+				->getDocument( self::METASTORE_VERSION_DOCID );
 		} catch ( \Elastica\Exception\NotFoundException $e ) {
 			return [ 0, 0 ];
-		} catch( \Elastica\Exception\ResponseException $e ) {
+		} catch ( \Elastica\Exception\ResponseException $e ) {
 			// BC code in case the metastore alias does not exist yet
 			$fullError = $e->getResponse()->getFullError();
 			if ( isset( $fullError['type'] )
@@ -520,8 +538,73 @@ class MetaStoreIndex {
 			throw $e;
 		}
 		return [
-			(int) $doc->get('metastore_major_version'),
-			(int) $doc->get('metastore_minor_version')
+			(int)$doc->get( 'metastore_major_version' ),
+			(int)$doc->get( 'metastore_minor_version' )
 		];
+	}
+	/**
+	 * Create version data for index type.
+	 * @param Connection $connection
+	 * @param $indexBaseName
+	 * @param $indexTypeName
+	 * @return \Elastica\Document
+	 */
+	public static function versionData( Connection $connection, $indexBaseName,
+		$indexTypeName
+	) {
+		global $IP, $wgVersion;
+		if ( $indexTypeName == Connection::TITLE_SUGGEST_TYPE ) {
+			list( $aMaj, $aMin ) = explode( '.', SuggesterAnalysisConfigBuilder::VERSION );
+			list( $mMaj, $mMin ) = explode( '.', SuggesterMappingConfigBuilder::VERSION );
+		} else {
+			list( $aMaj, $aMin ) = explode( '.', AnalysisConfigBuilder::VERSION );
+			list( $mMaj, $mMin ) = explode( '.', MappingConfigBuilder::VERSION );
+		}
+		$mwInfo = new GitInfo( $IP );
+		$cirrusInfo = new GitInfo( __DIR__ .  '/../..' );
+		$data = [
+			'analysis_maj' => $aMaj,
+			'analysis_min' => $aMin,
+			'mapping_maj' => $mMaj,
+			'mapping_min' => $mMin,
+			'shard_count' => $connection->getSettings()->getShardCount( $indexTypeName ),
+			'mediawiki_version' => $wgVersion,
+			'mediawiki_commit' => $mwInfo->getHeadSHA1(),
+			'cirrus_commit' => $cirrusInfo->getHeadSHA1(),
+		];
+
+		return new \Elastica\Document( $connection->getIndexName( $indexBaseName, $indexTypeName ),
+			$data );
+	}
+
+	/**
+	 * Update version metastore for certain index.
+	 * @param Connection $connection
+	 * @param $indexBaseName
+	 * @param $indexTypeName
+	 * @throws \Exception
+	 */
+	public static function updateMetastoreVersions( Connection $connection, $indexBaseName,
+		$indexTypeName
+	) {
+		$index = self::getVersionType( $connection );
+		if ( !$index->exists() ) {
+			throw new \Exception( "meta store does not exist, you must index your data first" );
+		}
+		$index->addDocument( self::versionData( $connection, $indexBaseName, $indexTypeName ) );
+	}
+
+	/**
+	 * Update metastore versions for all types of certain index.
+	 * @param Connection $connection
+	 * @param string $baseName Base name of the index.
+	 */
+	public static function updateAllMetastoreVersions( Connection $connection, $baseName ) {
+		$versionType = self::getVersionType( $connection );
+		$docs = [];
+		foreach ( $connection->getAllIndexTypes() as $type ) {
+			$docs[] = self::versionData( $connection, $baseName, $type );
+		}
+		$versionType->addDocuments( $docs );
 	}
 }

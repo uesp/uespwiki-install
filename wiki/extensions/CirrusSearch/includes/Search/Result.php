@@ -2,12 +2,12 @@
 
 namespace CirrusSearch\Search;
 
-use CirrusSearch\InterwikiSearcher;
 use CirrusSearch\Util;
 use CirrusSearch\Searcher;
 use MediaWiki\Logger\LoggerFactory;
 use MWTimestamp;
 use SearchResult;
+use Sanitizer;
 use Title;
 
 /**
@@ -168,7 +168,7 @@ class Result extends SearchResult {
 	 * @return bool
 	 */
 	public function isMissingRevision() {
-		return !($this->ignoreMissingRev || $this->mTitle->isKnown());
+		return !( $this->ignoreMissingRev || $this->mTitle->isKnown() );
 	}
 
 	/**
@@ -232,7 +232,7 @@ class Result extends SearchResult {
 	 * @return Title
 	 */
 	private function findSectionTitle() {
-		return $this->getTitle()->createFragmentTarget( Title::escapeFragmentForURL(
+		return $this->getTitle()->createFragmentTarget( Sanitizer::escapeIdForLink(
 			$this->stripHighlighting( $this->sectionSnippet )
 		) );
 	}

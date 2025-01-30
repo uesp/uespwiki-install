@@ -2,7 +2,6 @@
 	"manifest_version": 2,
 	"name": "UESP Vector",
 	"author": [
-		"[http://www.uesp.net/wiki/User:Enodoc Enodoc]",
 		"[http://www.uesp.net/wiki/User:RobinHood70 RobinHood70]"
 	],
 	"version": "1.27",
@@ -96,8 +95,11 @@
 		}
 	},
 	"config": {
-                "VectorResponsive": false,
+		"VectorResponsive": false,
 		"VectorUseSimpleSearch": true,
-		"VectorUseIconWatch": true
+		"VectorUseIconWatch": true,
+		"VectorPrintLogo": false,
+		"@VectorExperimentalPrintStyles": "Temporary config variable to feature flag new print styles (T154965)",
+		"VectorExperimentalPrintStyles": false
 	}
 }

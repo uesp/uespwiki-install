@@ -5,9 +5,9 @@ namespace CirrusSearch\Test;
 use MediaWiki\MediaWikiServices;
 use CirrusSearch\CirrusTestCase;
 use CirrusSearch\CirrusConfigInterwikiResolver;
+use CirrusSearch\HashSearchConfig;
 use CirrusSearch\SiteMatrixInterwikiResolver;
 use CirrusSearch\InterwikiResolverFactory;
-use CirrusSearch\InterwikiResolver;
 
 /**
  * @group CirrusSearch
@@ -51,7 +51,6 @@ class InterwikiResolverTest extends CirrusTestCase {
 			$resolver->getSameProjectWikiByLang( 'en' ),
 			'enwiki should not find itself.'
 		);
-
 	}
 
 	/**
@@ -67,7 +66,7 @@ class InterwikiResolverTest extends CirrusTestCase {
 		}
 
 		$resolver = $this->getSiteMatrixInterwikiResolver( $wiki, $blacklist );
-		switch( $what ) {
+		switch ( $what ) {
 		case 'sisters':
 			asort( $expected );
 			$actual = $resolver->getSisterProjectPrefixes();
@@ -90,7 +89,8 @@ class InterwikiResolverTest extends CirrusTestCase {
 				$resolver->getSameProjectWikiByLang( $arg )
 			);
 			break;
-		default: throw new \Exception( "Invalid op $what" );
+		default:
+			throw new \Exception( "Invalid op $what" );
 		}
 	}
 
@@ -183,17 +183,17 @@ class InterwikiResolverTest extends CirrusTestCase {
 			'enwiki cross lang lookup finds frwiki' => [
 				'enwiki',
 				'crosslang', 'fr',
-				['frwiki', 'fr'],
+				[ 'frwiki', 'fr' ],
 			],
 			'enwiki cross lang lookup finds nowiki' => [
 				'enwiki',
 				'crosslang', 'nb',
-				['nowiki', 'no'],
+				[ 'nowiki', 'no' ],
 			],
 			'enwikinews cross lang lookup finds frwikinews' => [
 				'enwikinews',
 				'crosslang', 'fr',
-				['frwikinews', 'fr'],
+				[ 'frwikinews', 'fr' ],
 			],
 			'enwikinews cross lang lookup cannot find inexistent hawwikinews' => [
 				'enwikinews',
@@ -238,7 +238,7 @@ class InterwikiResolverTest extends CirrusTestCase {
 		$this->setMwGlobals( $myGlobals );
 		$myGlobals['_wikiID'] = $wikiId;
 		// We need to reset this service so it can load wgInterwikiCache
-		$config = new HashSearchConfig( $myGlobals, ['inherit'] );
+		$config = new HashSearchConfig( $myGlobals, [ 'inherit' ] );
 		$resolver = MediaWikiServices::getInstance()
 			->getService( InterwikiResolverFactory::SERVICE )
 			->getResolver( $config );
@@ -248,8 +248,8 @@ class InterwikiResolverTest extends CirrusTestCase {
 
 	private function getSiteMatrixInterwikiResolver( $wikiId, array $blacklist ) {
 		$conf = new \SiteConfiguration;
-		$conf->settings = include( __DIR__ . '/resources/wmf/SiteMatrix_SiteConf_IS.php' );
-		$conf->suffixes = include( __DIR__ . '/resources/wmf/suffixes.php' );
+		$conf->settings = include __DIR__ . '/resources/wmf/SiteMatrix_SiteConf_IS.php';
+		$conf->suffixes = include __DIR__ . '/resources/wmf/suffixes.php';
 		$conf->wikis = self::readDbListFile( __DIR__ . '/resources/wmf/all.dblist' );
 
 		$myGlobals = [
@@ -257,7 +257,7 @@ class InterwikiResolverTest extends CirrusTestCase {
 			// Used directly by SiteMatrix
 			'wgLocalDatabases' => $conf->wikis,
 			// Used directly by SiteMatrix & SiteMatrixInterwikiResolver
-			'wgSiteMatrixSites' => include( __DIR__ . '/resources/wmf/SiteMatrixProjects.php' ),
+			'wgSiteMatrixSites' => include __DIR__ . '/resources/wmf/SiteMatrixProjects.php',
 			// Used by SiteMatrix
 			'wgSiteMatrixFile' => __DIR__ . '/resources/wmf/langlist',
 			// Used by SiteMatrix
@@ -274,7 +274,7 @@ class InterwikiResolverTest extends CirrusTestCase {
 			'wgDBprefix' => null,
 			'wgDBname' => $wikiId,
 			// Used by ClassicInterwikiLookup & SiteMatrixInterwikiResolver
-			'wgInterwikiCache' => include( __DIR__ . '/resources/wmf/interwiki.php' ),
+			'wgInterwikiCache' => include __DIR__ . '/resources/wmf/interwiki.php',
 			// Reset values so that SiteMatrixInterwikiResolver is used
 			'wgCirrusSearchInterwikiSources' => [],
 			'wgCirrusSearchLanguageToWikiMap' => [],
@@ -286,7 +286,7 @@ class InterwikiResolverTest extends CirrusTestCase {
 		// We need to reset this service so it can load wgInterwikiCache
 		MediaWikiServices::getInstance()
 			->resetServiceForTesting( 'InterwikiLookup' );
-		$config = new HashSearchConfig( $myGlobals, ['inherit'] );
+		$config = new HashSearchConfig( $myGlobals, [ 'inherit' ] );
 		$resolver = MediaWikiServices::getInstance()
 			->getService( InterwikiResolverFactory::SERVICE )
 			->getResolver( $config );
@@ -301,6 +301,9 @@ class InterwikiResolverTest extends CirrusTestCase {
 	}
 
 	private static function readDbListFile( $fileName ) {
-		return @file( $fileName, FILE_IGNORE_NEW_LINES );
+		\MediaWiki\suppressWarnings();
+		$fileContent = file( $fileName, FILE_IGNORE_NEW_LINES );
+		\MediaWiki\restoreWarnings();
+		return $fileContent;
 	}
 }

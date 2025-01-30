@@ -17,10 +17,13 @@
 	"cirrussearch-pref-label": "Ново пребарување",
 	"cirrussearch-pref-desc": "Пробајте го нашето ново пребарување кое поддржува поголем број јазици, дава потековни и понавремени исходни ставки, па дури и наоѓа текст во шаблони.",
 	"apihelp-cirrus-config-dump-description": "Резервен склад на поставките на CirrusSearch.",
+	"apihelp-cirrus-config-dump-summary": "Резервен склад на поставките на CirrusSearch.",
 	"apihelp-cirrus-config-dump-example": "Дај резервен склад на поставките на CirrusSearch.",
 	"apihelp-cirrus-mapping-dump-description": "Резервен склад на пресликувањата на CirrusSearch за ова вики.",
+	"apihelp-cirrus-mapping-dump-summary": "Резервен склад на пресликувањата на CirrusSearch за ова вики.",
 	"apihelp-cirrus-mapping-dump-example": "Дај резервен склад на пресликувањата на CirrusSearch за ова вики.",
 	"apihelp-cirrus-settings-dump-description": "Резервен склад на поставките на CirrusSearch за ова вики.",
+	"apihelp-cirrus-settings-dump-summary": "Резервен склад на поставките на CirrusSearch за ова вики.",
 	"apihelp-cirrus-settings-dump-example": "Дај резервен склад на поставките на CirrusSearch за ова вики.",
 	"apierror-cirrus-requesttoolong": "Пребараното со претставка ја надмина допуштената должина. ($1 &gt; $2)",
 	"cirrussearch-give-feedback": "Дајте ни ваше мислење",
@@ -69,5 +72,11 @@
 	"cirrussearch-feature-too-many-conditions": "Укажани се премногу услови за „$1“. Скратувам на $2.",
 	"cirrussearch-incategory-feature-no-valid-categories": "Нема укажано важечки категории за „$1“.",
 	"cirrussearch-mlt-feature-no-valid-titles": "Нема укажано важечки наслови за „$1“.",
-	"cirrussearch-mlt-not-configured": "Можноста „$1“ е погрешно поставена. Обратете се кај администратор за да го исправи $wgCirrusSearchMoreLikeThisFields"
+	"cirrussearch-mlt-not-configured": "Можноста „$1“ е погрешно поставена. Обратете се кај администратор за да го исправи $wgCirrusSearchMoreLikeThisFields",
+	"cirrussearch-explore-similar-related": "Поврзано",
+	"cirrussearch-explore-similar-categories": "Категории",
+	"cirrussearch-explore-similar-languages": "Јазици",
+	"cirrussearch-explore-similar-related-none": "Нема поврзани страници на располагање",
+	"cirrussearch-explore-similar-categories-none": "Нема категории на располагање",
+	"cirrussearch-explore-similar-languages-none": "Не е достапно во месните јазици"
 }

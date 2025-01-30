@@ -10,10 +10,10 @@ class NestedIndexField extends CirrusIndexField {
 
 	/**
 	 * Add sub-field for nested field
-	 * @param      string      $name  Field name
+	 * @param string $name Field name
 	 * @param SearchIndexField $subfield Field object
 	 */
-	public function addSubfield($name, SearchIndexField $subfield) {
+	public function addSubfield( $name, SearchIndexField $subfield ) {
 		$this->subfields[$name] = $subfield;
 	}
 

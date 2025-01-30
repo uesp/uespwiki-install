@@ -8,7 +8,6 @@ use CirrusSearch;
 use CirrusSearch\BuildDocument\Completion\SuggestBuilder;
 use CirrusSearch\Search\SearchContext;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Logger\LoggerFactory;
 use SearchSuggestion;
 use SearchSuggestionSet;
 use Status;
@@ -104,19 +103,17 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 	private $settings;
 
 	/**
-	 * Constructor
 	 * @param Connection $conn
 	 * @param int $limit Limit the results to this many
 	 * @param int $offset the offset
 	 * @param SearchConfig $config Configuration settings
 	 * @param int[]|null $namespaces Array of namespace numbers to search or null to search all namespaces.
 	 * @param User|null $user user for which this search is being performed.  Attached to slow request logs.
-	 * @param string|boolean $index Base name for index to search from, defaults to $wgCirrusSearchIndexBaseName
+	 * @param string|bool $index Base name for index to search from, defaults to $wgCirrusSearchIndexBaseName
 	 * @param string|null $profileName
 	 */
 	public function __construct( Connection $conn, $limit, $offset = 0, SearchConfig $config = null, array $namespaces = null,
 		User $user = null, $index = false, $profileName = null ) {
-
 		if ( is_null( $config ) ) {
 			// @todo connection has an embedded config ... reuse that? somehow should
 			// at least ensure they are the same.
@@ -191,7 +188,7 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 		$result = Util::doPoolCounterWork(
 			'CirrusSearch-Completion',
 			$this->user,
-			function() use( $index, $suggest, $profiles, $text ) {
+			function () use( $index, $suggest, $profiles, $text ) {
 				$log = $this->newLog( "{queryType} search for '{query}'", $this->queryType, [
 					'query' => $text,
 					'offset' => $this->offset,
@@ -203,7 +200,7 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 						'suggest' => $suggest,
 					];
 					$result = $index->request( "_search", Request::POST, $search, [ 'size' => 0 ] );
-					if( $result->isOk() ) {
+					if ( $result->isOk() ) {
 						$result = $this->postProcessSuggest( $result, $profiles, $log );
 						return $this->success( $result );
 					} else {
@@ -277,7 +274,7 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 		$suggest = [];
 		foreach ( $profiles as $name => $config ) {
 			$sugg = $this->buildSuggestQuery( $config, $query, $queryLen );
-			if(!$sugg) {
+			if ( !$sugg ) {
 				continue;
 			}
 			$suggest[$name] = $sugg;
@@ -323,15 +320,15 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 	 * @param int $queryLen the original query length
 	 * @return array new variant profiles
 	 */
-	 protected function handleVariants( array $profiles, $queryLen ) {
+	protected function handleVariants( array $profiles, $queryLen ) {
 		$variantIndex = 0;
 		$allVariantProfiles = [];
 		$allSuggestions = [];
-		foreach( $this->variants as $variant ) {
+		foreach ( $this->variants as $variant ) {
 			$variantIndex++;
 			foreach ( $profiles as $name => $profile ) {
 				$variantProfName = $name . '-variant-' . $variantIndex;
-				$profile = $this->buildVariantProfile( $profile, self::VARIANT_EXTRA_DISCOUNT/$variantIndex );
+				$profile = $this->buildVariantProfile( $profile, self::VARIANT_EXTRA_DISCOUNT / $variantIndex );
 				$suggest = $this->buildSuggestQuery(
 					$profile, $variant, $queryLen
 				);
@@ -371,13 +368,19 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 	 */
 	protected function postProcessSuggest( \Elastica\Response $response, $profiles, CompletionRequestLog $log ) {
 		$log->setResponse( $response );
-		$data = $response->getData()['suggest'];
+		$fullResponse = $response->getData();
+		if ( !isset( $fullResponse['suggest'] ) ) {
+			// Edge case where the index contains 0 documents and does not even return the 'suggest' field
+			return SearchSuggestionSet::emptySuggestionSet();
+		}
+
+		$data = $fullResponse['suggest'];
 
 		$limit = $this->getHardLimit();
 		$suggestionsByDocId = [];
 		$suggestionProfileByDocId = [];
 		$hitsTotal = 0;
-		foreach ( $data as $name => $results  ) {
+		foreach ( $data as $name => $results ) {
 			$discount = $profiles[$name]['discount'];
 			foreach ( $results  as $suggested ) {
 				$hitsTotal += count( $suggested['options'] );
@@ -389,7 +392,7 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 						$targetTitle = $suggest['_source']['target_title']['title'];
 						$targetTitleNS = $suggest['_source']['target_title']['namespace'];
 					}
-					list ( $docId, $type ) = $this->decodeId( $suggest['_id'] );
+					list( $docId, $type ) = $this->decodeId( $suggest['_id'] );
 					$score = $discount * $suggest['_score'];
 					if ( !isset( $suggestionsByDocId[$docId] ) ||
 						$score > $suggestionsByDocId[$docId]->getScore()
@@ -403,7 +406,6 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 							// And we prefer to display the title over close redirects
 							// for CrossNS redirect we prefer the returned suggestion
 							$suggestion->setText( $targetTitle );
-
 
 						} else {
 							$suggestion->setText( $page );
@@ -480,7 +482,7 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 	private function getHardLimit() {
 		$limit = $this->limit + $this->offset;
 		$hardLimit = $this->config->get( 'CirrusSearchCompletionSuggesterHardLimit' );
-		if ( $hardLimit === NULL ) {
+		if ( $hardLimit === null ) {
 			$hardLimit = 50;
 		}
 		if ( $limit > $hardLimit ) {

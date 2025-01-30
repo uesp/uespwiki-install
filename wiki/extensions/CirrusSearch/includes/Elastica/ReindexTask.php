@@ -119,7 +119,6 @@ class ReindexTask {
 		return new ReindexStatus( $status );
 	}
 
-
 	private function mergeStatusWithChildren( array $status, array $childResponse ) {
 		foreach ( $childResponse['nodes'] as $nodeData ) {
 			foreach ( $nodeData['tasks'] as $taskId => $childData ) {
@@ -159,7 +158,7 @@ class ReindexTask {
 			$status['throttled_millis'] += $slice['throttled_millis'];
 			$status['requests_per_second'] += $slice['requests_per_second'] === -1
 				? INF : $slice['requests_per_second'];
-			$status['throttled_until_millis'] += min($status['throttled_until_millis'], $slice['throttled_until_millis']);
+			$status['throttled_until_millis'] += min( $status['throttled_until_millis'], $slice['throttled_until_millis'] );
 		}
 
 		if ( $status['requests_per_second'] === INF ) {

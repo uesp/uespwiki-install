@@ -1,21 +1,34 @@
 {
     "analyzer": {
         "text": {
-            "type": "smartcn",
+            "type": "custom",
+            "tokenizer": "smartcn_tokenizer",
             "char_filter": [
-                "word_break_helper"
+                "stconvertfix",
+                "tsconvert"
+            ],
+            "filter": [
+                "smartcn_stop",
+                "lowercase"
             ]
         },
         "text_search": {
-            "type": "smartcn",
+            "type": "custom",
+            "tokenizer": "smartcn_tokenizer",
             "char_filter": [
-                "word_break_helper"
+                "stconvertfix",
+                "tsconvert"
+            ],
+            "filter": [
+                "smartcn_stop",
+                "lowercase"
             ]
         },
         "plain": {
             "type": "custom",
             "tokenizer": "standard",
             "filter": [
+                "smartcn_stop",
                 "lowercase"
             ],
             "char_filter": [
@@ -26,6 +39,7 @@
             "type": "custom",
             "tokenizer": "standard",
             "filter": [
+                "smartcn_stop",
                 "lowercase"
             ],
             "char_filter": [
@@ -199,6 +213,12 @@
             "type": "truncate",
             "length": 5000
         },
+        "smartcn_stop": {
+            "type": "stop",
+            "stopwords": [
+                ","
+            ]
+        },
         "dedup_asciifolding": {
             "type": "unique",
             "only_on_same_position": true
@@ -247,6 +267,19 @@
                 ")=>\\u0020",
                 ":=>\\u0020"
             ]
+        },
+        "stconvertfix": {
+            "type": "mapping",
+            "mappings": [
+                "\\u606d\\u5f18=>\\u606d \\u5f18",
+                "\\u5138=>\\u3469"
+            ]
+        },
+        "tsconvert": {
+            "type": "stconvert",
+            "delimiter": "#",
+            "keep_both": false,
+            "convert_type": "t2s"
         }
     }
 }

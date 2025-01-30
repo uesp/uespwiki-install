@@ -26,11 +26,11 @@ use MWElasticUtils;
  */
 
 $IP = getenv( 'MW_INSTALL_PATH' );
-if( $IP === false ) {
+if ( $IP === false ) {
 	$IP = __DIR__ . '/../../..';
 }
-require_once( "$IP/maintenance/Maintenance.php" );
-require_once( __DIR__ . '/../includes/Maintenance/Maintenance.php' );
+require_once "$IP/maintenance/Maintenance.php";
+require_once __DIR__ . '/../includes/Maintenance/Maintenance.php';
 
 class Metastore extends Maintenance {
 	/**
@@ -84,7 +84,7 @@ class Metastore extends Maintenance {
 			$this->metaStore->createOrUpgradeIfNecessary();
 			$this->output( "mw_cirrus_metastore is up and running with version " .
 				implode( '.', $this->metaStore->metastoreVersion() ) . "\n" );
-		} elseif( $this->hasOption( 'show-all-index-versions' ) ) {
+		} elseif ( $this->hasOption( 'show-all-index-versions' ) ) {
 			$this->showIndexVersions();
 		} elseif ( $this->hasOption( 'update-index-version' ) ) {
 			$baseName = $this->getOption( 'index-version-basename', $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME ) );
@@ -114,11 +114,14 @@ class Metastore extends Maintenance {
 		// WHAT ARE YOU DOING TRACKING MORE THAN 5000 INDEXES?!?
 		$query->setSize( 5000 );
 		$res = $this->metaStore->versionType()->search( $query );
-		foreach( $res as $r ) {
+		foreach ( $res as $r ) {
 			$data = $r->getData();
 			$this->outputIndented( "index name: " . $r->getId() . "\n" );
 			$this->outputIndented( "  analysis version: {$data['analysis_maj']}.{$data['analysis_min']}\n" );
 			$this->outputIndented( "  mapping version: {$data['mapping_maj']}.{$data['mapping_min']}\n" );
+			if ( isset( $data['mediawiki_version'] ) ) {
+				$this->outputIndented( "  code version: {$data['mediawiki_version']} ({$data['mediawiki_commit']}, Cirrus: {$data['cirrus_commit']})\n" );
+			}
 			$this->outputIndented( "  shards: {$data['shard_count']}\n" );
 		}
 	}
@@ -127,25 +130,8 @@ class Metastore extends Maintenance {
 	 * @param string $baseName
 	 */
 	private function updateIndexVersion( $baseName ) {
-		$versionType = $this->metaStore->versionType();
 		$this->outputIndented( "Updating tracking indexes..." );
-		$docs = [];
-		list( $aMaj, $aMin ) = explode( '.', \CirrusSearch\Maintenance\AnalysisConfigBuilder::VERSION );
-		list( $mMaj, $mMin ) = explode( '.', \CirrusSearch\Maintenance\MappingConfigBuilder::VERSION );
-		$connSettings = $this->getConnection()->getSettings();
-		foreach( $this->getConnection()->getAllIndexTypes() as $type ) {
-			$docs[] = new \Elastica\Document(
-				$this->getConnection()->getIndexName( $baseName, $type ),
-				[
-					'analysis_maj' => $aMaj,
-					'analysis_min' => $aMin,
-					'mapping_maj' => $mMaj,
-					'mapping_min' => $mMin,
-					'shard_count' => $connSettings->getShardCount( $type ),
-				]
-			);
-		}
-		$versionType->addDocuments( $docs );
+		$this->metaStore->updateAllVersions( $baseName );
 		$this->output( "done\n" );
 	}
 
@@ -161,7 +147,7 @@ class Metastore extends Maintenance {
 		];
 		$result = $index->search( new \Elastica\Query(), $scrollOptions );
 		MWElasticUtils::iterateOverScroll( $index, $result->getResponse()->getScrollId(), '15m',
-			function( $results ) {
+			function ( $results ) {
 				foreach ( $results as $result ) {
 					$indexOp = [
 						'index' => [

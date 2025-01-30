@@ -7,7 +7,8 @@
 			"Vitorvicentevalente",
 			"He7d3r",
 			"Luan",
-			"Hamilton Abreu"
+			"Hamilton Abreu",
+			"McDutchie"
 		]
 	},
 	"scribunto-desc": "Fornece uma estrutura para incorporação de linguagens de comandos (''scripting'') em páginas do MediaWiki",
@@ -16,10 +17,10 @@
 	"scribunto-parser-dialog-title": "Erro no script",
 	"scribunto-error-short": "Erro no script: $1",
 	"scribunto-error-long": "Erro no script:\n\n$1",
-	"scribunto-doc-page-name": "Módulo:$1/doc",
+	"scribunto-doc-page-name": "Module:$1/doc",
 	"scribunto-doc-page-does-not-exist": "''A documentação para este módulo pode ser criada na página [[$1]]''",
 	"scribunto-doc-page-header": "'''Esta é a página de documentação de [[$1]]'''",
-	"scribunto-console-intro": "* As exportações do módulo estão disponíveis por meio da variável \"p\", incluindo alterações não gravadas.\n* Preceda a linha com \"=\" para esta ser calculada como uma expressão, ou utilize print().\n* Use mw.log() no código do módulo para enviar mensagens para esta consola.",
+	"scribunto-console-intro": "* As exportações do módulo estão disponíveis por meio da variável \"p\", incluindo alterações não gravadas.\n* Preceda a linha com \"=\" para esta ser calculada como uma expressão, ou utilize print(). Use mw.logObject() para tabelas.\n* Use mw.log() e mw.logObject() no código do módulo para enviar mensagens para esta consola.",
 	"scribunto-console-title": "Consola de despiste de erros",
 	"scribunto-console-too-large": "Esta sessão de consola é demasiado grande. Por favor, limpe o histórico da consola ou reduza o tamanho do módulo.",
 	"scribunto-console-current-src": "entrada da consola",
@@ -45,7 +46,6 @@
 	"scribunto-luastandalone-proc-error": "Erro Lua: Não é possível criar o processo.",
 	"scribunto-luastandalone-proc-error-msg": "Erro Lua: Não é possível criar o seguinte processo: $2",
 	"scribunto-luastandalone-proc-error-proc-open": "Erro Lua: Não foi possível criar o processo: proc_open não está disponível. Verifique a diretiva de configuração \"disable_functions\" do PHP.",
-	"scribunto-luastandalone-proc-error-safe-mode": "Erro Lua: Não foi possível criar o processo. Note que a diretiva obsoleta de configuração do PHP \"safe_mode\" está ativa.",
 	"scribunto-luastandalone-decode-error": "Erro Lua: Erro interno: não é possível descodificar a mensagem.",
 	"scribunto-luastandalone-write-error": "Erro Lua: Erro interno: ocorreu um erro ao escrever no ''pipe''.",
 	"scribunto-luastandalone-read-error": "Erro Lua: Erro interno: ocorreu um erro ao ler do ''pipe''.",
@@ -63,9 +63,12 @@
 	"scribunto-limitreport-profile-ms": "$1 ms",
 	"scribunto-limitreport-logs": "Registos Lua",
 	"apihelp-scribunto-console-description": "Módulo interno para responder a pedidos XHR vindos da consola Scribunto.",
+	"apihelp-scribunto-console-summary": "Módulo interno para responder a pedidos XHR vindos da consola Scribunto.",
 	"apihelp-scribunto-console-param-title": "O título do módulo a ser testado.",
 	"apihelp-scribunto-console-param-content": "O novo conteúdo do módulo.",
 	"apihelp-scribunto-console-param-session": "Chave da sessão.",
 	"apihelp-scribunto-console-param-question": "A próxima linha a calcular como um comando.",
-	"apihelp-scribunto-console-param-clear": "Definir para limpar o estado da sessão atual."
+	"apihelp-scribunto-console-param-clear": "Definir para limpar o estado da sessão atual.",
+	"nstab-module": "Módulo",
+	"tooltip-ca-nstab-module": "Ver a página do módulo"
 }

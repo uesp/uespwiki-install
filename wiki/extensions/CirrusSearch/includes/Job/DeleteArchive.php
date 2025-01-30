@@ -3,7 +3,6 @@
 namespace CirrusSearch\Job;
 
 use CirrusSearch\Connection;
-use MediaWiki\MediaWikiServices;
 
 /**
  * Job wrapper for deleting pages from archive.
@@ -17,13 +16,16 @@ class DeleteArchive extends Job {
 		$this->removeDuplicates = false;
 	}
 
+	/**
+	 * @return bool
+	 */
 	protected function doJob() {
 		$archive = new \PageArchive( $this->title );
 		$docs = $this->params['docIds'];
 
 		// Remove page IDs that still have archived revs
 		foreach ( $archive->listRevisions() as $rev ) {
-			unset( $docs[$rev['ar_page_id']] );
+			unset( $docs[$rev->ar_page_id] );
 		}
 
 		if ( empty( $docs ) ) {

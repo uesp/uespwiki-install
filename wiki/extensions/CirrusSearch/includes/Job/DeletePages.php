@@ -42,6 +42,9 @@ class DeletePages extends Job {
 		$this->removeDuplicates = false;
 	}
 
+	/**
+	 * @return bool
+	 */
 	protected function doJob() {
 		global $wgCirrusSearchIndexDeletes;
 		$updater = $this->createUpdater();
@@ -49,7 +52,7 @@ class DeletePages extends Job {
 		$updater->deletePages( [ $this->title ], [ $this->params['docId'] ], $indexType );
 
 		if ( $wgCirrusSearchIndexDeletes ) {
-			$success = $updater->archivePages( [
+			$updater->archivePages( [
 				[
 					'title' => $this->title,
 					'page' => $this->params['docId'],

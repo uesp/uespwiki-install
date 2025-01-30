@@ -34,7 +34,7 @@ class OtherIndex extends Job {
 	 */
 	public static function queueIfRequired( array $titles, $cluster ) {
 		$titlesToUpdate = [];
-		foreach( $titles as $title ) {
+		foreach ( $titles as $title ) {
 			if ( OtherIndexes::getExternalIndexes( $title ) ) {
 				$titlesToUpdate[] = [ $title->getNamespace(), $title->getText() ];
 			}
@@ -51,6 +51,9 @@ class OtherIndex extends Job {
 		}
 	}
 
+	/**
+	 * @return bool
+	 */
 	protected function doJob() {
 		$titles = [];
 		foreach ( $this->params[ 'titles' ] as $titleArr ) {
@@ -63,5 +66,7 @@ class OtherIndex extends Job {
 		}
 		$otherIdx = new OtherIndexes( $this->connection, $this->searchConfig, $flags, wfWikiID() );
 		$otherIdx->updateOtherIndex( $titles );
+
+		return true;
 	}
 }

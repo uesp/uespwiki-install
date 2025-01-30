@@ -9,7 +9,8 @@ global $wgFileExtensions, $wgServer, $wgScriptPath, $wgAPIModules, $wgLang,
 
 $userLangCode = $wgLang->getCode();
 // We need to get a list of languages for the description dropdown.
-$cacheKey = wfMemcKey( 'uploadwizard', 'language-templates', $userLangCode );
+// Increase the number below to invalidate the cache if this code changes.
+$cacheKey = wfMemcKey( 'uploadwizard', 'language-templates3', $userLangCode );
 // Try to get a cached version of the list
 $uwLanguages = $wgMemc->get( $cacheKey );
 // Commons only: ISO 646 code of Tagalog is 'tl', but language template is 'tgl'
@@ -54,8 +55,18 @@ if ( !$uwLanguages ) {
 			}
 		}
 	}
-	// Sort the list by the language name
-	natcasesort( $uwLanguages );
+
+	// Skip the duplicate deprecated language codes if the new one is okay to use.
+	foreach ( LanguageCode::getDeprecatedCodeMapping() as $oldKey => $newKey ) {
+		if ( isset( $uwLanguages[$newKey] ) && isset( $uwLanguages[$oldKey] ) ) {
+			unset( $uwLanguages[$oldKey] );
+		}
+	}
+
+	// Sort the list by the language name. (If a specific collation is not available
+	// for the user's language, this falls back to a generic 'root' one.)
+	$collator = Collator::create( $userLangCode );
+	$collator->asort( $uwLanguages );
 	// Cache the list for 1 day
 	$wgMemc->set( $cacheKey, $uwLanguages, 60 * 60 * 24 );
 }
@@ -574,7 +585,7 @@ return [
 	// exceptions used at Wikimedia Commons: the language template for Tagalog (ISO 646 code 'tl') is not named 'tl'
 	// but 'tgl' for historical reasons.
 	// @codingStandardsIgnoreEnd
-	'languageTemplateFixups' =>  $uwDefaultLanguageFixups,
+	'languageTemplateFixups' => $uwDefaultLanguageFixups,
 
 		// @codingStandardsIgnoreStart
 		// XXX this is horribly confusing -- some file restrictions are client side, others are server side
@@ -590,29 +601,6 @@ return [
 		//	/^(\d{10}[\s_-][0-9a-f]{10}[\s_-][a-z])$/   // flickr
 		// ]
 		// @codingStandardsIgnoreEnd
-
-	// @codingStandardsIgnoreStart
-	// Check if we want to enable firefogg, will result in
-	// 1) firefogg install recommendation when users try to upload media asset with an extension in the
-	//		transcodeExtensionList
-	// 2) Once the user installs firefogg it is used for encoding videos that are not in supported formats before handing it off to mw.ApiUploadFormDataHandler for upload
-	// @codingStandardsIgnoreEnd
-	'enableFirefogg' => false,
-
-	// Setup list of video extensions for recomending firefogg.
-	'transcodeExtensionList' => [
-		'avi', 'asf','asx','wmv','wmx','dv','rm','ra','3gp','mkv',
-		'mp4','m4v','mov','qt','mpeg','mpeg2','mp2','mpg', 'mts'
-	],
-
-	// Firefogg encode settings copied from TimedMediHandler high end webm.
-	'firefoggEncodeSettings' => [
-		'maxSize'           => '1920x1080',
-		'videoQuality'      => 7,
-		'audioQuality'      => 3,
-		'noUpscaling'       => 'true',
-		'videoCodec'        => 'vp8',
-	],
 
 	// Link to page where users can leave feedback or bug reports.
 	// Defaults to UploadWizard's bug tracker.

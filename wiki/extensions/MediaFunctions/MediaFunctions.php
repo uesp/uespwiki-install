@@ -4,7 +4,7 @@
  *
  * @link https://www.mediawiki.org/wiki/Extension:MediaFunctions Documentation
  * @link https://www.mediawiki.org/wiki/Extension_talk:MediaFunctions Support
- * @link https://git.wikimedia.org/summary/mediawiki%2Fextensions%2FMediaFunctions.git Source Code
+ * @link https://gerrit.wikimedia.org/r/p/mediawiki/extensions/MediaFunctions Source Code
  *
  * @file
  * @ingroup Extensions
@@ -12,7 +12,7 @@
  *
  * @author Rob Church (Robchurch) <robchur@gmail.com>
  *
- * @license http://www.opensource.org/licenses/BSD-2-Clause BSD-2-Clause
+ * @license https://www.opensource.org/licenses/BSD-2-Clause BSD-2-Clause
  */
 
 // Ensure that the script cannot be executed outside of MediaWiki
@@ -24,7 +24,7 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 $wgExtensionCredits['parserhook'][] = array(
 	'path' => __FILE__,
 	'name' => 'MediaFunctions',
-	'version' => '1.3.2',
+	'version' => '1.4.0',
 	'author' => array(
 		'Rob Church',
 		'...'
@@ -36,7 +36,6 @@ $wgExtensionCredits['parserhook'][] = array(
 
 // Register extension messages
 $wgMessagesDirs['MediaFunctions'] = __DIR__ . '/i18n';
-$wgExtensionMessagesFiles['MediaFunctions'] = __DIR__ . '/MediaFunctions.i18n.php';
 $wgExtensionMessagesFiles['MediaFunctionsMagic'] = __DIR__ . '/MediaFunctions.i18n.magic.php';
 
 // Load classes

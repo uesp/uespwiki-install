@@ -43,8 +43,8 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 	 */
 	protected function defaults() {
 		// Use default lowercase filter
-		$lowercase_type = ['type' => 'lowercase'];
-		if( $this->isIcuAvailable() ) {
+		$lowercase_type = [ 'type' => 'lowercase' ];
+		if ( $this->isIcuAvailable() ) {
 			$lowercase_type = [
 				"type" => "icu_normalizer",
 				"name" => "nfkc_cf",
@@ -83,7 +83,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 						'\u02BC=>\u0020',  // Unicode modifier letter apostrophe
 						// Not sure about ( and )...
 						// very useful to search for :
-						//   "john smith explo" instead of "john smith (expl"
+						// "john smith explo" instead of "john smith (expl"
 						// but annoying to search for "(C)"
 						// ')=>\u0020',
 						// '(=>\u0020',
@@ -240,7 +240,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 
 			// The Russian analyzer is also used for Ukrainian and Rusyn for now, so processing that's
 			// very specific to Russian should be separated out
-			if ($this->getLanguage() == 'ru') {
+			if ( $this->getLanguage() == 'ru' ) {
 				// T124592 fold ё=>е and Ё=>Е, precomposed or with combining diacritic
 				$config[ 'char_filter' ][ 'word_break_helper' ][ 'mappings' ][] = '\u0451=>\u0435';
 				$config[ 'char_filter' ][ 'word_break_helper' ][ 'mappings' ][] = '\u0401=>\u0415';
@@ -258,7 +258,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 				if ( !isset( $analyzer[ 'filter'  ] ) ) {
 					continue;
 				}
-				$analyzer[ 'filter' ] = array_map( function( $filter ) {
+				$analyzer[ 'filter' ] = array_map( function ( $filter ) {
 					if ( $filter === 'lowercase' ) {
 						return 'icu_normalizer';
 					}
@@ -282,7 +282,7 @@ class SuggesterAnalysisConfigBuilder extends AnalysisConfigBuilder {
 	/** @var string[] */
 	private static $stopwords = [
 		'ar' => '_arabic_',
-		'hy' =>  '_armenian_',
+		'hy' => '_armenian_',
 		'eu' => '_basque_',
 		'pt-br' => '_brazilian_',
 		'bg' => '_bulgarian_',

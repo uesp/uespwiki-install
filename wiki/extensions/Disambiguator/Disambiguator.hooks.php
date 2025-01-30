@@ -20,8 +20,8 @@ class DisambiguatorHooks {
 	 * @param array &$queryPages
 	 */
 	public static function onwgQueryPages( &$queryPages ) {
-		$queryPages[] = array( 'SpecialDisambiguationPages', 'DisambiguationPages' );
-		$queryPages[] = array( 'SpecialDisambiguationPageLinks', 'DisambiguationPageLinks' );
+		$queryPages[] = [ 'SpecialDisambiguationPages', 'DisambiguationPages' ];
+		$queryPages[] = [ 'SpecialDisambiguationPageLinks', 'DisambiguationPageLinks' ];
 	}
 
 	/**
@@ -33,9 +33,9 @@ class DisambiguatorHooks {
 	private static function excludeDisambiguationPages( &$tables, &$conds, &$joinConds ) {
 		$tables[] = 'page_props';
 		$conds['pp_page'] = null;
-		$joinConds['page_props'] = array(
-			'LEFT JOIN', array( 'page_id = pp_page', 'pp_propname' => 'disambiguation' )
-		);
+		$joinConds['page_props'] = [
+			'LEFT JOIN', [ 'page_id = pp_page', 'pp_propname' => 'disambiguation' ]
+		];
 	}
 
 	/**
@@ -72,41 +72,51 @@ class DisambiguatorHooks {
 	/**
 	 * Convenience function for testing whether or not a page is a disambiguation page
 	 * @param Title $title object of a page
-	 * @param bool $includeRedirects Whether to consider redirects to disambiguations as disambiguations.
+	 * @param bool $includeRedirects Whether to consider redirects to disambiguations as
+	 *   disambiguations.
 	 * @return bool
 	 */
 	public static function isDisambiguationPage( Title $title, $includeRedirects = true ) {
-		$res = static::filterDisambiguationPageIds( array( $title->getArticleID() ), $includeRedirects );
+		$res = static::filterDisambiguationPageIds(
+			[ $title->getArticleID() ], $includeRedirects );
 		return (bool)count( $res );
 	}
 
 	/**
 	 * Convenience function for testing whether or not pages are disambiguation pages
 	 * @param int[] $pageIds
-	 * @param bool $includeRedirects Whether to consider redirects to disambiguations as disambiguations.
+	 * @param bool $includeRedirects Whether to consider redirects to disambiguations as
+	 *   disambiguations.
 	 * @return int[] The page ids corresponding to pages that are disambiguations
 	 */
-	private static function filterDisambiguationPageIds( array $pageIds, $includeRedirects = true ) {
+	private static function filterDisambiguationPageIds(
+		array $pageIds, $includeRedirects = true
+	) {
 		// Don't needlessly check non-existent and special pages
-		$pageIds = array_filter( $pageIds, function ( $id ) { return $id > 0; } );
+		$pageIds = array_filter(
+			$pageIds,
+			function ( $id ) {
+				return $id > 0;
+			}
+		);
 
-		$output = array();
+		$output = [];
 		if ( $pageIds ) {
 			$dbr = wfGetDB( DB_SLAVE );
 
-			$redirects = array();
+			$redirects = [];
 			if ( $includeRedirects ) {
 				// resolve redirects
 				$res = $dbr->select(
-					array ( 'page', 'redirect' ),
-					array( 'page_id', 'rd_from' ),
-					array( 'rd_from' => $pageIds ),
+					[ 'page', 'redirect' ],
+					[ 'page_id', 'rd_from' ],
+					[ 'rd_from' => $pageIds ],
 					__METHOD__,
-					array(),
-					array( 'page' => array( 'INNER JOIN', array(
+					[],
+					[ 'page' => [ 'INNER JOIN', [
 						'rd_namespace=page_namespace',
 						'rd_title=page_title'
-					) ) )
+					] ] ]
 				);
 
 				foreach ( $res as $row ) {
@@ -114,11 +124,12 @@ class DisambiguatorHooks {
 					$redirects[$row->page_id] = $row->rd_from;
 				}
 			}
-			$pageIdsWithRedirects = array_merge( array_keys( $redirects ), array_diff( $pageIds, array_values( $redirects ) ) );
+			$pageIdsWithRedirects = array_merge( array_keys( $redirects ),
+				array_diff( $pageIds, array_values( $redirects ) ) );
 			$res = $dbr->select(
 				'page_props',
 				'pp_page',
-				array( 'pp_page' => $pageIdsWithRedirects, 'pp_propname' => 'disambiguation' ),
+				[ 'pp_page' => $pageIdsWithRedirects, 'pp_propname' => 'disambiguation' ],
 				__METHOD__
 			);
 
@@ -127,7 +138,7 @@ class DisambiguatorHooks {
 				if ( array_key_exists( $disambiguationPageId, $redirects ) ) {
 					$output[] = $redirects[$disambiguationPageId];
 				}
-				if ( in_array( $disambiguationPageId, $pageIds ) ){
+				if ( in_array( $disambiguationPageId, $pageIds ) ) {
 					$output[] = $disambiguationPageId;
 				}
 			}

@@ -4,7 +4,6 @@ namespace CirrusSearch\Search;
 
 use CirrusSearch\Searcher;
 use MediaWiki\Logger\LoggerFactory;
-use Title;
 
 /**
  * Lightweight classes to describe specific result types we can return.
@@ -98,7 +97,7 @@ class TitleResultsType extends BaseResultsType {
 	 */
 	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
 		$results = [];
-		foreach( $resultSet->getResults() as $r ) {
+		foreach ( $resultSet->getResults() as $r ) {
 			$results[] = TitleHelper::makeTitle( $r );
 		}
 		return $results;
@@ -189,7 +188,7 @@ class FancyTitleResultsType extends TitleResultsType {
 	 */
 	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
 		$results = [];
-		foreach( $resultSet->getResults() as $r ) {
+		foreach ( $resultSet->getResults() as $r ) {
 			$title = TitleHelper::makeTitle( $r );
 			$highlights = $r->getHighlights();
 			$resultForTitle = [];
@@ -199,7 +198,7 @@ class FancyTitleResultsType extends TitleResultsType {
 			// though.
 			if ( isset( $highlights[ "title.$this->matchedAnalyzer" ] ) ) {
 				$resultForTitle[ 'titleMatch' ] = $title;
-			} else if ( isset( $highlights[ "title.{$this->matchedAnalyzer}_asciifolding" ] ) ) {
+			} elseif ( isset( $highlights[ "title.{$this->matchedAnalyzer}_asciifolding" ] ) ) {
 				$resultForTitle[ 'titleMatch' ] = $title;
 			}
 			$redirectHighlights = [];
@@ -292,7 +291,7 @@ class FullTextResultsType extends BaseResultsType {
 	 * @return array
 	 */
 	public function getStoredFields() {
-		return ["text.word_count"]; // word_count is only a stored field and isn't part of the source.
+		return [ "text.word_count" ]; // word_count is only a stored field and isn't part of the source.
 	}
 
 	/**
@@ -381,7 +380,7 @@ class FullTextResultsType extends BaseResultsType {
 			unset( $text[ 'options' ][ 'skip_if_last_matched' ] );
 		}
 
-		$config =  [
+		$config = [
 			'pre_tags' => [ Searcher::HIGHLIGHT_PRE ],
 			'post_tags' => [ Searcher::HIGHLIGHT_POST ],
 			'fields' => [],
@@ -420,7 +419,6 @@ class FullTextResultsType extends BaseResultsType {
 
 		return $config;
 	}
-
 
 	/**
 	 * Behaves like array_merge with recursive descent. Unlike array_merge_recursive,
@@ -470,7 +468,7 @@ class FullTextResultsType extends BaseResultsType {
 	 */
 	private function addMatchedFields( $fields ) {
 		foreach ( array_keys( $fields ) as $name ) {
-			$fields[$name]['matched_fields'] =  [ $name, "$name.plain" ];
+			$fields[$name]['matched_fields'] = [ $name, "$name.plain" ];
 		}
 		return $fields;
 	}
@@ -502,7 +500,7 @@ class FullTextResultsType extends BaseResultsType {
 				'locale' => $locale,
 				'regex_flavor' => 'lucene',
 				'skip_query' => true,
-				'regex_case_insensitive' => (boolean)$caseInsensitive,
+				'regex_case_insensitive' => (bool)$caseInsensitive,
 				'max_determinized_states' => $wgCirrusSearchRegexMaxDeterminizedStates,
 			];
 			if ( isset( $config['fields']['source_text.plain']['options'] ) ) {
@@ -559,7 +557,7 @@ class IdResultsType implements ResultsType {
 	 */
 	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
 		$results = [];
-		foreach( $resultSet->getResults() as $r ) {
+		foreach ( $resultSet->getResults() as $r ) {
 			$results[] = $r->getId();
 		}
 		return $results;

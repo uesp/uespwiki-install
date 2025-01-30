@@ -7,7 +7,7 @@ class CompletionRequestLog extends BaseRequestLog {
 	/**
 	 * @var array
 	 */
-	private $hits = array();
+	private $hits = [];
 
 	/**
 	 * @var \Elastica\Response|null
@@ -41,16 +41,16 @@ class CompletionRequestLog extends BaseRequestLog {
 			$pageId = $suggestion->getSuggestedTitleID() ?: -1;
 			$maxScore = max( $maxScore, $suggestion->getScore() );
 			$this->hits[] = [
-				'title' => $title ? (string) $title : $suggestion->getText(),
+				'title' => $title ? (string)$title : $suggestion->getText(),
 				'index' => $indexName,
-				'pageId' => (int) $pageId,
+				'pageId' => (int)$pageId,
 				'score' => $suggestion->getScore(),
 				'profileName' => isset( $suggestionProfileByDocId[$docId] )
 					? $suggestionProfileByDocId[$docId]
 					: "",
 			];
 		}
-		$this->maxScore = (float) $maxScore;
+		$this->maxScore = (float)$maxScore;
 	}
 
 	/**
@@ -69,7 +69,7 @@ class CompletionRequestLog extends BaseRequestLog {
 	 * @param \Elastica\Response $response
 	 */
 	public function set2ndPassResponse( \Elastica\Response $response ) {
-		$this->extra['elasticTook2PassMs'] = (string) round( $response->getQueryTime() * 1000 );
+		$this->extra['elasticTook2PassMs'] = (string)round( $response->getQueryTime() * 1000 );
 	}
 
 	/**
@@ -102,14 +102,13 @@ class CompletionRequestLog extends BaseRequestLog {
 			'queryType' => $this->getQueryType(),
 			'index' => $this->index,
 			'elasticTookMs' => $this->getElasticTookMs(),
-			'elasticTook2PassMs' => isset( $this->extra['elasticTook2PassMs'] ) ?  $this->extra['elasticTook2PassMs'] : -1,
+			'elasticTook2PassMs' => isset( $this->extra['elasticTook2PassMs'] ) ? $this->extra['elasticTook2PassMs'] : -1,
 			'hitsTotal' => $this->getTotalHits(),
 			'maxScore' => $this->maxScore,
 			'hitsReturned' => count( $this->hits ),
 			'hitsOffset' => isset( $this->extra['offset'] ) ? $this->extra['offset'] : 0,
 			'tookMs' => $this->getTookMs(),
 		];
-
 	}
 
 	/**
@@ -120,7 +119,7 @@ class CompletionRequestLog extends BaseRequestLog {
 			'hits' => $this->hits,
 		];
 
-		return [$vars];
+		return [ $vars ];
 	}
 
 	/**

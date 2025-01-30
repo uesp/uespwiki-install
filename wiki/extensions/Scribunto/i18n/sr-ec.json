@@ -14,8 +14,12 @@
 	"scribunto-doc-page-header": "'''Ово је документациона подстраница за [[$1]]'''",
 	"scribunto-console-clear": "Очисти",
 	"scribunto-common-error-category": "Странице са грешкама у скрипти",
+	"scribunto-common-nosuchmodule": "Грешка у скрипти: Не постоји модул „$2”.",
 	"scribunto-lua-error-location": "Lua грешка $1: $2.",
 	"scribunto-lua-error": "Lua грешка: $2.",
+	"scribunto-limitreport-timeusage": "Време коришћења Lua",
+	"scribunto-limitreport-timeusage-value": "$1/$2 секунди",
+	"scribunto-limitreport-memusage": "Меморија коришћења Lua",
 	"nstab-module": "Модул",
 	"tooltip-ca-nstab-module": "Погледајте страницу модула"
 }

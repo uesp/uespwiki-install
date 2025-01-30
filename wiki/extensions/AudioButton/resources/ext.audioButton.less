@@ -1,0 +1,15 @@
+a.ext-audiobutton {
+	text-decoration: none;
+
+	&[ data-state='play']::before {
+		content: '\23F5';
+	}
+
+	&[ data-state='pause']::before {
+		content: '\23F8';
+	}
+
+	&[ data-state='error']::before {
+		content: '\1F6C7';
+	}
+}

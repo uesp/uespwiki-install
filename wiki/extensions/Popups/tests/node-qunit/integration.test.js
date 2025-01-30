@@ -1,8 +1,15 @@
-var mock = require( 'mock-require' ),
-	Redux = require( 'redux' ),
-	ReduxThunk = require( 'redux-thunk' ),
-	wait = require( '../../src/wait' ),
-	mw = mediaWiki;
+import * as Redux from 'redux';
+import * as ReduxThunk from 'redux-thunk';
+import * as WaitModule from '../../src/wait';
+import * as stubs from './stubs';
+import * as actions from '../../src/actions';
+import reducers from '../../src/reducers';
+import registerChangeListener from '../../src/changeListener';
+
+var mw = mediaWiki,
+	$ = jQuery,
+	// Store the real wait to be actually used in tests
+	wait = WaitModule.default;
 
 function identity( x ) { return x; }
 function constant( x ) { return function () { return x; }; }
@@ -43,8 +50,7 @@ function constant( x ) { return function () { return x; }; }
 
 QUnit.module( 'ext.popups preview @integration', {
 	beforeEach: function () {
-		var that = this,
-			reducers, actions, registerChangeListener;
+		var that = this;
 
 		// The worst-case implementation of mw.now.
 		mw.now = function () { return Date.now(); };
@@ -55,16 +61,8 @@ QUnit.module( 'ext.popups preview @integration', {
 			that.wait.returns( that.waitPromise );
 		};
 
-		this.wait = this.sandbox.stub();
+		this.wait = this.sandbox.stub( WaitModule, 'default' );
 		this.resetWait();
-
-		mock( '../../src/wait', this.wait );
-
-		// Require modules after the setting require mocks, invalidating the
-		// require cache for modules that depend on the wait function.
-		actions = mock.reRequire( '../../src/actions' );
-		reducers = require( '../../src/reducers' );
-		registerChangeListener = require( '../../src/changeListener' );
 
 		this.store = Redux.createStore(
 			Redux.combineReducers( reducers ),
@@ -80,6 +78,10 @@ QUnit.module( 'ext.popups preview @integration', {
 			return registerChangeListener( that.store, fn );
 		};
 
+		this.title = stubs.createStubTitle( 1, 'Foo' );
+
+		this.el = $( '<a href="/wiki/Foo">' );
+
 		this.actions.boot(
 			/* isEnabled: */
 			constant( true ),
@@ -94,9 +96,9 @@ QUnit.module( 'ext.popups preview @integration', {
 			{ get: identity }
 		);
 
-		this.dwell = function ( el, ev, fetchResponse ) {
+		this.dwell = function ( title, el, ev, fetchResponse ) {
 			that.resetWait();
-			that.actions.linkDwell( el, ev, {
+			that.actions.linkDwell( title, el, ev, {
 				getPageSummary: function () {
 					return $.Deferred().resolve( fetchResponse ).promise();
 				}
@@ -104,8 +106,8 @@ QUnit.module( 'ext.popups preview @integration', {
 			return that.waitPromise;
 		};
 
-		this.dwellAndShowPreview = function ( el, ev, fetchResponse ) {
-			that.dwell( el, ev, fetchResponse );
+		this.dwellAndShowPreview = function ( title, el, ev, fetchResponse ) {
+			that.dwell( title, el, ev, fetchResponse );
 			that.waitDeferred.resolve();
 
 			// Wait for the next tick to resolve pending callbacks. N.B. that the
@@ -130,8 +132,8 @@ QUnit.module( 'ext.popups preview @integration', {
 			return wait( 0 ); // Wait for next tick to resolve pending callbacks
 		};
 
-		this.dwellAndPreviewDwell = function ( el, ev, res ) {
-			return that.dwellAndShowPreview( el, ev, res ).then( function () {
+		this.dwellAndPreviewDwell = function ( title, el, ev, res ) {
+			return that.dwellAndShowPreview( title, el, ev, res ).then( function () {
 
 				// Get out of the link, and before the delay ends...
 				var abandonPromise = that.abandon( el ),
@@ -172,63 +174,63 @@ QUnit.test( 'in INACTIVE state, a link dwell switches it to ACTIVE', function ( 
 		};
 
 	this.actions.linkDwell(
-		'element', 'event',
+		this.title, this.el, 'event',
 		gateway,
 		constant( 'pagetoken' )
 	);
 	state = this.store.getState();
-	assert.equal( state.preview.activeLink, 'element', 'It has an active link' );
+	assert.equal( state.preview.activeLink, this.el, 'It has an active link' );
 	assert.equal( state.preview.shouldShow, false, 'Initializes with NO_DATA' );
 } );
 
 QUnit.test( 'in ACTIVE state, fetch end switches it to DATA', function ( assert ) {
 	var store = this.store,
-		done = assert.async();
-	this.dwellAndShowPreview( 'element', 'event', 42 ).then( function () {
+		el = this.el;
+
+	return this.dwellAndShowPreview( this.title, el, 'event', 42 ).then( function () {
 		var state = store.getState();
-		assert.equal( state.preview.activeLink, 'element' );
+		assert.equal( state.preview.activeLink, el );
 		assert.equal( state.preview.shouldShow, true, 'Should show when data has been fetched' );
-		done();
 	} );
 } );
 
 QUnit.test( 'in ACTIVE state, abandon start, and then end, switch it to INACTIVE', function ( assert ) {
 	var that = this,
-		done = assert.async();
-	this.dwellAndShowPreview( 'element', 'event', 42 ).then( function () {
-		return that.abandonAndWait( 'element' );
+		el = this.el;
+
+	return this.dwellAndShowPreview( this.title, el, 'event', 42 ).then( function () {
+		return that.abandonAndWait( el );
 	} ).then( function () {
 		var state = that.store.getState();
 		assert.equal( state.preview.activeLink, undefined, 'After abandoning, preview is back to INACTIVE' );
-		done();
 	} );
 } );
 
 QUnit.test( 'in ACTIVE state, abandon link, and then dwell preview, should keep it active after all delays', function ( assert ) {
 	var that = this,
-		done = assert.async();
-	this.dwellAndPreviewDwell( 'element', 'event', 42 )
+		el = this.el;
+
+	return this.dwellAndPreviewDwell( this.title, el, 'event', 42 )
 		.then( function () {
 			var state = that.store.getState();
-			assert.equal( state.preview.activeLink, 'element' );
-			done();
+			assert.equal( state.preview.activeLink, el );
 		} );
 } );
 
 QUnit.test( 'in ACTIVE state, abandon link, hover preview, back to link, should keep it active after all delays', function ( assert ) {
 	var that = this,
-		done = assert.async();
+		el = this.el;
 
-	this.dwellAndPreviewDwell( 'element', 'event', 42 )
+	return this.dwellAndPreviewDwell( this.title, el, 'event', 42 )
 		.then( function () {
 			var abandonPreviewDeferred, dwellPromise, dwellDeferred;
 
 			// Start abandoning the preview
-			that.abandonPreview( 'element' );
+			that.abandonPreview( el );
 
 			abandonPreviewDeferred = that.waitDeferred;
 			// Dwell back into the link, new event is triggered
-			dwellPromise = that.dwell( 'element', 'event2', 42 );
+			dwellPromise = that.dwell( that.title, el, 'event2', 42 );
 			dwellDeferred = that.waitDeferred;
 
 			// Preview abandon happens next, before the fetch
@@ -241,7 +243,6 @@ QUnit.test( 'in ACTIVE state, abandon link, hover preview, back to link, should 
 		} )
 		.then( function () {
 			var state = that.store.getState();
-			assert.equal( state.preview.activeLink, 'element' );
-			done();
+			assert.equal( state.preview.activeLink, el );
 		} );
 } );

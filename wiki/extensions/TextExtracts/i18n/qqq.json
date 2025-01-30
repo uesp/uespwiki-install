@@ -6,6 +6,7 @@
 	},
 	"textextracts-desc": "{{desc|name=TextExtracts|url=https://www.mediawiki.org/wiki/Extension:TextExtracts}}",
 	"apihelp-query+extracts-description": "{{doc-apihelp-description|query+extracts}}",
+	"apihelp-query+extracts-summary": "{{doc-apihelp-summary|query+extracts}}",
 	"apihelp-query+extracts-param-chars": "{{doc-apihelp-param|query+extracts|chars}}",
 	"apihelp-query+extracts-param-sentences": "{{doc-apihelp-param|query+extracts|sentences}}",
 	"apihelp-query+extracts-param-limit": "{{doc-apihelp-param|query+extracts|limit}}",
@@ -14,5 +15,6 @@
 	"apihelp-query+extracts-param-sectionformat": "{{doc-apihelp-param|query+extracts|sectionformat}}",
 	"apihelp-query+extracts-example-1": "{{doc-apihelp-example|query+extracts}}",
 	"apiwarn-textextracts-limit": "{{doc-apierror}}\n\nParameters:\n* $1 - Limit that will be used",
-	"apiwarn-textextracts-unsupportedmodel": "{{doc-apierror}}\n\nParameters:\n* $1 - Page title\n* $2 - Content model"
+	"apiwarn-textextracts-unsupportedmodel": "{{doc-apierror}}\n\nParameters:\n* $1 - Page title\n* $2 - Content model",
+	"apiwarn-textextracts-title-in-file-namespace": "{{doc-apierror}}\n\nWarning message displayed when an extract for a title in File namespace is requested."
 }

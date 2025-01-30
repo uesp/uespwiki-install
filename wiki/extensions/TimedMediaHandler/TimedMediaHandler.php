@@ -24,7 +24,7 @@ $wgTmhUseBetaFeatures = false;
 // Configure the webplayer. Allowed values: mwembed, videojs
 $wgTmhWebPlayer = 'mwembed';
 
-/*** MwEmbed module configuration: *********************************/
+/* MwEmbed module configuration: */
 
 // Show a warning to the user if they are not using an html5 browser with high quality ogg support
 $wgMwEmbedModuleConfig['EmbedPlayer.DirectFileLinkWarning'] = true;
@@ -41,7 +41,7 @@ $wgMwEmbedModuleConfig['TimedText.ShowInterface'] = 'always';
 // Show the add text link:
 $wgMwEmbedModuleConfig['TimedText.ShowAddTextLink'] = true;
 
-/*** Timed Media Handler configuration ****************************/
+/* Timed Media Handler configuration */
 
 // Which users can restart failed or expired transcode jobs:
 $wgGroupPermissions['sysop']['transcode-reset'] = true;
@@ -135,7 +135,8 @@ $wgEnabledTranscodeSet = [
 
 	// WebM VP8/Vorbis
 	// primary free/open video format
-	// supported by Chrome/Firefox/Opera but not Safari/IE/Edge
+	// supported by Chrome/Firefox/Opera natively
+	// plays back in Safari/IE/Edge via ogv.js
 
 	// Very low-bitrate web streamable WebM video
 	WebVideoTranscode::ENC_WEBM_160P,
@@ -158,8 +159,10 @@ $wgEnabledTranscodeSet = [
 	// A 4K full high quality WebM stream
 	// WebVideoTranscode::ENC_WEBM_2160P,
 
+/*
 	// Ogg Theora/Vorbis
-	// Fallback for Safari/IE/Edge with ogv.js
+	// Optional fallback for Safari/IE/Edge with ogv.js
+	// Faster to encode & play back than WebM but less efficient.
 
 	// Requires twice the bitrate for same quality as VP8,
 	// and JS decoder can be slow, so shift to smaller sizes.
@@ -183,6 +186,7 @@ $wgEnabledTranscodeSet = [
 	// Variable-bitrate HD Ogg stream
 	// for ogv.js on reasonably speedy machines
 	WebVideoTranscode::ENC_OGV_1080P,
+*/
 
 /*
 	// MP4 H.264/AAC
@@ -227,6 +231,9 @@ $wgEnabledAudioTranscodeSet = [
 	// WebVideoTranscode::ENC_AAC,
 ];
 
+// If mp3 source assets can be ingested:
+$wgTmhEnableMp3Uploads = false;
+
 // If mp4 source assets can be ingested:
 $wgTmhEnableMp4Uploads = false;
 
@@ -235,12 +242,12 @@ $wgTmhEnableMp4Uploads = false;
 // See tracking bug: https://phabricator.wikimedia.org/T115883
 $wgTmhTheoraTwoPassEncoding = false;
 
-/******************* CONFIGURATION ENDS HERE **********************/
+/* CONFIGURATION ENDS HERE */
 
 // List of extensions handled by Timed Media Handler since its referenced in a few places.
 // you should not modify this variable
 
-$wgTmhFileExtensions = [ 'ogg', 'ogv', 'oga', 'flac', 'opus', 'wav', 'webm', 'mp4' ];
+$wgTmhFileExtensions = [ 'ogg', 'ogv', 'oga', 'flac', 'opus', 'wav', 'webm', 'mp4', 'mp3' ];
 
 $wgFileExtensions = array_merge( $wgFileExtensions, $wgTmhFileExtensions );
 
@@ -265,7 +272,9 @@ $wgAutoloadClasses['TranscodeStatusTable'] = "$timedMediaDir/TranscodeStatusTabl
 // Testing:
 $wgAutoloadClasses['ApiTestCaseVideoUpload'] =
 	"$timedMediaDir/tests/phpunit/ApiTestCaseVideoUpload.php";
+$wgAutoloadClasses['MockOggHandler'] = "$timedMediaDir/tests/phpunit/mocks/MockOggHandler.php";
 $wgParserTestFiles[] = "$timedMediaDir/tests/parserTests.txt";
+$wgParserTestMediaHandlers['application/ogg'] = MockOggHandler::class;
 
 // Ogg Handler
 $wgAutoloadClasses['OggHandlerTMH'] = "$timedMediaDir/handlers/OggHandler/OggHandler.php";
@@ -296,6 +305,8 @@ $wgAutoloadClasses['WebMHandler'] = "$timedMediaDir/handlers/WebMHandler/WebMHan
 $wgAutoloadClasses['FLACHandler'] = "$timedMediaDir/handlers/FLACHandler/FLACHandler.php";
 // WAV Handler
 $wgAutoloadClasses['WAVHandler'] = "$timedMediaDir/handlers/WAVHandler/WAVHandler.php";
+// Mp3 Handler
+$wgAutoloadClasses['Mp3Handler'] = "$timedMediaDir/handlers/Mp3Handler/Mp3Handler.php";
 
 // Text handler
 $wgAutoloadClasses['TextHandler'] = "$timedMediaDir/handlers/TextHandler/TextHandler.php";

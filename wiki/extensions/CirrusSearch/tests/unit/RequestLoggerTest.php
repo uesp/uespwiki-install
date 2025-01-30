@@ -60,9 +60,9 @@ class RequestLoggerTest extends CirrusTestCase {
 
 	private function runFixture( array $query, $responses, $expectedLogs, \Closure $test ) {
 		if ( is_string( $responses ) ) {
-			list ( $loggers, $config, $connection, $transport ) = $this->buildDependencies( null );
+			list( $loggers, $config, $connection, $transport ) = $this->buildDependencies( null );
 		} else {
-			list ( $loggers, $config, $connection, $transport ) = $this->buildDependencies( $responses );
+			list( $loggers, $config, $connection, $transport ) = $this->buildDependencies( $responses );
 		}
 
 		// Disable opportunistic execution of deferred updates
@@ -106,13 +106,12 @@ class RequestLoggerTest extends CirrusTestCase {
 	 * @dataProvider requestLoggingProvider
 	 */
 	public function testRequestLogging( array $query, $responses = null, $expectedLogs ) {
-		switch( $query['type'] ) {
+		switch ( $query['type'] ) {
 		case 'fulltext':
-			$work =  function ( $config, $connection ) use ( $query ) {
+			$work = function ( $config, $connection ) use ( $query ) {
 				$offset = isset( $query['offset'] ) ? $query['offset'] : 0;
 				$limit = isset( $query['limit'] ) ? $query['limit'] : 20;
 				$namespaces = isset( $query['namespaces'] ) ? $query['namespaces'] : null;
-
 
 				$globals = [
 					'wgCirrusSearchFullTextQueryBuilderProfile' => 'default',
@@ -120,6 +119,7 @@ class RequestLoggerTest extends CirrusTestCase {
 				];
 				if ( isset( $query['interwiki'] ) ) {
 					$globals['wgCirrusSearchInterwikiSources'] = $query['interwiki'];
+					$globals['wgCirrusSearchEnableCrossProjectSearch'] = true;
 				}
 				$this->setMwGlobals( $globals );
 
@@ -143,7 +143,7 @@ class RequestLoggerTest extends CirrusTestCase {
 							// json doesn't round trip a float with no decimal correctly,
 							// so force maxscore into a float
 							$expectedLogs[$logIdx]['context']['requests'][$reqIdx]['maxScore']
-								= (float) $request['maxScore'];
+								= (float)$request['maxScore'];
 							// elastic took ms doesn't get reported by completion api, force
 							// to 0 since our cached request wont take any real-time.
 							$expectedLogs[$logIdx]['context']['requests'][$reqIdx]['elasticTookMs'] = 0;
@@ -151,7 +151,7 @@ class RequestLoggerTest extends CirrusTestCase {
 					} elseif ( $log['channel'] === 'CirrusSearchRequests' ) {
 						if ( isset( $log['context']['maxScore'] ) ) {
 							// Again, json reound trips 0.0 into 0, so we need to get it back to being a float.
-							$expectedLogs[$logIdx]['context']['maxScore'] = (float) $log['context']['maxScore'];
+							$expectedLogs[$logIdx]['context']['maxScore'] = (float)$log['context']['maxScore'];
 						}
 					}
 				}
@@ -240,7 +240,7 @@ class RequestLoggerTest extends CirrusTestCase {
 				->will( new \PHPUnit_Framework_MockObject_Stub_ConsecutiveCalls(
 					array_map( function ( $response ) {
 						return new Response( $response, 200 );
-					}	, $responses )
+					}, $responses )
 				) );
 		}
 
@@ -250,7 +250,7 @@ class RequestLoggerTest extends CirrusTestCase {
 					[ 'transport' => $transport ],
 				]
 			],
-		]);
+		] );
 		$connection = new Connection( $config, 'default' );
 
 		return [ $loggers, $config, $connection, $transport ];
@@ -367,7 +367,7 @@ class RequestLoggerTest extends CirrusTestCase {
 class ArrayLogger extends AbstractLogger {
 	private $logs = [];
 
-	public function log( $level, $message, array $context = array() ) {
+	public function log( $level, $message, array $context = [] ) {
 		$this->logs[] = [
 			'level' => $level,
 			'message' => $message,

@@ -45,10 +45,14 @@ class UserTestingTest extends CirrusTestCase {
 			->getMock();
 		$mockReq->expects( $this->any() )
 			->method( 'getIP' )
-			->will( $this->returnCallback( function () { return mt_rand(); } ) );
+			->will( $this->returnCallback( function () {
+				return mt_rand();
+			} ) );
 		$mockReq->expects( $this->any() )
 			->method( 'getHeader' )
-			->will( $this->returnCallback( function () { return mt_rand(); } ) );
+			->will( $this->returnCallback( function () {
+				return mt_rand();
+			} ) );
 
 		\RequestContext::getMain()->setRequest( $mockReq );
 
@@ -56,7 +60,7 @@ class UserTestingTest extends CirrusTestCase {
 		$samples = 3000;
 		$expected = $samples / $config['test']['sampleRate'];
 		$expectedPerBucket = $expected / count( $config['test']['buckets'] );
-		$allowedError = .25;
+		$allowedError = 0.25;
 		$buckets = [];
 		for ( $i = 0; $i < $samples; ++$i ) {
 			$ut = new UserTesting( $config );
@@ -81,7 +85,7 @@ class UserTestingTest extends CirrusTestCase {
 
 	public function testListsTestsCurrentlyParticipatingIn() {
 		$config = $this->config( [ 'test', 'foo', 'bar' ] );
-		$ut = $this->ut( $config, true);
+		$ut = $this->ut( $config, true );
 		$this->assertEquals( [ 'test', 'foo', 'bar' ], $ut->getActiveTestNames() );
 		$ut = $this->ut( $config, [ false, true, true ] );
 		$this->assertEquals( [ 'foo', 'bar' ], $ut->getActiveTestNames() );
@@ -94,11 +98,11 @@ class UserTestingTest extends CirrusTestCase {
 		] );
 
 		$this->setMwGlobals( 'wgCirrusSearchBoostLinks', false );
-		$ut = $this->ut( $config, true );
+		$this->ut( $config, true );
 		$this->assertEquals( true, $GLOBALS['wgCirrusSearchBoostLinks'] );
 		$this->assertArrayNotHasKey( 'dontsetthisvariable', $GLOBALS );
 		$this->setMwGlobals( 'wgCirrusSearchBoostLinks', false );
-		$ut = $this->ut( $config, false );
+		$this->ut( $config, false );
 		$this->assertEquals( false, $GLOBALS['wgCirrusSearchBoostLinks'] );
 	}
 
@@ -109,10 +113,18 @@ class UserTestingTest extends CirrusTestCase {
 			] ),
 			'wgCirrusSearchBoostLinks' => false,
 		] );
-		$ut = UserTesting::getInstance( function () { return true; } );
+		UserTesting::getInstance(
+			function () {
+				return true;
+			}
+		);
 		$this->assertEquals( true, $GLOBALS['wgCirrusSearchBoostLinks'] );
 		$GLOBALS['wgCirrusSearchBoostLinks'] = false;
-		$ut = UserTesting::getInstance( function () { return true; } );
+		UserTesting::getInstance(
+			function () {
+				return true;
+			}
+		);
 		$this->assertEquals( false, $GLOBALS['wgCirrusSearchBoostLinks'] );
 	}
 
@@ -124,7 +136,7 @@ class UserTestingTest extends CirrusTestCase {
 		$config['test']['buckets']['a']['globals']['wgCirrusSearchBoostLinks'] = 'bucket';
 		$config['test']['buckets']['b']['globals']['wgCirrusSearchBoostLinks'] = 'bucket';
 
-		$ut = $this->ut( $config, true );
+		$this->ut( $config, true );
 		$this->assertEquals( 'bucket', $GLOBALS['wgCirrusSearchBoostLinks'] );
 	}
 
@@ -157,7 +169,7 @@ class UserTestingTest extends CirrusTestCase {
 						'trigger' => 'hi there',
 					],
 					'b' => [
-						'trigger' =>  'or this one',
+						'trigger' => 'or this one',
 					],
 				],
 			],

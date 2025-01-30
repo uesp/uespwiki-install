@@ -22,7 +22,8 @@
 		var stubs = {
 			ucdc: sandbox.stub(),
 			getSerialized: sandbox.stub(),
-			SetSerialized: sandbox.stub()
+			setSerialized: sandbox.stub(),
+			attach: sandbox.stub()
 		};
 
 		return {
@@ -35,7 +36,8 @@
 			details: {
 				useCustomDeedChooser: stubs.ucdc,
 				getSerialized: stubs.getSerialized,
-				SetSerialized: stubs.setSerialized
+				setSerialized: stubs.setSerialized,
+				attach: stubs.attach
 			},
 
 			state: aborted ? 'aborted' : 'stashed',
@@ -44,7 +46,7 @@
 		};
 	}
 
-	QUnit.test( 'Constructor sanity test', 3, function ( assert ) {
+	QUnit.test( 'Constructor sanity test', function ( assert ) {
 		var step = new uw.controller.Details( new mw.Api(), {
 			maxSimultaneousConnections: 1
 		} );
@@ -53,7 +55,7 @@
 		assert.ok( step.ui );
 	} );
 
-	QUnit.test( 'load', 12, function ( assert ) {
+	QUnit.test( 'load', function ( assert ) {
 		var step = new uw.controller.Details( new mw.Api(), {
 				maxSimultaneousConnections: 1
 			} ),
@@ -92,7 +94,7 @@
 		assert.ok( stepUiStub.called );
 	} );
 
-	QUnit.test( 'canTransition', 3, function ( assert ) {
+	QUnit.test( 'canTransition', function ( assert ) {
 		var upload = {},
 			step = new uw.controller.Details( new mw.Api(), {
 				maxSimultaneousConnections: 1
@@ -105,8 +107,9 @@
 		assert.strictEqual( step.canTransition( upload ), false );
 	} );
 
-	QUnit.asyncTest( 'transitionAll', 4, function ( assert ) {
+	QUnit.test( 'transitionAll', function ( assert ) {
 		var tostub,
+			done = assert.async(),
 			donestub = this.sandbox.stub(),
 			ds = [ $.Deferred(), $.Deferred(), $.Deferred() ],
 			ps = [ ds[ 0 ].promise(), ds[ 1 ].promise(), ds[ 2 ].promise() ],
@@ -147,7 +150,7 @@
 				setTimeout( function () {
 					assert.ok( donestub.called );
 
-					QUnit.start();
+					done();
 				} );
 			} );
 		} );

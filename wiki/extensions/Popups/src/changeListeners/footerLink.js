@@ -1,3 +1,7 @@
+/**
+ * @module changeListeners/footerLink
+ */
+
 var mw = window.mediaWiki,
 	$ = jQuery;
 
@@ -52,7 +56,7 @@ function createFooterLink() {
  * @param {Object} boundActions
  * @return {ext.popups.ChangeListener}
  */
-module.exports = function ( boundActions ) {
+export default function footerLink( boundActions ) {
 	var $footerLink;
 
 	return function ( prevState, state ) {
@@ -70,4 +74,4 @@ module.exports = function ( boundActions ) {
 			$footerLink.hide();
 		}
 	};
-};
+}

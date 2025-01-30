@@ -87,7 +87,11 @@ function uespMobileInit (&$title, &$article, &$output, &$user, $request, $mediaW
 			$shouldRedirectToDesktop = false;
 			$shouldRedirectToMobile = false;
 			
-			setupUespMobileHooks();
+			if (class_exists('SiteCustomCodeHooks')) {
+				SiteCustomCodeHooks::setupUespMobileHooks();
+			} else {
+				setupUespMobileHooks();
+			}
 		}
 		else 
 		{
@@ -99,7 +103,11 @@ function uespMobileInit (&$title, &$article, &$output, &$user, $request, $mediaW
 	{
 		if ($domainIsMobile)
 		{
-			setupUespMobileHooks();
+			if (class_exists('SiteCustomCodeHooks')) {
+				SiteCustomCodeHooks::setupUespMobileHooks();
+			} else {
+				setupUespMobileHooks();
+			}
 		}
 	}
 	

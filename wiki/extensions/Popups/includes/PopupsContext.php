@@ -20,10 +20,11 @@
  */
 namespace Popups;
 
-use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use ExtensionRegistry;
 use Config;
+use Popups\EventLogging\EventLogger;
+use Title;
 
 /**
  * Popups Module
@@ -68,7 +69,6 @@ class PopupsContext {
 	 * @var string
 	 */
 	const PREVIEWS_BETA_PREFERENCE_NAME = 'popups';
-
 	/**
 	 * @var \Config
 	 */
@@ -80,39 +80,23 @@ class PopupsContext {
 	protected static $instance;
 	/**
 	 * Module constructor.
-	 * @param Config $config
-	 * @param ExtensionRegistry $extensionRegistry
-	 * @param PopupsGadgetsIntegration $gadgetsIntegration
+	 * @param Config $config Mediawiki configuration
+	 * @param ExtensionRegistry $extensionRegistry MediaWiki extension registry
+	 * @param PopupsGadgetsIntegration $gadgetsIntegration Gadgets integration helper
+	 * @param EventLogger $eventLogger A logger capable of logging EventLogging
+	 *  events
 	 */
-	protected function __construct( Config $config, ExtensionRegistry $extensionRegistry,
-		PopupsGadgetsIntegration $gadgetsIntegration ) {
-		/** @todo Use MediaWikiServices Service Locator when it's ready */
+	public function __construct( Config $config, ExtensionRegistry $extensionRegistry,
+		PopupsGadgetsIntegration $gadgetsIntegration, EventLogger $eventLogger ) {
 		$this->extensionRegistry = $extensionRegistry;
 		$this->gadgetsIntegration = $gadgetsIntegration;
+		$this->eventLogger = $eventLogger;
 
 		$this->config = $config;
 	}
 
 	/**
-	 * Get a PopupsContext instance
-	 *
-	 * @return PopupsContext
-	 */
-	public static function getInstance() {
-		if ( !self::$instance ) {
-			/** @todo Use MediaWikiServices Service Locator when it's ready */
-
-			$registry = ExtensionRegistry::getInstance();
-			$config = MediaWikiServices::getInstance()->getConfigFactory()
-				->makeConfig( PopupsContext::EXTENSION_NAME );
-			$gadgetsIntegration = new PopupsGadgetsIntegration( $config, $registry );
-			self::$instance = new PopupsContext( $config, $registry, $gadgetsIntegration );
-		}
-		return self::$instance;
-	}
-
-	/**
-	 * @param \User $user
+	 * @param \User $user User whose gadgets settings are being checked
 	 * @return bool
 	 */
 	public function conflictsWithNavPopupsGadget( \User $user ) {
@@ -140,7 +124,7 @@ class PopupsContext {
 	/**
 	 * Are Page previews visible on User Preferences Page
 	 *
-	 * return @bool
+	 * @return bool
 	 */
 	public function showPreviewsOptInOnPreferencesPage() {
 		return !$this->isBetaFeatureEnabled()
@@ -148,7 +132,7 @@ class PopupsContext {
 	}
 
 	/**
-	 * @param \User $user
+	 * @param \User $user User whose preferences are checked
 	 * @return bool
 	 */
 	public function shouldSendModuleToUser( \User $user ) {
@@ -173,22 +157,73 @@ class PopupsContext {
 
 		return $areMet;
 	}
+
+	/**
+	 * Whether popups code should be shipped to $title
+	 *
+	 * For example, if 'Special:UserLogin' is blacklisted, and the user is on 'Special:UserLogin',
+	 * then the title is considered blacklisted.
+	 *
+	 * A title is also considered blacklisted if its root matches one of the page names
+	 * from the config variable. For example, if 'User:A' is blacklisted, and the
+	 * title is 'User:A/b', then this title is considered blacklisted.
+	 *
+	 * Language specific blacklisted titles affect all languages. For example, if "Main_Page" is
+	 * blacklisted, "Bosh_Sahifa" (which is "Main_Page" in Uzbek) is considered blacklisted
+	 * too.
+	 *
+	 * @param Title $title title being tested
+	 * @return bool
+	 */
+	public function isTitleBlacklisted( $title ) {
+		$blacklistedPages = $this->config->get( 'PopupsPageBlacklist' );
+		$canonicalTitle = $title->getRootTitle();
+
+		if ( $title->isSpecialPage() ) {
+			// it's special page, translate it to canonical name
+			list( $name, $subpage ) = \SpecialPageFactory::resolveAlias( $canonicalTitle->getText() );
+
+			if ( $name !== null ) {
+				$canonicalTitle = Title::newFromText( $name, NS_SPECIAL );
+			}
+		}
+
+		foreach ( $blacklistedPages as $page ) {
+			$blacklistedTitle = Title::newFromText( $page );
+
+			if ( $canonicalTitle->equals( $blacklistedTitle ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
 	/**
 	 * Get module logger
 	 *
 	 * @return \Psr\Log\LoggerInterface
 	 */
 	public function getLogger() {
-		return LoggerFactory::getInstance( self::LOGGER_CHANNEL );
+		return MediaWikiServices::getInstance()->getService( 'Popups.Logger' );
 	}
 
 	/**
-	 * Get Module config
-	 *
-	 * @return \Config
+	 * Log disabled event
 	 */
-	public function getConfig() {
-		return $this->config;
+	public function logUserDisabledPagePreviewsEvent() {
+		// @see https://phabricator.wikimedia.org/T167365
+		$this->eventLogger->log( [
+			'pageTitleSource' => 'Special:Preferences',
+			'namespaceIdSource' => NS_SPECIAL,
+			'pageIdSource' => -1,
+			'hovercardsSuppressedByGadget' => false,
+			'pageToken' => wfRandomString(),
+			// we don't have access to mw.user.sessionId()
+			'sessionToken' => wfRandomString(),
+			'action' => 'disabled',
+			'isAnon' => false,
+			'popupEnabled' => false,
+			'previewCountBucket' => 'unknown'
+		] );
 	}
 
 }

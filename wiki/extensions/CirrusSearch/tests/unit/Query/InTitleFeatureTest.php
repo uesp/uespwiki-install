@@ -12,7 +12,7 @@ class InTitleFeatureTest extends BaseSimpleKeywordFeatureTest {
 
 	public function parseProvider() {
 		$defaults = [
-			'fields' => [ 'title' ],
+			'fields' => [ 'title', 'redirect.title' ],
 			'default_operator' => 'AND',
 			'allow_leading_wildcard' => true,
 			'fuzzy_prefix_length' => 2,
@@ -51,6 +51,15 @@ class InTitleFeatureTest extends BaseSimpleKeywordFeatureTest {
 				false,
 				'intitle:"something or other"',
 			],
+			'contains a star' => [
+				[ 'query_string' => [
+					'query' => 'zomg*',
+					'fields' => [ 'title.plain', 'redirect.title.plain' ],
+				] + $defaults ],
+				'zomg* ',
+				false,
+				'intitle:zomg*'
+			],
 		];
 	}
 
@@ -65,7 +74,7 @@ class InTitleFeatureTest extends BaseSimpleKeywordFeatureTest {
 
 		// This test is kinda-sorta testing the escaper too ... maybe not optimal but simple
 		$context->expects( $this->once() )
-			->method( 'escaper')
+			->method( 'escaper' )
 			->will( $this->returnValue( new Escaper( 'en' ) ) );
 
 		$feature = new InTitleFeature();
@@ -81,7 +90,7 @@ class InTitleFeatureTest extends BaseSimpleKeywordFeatureTest {
 			->getMock();
 
 		$context->expects( $this->once() )
-			->method( 'escaper')
+			->method( 'escaper' )
 			->will( $this->returnValue( new Escaper( 'en' ) ) );
 
 		$feature = new InTitleFeature();

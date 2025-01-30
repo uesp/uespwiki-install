@@ -178,21 +178,21 @@ class RequestLogger {
 		foreach ( $this->logs as $idx => $log ) {
 			foreach ( $log->getRequests() as $context ) {
 				$request = [
-					'query' => isset( $context['query'] ) ? (string) $context['query'] : '',
-					'queryType' => isset( $context['queryType'] ) ? (string) $context['queryType'] : '',
+					'query' => isset( $context['query'] ) ? (string)$context['query'] : '',
+					'queryType' => isset( $context['queryType'] ) ? (string)$context['queryType'] : '',
 					// populated below
 					'indices' => isset( $context['index'] ) ? explode( ',', $context['index'] ) : [],
-					'tookMs' => isset( $context['tookMs'] ) ? (int) $context['tookMs'] : -1,
-					'elasticTookMs' => isset( $context['elasticTookMs'] ) ? (int) $context['elasticTookMs'] : -1,
-					'limit' => isset( $context['limit'] ) ? (int) $context['limit'] : -1,
-					'hitsTotal' => isset( $context['hitsTotal'] ) ? (int) $context['hitsTotal'] : -1,
-					'hitsReturned' => isset( $context['hitsReturned'] ) ? (int) $context['hitsReturned'] : -1,
-					'hitsOffset' => isset( $context['hitsOffset'] ) ? (int) $context['hitsOffset'] : -1,
+					'tookMs' => isset( $context['tookMs'] ) ? (int)$context['tookMs'] : -1,
+					'elasticTookMs' => isset( $context['elasticTookMs'] ) ? (int)$context['elasticTookMs'] : -1,
+					'limit' => isset( $context['limit'] ) ? (int)$context['limit'] : -1,
+					'hitsTotal' => isset( $context['hitsTotal'] ) ? (int)$context['hitsTotal'] : -1,
+					'hitsReturned' => isset( $context['hitsReturned'] ) ? (int)$context['hitsReturned'] : -1,
+					'hitsOffset' => isset( $context['hitsOffset'] ) ? (int)$context['hitsOffset'] : -1,
 					// populated below
 					'namespaces' => isset( $context['namespaces'] ) ? array_map( 'intval', $context['namespaces'] ) : [],
-					'suggestion' => isset( $context['suggestion'] ) ? (string) $context['suggestion'] : '',
+					'suggestion' => isset( $context['suggestion'] ) ? (string)$context['suggestion'] : '',
 					'suggestionRequested' => isset( $context['suggestion'] ),
-					'maxScore' => isset( $context['maxScore'] ) ? (float) $context['maxScore'] : -1.0,
+					'maxScore' => isset( $context['maxScore'] ) ? (float)$context['maxScore'] : -1.0,
 					'payload' => isset( $context['payload'] ) ? array_map( 'strval', $context['payload'] ) : [],
 					'hits' => isset( $context['hits'] ) ? $this->encodeHits( $context['hits'] ) : [],
 				];
@@ -249,13 +249,13 @@ class RequestLogger {
 			'source' => Util::getExecutionContext(),
 			'identity' => Util::generateIdentToken(),
 			'ip' => $wgRequest->getIP() ?: '',
-			'userAgent' => $wgRequest->getHeader( 'User-Agent') ?: '',
+			'userAgent' => $wgRequest->getHeader( 'User-Agent' ) ?: '',
 			'backendUserTests' => UserTesting::getInstance()->getActiveTestNamesWithBucket(),
 			'tookMs' => $this->getPhpRequestTookMs(),
 			'hits' => $resultHits,
 			'payload' => [
 				// useful while we are testing accept-lang based interwiki
-				'acceptLang' => (string) ($wgRequest->getHeader( 'Accept-Language' ) ?: ''),
+				'acceptLang' => (string)( $wgRequest->getHeader( 'Accept-Language' ) ?: '' ),
 				// Helps to track down what actually caused the request. Will promote to full
 				// param if it proves useful
 				'queryString' => http_build_query( $_GET ),
@@ -290,7 +290,7 @@ class RequestLogger {
 		$matches->rewind();
 		$result = $matches->next();
 		while ( $result ) {
-			$strings[] = (string) $result->getTitle();
+			$strings[] = (string)$result->getTitle();
 			$result = $matches->next();
 		}
 		// not everything rewinds before working through the matches, so
@@ -314,7 +314,7 @@ class RequestLogger {
 				$message .= " (with 2nd pass: {elasticTook2PassMs} ms)";
 			}
 		}
-		if ( isset( $context['hitsTotal'] ) ){
+		if ( isset( $context['hitsTotal'] ) ) {
 			$message .= ". Found {hitsTotal} total results";
 			$message .= " and returned {hitsReturned} of them starting at {hitsOffset}";
 		}
@@ -370,7 +370,7 @@ class RequestLogger {
 			// should always work, but Timing can return null so
 			// fallbacks are provided.
 			$tookS = $endMark['startTime'] - $startMark['startTime'];
-		} elseif( isset( $_SERVER['REQUEST_TIME_FLOAT'] ) ) {
+		} elseif ( isset( $_SERVER['REQUEST_TIME_FLOAT'] ) ) {
 			// php >= 5.4
 			$tookS = microtime( true ) - $_SERVER['REQUEST_TIME_FLOAT'];
 		} else {

@@ -1,10 +1,83 @@
 {
-	"name": "SiteCustomCode",
-	"version": "0.9.7",
-	"author": "Nephele",
-	"url": "//www.uesp.net/wiki/UESPWiki:UespCustomCode",
-	"description": "Various code customizations that provide functionality specific to this site",
+	"manifest_version": 2,
+	"name": "UespCustomCode",
 	"type": "other",
+	"author": "Daveh, Nephele, RobinHood70",
+	"version": "1.0",
+	"url": "//www.uesp.net/wiki/UESPWiki:UespCustomCode",
+	"descriptionmsg": "sitecustomcode-desc",
+	"ResourceFileModulePaths": {
+		"localBasePath": ""
+	},
+	"ResourceModules": {
+		"ext.UespCustomCode.ad": {
+			"position": "top",
+			"scripts": [
+				"modules/uespCurse.js"
+			],
+			"styles": [
+				"modules/uespCurse.css"
+			],
+			"remoteBasePath": "/uesp/extensions/UespCustomCode/",
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.UespCustomCode.app.styles": {
+			"position": "top",
+			"styles": [
+				"modules/uespApp.css"
+			],
+			"remoteBasePath": "/uesp/extensions/UespCustomCode/",
+			"targets": [
+				"mobile"
+			]
+		},
+		"ext.UespCustomCode.app.scripts": {
+			"position": "top",
+			"scripts": [
+				"modules/uespApp.js"
+			],
+			"remoteBasePath": "/uesp/extensions/UespCustomCode/",
+			"targets": [
+				"mobile"
+			]
+		},
+		"ext.UespCustomCode.analytics": {
+			"position": "top",
+			"scripts": [
+				"modules/uespGoogleAnalytics.js"
+			],
+			"remoteBasePath": "/uesp/extensions/UespCustomCode/",
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		}
+	},
+	"AvailableRights": [
+		"allspacepatrol"
+	],
+	"ExtensionFunctions": [
+		"SiteCustomCodeHooks::efSiteCustomCode"
+	],
+	"DefaultUserOptions": {
+		"hideuserspace": 0,
+		"rcNsTalk": 1,
+		"sitesearchredirects": 1,
+		"sitesearchtalk": 1,
+		"sitesearchtitles": 1,
+		"usecustomns": 0,
+		"userspaceanonedit": 0,
+		"userspacelogs": 0,
+		"userspaceownedit": 1,
+		"userspaceownpage": 1,
+		"userspacetalk": 0,
+		"userspaceunpatrolled": 0,
+		"userspacewarning": 0,
+		"userspacewatchlist": 1
+	},
 	"GroupPermissions": {
 		"userpatroller": {
 			"patrol": true,
@@ -26,135 +99,74 @@
 			"block": true
 		}
 	},
-	"AvailableRights": [
-		"allspacepatrol"
-	],
-	"ExtensionFunctions": [
-		"efSiteCustomCode"
-	],
+	"MediaHandlers": {
+		"image/webp": "UespWebpHandler"
+	},
 	"ExtensionMessagesFiles": {
-		"sitecustomcode": "SiteCustomCode.i18n.php",
-		"sitecustomcodeAlias": "SiteCustomCode.alias.php",
-		"sitecustomcodeMagic": "SiteCustomCode.i18n.magic.php"
+		"sitecustomcode": "i18n/SiteCustomCode.i18n.php",
+		"sitecustomcodeAlias": "i18n/SiteCustomCode.alias.php"
 	},
-	"AutoloadClasses": {
-		"SiteNamespace": "SiteNamespace.php",
-		"SiteMonobook": "SiteMonobook.php",
-		"SiteMiscFunctions": "SiteCustomCode_body.php",
-		"SiteBreadCrumbTrail": "SiteCustomCode_body.php",
-		"SiteSpecialRecentChanges": "SiteSpecialRecentchanges.php",
-		"SiteOldChangesList": "SiteChangesList.php",
-		"SiteEnhancedChangesList": "SiteChangesList.php",
-		"SiteSpecialRandompage": "SiteSpecialRandompage.php"
-	},
-	"ResourceModules": {
-		"ext.UespCustomCode.ad.scripts": {
-			"position": "top",
-			"scripts": [
-				"modules/uespCurse.js"
-			],
-			"remoteBasePath": "/extensions/UespCustomCode/",
-			"targets": [
-				"desktop",
-				"mobile"
-			]
-		},
-		"ext.UespCustomCode.app.styles": {
-			"position": "top",
-			"styles": [
-				"modules/uespApp.css"
-			],
-			"remoteBasePath": "/extensions/UespCustomCode/",
-			"targets": [
-				"mobile"
-			]
-		},
-		"ext.UespCustomCode.app.scripts": {
-			"position": "top",
-			"scripts": [
-				"modules/uespApp.js"
-			],
-			"remoteBasePath": "/extensions/UespCustomCode/",
-			"targets": [
-				"mobile"
-			]
-		},
-		"ext.UespCustomCode.mobile.styles": {
-			"position": "top",
-			"styles": [
-				"modules/uespMobile.css"
-			],
-			"remoteBasePath": "/extensions/UespCustomCode/",
-			"targets": [
-				"mobile"
-			]
-		}
-	},
-	"ResourceFileModulePaths": {
-		"localBasePath": ""
-	},
-	"Hooks": {
-		"SpecialPage_initList": [
-			"efSiteSpecialPageInit"
-		],
-		"BeforePageDisplay": [
-			"UESP_beforePageDisplay"
-		],
-		"TitleSquidURLs": [
-			"onUespTitleSquidURLs"
-		],
-		"MagicWordwgVariableIDs": [
-			"SiteMiscFunctions::declareMagicWords"
-		],
-		"ParserGetVariableValueSwitch": [
-			"SiteMiscFunctions::assignMagicWords"
-		],
-		"IsFileCacheable": [
-			"SiteMiscFunctions::isFileCacheable"
-		],
-		"OutputPageParserOutput": [
-			"SiteBreadCrumbTrail::getCachedTrail",
-			"SiteMiscFunctions::addCanonicalToHeader"
-		],
-		"SkinSubPageSubtitle": [
-			"SiteBreadCrumbTrail::subpageHook"
-		],
-		"UserToggles": [
-			"SiteMiscFunctions::addUserToggles"
-		],
-		"ParserDuringPreSaveTransform": [
-			"SiteMiscFunctions::preSaveTransform"
-		],
-		"GetDefaultSortkey": [
-			"SiteMiscFunctions::onGetDefaultSortkey"
-		],
-		"SanitizerAddHtml": [
-			"SiteMiscFunctions::sanitizerAddHtml"
-		],
-		"SanitizerAddWhitelist": [
-			"SiteMiscFunctions::sanitizerAddWhitelist"
-		],
-		"ParserBeforeMakeImage": [
-			"SiteMiscFunctions::addImageClear"
-		],
-		"MonoBookPageBottom": [
-			"SiteMonobook::GoogleAdBottom"
-		],
-		"MonoBookSearchButtonsSidebar": [
-			"SiteMonobook::SearchButtonsSidebar"
-		],
-		"MarkPatrolled": [
-			"SiteMiscFunctions::markPatrolled"
-		],
-		"FetchChangesList": [
-			"SiteMiscFunctions::fetchChangesList"
-		],
-		"userCan": [
-			"SiteMiscFunctions::userCan"
-		],
-		"BlockIp": [
-			"SiteMiscFunctions::RestrictBlockHook"
+	"MessagesDirs": {
+		"SiteCustomCode": [
+			"i18n"
 		]
 	},
-	"manifest_version": 1
+	"SpecialPages": {
+		"Randompage": "SpecialRandompageSCC",
+		"Recentchanges": "SpecialRecentChangesSCC",
+		"Search": "SpecialSearchSCC",
+		"Wantedpages": "SpecialWantedPagesPageSCC"
+	},
+	"AutoloadClasses": {
+		"SiteCustomCodeHooks": "includes/SiteCustomCodeHooks.php",
+		"SiteEnhancedChangesList": "includes/SiteEnhancedChangesList.php",
+		"SiteMiscFunctions": "includes/SiteMiscFunctions.php",
+		"SiteOldChangesList": "includes/SiteOldChangesList.php",
+		"SpecialMobilePreferencesSCC": "includes/SpecialMobilePreferencesSCC.php",
+		"SpecialPreferencesSCC": "includes/SpecialPreferencesSCC.php",
+		"SpecialRandompageSCC": "includes/SpecialRandompageSCC.php",
+		"SpecialRecentChangesSCC": "includes/SpecialRecentchangesSCC.php",
+		"SpecialSearchSCC": "includes/SpecialSearchSCC.php",
+		"SpecialWantedPagesPageSCC": "includes/SpecialWantedPagesPageSCC.php",
+		"UespWebpHandler": "includes/UespWebpHandler.php"
+	},
+	"Hooks": {
+		"BeforeInitialize": "SiteCustomCodeHooks::onUespBeforeInitialize",
+		"BeforePageDisplay": "SiteCustomCodeHooks::UESP_beforePageDisplay",
+		"BlockIp": "SiteMiscFunctions::RestrictBlockHook",
+		"FetchChangesList": "SiteMiscFunctions::fetchChangesList",
+		"GetDefaultSortkey": "SiteMiscFunctions::onGetDefaultSortkey",
+		"IsFileCacheable": "SiteMiscFunctions::isFileCacheable",
+		"MarkPatrolled": "SiteMiscFunctions::markPatrolled",
+		"MediaWikiPerformAction": "SiteCustomCodeHooks::onUespMediaWikiPerformAction",
+		"MinervaDiscoveryTools": "SiteCustomCodeHooks::onUespMinervaDiscoveryTools",
+		"MobileMenu": "SiteCustomCodeHooks::onUespMobileMenu",
+		"MobilePersonalTools": "SiteCustomCodeHooks::onUespMobilePersonalTools",
+		"OutputPageBeforeHTML": "SiteCustomCodeHooks::uespMobileAddTopAdDiv",
+		"OutputPageParserOutput": "SiteMiscFunctions::addCanonicalToHeader",
+		"ParserBeforeMakeImage": "SiteMiscFunctions::addImageClear",
+		"ParserPreSaveTransformComplete": "SiteCustomCodeHooks::onPreSaveTransformCheckUploadWizard",
+		"SanitizerAddHtml": "SiteMiscFunctions::sanitizerAddHtml",
+		"SanitizerAddWhitelist": "SiteMiscFunctions::sanitizerAddWhitelist",
+		"SpecialPage_initList": "SiteCustomCodeHooks::efSiteSpecialPageInit",
+		"TitleSquidURLs": "SiteCustomCodeHooks::onUespTitleSquidURLs",
+		"UserMailerTransformMessage": "SiteCustomCodeHooks::onUespUserMailerTransformMessage",
+		"UserToggles": "SiteMiscFunctions::addUserToggles",
+		"userCan": "SiteMiscFunctions::userCan"
+	},
+	"config_prefix": "eg",
+	"config": {
+		"RestrictBlockLength": {
+			"value": 21600,
+			"path": false,
+			"description": "Blocking limitations",
+			"public": true
+		},
+		"SiteEnableGoogleAds": {
+			"value": true,
+			"path": false,
+			"description": "Global flag to enable/disable google ads",
+			"public": false
+		}
+	}
 }

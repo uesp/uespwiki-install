@@ -7,6 +7,7 @@ use CirrusSearch\SearchConfig;
 use CirrusSearch\SearchRequestLog;
 use CirrusSearch\Connection;
 use CirrusSearch\Elastica\MultiSearch as MultiSearch;
+use CirrusSearch\Search\CirrusIndexField;
 use Elastica\Query\BoolQuery;
 use Elastica\Query\Terms;
 use MediaWiki\Logger\LoggerFactory;
@@ -87,7 +88,9 @@ class RedirectsAndIncomingLinks extends ElasticsearchIntermediary {
 			return false;
 		}
 		foreach ( self::$externalLinks as $conn ) {
-			self::$externalLinks[$conn]->realFinishBatch( $pages );
+			/** @var self $instance */
+			$instance = self::$externalLinks[$conn];
+			$instance->realFinishBatch( $pages );
 		}
 		self::$externalLinks = null;
 		return true;
@@ -111,7 +114,7 @@ class RedirectsAndIncomingLinks extends ElasticsearchIntermediary {
 		/** @var Title $redirect */
 		foreach ( $redirectTitles as $redirect ) {
 			// If the redirect is in main OR the same namespace as the article the index it
-			if ( $redirect->getNamespace() === NS_MAIN || $redirect->getNamespace() === $title->getNamespace()) {
+			if ( $redirect->getNamespace() === NS_MAIN || $redirect->getNamespace() === $title->getNamespace() ) {
 				$redirects[] = [
 					'namespace' => $redirect->getNamespace(),
 					'title' => $redirect->getText()
@@ -123,9 +126,9 @@ class RedirectsAndIncomingLinks extends ElasticsearchIntermediary {
 
 		// Count links
 		// Incoming links is the sum of:
-		//  #1 Number of redirects to the page
-		//  #2 Number of links to the title
-		//  #3 Number of links to all the redirects
+		// #1 Number of redirects to the page
+		// #2 Number of links to the title
+		// #3 Number of links to all the redirects
 
 		// #1 we have a list of the "first" $wgCirrusSearchIndexedRedirects redirect so we just count it:
 		$redirectCount = count( $redirects );
@@ -135,6 +138,7 @@ class RedirectsAndIncomingLinks extends ElasticsearchIntermediary {
 		$this->linkCountMultiSearch->addSearch( $this->buildCount( $outgoingLinksToCount ) );
 		$this->linkCountClosures[] = function ( $count ) use( $doc, $redirectCount ) {
 			$doc->set( 'incoming_links', $count + $redirectCount );
+			CirrusIndexField::addNoopHandler( $doc, 'incoming_links', 'within 20%' );
 		};
 	}
 
@@ -158,7 +162,7 @@ class RedirectsAndIncomingLinks extends ElasticsearchIntermediary {
 			} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 				// Note that we still return the pages and execute the update here, we just complain
 				$this->failure( $e );
-				$pageIds = array_map( function( WikiPage $page ) {
+				$pageIds = array_map( function ( WikiPage $page ) {
 					return $page->getId();
 				}, $pages );
 				LoggerFactory::getInstance( 'CirrusSearchChangeFailed' )->info(

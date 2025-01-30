@@ -4,7 +4,8 @@ namespace CirrusSearch;
 
 use Hooks as MWHooks;
 use MediaWiki\Logger\LoggerFactory;
-use ParserCache;
+use MediaWiki\MediaWikiServices;
+use CirrusSearch\Search\CirrusIndexField;
 use TextContent;
 use Title;
 use WikiPage;
@@ -99,7 +100,7 @@ class Updater extends ElasticsearchIntermediary {
 	 * memory of titles updated and detects special pages.
 	 *
 	 * @param Title $title title to trace
-	 * @return array(target, redirects)
+	 * @return array(target redirects)
 	 *    - target is WikiPage|null wikipage if the $title either isn't a redirect or resolves
 	 *    to an updatable page that hasn't been updated yet.  Null if the page has been
 	 *    updated, is a special page, or the redirects enter a loop.
@@ -131,7 +132,7 @@ class Updater extends ElasticsearchIntermediary {
 			}
 			$content = $page->getContent();
 			if ( is_string( $content ) ) {
-				$content = new TextContent( (string) $content );
+				$content = new TextContent( (string)$content );
 			}
 			// If the event that the content is _still_ not usable, we have to give up.
 			if ( !is_object( $content ) ) {
@@ -183,7 +184,7 @@ class Updater extends ElasticsearchIntermediary {
 
 		// Don't update the same page twice. We shouldn't, but meh
 		$pageIds = [];
-		$pages = array_filter( $pages, function( WikiPage $page ) use ( &$pageIds ) {
+		$pages = array_filter( $pages, function ( WikiPage $page ) use ( &$pageIds ) {
 			if ( !in_array( $page->getId(), $pageIds ) ) {
 				$pageIds[] = $page->getId();
 				return true;
@@ -201,14 +202,17 @@ class Updater extends ElasticsearchIntermediary {
 					$wgCirrusSearchWikimediaExtraPlugin[ 'super_detect_noop' ] ) {
 				$document = $this->docToSuperDetectNoopScript( $document );
 			}
+			// TODO: Move hints reset at a later stage if they appear to be useful
+			// (e.g. in DataSender::sendData)
+			CirrusIndexField::resetHints( $document );
 			$allData[$suffix][] = $document;
 		}
 
 		$count = 0;
-		foreach( $allData as $indexType => $data ) {
+		foreach ( $allData as $indexType => $data ) {
 			// Elasticsearch has a queue capacity of 50 so if $data contains 50 pages it could bump up against
 			// the max.  So we chunk it and do them sequentially.
-			foreach( array_chunk( $data, 10 ) as $chunked ) {
+			foreach ( array_chunk( $data, 10 ) as $chunked ) {
 				$job = new Job\ElasticaWrite(
 					reset( $titles ),
 					[
@@ -258,10 +262,11 @@ class Updater extends ElasticsearchIntermediary {
 	/**
 	 * Add documents to archive index.
 	 * @param array $archived
+	 * @param bool $forceIndex If true, index to archive regardless of config.
 	 * @return bool
 	 */
-	public function archivePages( $archived ) {
-		if ( !$this->searchConfig->getElement( 'CirrusSearchIndexDeletes' ) ) {
+	public function archivePages( $archived, $forceIndex = false ) {
+		if ( !$this->searchConfig->getElement( 'CirrusSearchIndexDeletes' ) && !$forceIndex ) {
 			// Disabled by config - don't do anything
 			return true;
 		}
@@ -300,7 +305,7 @@ class Updater extends ElasticsearchIntermediary {
 			$doc = new \Elastica\Document( $delete['page'], [
 				'namespace' => $title->getNamespace(),
 				'title' => $title->getText(),
-				'wiki' => wfWikiId(),
+				'wiki' => wfWikiID(),
 			] );
 			$doc->setDocAsUpsert( true );
 			$doc->setRetryOnConflict( $this->searchConfig->getElement( 'CirrusSearchUpdateConflictRetryCount' ) );
@@ -345,6 +350,7 @@ class Updater extends ElasticsearchIntermediary {
 				'title' => $title->getText(),
 				'timestamp' => wfTimestamp( TS_ISO_8601, $page->getTimestamp() ),
 			] );
+			CirrusIndexField::addNoopHandler( $doc, 'version', 'documentVersion' );
 			// Everything as sent as an update to prevent overwriting fields maintained in other processes like
 			// OtherIndex::updateOtherIndex.
 			// But we need a way to index documents that don't already exist.  We're willing to upsert any full
@@ -358,12 +364,17 @@ class Updater extends ElasticsearchIntermediary {
 
 			if ( !$skipParse ) {
 				$contentHandler = $page->getContentHandler();
-				$output = $contentHandler->getParserOutputForIndexing( $page,
-						$forceParse ? null : ParserCache::singleton() );
+				$parserCache = $forceParse ? null : MediaWikiServices::getInstance()->getParserCache();
+				$output = $contentHandler->getParserOutputForIndexing( $page, $parserCache );
 
+				$fieldDefinitions = $contentHandler->getFieldsForSearchIndex( $engine );
 				foreach ( $contentHandler->getDataForSearchIndex( $page, $output, $engine ) as
 					$field => $fieldData ) {
 					$doc->set( $field, $fieldData );
+					if ( isset( $fieldDefinitions[$field] ) ) {
+						$hints = $fieldDefinitions[$field]->getEngineHints( $engine );
+						CirrusIndexField::addIndexingHints( $doc, $field, $hints );
+					}
 				}
 
 				// Then let hooks have a go
@@ -377,37 +388,42 @@ class Updater extends ElasticsearchIntermediary {
 			}
 
 			if ( !$skipLinks ) {
-				MWHooks::run( 'CirrusSearchBuildDocumentLinks', [ $doc, $title, $this->connection] );
+				MWHooks::run( 'CirrusSearchBuildDocumentLinks', [ $doc, $title, $this->connection ] );
 			}
 
 			$documents[] = $doc;
 		}
 
-		MWHooks::run( 'CirrusSearchBuildDocumentFinishBatch', array( $pages ) );
+		MWHooks::run( 'CirrusSearchBuildDocumentFinishBatch', [ $pages ] );
 
 		return $documents;
 	}
 
 	/**
 	 * Converts a document into a call to super_detect_noop from the wikimedia-extra plugin.
+	 * @internal made public for testing purposes
 	 * @param \Elastica\Document $doc
 	 * @return \Elastica\Script\Script
 	 */
-	private function docToSuperDetectNoopScript( $doc ) {
+	public function docToSuperDetectNoopScript( $doc ) {
+		$handlers = CirrusIndexField::getHint( $doc, CirrusIndexField::NOOP_HINT );
 		$params = $doc->getParams();
 		$params['source'] = $doc->getData();
-		$params['handlers'] = [
-			'incoming_links' => 'within 20%',
-		];
-		// Added in search-extra 2.3.4.1, around sept 2015. This check can be dropped
-		// and may default sometime in the future when users are certain to be using
-		// a version of the search-extra plugin with document versioning support
-		if ( $this->searchConfig->getElement( 'CirrusSearchWikimediaExtraPlugin', 'documentVersion' ) ) {
-			$params['handlers']['version'] = 'documentVersion';
+
+		if ( $handlers ) {
+			assert( is_array( $handlers ), "Noop hints must be an array" );
+			$params['handlers'] = $handlers;
+		} else {
+			$params['handlers'] = [];
+		}
+		$extraHandlers = $this->searchConfig->getElement( 'CirrusSearchWikimediaExtraPlugin', 'super_detect_noop_handlers' );
+		if ( is_array( $extraHandlers ) ) {
+			$params['handlers'] += $extraHandlers;
 		}
 
 		$script = new \Elastica\Script\Script( 'super_detect_noop', $params, 'native' );
 		if ( $doc->getDocAsUpsert() ) {
+			CirrusIndexField::resetHints( $doc );
 			$script->setUpsert( $doc );
 		}
 
@@ -417,7 +433,7 @@ class Updater extends ElasticsearchIntermediary {
 	/**
 	 * Update the search index for newly linked or unlinked articles.
 	 * @param Title[] $titles titles to update
-	 * @return boolean were all pages updated?
+	 * @return bool were all pages updated?
 	 */
 	public function updateLinkedArticles( $titles ) {
 		$pages = [];

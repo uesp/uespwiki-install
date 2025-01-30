@@ -1,37 +1,37 @@
 @font-face {
 	font-family: 'EsoFontStyle';
-	src: url('//esolog.uesp.net/resources/esofontregular-webfont.eot');
-	src: url('//esolog.uesp.net/resources/esofontregular-webfont.eot?#iefix') format('embedded-opentype'),
-		url('//esolog.uesp.net/resources/esofontregular-webfont.woff2') format('woff2'),
-		url('//esolog.uesp.net/resources/esofontregular-webfont.woff') format('woff'),
-		url('//esolog.uesp.net/resources/esofontregular-webfont.ttf') format('truetype'),
-		url('//esolog.uesp.net/resources/esofontregular-webfont.svg#esofontregular') format('svg');
+	src: url('//esolog-static.uesp.net/resources/esofontregular-webfont.eot');
+	src: url('//esolog-static.uesp.net/resources/esofontregular-webfont.eot?#iefix') format('embedded-opentype'),
+		url('//esolog-static.uesp.net/resources/esofontregular-webfont.woff2') format('woff2'),
+		url('//esolog-static.uesp.net/resources/esofontregular-webfont.woff') format('woff'),
+		url('//esolog-static.uesp.net/resources/esofontregular-webfont.ttf') format('truetype'),
+		url('//esolog-static.uesp.net/resources/esofontregular-webfont.svg#esofontregular') format('svg');
 	font-weight: normal;
 	font-style: normal;
 }
 
 @font-face {
 	font-family: 'EsoFontStyle';
-	src: url('//esolog.uesp.net/resources/esofontbold-webfont.eot');
-	src: url('//esolog.uesp.net/resources/esofontbold-webfont.eot?#iefix') format('embedded-opentype'),
-		url('//esolog.uesp.net/resources/esofontbold-webfont.woff2') format('woff2'),
-		url('//esolog.uesp.net/resources/esofontbold-webfont.woff') format('woff'),
-		url('//esolog.uesp.net/resources/esofontbold-webfont.ttf') format('truetype'),
-		url('//esolog.uesp.net/resources/esofontbold-webfont.svg#esofontbold') format('svg');
+	src: url('//esolog-static.uesp.net/resources/esofontbold-webfont.eot');
+	src: url('//esolog-static.uesp.net/resources/esofontbold-webfont.eot?#iefix') format('embedded-opentype'),
+		url('//esolog-static.uesp.net/resources/esofontbold-webfont.woff2') format('woff2'),
+		url('//esolog-static.uesp.net/resources/esofontbold-webfont.woff') format('woff'),
+		url('//esolog-static.uesp.net/resources/esofontbold-webfont.ttf') format('truetype'),
+		url('//esolog-static.uesp.net/resources/esofontbold-webfont.svg#esofontbold') format('svg');
 	font-weight: bold;
 	font-style: normal;
 }
 
 @font-face {
 	font-family: 'EsoFontStyleAlt';
-	src: url('//esolog.uesp.net/resources/esofontregular-webfont.ttf') format('truetype');
+	src: url('//esolog-static.uesp.net/resources/esofontregular-webfont.ttf') format('truetype');
 	font-weight: normal;
 	font-style: normal;
 }
 
 @font-face {
 	font-family: 'EsoFontStyleAlt';
-	src: url('//esolog.uesp.net/resources/esofontbold-webfont.ttf') format('truetype');
+	src: url('//esolog-static.uesp.net/resources/esofontbold-webfont.ttf') format('truetype');
 	font-weight: bold;
 	font-style: normal;
 }
@@ -45,7 +45,7 @@
 	z-index: 100;
 	font-family: 'EsoFontStyleAlt', 'EsoFontStyle', 'Arial', sans-serif;
 	width: 360px;
-	/*background-image: url(//esolog.uesp.net/resources/eso_skill_border.png);
+	/*background-image: url(//esolog-static.uesp.net/resources/eso_skill_border.png);
 	background-size: 100% 100%;
 	color: #C5C29E;
 	line-height: 125%;

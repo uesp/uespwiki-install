@@ -4,7 +4,6 @@ namespace CirrusSearch\Maintenance;
 
 use CirrusSearch\Search\CirrusIndexField;
 use CirrusSearch\Search\CirrusSearchIndexFieldFactory;
-use CirrusSearch\Search\KeywordIndexField;
 use CirrusSearch\SearchConfig;
 use CirrusSearch\Search\TextIndexField;
 use CirrusSearch\Search\SourceTextIndexField;
@@ -65,7 +64,6 @@ class MappingConfigBuilder {
 	private $searchIndexFieldFactory;
 
 	/**
-	 * Constructor
 	 * @param bool $optimizeForExperimentalHighlighter should the index be optimized for the experimental highlighter?
 	 * @param SearchConfig $config
 	 */
@@ -123,7 +121,6 @@ class MappingConfigBuilder {
 				],
 			];
 		}
-
 
 		$page = [
 			'dynamic' => false,
@@ -192,8 +189,7 @@ class MappingConfigBuilder {
 	 * @return array the mapping config
 	 */
 	public function buildConfig( $flags = 0 ) {
-		global $wgCirrusSearchAllFields,
-		              $wgCirrusSearchWeights;
+		global $wgCirrusSearchAllFields, $wgCirrusSearchWeights;
 
 		if ( $this->optimizeForExperimentalHighlighter ) {
 			$flags |= self::OPTIMIZE_FOR_EXPERIMENTAL_HIGHLIGHTER;
@@ -219,8 +215,8 @@ class MappingConfigBuilder {
 			// Better because theoretically tf/idf based scoring works better this way.
 			// Worse because we have to analyze each field multiple times....  Bleh!
 			// This field can't be used for the fvh/experimental highlighter for several reasons:
-			//  1. It is built with copy_to and not stored.
-			//  2. The term frequency information is all whoppy compared to the "real" source text.
+			// 1. It is built with copy_to and not stored.
+			// 2. The term frequency information is all whoppy compared to the "real" source text.
 			$allField = $this->searchIndexFieldFactory->
 				newStringField( 'all', TextIndexField::ENABLE_NORMS );
 			$page['properties']['all'] =
@@ -252,9 +248,9 @@ class MappingConfigBuilder {
 			$page = $this->setupCopyTo( $page, $nearMatchFields, 'all_near_match' );
 		}
 
-		$config[ 'page' ] = $page;
+		$mappingConfig = [ 'page' => $page ];
 
-		$config[ 'namespace' ] = [
+		$mappingConfig[ 'namespace' ] = [
 			'dynamic' => false,
 			'_all' => [ 'enabled' => false ],
 			'properties' => [
@@ -269,7 +265,7 @@ class MappingConfigBuilder {
 			],
 		];
 
-		$config[ 'archive' ] = [
+		$mappingConfig[ 'archive' ] = [
 			'dynamic' => false,
 			'_all' => [ 'enabled' => false ],
 			'properties' => [
@@ -279,11 +275,11 @@ class MappingConfigBuilder {
 			],
 		];
 		// Do not use copy settings for archive
-		unset( $config['archive']['properties']['title']['copy_to'] );
+		unset( $mappingConfig['archive']['properties']['title']['copy_to'] );
 
-		Hooks::run( 'CirrusSearchMappingConfig', [ &$config, $this ] );
+		Hooks::run( 'CirrusSearchMappingConfig', [ &$mappingConfig, $this ] );
 
-		return $config;
+		return $mappingConfig;
 	}
 
 	/**
@@ -346,4 +342,3 @@ class MappingConfigBuilder {
 		return $textFieldMapping;
 	}
 }
-

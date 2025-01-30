@@ -1,13 +1,13 @@
 @font-face {
 	font-family: 'EsoFontStyle';
-	src: url(//esoitem.uesp.net/resources/EsoFontRegular.ttf) format('truetype');
+	src: url(//esolog-static.uesp.net/resources/EsoFontRegular.ttf) format('truetype');
 	font-weight: normal;
 	font-style: normal;
 }
 
 @font-face {
 	font-family: 'EsoFontStyle';
-	src: url(//esoitem.uesp.net/resources/EsoFontBold.ttf) format('truetype');
+	src: url(//esolog-static.uesp.net/resources/EsoFontBold.ttf) format('truetype');
 	font-weight: bold;
 	font-style: normal;
 }
@@ -27,7 +27,7 @@
 #esoil_itembox {
 	background-color: #000;
 	border: solid 3px #C5C29E;
-	border-image: url(//esoitem.uesp.net/resources/eso_item_border.png) 5 5 5 5 repeat;
+	border-image: url(//esolog-static.uesp.net/resources/eso_item_border.png) 5 5 5 5 repeat;
 	border-width: 5px 5px 5px 5px;
 	font-family: "EsoFontStyle", "Arial", sans-serif;
 	font-size: 16px;

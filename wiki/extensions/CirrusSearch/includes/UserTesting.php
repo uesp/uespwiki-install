@@ -194,7 +194,7 @@ class UserTesting {
 	 * @param string[] $buckets List of buckets to choose from.
 	 * @return string The chosen bucket.
 	 */
-	static public function chooseBucket( $probability, $buckets ) {
+	public static function chooseBucket( $probability, $buckets ) {
 		$num = count( $buckets );
 		$each = 1 / $num;
 		$current = 0;
@@ -216,19 +216,19 @@ class UserTesting {
 	 * @param string $hash
 	 * @return float Probability between 0 and 1
 	 */
-	static public function hexToProbability( $hash ) {
+	public static function hexToProbability( $hash ) {
 		if ( strlen( $hash ) === 0 ) {
 			throw new \RuntimeException( 'Empty hash provided' );
 		}
 		$len = strlen( $hash );
 		$sum = 0;
-		for ( $i = 0; $i < $len; $i += 4) {
+		for ( $i = 0; $i < $len; $i += 4 ) {
 			$piece = substr( $hash, $i, 4 );
 			$dec = hexdec( $piece );
 			// xor will retain the uniform distribution
 			$sum = $sum ^ $dec;
 		}
-		return $sum / ((1<<16)-1);
+		return $sum / ( ( 1 << 16 ) - 1 );
 	}
 
 	/**
@@ -238,7 +238,7 @@ class UserTesting {
 	 *  returns a stable probability between 0 and 1. for all other
 	 *  requests returns 0.
 	 */
-	static public function oneIn( $testName, $sampleRate ) {
+	public static function oneIn( $testName, $sampleRate ) {
 		$hash = Util::generateIdentToken( $testName );
 		$probability = self::hexToProbability( $hash );
 		$rateThreshold = 1 / $sampleRate;

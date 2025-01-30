@@ -12,15 +12,25 @@ use stdClass;
  */
 abstract class JCObjContent extends JCContent {
 
-	/** @var bool if false, prevents multiple fields from having identical names that differ only by casing */
+	/**
+	 * @var bool if false, prevents multiple fields from having identical names that differ
+	 *   only by casing
+	 */
 	protected $isCaseSensitive = false;
+
 	/** @var bool if false, ensure the root to be an stdClass, otherwise - an array */
 	protected $isRootArray = false;
-	/** @var JCValue contains raw validation results. At first it is a parsed JSON value, with the root element
-	 * wrapped into JCValue. As validation progresses, all visited values become wrapped with JCValue. */
+
+	/**
+	 * @var JCValue contains raw validation results. At first it is a parsed JSON value, with the
+	 *   root element wrapped into JCValue. As validation progresses, all visited values become
+	 *   wrapped with JCValue.
+	 */
 	protected $validationData;
+
 	/** @var mixed  */
 	protected $dataWithDefaults;
+
 	/** @var bool|null validation status - null=before, true=during, false=done */
 	protected $isValidating = null;
 
@@ -67,14 +77,16 @@ abstract class JCObjContent extends JCContent {
 	 */
 	public function getValidationData() {
 		if ( $this->isValidating === null ) {
-			throw new Exception( 'This method may only be called during or after validation has started' );
+			throw new Exception(
+				'This method may only be called during or after validation has started'
+			);
 		}
 		return $this->validationData;
 	}
 
 	/**
 	 * Call this function before performing data validation inside the derived validate()
-	 * @param $data
+	 * @param array|object $data
 	 * @throws \Exception
 	 * @return bool if true, validation should be performed, otherwise all checks will be ignored
 	 */
@@ -106,7 +118,10 @@ abstract class JCObjContent extends JCContent {
 		return null; // Data will be filter-cloned on demand inside self::getData()
 	}
 
-	/** Populate this data on-demand for efficiency */
+	/**
+	 * Populate this data on-demand for efficiency
+	 * @return array
+	 */
 	public function getData() {
 		if ( $this->data === null ) {
 			$this->data = JCUtils::sanitize( $this->validationData, true );
@@ -130,19 +145,21 @@ abstract class JCObjContent extends JCContent {
 	 * Derived classes must implement this method to perform custom validation
 	 * using the test(...) calls
 	 */
-	public abstract function validateContent();
+	abstract public function validateContent();
 
 	/**
 	 * Use this function to test a value, or if the value is missing, use the default value.
 	 * The value will be tested with validator(s) if provided, even if it was the default.
-	 * @param string|array $path name of the root field to check, or a path to the field in a nested structure.
-	 *        Nested path should be in the form of [ 'field-level1', 'field-level2', ... ]. For example, if client
-	 *        needs to check validity of the 'value1' in the structure {'key':{'sub-key':['value0','value1']}},
+	 * @param string|array $path name of the root field to check, or a path to the field in a nested
+	 *        structure. Nested path should be in the form of
+	 *        [ 'field-level1', 'field-level2', ... ]. For example, if client needs to check
+	 *        validity of the 'value1' in the structure {'key':{'sub-key':['value0','value1']}},
 	 *        $field should be set to [ 'key', 'sub-key', 1 ].
-	 * @param mixed $default value to be used in case field is not found. $default is passed to the validator
-	 *        if validation fails. If validation of the default passes, the value is considered optional.
-	 * @param callable $validator callback function as defined in JCValidators::run().
-	 *        More than one validator may be given. If validators are not provided, any value is accepted
+	 * @param mixed $default value to be used in case field is not found. $default is passed to the
+	 *        validator if validation fails. If validation of the default passes,
+	 *        the value is considered optional.
+	 * @param callable $validator callback function as defined in JCValidators::run(). More than one
+	 *        validator may be given. If validators are not provided, any value is accepted
 	 * @return bool true if ok, false otherwise
 	 * @throws \Exception if $this->initValidation() was not called.
 	 */
@@ -154,14 +171,16 @@ abstract class JCObjContent extends JCContent {
 	}
 
 	/**
-	 * Use this function to test a field in the data. If missing, the validator(s) will receive JCMissing
-	 * singleton as a value, and it will be up to the validator(s) to accept it or not.
-	 * @param string|array $path name of the root field to check, or a path to the field in a nested structure.
-	 *        Nested path should be in the form of [ 'field-level1', 'field-level2', ... ]. For example, if client
-	 *        needs to check validity of the 'value1' in the structure {'key':{'sub-key':['value0','value1']}},
+	 * Use this function to test a field in the data. If missing, the validator(s) will receive
+	 * JCMissing singleton as a value, and it will be up to the validator(s) to accept it or not.
+	 * @param string|array $path name of the root field to check, or a path to the field in a nested
+	 *        structure. Nested path should be in the form of
+	 *        [ 'field-level1', 'field-level2', ... ]. For example, if client needs to check
+	 *        validity of the 'value1' in the structure {'key':{'sub-key':['value0','value1']}},
 	 *        $field should be set to [ 'key', 'sub-key', 1 ].
 	 * @param callable $validator callback function as defined in JCValidators::run().
-	 *        More than one validator may be given. If validators are not provided, any value is accepted
+	 *        More than one validator may be given.
+	 *        If validators are not provided, any value is accepted
 	 * @throws \Exception
 	 * @return bool true if ok, false otherwise
 	 */
@@ -175,11 +194,13 @@ abstract class JCObjContent extends JCContent {
 	 * All validators will be called for each of the sub-values. If there is no value
 	 * at the given $path, or it is not a container, no action will be taken and no errors reported
 	 * @param string|array $path path to the container field in a nested structure.
-	 *        Nested path should be in the form of [ 'field-level1', 'field-level2', ... ]. For example, if client
-	 *        needs to check validity of the 'value1' in the structure {'key':{'sub-key':['value0','value1']}},
+	 *        Nested path should be in the form of [ 'field-level1', 'field-level2', ... ].
+	 *        For example, if client needs to check validity of the 'value1' in the structure
+	 *        {'key':{'sub-key':['value0','value1']}},
 	 *        $field should be set to [ 'key', 'sub-key', 1 ].
 	 * @param callable $validator callback function as defined in JCValidators::run().
-	 *        More than one validator may be given. If validators are not provided, any value is accepted
+	 *        More than one validator may be given.
+	 *        If validators are not provided, any value is accepted
 	 * @throws \Exception
 	 * @return bool true if all values tested ok, false otherwise
 	 */
@@ -215,7 +236,9 @@ abstract class JCObjContent extends JCContent {
 			return false; // skip all validation in case of a fatal error
 		}
 		if ( $this->isValidating !== true ) {
-			throw new Exception( 'This function should only be called inside the validateContent() override' );
+			throw new Exception(
+				'This function should only be called inside the validateContent() override'
+			);
 		}
 		return $this->testRecursive( (array)$path, [], $this->validationData, $validators );
 	}
@@ -315,11 +338,13 @@ abstract class JCObjContent extends JCContent {
 			$err = $jcv->error();
 			if ( $err ) {
 				if ( is_object( $err ) ) {
-//				if ( !$isRequired ) {
-//					// User supplied value, so we don't know if the value is required or not
-//					// if $default passes validation, original value was optional
-//					$isRequired = !JCValidators::run( $validators, $fldPath, JCValue::getMissing(), $this );
-//				}
+					// if ( !$isRequired ) {
+					// // User supplied value, so we don't know if the value is required or not
+					// // if $default passes validation, original value was optional
+					// $isRequired = !JCValidators::run(
+					// $validators, $fldPath, JCValue::getMissing(), $this
+					// );
+					// }
 					$this->addValidationError( $err, !$isRequired );
 				}
 				return false;
@@ -327,15 +352,16 @@ abstract class JCObjContent extends JCContent {
 				$jcv->status( JCValue::CHECKED );
 			}
 		}
-//		if ( $this->thorough() && $jcv->status() === JCValue::CHECKED ) {
-//			// Check if the value is the same as default - use a cast to array hack to compare objects
-//			$isRequired = (bool)JCValidators::run( $validators, $fldPath, JCMissing::get(), $this );
-//			if ( ( is_object( $jcv ) && is_object( $default ) && (array)$jcv === (array)$default ) ||
-//			     ( !is_object( $default ) && $jcv === $default )
-//			) {
-//				$newStatus = JCValue::SAME_AS_DEFAULT;
-//			}
-//		}
+		// if ( $this->thorough() && $jcv->status() === JCValue::CHECKED ) {
+		// // Check if the value is the same as default - use a cast to array
+		// // hack to compare objects
+		// $isRequired = (bool)JCValidators::run( $validators, $fldPath, JCMissing::get(), $this );
+		// if ( ( is_object( $jcv ) && is_object( $default ) && (array)$jcv === (array)$default )
+		// || ( !is_object( $default ) && $jcv === $default )
+		// ) {
+		// $newStatus = JCValue::SAME_AS_DEFAULT;
+		// }
+		// }
 		return true;
 	}
 
@@ -369,7 +395,7 @@ abstract class JCObjContent extends JCContent {
 					$move = false;
 				}
 				if ( $move || !$firstPass ) {
-					if ( !$isJcv  ) {
+					if ( !$isJcv ) {
 						$subVal = new JCValue( JCValue::UNCHECKED, $subVal );
 					}
 					if ( $result === null ) {
@@ -402,10 +428,10 @@ abstract class JCObjContent extends JCContent {
 	 */
 	public function addValidationError( Message $error, $isOptional = false ) {
 		$text = $error->plain();
-// @TODO fixme - need to re-enable optional field detection & reporting
-//		if ( $isOptional ) {
-//			$text .= ' ' . wfMessage( 'jsonconfig-optional-field' )->plain();
-//		}
+		// @TODO fixme - need to re-enable optional field detection & reporting
+		// if ( $isOptional ) {
+		// $text .= ' ' . wfMessage( 'jsonconfig-optional-field' )->plain();
+		// }
 		$this->getStatus()->error( $text );
 	}
 
@@ -456,7 +482,8 @@ abstract class JCObjContent extends JCContent {
 	 * @param int|string $fld
 	 * @param array $fldPath
 	 * @throws \Exception
-	 * @return bool|null true if renamed, false if not found or original unchanged, null if duplicate (error)
+	 * @return bool|null true if renamed, false if not found or original unchanged,
+	 *   null if duplicate (error)
 	 */
 	private function normalizeField( JCValue $jcv, $fld, array $fldPath ) {
 		$valueRef = $jcv->getValue();
@@ -498,7 +525,8 @@ abstract class JCObjContent extends JCContent {
 	/**
 	 * @param null|callable|array $param first validator parameter
 	 * @param array $funcArgs result of func_get_args() call
-	 * @param int $skipArgs how many non-validator arguments to remove from the beginning of the $funcArgs
+	 * @param int $skipArgs how many non-validator arguments to remove
+	 *   from the beginning of the $funcArgs
 	 * @return array of validators
 	 */
 	private static function convertValidators( $param, $funcArgs, $skipArgs ) {

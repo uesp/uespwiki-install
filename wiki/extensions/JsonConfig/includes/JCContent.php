@@ -15,14 +15,15 @@ use Status;
  * @ingroup Extensions
  * @ingroup JsonConfig
  *
- * @author Yuri Astrakhan <yurik@wikimedia.org>, based on Ori Livneh <ori@wikimedia.org> extension schema
+ * @author Yuri Astrakhan <yurik@wikimedia.org>,
+ *   based on Ori Livneh <ori@wikimedia.org> extension schema
  */
 class JCContent extends \TextContent {
 	/** @var array */
 	private $rawData = null;
 	/** @var stdClass|array */
 	protected $data = null;
-	/** @var \Status */
+	/** @var Status */
 	private $status;
 	/** @var bool */
 	private $thorough;
@@ -63,7 +64,8 @@ class JCContent extends \TextContent {
 	}
 
 	/**
-	 * Returns JSON object as resulted from parsing initial text, before any validation/modifications took place
+	 * Returns JSON object as resulted from parsing initial text,
+	 * before any validation/modifications took place
 	 * @return mixed
 	 */
 	public function getRawData() {
@@ -72,13 +74,14 @@ class JCContent extends \TextContent {
 
 	/**
 	 * Get content status object
+	 * @return Status
 	 */
 	public function getStatus() {
 		return $this->status;
 	}
 
 	/**
-	 * @return bool: False if this configuration has parsing or validation errors
+	 * @return bool False if this configuration has parsing or validation errors
 	 */
 	public function isValid() {
 		return $this->status->isGood();
@@ -89,10 +92,11 @@ class JCContent extends \TextContent {
 		return $text === '' || $text === '{}';
 	}
 
-	/*
+	/**
 	 * Determines whether this content should be considered a "page" for statistics
 	 * In our case, just making sure it's not empty or a redirect
-	 *
+	 * @param bool $hasLinks
+	 * @return bool
 	 */
 	public function isCountable( $hasLinks = null ) {
 		return !$this->isEmpty() && !$this->isRedirect();
@@ -107,7 +111,8 @@ class JCContent extends \TextContent {
 	}
 
 	/**
-	 * @return boolean true if thorough validation may be needed - e.g. rendering HTML or saving new value
+	 * @return bool true if thorough validation may be needed -
+	 *   e.g. rendering HTML or saving new value
 	 */
 	public function thorough() {
 		return $this->thorough;
@@ -137,7 +142,9 @@ class JCContent extends \TextContent {
 		// @fixme: HACK - need a deep clone of the data
 		// @fixme: but doing (object)(array)$data will re-encode empty [] as {}
 		// @performance: re-encoding is likely faster than stripping comments in PHP twice
-		$this->rawData = FormatJson::decode( FormatJson::encode( $data, FormatJson::ALL_OK ), true );
+		$this->rawData = FormatJson::decode(
+			FormatJson::encode( $data, FormatJson::ALL_OK ), true
+		);
 		$this->data = $this->validate( $data );
 	}
 
@@ -194,7 +201,8 @@ class JCContent extends \TextContent {
 		global $wgJsonConfigModels;
 		$view = $this->view;
 		if ( $view === null ) {
-			$configModels = \ExtensionRegistry::getInstance()->getAttribute( 'JsonConfigModels' ) + $wgJsonConfigModels;
+			$configModels = \ExtensionRegistry::getInstance()->getAttribute( 'JsonConfigModels' )
+				+ $wgJsonConfigModels;
 			if ( array_key_exists( $modelId, $configModels ) ) {
 				$value = $configModels[$modelId];
 				if ( is_array( $value ) && array_key_exists( 'view', $value ) ) {
@@ -211,8 +219,8 @@ class JCContent extends \TextContent {
 	}
 
 	/**
-	 * In case view is not associated with the model for this class, this function will instantiate a default.
-	 * Override may instantiate a more appropriate view
+	 * In case view is not associated with the model for this class, this function will instantiate
+	 * a default. Override may instantiate a more appropriate view
 	 * @return JCContentView
 	 */
 	protected function createDefaultView() {

@@ -52,7 +52,13 @@ else
 				'load' => 10,
 				'max lag' => 1000,
 		)
-	); 
+	);
+	
+		// Special case where we want to disable the read DB server
+	if ($UESP_SERVER_DBWRITE == $UESP_SERVER_DBREAD)
+	{
+		unset($wgDBservers[1]);
+	}
 	
 			/* Don't include by default as backup lag can affect production servers */
 	$uespBackup1Db = 
@@ -65,7 +71,13 @@ else
 				'flag' => DBO_DEFAULT,
 				'load' => 10,
 		);
-		
+	
+	# Special settings for translation wikis
+	$wgSharedDB = $uespWikiDB;
+	$wgSharedPrefix = '';
+	//$wgSharedTables[] = "actor";		//Enable for 1.31 
+	$wgSharedTables[] = 'ipblocks';
+	$wgSharedTables[] = 'interwiki';
 }
 
 /* Always use backup1 as the primary read DB on backup1 scripts */
@@ -74,13 +86,6 @@ if ($uespIsBackup1)
 	$wgDBservers[0]['load'] = 0;
 	$wgDBservers[1] = $uespBackup1Db;
 }
-
-
-# Special settings for translation wikis
-$wgSharedDB = $uespWikiDB;
-$wgSharedPrefix = '';
-$wgSharedTables[] = 'ipblocks';
-$wgSharedTables[] = 'interwiki';
 
 if ($uespLanguageSuffix != "")
 {

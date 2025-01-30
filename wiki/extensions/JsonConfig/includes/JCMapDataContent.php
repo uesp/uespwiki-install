@@ -1,5 +1,6 @@
 <?php
 namespace JsonConfig;
+
 use FormatJson;
 use Kartographer\SimpleStyleParser;
 use Language;
@@ -26,11 +27,11 @@ class JCMapDataContent extends JCDataContent {
 
 		$this->test( 'data', self::isValidData() );
 
-		$this->test( [ ], JCValidators::noExtraValues() );
+		$this->test( [], JCValidators::noExtraValues() );
 	}
 
 	/**
-	 * @inheritdoc
+	 * @inheritDoc
 	 */
 	public function getSafeData( $data ) {
 		/** @var Parser */
@@ -45,31 +46,31 @@ class JCMapDataContent extends JCDataContent {
 		$data = parent::getSafeData( $data );
 
 		$ssp = new SimpleStyleParser( $wgParser );
-		$dummy = [ $data ];
+		$dummy = [ $data->data ];
 		$ssp->normalizeAndSanitize( $dummy );
 
-		return $dummy[0];
+		return $data;
 	}
 
 	private static function isValidData() {
 		return function ( JCValue $v, array $path ) {
 			$value = $v->getValue();
 			if ( !is_object( $value ) && !is_array( $value ) ||
-				 !JCMapDataContent::recursiveWalk( $value, false )
+				!JCMapDataContent::recursiveWalk( $value, false )
 			) {
 				$v->error( 'jsonconfig-err-bad-geojson', $path );
 				return false;
 			}
 
-//			TODO: decide if this is needed. We would have to alter the above code to localize props
-//			// Use SimpleStyleParser to verify the data's validity
-//			global $wgParser;
-//			$ssp = new \Kartographer\SimpleStyleParser( $wgParser );
-//			$status = $ssp->parseObject( $value );
-//			if ( !$status->isOK() ) {
-//				$v->status( $status );
-//			}
-//			return $status->isOK();
+			// TODO: decide if this is needed. We would have to alter the above code to localize props
+			// // Use SimpleStyleParser to verify the data's validity
+			// global $wgParser;
+			// $ssp = new \Kartographer\SimpleStyleParser( $wgParser );
+			// $status = $ssp->parseObject( $value );
+			// if ( !$status->isOK() ) {
+			// $v->status( $status );
+			// }
+			// return $status->isOK();
 			return true;
 		};
 	}
@@ -78,7 +79,7 @@ class JCMapDataContent extends JCDataContent {
 	 * Recursively walk the geojson to replace localized "title" and "description" values
 	 * with the single string corresponding to the $lang language, or if $lang is not set,
 	 * validates those values and returns true/false if valid
-	 * @param object|array $json
+	 * @param object|array &$json
 	 * @param bool|Language $lang
 	 * @return bool
 	 */
@@ -93,7 +94,7 @@ class JCMapDataContent extends JCDataContent {
 			foreach ( array_keys( get_object_vars( $json ) ) as $prop ) {
 				if ( $prop === 'properties' && is_object( $json->properties ) ) {
 					if ( !self::isValidStringOrLocalized( $json->properties, 'title', $lang ) ||
-						 !self::isValidStringOrLocalized( $json->properties, 'description', $lang )
+						!self::isValidStringOrLocalized( $json->properties, 'description', $lang )
 					) {
 						return false;
 					}

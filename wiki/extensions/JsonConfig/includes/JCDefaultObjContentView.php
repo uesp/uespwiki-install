@@ -39,7 +39,7 @@ class JCDefaultObjContentView extends JCDefaultContentView {
 	 * @param JCObjContent|JCContent $content
 	 * @param mixed|JCValue $data
 	 * @param array $path path to this field
-	 * @return string: HTML.
+	 * @return string HTML.
 	 */
 	public function renderValue( JCContent $content, $data, array $path ) {
 		if ( is_a( $data, '\JsonConfig\JCValue' ) ) {
@@ -96,7 +96,7 @@ class JCDefaultObjContentView extends JCDefaultContentView {
 	 * Determine if data is a special container that needs to be rendered as a comma-separated list.
 	 * By default,
 	 * @param JCContent $content
-	 * @param $data
+	 * @param array|object $data
 	 * @param array $path
 	 * @return bool
 	 */

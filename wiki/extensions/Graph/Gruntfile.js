@@ -4,7 +4,7 @@
  * @package Graph
  */
 
-/* eslint-env node */
+/* eslint-env node, es6 */
 
 module.exports = function ( grunt ) {
 	var conf = grunt.file.readJSON( 'extension.json' );
@@ -17,19 +17,12 @@ module.exports = function ( grunt ) {
 
 	grunt.initConfig( {
 		eslint: {
-			fix: {
-				options: {
-					fix: true
-				},
-				src: [
-					'<%= eslint.all %>'
-				]
-			},
 			all: [
 				'*.js',
 				'**/*.js',
 				'!lib/**',
-				'!node_modules/**'
+				'!node_modules/**',
+				'!vendor/**'
 			]
 		},
 		stylelint: {
@@ -40,12 +33,13 @@ module.exports = function ( grunt ) {
 				'**/*.css',
 				'**/*.less',
 				'!lib/**',
-				'!node_modules/**'
+				'!node_modules/**',
+				'!vendor/**'
 			]
 		},
 		watch: {
 			files: [
-				'.{stylelintrc,eslintrc.json}',
+				'.{stylelintrc,eslintrc}.json',
 				'<%= eslint.all %>',
 				'<%= stylelint.all %>'
 			],
@@ -55,12 +49,13 @@ module.exports = function ( grunt ) {
 		jsonlint: {
 			all: [
 				'**/*.json',
-				'!node_modules/**'
+				'!node_modules/**',
+				'!vendor/**'
 			]
 		}
 	} );
 
-	grunt.registerTask( 'lint', [ 'eslint:all', 'jsonlint', 'stylelint', 'banana' ] );
+	grunt.registerTask( 'lint', [ 'eslint', 'jsonlint', 'stylelint', 'banana' ] );
 	grunt.registerTask( 'test', 'lint' );
 	grunt.registerTask( 'default', 'test' );
 };

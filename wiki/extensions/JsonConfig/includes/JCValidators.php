@@ -1,5 +1,6 @@
 <?php
 namespace JsonConfig;
+
 use Closure;
 
 /**
@@ -10,15 +11,17 @@ class JCValidators {
 
 	/** Call one or more validator functions with the given parameters.
 	 * Validator parameters:  function ( JCValue $jcv, string $fieldPath, JCContent $content )
-	 * Validator should update $jcv object with any errors it finds by using error() function. Validator
-	 * may also change the value or set default/same-as-default flags.
+	 * Validator should update $jcv object with any errors it finds by using error() function.
+	 * Validator may also change the value or set default/same-as-default flags.
 	 * Setting status to JCValue::MISSING will delete this value (but not its parent)
 	 * @param array $validators an array of validator function closures
 	 * @param JCValue $value value to validate, modify, and change status of
 	 * @param array $path path to the field, needed by the error messages
 	 * @param JCContent $content
 	 */
-	public static function run( array $validators, JCValue $value, array $path, JCContent $content ) {
+	public static function run(
+		array $validators, JCValue $value, array $path, JCContent $content
+	) {
 		if ( $validators ) {
 			foreach ( $validators as $validator ) {
 				if ( !call_user_func( $validator, $value, $path, $content ) ) {
@@ -142,7 +145,8 @@ class JCValidators {
 	}
 
 	/** Returns a validator function that will substitute missing value with default
-	 * @param mixed $default value to use in case field is not present, or a closure function to generate that value
+	 * @param mixed $default value to use in case field is not present, or a closure function to
+	 *   generate that value
 	 * @param bool $validateDefault if true, the default value will be verified by the validators
 	 * @return callable
 	 */
@@ -224,7 +228,9 @@ class JCValidators {
 		};
 	}
 
-	/** Returns a validator function to check if the value is a valid header string
+	/**
+	 * Returns a validator function to check if the value is a valid header string
+	 * @param array &$allHeaders
 	 * @return callable
 	 */
 	public static function isHeaderString( &$allHeaders ) {
@@ -263,7 +269,7 @@ class JCValidators {
 	}
 
 	/** Returns a validator function to check if value is a list of a given size
-	 * @param integer $count
+	 * @param int $count
 	 * @param string $field
 	 * @return callable
 	 */
@@ -280,7 +286,7 @@ class JCValidators {
 
 	/** Returns a validator function asserting a string to be one of the valid data types.
 	 * Additionally, a validator function for that data type is appended to the $validators array.
-	 * @param array $validators
+	 * @param array &$validators
 	 * @return Closure
 	 */
 	public static function validateDataType( &$validators ) {

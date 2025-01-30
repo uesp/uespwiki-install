@@ -17,7 +17,7 @@ class FileNumericFeature extends SimpleKeywordFeature {
 	 * @return string[]
 	 */
 	protected function getKeywords() {
-		return ['filesize', 'filebits', 'fileh', 'filew', 'fileheight', 'filewidth', 'fileres'];
+		return [ 'filesize', 'filebits', 'fileh', 'filew', 'fileheight', 'filewidth', 'fileres' ];
 	}
 
 	/**
@@ -36,11 +36,11 @@ class FileNumericFeature extends SimpleKeywordFeature {
 
 	/**
 	 * @param SearchContext $context
-	 * @param string        $key The keyword
-	 * @param string        $value The value attached to the keyword with quotes stripped
-	 * @param string        $quotedValue The original value in the search string, including quotes
+	 * @param string $key The keyword
+	 * @param string $value The value attached to the keyword with quotes stripped
+	 * @param string $quotedValue The original value in the search string, including quotes
 	 *     if used
-	 * @param bool          $negated Is the search negated? Not used to generate the returned
+	 * @param bool $negated Is the search negated? Not used to generate the returned
 	 *     AbstractQuery, that will be negated as necessary. Used for any other building/context
 	 *     necessary.
 	 * @return array Two element array, first an AbstractQuery or null to apply to the
@@ -48,7 +48,6 @@ class FileNumericFeature extends SimpleKeywordFeature {
 	 *  string.
 	 */
 	protected function doApply( SearchContext $context, $key, $value, $quotedValue, $negated ) {
-
 		$field = $this->keyTable[$key];
 
 		list( $sign, $number ) = $this->extractSign( $value );
@@ -79,9 +78,9 @@ class FileNumericFeature extends SimpleKeywordFeature {
 	protected function extractSign( $value, $default = 0 ) {
 		if ( $value[0] == '>' || $value[0] == '<' ) {
 			$sign = ( $value[0] == '>' ) ? 1 : - 1;
-			return [$sign, substr( $value, 1 )];
+			return [ $sign, substr( $value, 1 ) ];
 		} else {
-			return [$default, $value];
+			return [ $default, $value ];
 		}
 	}
 
@@ -143,9 +142,9 @@ class FileNumericFeature extends SimpleKeywordFeature {
 	/**
 	 * Build a query which is either range match or exact match.
 	 * @param string $field
-	 * @param int    $sign 0 is equal, 1 is more, -1 is less
+	 * @param int $sign 0 is equal, 1 is more, -1 is less
 	 * @param string $number number to compare to
-	 * @param int    $multiplier Multiplier for the number
+	 * @param int $multiplier Multiplier for the number
 	 * @return Query\AbstractQuery|null
 	 */
 	protected function buildNumericQuery( $field, $sign, $number, $multiplier = 1 ) {
@@ -165,7 +164,7 @@ class FileNumericFeature extends SimpleKeywordFeature {
 					'lte' => intval( $numbers[1] ) * $multiplier
 				] );
 			}
-			$query = new  Query\Match();
+			$query = new Query\Match();
 			$query->setFieldQuery( $field, (string)( $number * $multiplier ) );
 		}
 		return $query;

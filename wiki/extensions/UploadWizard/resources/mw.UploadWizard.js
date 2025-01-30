@@ -27,14 +27,6 @@
 		}
 
 		this.maxSimultaneousConnections = config.maxSimultaneousConnections;
-
-		if ( mw.UploadWizard.config.enableFirefogg && mw.Firefogg.isInstalled() ) {
-			// update the "valid" extension to include firefogg transcode extensions:
-			mw.UploadWizard.config.fileExtensions = $.merge(
-				mw.UploadWizard.config.fileExtensions,
-				mw.UploadWizard.config.transcodeExtensionList
-			);
-		}
 	};
 
 	mw.UploadWizard.DEBUG = true;
@@ -100,6 +92,8 @@
 			var api = new mw.Api( options );
 
 			api.ajax = function ( parameters, ajaxOptions ) {
+				var original, override;
+
 				$.extend( parameters, {
 					errorformat: 'html',
 					errorlang: mw.config.get( 'wgUserLanguage' ),
@@ -107,7 +101,11 @@
 					formatversion: 2
 				} );
 
-				return mw.Api.prototype.ajax.apply( this, [ parameters, ajaxOptions ] ).then(
+				original = mw.Api.prototype.ajax.apply( this, [ parameters, ajaxOptions ] );
+
+				// we'll attach a default error handler that makes sure error
+				// output is always, reliably, in the same format
+				override = original.then(
 					null, // done handler - doesn't need overriding
 					function ( code, result ) { // fail handler
 						var response = { errors: [ {
@@ -120,17 +118,24 @@
 							response = result;
 						} else if ( result && result.textStatus === 'timeout' ) {
 							// in case of $.ajax.fail(), there is no response json
-							response.errors[ 0 ].html = mw.message( 'api-error-timeout' ).parse();
+							response.errors[ 0 ].html = mw.message( 'apierror-timeout' ).parse();
 						} else if ( result && result.textStatus === 'parsererror' ) {
 							response.errors[ 0 ].html = mw.message( 'api-error-parsererror' ).parse();
 						} else if ( code === 'http' && result && result.xhr && result.xhr.status === 0 ) {
 							// failed to even connect to server
-							response.errors[ 0 ].html = mw.message( 'api-error-offline' ).parse();
+							response.errors[ 0 ].html = mw.message( 'apierror-offline' ).parse();
 						}
 
 						return $.Deferred().reject( code, response, response );
 					}
 				);
+
+				/*
+				 * After attaching (.then) our error handler, a new promise is
+				 * returned. The original promise had an 'abort' method, which
+				 * we'll also want to make use of...
+				 */
+				return override.promise( { abort: original.abort } );
 			};
 
 			return api;

@@ -16,16 +16,16 @@ class FileTypeFeature extends SimpleKeywordFeature {
 	 * @return string[]
 	 */
 	protected function getKeywords() {
-		return ['filetype','filemime'];
+		return [ 'filetype','filemime' ];
 	}
 
 	/**
 	 * @param SearchContext $context
-	 * @param string        $key The keyword
-	 * @param string        $value The value attached to the keyword with quotes stripped
-	 * @param string        $quotedValue The original value in the search string, including quotes
+	 * @param string $key The keyword
+	 * @param string $value The value attached to the keyword with quotes stripped
+	 * @param string $quotedValue The original value in the search string, including quotes
 	 *     if used
-	 * @param bool          $negated Is the search negated? Not used to generate the returned
+	 * @param bool $negated Is the search negated? Not used to generate the returned
 	 *     AbstractQuery, that will be negated as necessary. Used for any other building/context
 	 *     necessary.
 	 * @return array Two element array, first an AbstractQuery or null to apply to the
@@ -34,14 +34,13 @@ class FileTypeFeature extends SimpleKeywordFeature {
 	 */
 	protected function doApply( SearchContext $context, $key, $value, $quotedValue, $negated ) {
 		if ( $key == 'filetype' ) {
-			if ( ( $aliases = $context->getConfig()->get( 'CirrusSearchFiletypeAliases' ) ) ) {
-				if ( isset( $aliases[$value] ) ) {
-					$value = $aliases[$value];
-				}
+			$aliases = $context->getConfig()->get( 'CirrusSearchFiletypeAliases' );
+			if ( is_array( $aliases ) && isset( $aliases[$value] ) ) {
+				$value = $aliases[$value];
 			}
 			$query = new Query\Match( 'file_media_type', [ 'query' => $value ] );
 		} else {
-			if ($value !== $quotedValue ) {
+			if ( $value !== $quotedValue ) {
 				// If used with quotes we create a more precise phrase query
 				$query = new Query\MatchPhrase( 'file_mime', $value );
 			} else {

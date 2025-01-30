@@ -18,7 +18,6 @@
  * @file
  * @ingroup extensions
  */
-require_once ( 'PopupsContextTestWrapper.php' );
 use Popups\PopupsContext;
 use Popups\PopupsHooks;
 
@@ -31,7 +30,6 @@ use Popups\PopupsHooks;
 class PopupsHooksTest extends MediaWikiTestCase {
 
 	protected function tearDown() {
-		PopupsContextTestWrapper::resetTestInstance();
 		parent::tearDown();
 	}
 
@@ -63,7 +61,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 	 * @covers ::onGetPreferences
 	 */
 	public function testOnGetPreferencesPreviewsDisabled() {
-		$contextMock = $this->getMockBuilder( PopupsContextTestWrapper::class )
+		$contextMock = $this->getMockBuilder( PopupsContext::class )
 			->disableOriginalConstructor()
 			->setMethods( [ 'showPreviewsOptInOnPreferencesPage' ] )
 			->getMock();
@@ -71,7 +69,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			->method( 'showPreviewsOptInOnPreferencesPage' )
 			->will( $this->returnValue( false ) );
 
-		PopupsContextTestWrapper::injectTestInstance( $contextMock );
+		$this->setService( 'Popups.Context', $contextMock );
 		$prefs = [ 'someNotEmptyValue' => 'notEmpty' ];
 
 		PopupsHooks::onGetPreferences( $this->getTestUser()->getUser(), $prefs );
@@ -84,7 +82,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 	 */
 	public function testOnGetPreferencesNavPopupGadgetIsOn() {
 		$userMock = $this->getTestUser()->getUser();
-		$contextMock = $this->getMockBuilder( PopupsContextTestWrapper::class )
+		$contextMock = $this->getMockBuilder( PopupsContext::class )
 			->disableOriginalConstructor()
 			->setMethods( [ 'showPreviewsOptInOnPreferencesPage', 'conflictsWithNavPopupsGadget' ] )
 			->getMock();
@@ -98,7 +96,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			->with( $userMock )
 			->will( $this->returnValue( true ) );
 
-		PopupsContextTestWrapper::injectTestInstance( $contextMock );
+		$this->setService( 'Popups.Context', $contextMock );
 		$prefs = [];
 
 		PopupsHooks::onGetPreferences( $this->getTestUser()->getUser(), $prefs );
@@ -107,14 +105,14 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			$prefs[ PopupsContext::PREVIEWS_OPTIN_PREFERENCE_NAME ] );
 		$this->assertEquals( true,
 			$prefs[ PopupsContext::PREVIEWS_OPTIN_PREFERENCE_NAME]['disabled'] );
-		$this->assertNotEmpty( $prefs[ PopupsContext::PREVIEWS_OPTIN_PREFERENCE_NAME]['help'] );
+		$this->assertNotEmpty( $prefs[ PopupsContext::PREVIEWS_OPTIN_PREFERENCE_NAME]['help-message'] );
 	}
 
 	/**
 	 * @covers ::onGetPreferences
 	 */
 	public function testOnGetPreferencesPreviewsEnabled() {
-		$contextMock = $this->getMockBuilder( PopupsContextTestWrapper::class )
+		$contextMock = $this->getMockBuilder( PopupsContext::class )
 			->disableOriginalConstructor()
 			->setMethods( [ 'showPreviewsOptInOnPreferencesPage', 'conflictsWithNavPopupsGadget' ] )
 			->getMock();
@@ -126,7 +124,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			->method( 'conflictsWithNavPopupsGadget' )
 			->will( $this->returnValue( false ) );
 
-		PopupsContextTestWrapper::injectTestInstance( $contextMock );
+		$this->setService( 'Popups.Context', $contextMock );
 		$prefs = [
 			'skin' => 'skin stuff',
 			'someNotEmptyValue' => 'notEmpty',
@@ -145,7 +143,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 	 * @covers ::onGetPreferences
 	 */
 	public function testOnGetPreferencesPreviewsEnabledWhenSkinIsNotAvailable() {
-		$contextMock = $this->getMockBuilder( PopupsContextTestWrapper::class )
+		$contextMock = $this->getMockBuilder( PopupsContext::class )
 			->disableOriginalConstructor()
 			->setMethods( [ 'showPreviewsOptInOnPreferencesPage', 'conflictsWithNavPopupsGadget' ] )
 			->getMock();
@@ -157,7 +155,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			->method( 'conflictsWithNavPopupsGadget' )
 			->will( $this->returnValue( false ) );
 
-		PopupsContextTestWrapper::injectTestInstance( $contextMock );
+		$this->setService( 'Popups.Context', $contextMock );
 		$prefs = [
 			'someNotEmptyValue' => 'notEmpty',
 			'other' => 'notEmpty'
@@ -176,10 +174,10 @@ class PopupsHooksTest extends MediaWikiTestCase {
 	public function testOnResourceLoaderGetConfigVars() {
 		$vars = [ 'something' => 'notEmpty' ];
 		$config = [
-			'wgPopupsSchemaSamplingRate' => 10,
+			'wgPopupsAnonsExperimentalGroupSize' => 0.1,
+			'wgPopupsEventLogging' => false,
 			'wgPopupsBetaFeature' => true,
-			'wgPopupsAPIUseRESTBase' => false,
-			'wgPopupsAnonsEnabledSamplingRate' => 0.9,
+			'wgPopupsGateway' => 'mwApiPlain',
 			'wgPopupsStatsvSamplingRate' => 0
 		];
 		$this->setMwGlobals( $config );
@@ -202,7 +200,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 		$userOptions = [
 			'test' => 'not_empty'
 		];
-		$contextMock = $this->getMockBuilder( PopupsContextTestWrapper::class )
+		$contextMock = $this->getMockBuilder( PopupsContext::class )
 			->setMethods( [ 'getDefaultIsEnabledState' ] )
 			->disableOriginalConstructor()
 			->getMock();
@@ -211,7 +209,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			->method( 'getDefaultIsEnabledState' )
 			->willReturn( true );
 
-		PopupsContextTestWrapper::injectTestInstance( $contextMock );
+		$this->setService( 'Popups.Context', $contextMock );
 
 		PopupsHooks::onUserGetDefaultOptions( $userOptions );
 		$this->assertCount( 2, $userOptions );
@@ -231,31 +229,35 @@ class PopupsHooksTest extends MediaWikiTestCase {
 		$loggerMock->expects( $this->once() )
 			->method( 'error' );
 
-		$contextMock = $this->getMockBuilder( PopupsContextTestWrapper::class )
+		$contextMock = $this->getMockBuilder( PopupsContext::class )
 			->disableOriginalConstructor()
-			->setMethods( [ 'areDependenciesMet', 'getLogger' ] )
+			->setMethods( [ 'areDependenciesMet', 'getLogger', 'isTitleBlacklisted' ] )
 			->getMock();
 		$contextMock->expects( $this->once() )
 			->method( 'areDependenciesMet' )
 			->will( $this->returnValue( false ) );
 		$contextMock->expects( $this->once() )
+			->method( 'isTitleBlacklisted' )
+			->will( $this->returnValue( false ) );
+		$contextMock->expects( $this->once() )
 			->method( 'getLogger' )
 			->will( $this->returnValue( $loggerMock ) );
 
-		PopupsContextTestWrapper::injectTestInstance( $contextMock );
+		$this->setService( 'Popups.Context', $contextMock );
 		PopupsHooks::onBeforePageDisplay( $outPageMock, $skinMock );
 	}
 
 	public function providerOnBeforePageDisplay() {
 		return [
-			[ false, true, false ],
-			[ true, true, true ],
+			[ false, true, false, false ],
+			[ true, true, true, false ],
 			// if the user doesnt have the feature but the beta feature is disabled
 			// we can assume the user has it (as its rolled out to everyone)
-			[ false, false, true ],
+			[ false, false, true, false ],
 			// If the user has enabled it and the beta feature is disabled
 			// we can assume the code will be loaded.
-			[ true, false, true ]
+			[ true, false, true, false ],
+			[ false, false, false, true ]
 		];
 	}
 
@@ -263,7 +265,8 @@ class PopupsHooksTest extends MediaWikiTestCase {
 	 * @covers ::onBeforePageDisplay
 	 * @dataProvider providerOnBeforePageDisplay
 	 */
-	public function testOnBeforePageDisplay( $shouldSendModuleToUser, $isBetaFeatureEnabled, $isCodeLoaded ) {
+	public function testOnBeforePageDisplay( $shouldSendModuleToUser,
+			$isBetaFeatureEnabled, $isCodeLoaded, $isTitleBlacklisted ) {
 		$skinMock = $this->getMock( Skin::class );
 
 		$outPageMock = $this->getMock(
@@ -278,14 +281,17 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			->method( 'addModules' )
 			->with( [ 'ext.popups' ] );
 
-		$contextMock = $this->getMockBuilder( PopupsContextTestWrapper::class )
-			->setMethods( [ 'areDependenciesMet', 'isBetaFeatureEnabled', 'shouldSendModuleToUser' ] )
+		$contextMock = $this->getMockBuilder( PopupsContext::class )
+			->setMethods( [ 'areDependenciesMet', 'isBetaFeatureEnabled',
+				'shouldSendModuleToUser', 'isTitleBlacklisted' ] )
 			->disableOriginalConstructor()
 			->getMock();
 
-		$contextMock->expects( $this->once() )
-			->method( 'areDependenciesMet' )
-			->will( $this->returnValue( true ) );
+		if ( !$isTitleBlacklisted ) {
+			$contextMock->expects( $this->once() )
+				->method( 'areDependenciesMet' )
+				->will( $this->returnValue( true ) );
+		}
 
 		$contextMock->expects( $this->any() )
 			->method( 'isBetaFeatureEnabled' )
@@ -295,7 +301,11 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			->method( 'shouldSendModuleToUser' )
 			->will( $this->returnValue( $shouldSendModuleToUser ) );
 
-		PopupsContextTestWrapper::injectTestInstance( $contextMock );
+		$contextMock->expects( $this->once() )
+			->method( 'isTitleBlacklisted' )
+			->will( $this->returnValue( $isTitleBlacklisted ) );
+
+		$this->setService( 'Popups.Context', $contextMock );
 		PopupsHooks::onBeforePageDisplay( $outPageMock, $skinMock );
 	}
 
@@ -313,7 +323,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			->method( 'getUser' )
 			->willReturn( $user );
 
-		$contextMock = $this->getMockBuilder( PopupsContextTestWrapper::class )
+		$contextMock = $this->getMockBuilder( PopupsContext::class )
 			->setMethods( [ 'shouldSendModuleToUser', 'conflictsWithNavPopupsGadget' ] )
 			->disableOriginalConstructor()
 			->getMock();
@@ -326,7 +336,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			->with( $user )
 			->willReturn( false );
 
-		PopupsContextTestWrapper::injectTestInstance( $contextMock );
+		$this->setService( 'Popups.Context', $contextMock );
 
 		$vars = [];
 

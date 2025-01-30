@@ -10,6 +10,21 @@ use Title;
  */
 class SearcherTest extends CirrusTestCase {
 
+	public function setUp() {
+		parent::setUp();
+		MediaWikiServices::getInstance()->getConfigFactory()->register( 'CirrusSearch',
+			function () {
+				return new SearchConfigUsageDecorator();
+			}
+		);
+	}
+
+	public function tearDown() {
+		MediaWikiServices::getInstance()
+			->resetServiceForTesting( 'ConfigFactory' );
+		parent::tearDown();
+	}
+
 	public function searchTextProvider() {
 		$configs = [
 			'default' => [],
@@ -46,21 +61,20 @@ class SearcherTest extends CirrusTestCase {
 		return $tests;
 	}
 
-
 	/**
 	 * @dataProvider searchTextProvider
 	 */
 	public function testSearchText( array $config, $expected, $queryString ) {
 		// Override some config for parsing purposes
 		$this->setMwGlobals( $config + [
+			'wgCirrusSearchExtraIndexes' => [],
+			'wgCirrusSearchExtraIndexBoostTemplates' => [],
 			'wgCirrusSearchIndexBaseName' => 'wiki',
 			'wgCirrusSearchUseExperimentalHighlighter' => true,
 			'wgCirrusSearchWikimediaExtraPlugin' => [
 				'regex' => [ 'build', 'use' ],
 			],
 			'wgCirrusSearchQueryStringMaxDeterminizedStates' => 500,
-			'wgCirrusSearchExtraIndexes' => [],
-			'wgCirrusSearchExtraIndexBoostTemplates' => [],
 			'wgContentNamespaces' => [ NS_MAIN ],
 			// Override the list of namespaces to give more deterministic results
 			'wgHooks' => [
@@ -117,7 +131,7 @@ class SearcherTest extends CirrusTestCase {
 		// The helps with ensuring if there are minor code changes that change the ordering,
 		// regenerating the fixture wont cause changes. Do it always, instead of only when
 		// writing, so that the diff's from phpunit are also as minimal as possible.
-		$elasticQuery = $this->normalizeOrdering( $elasticQuery);
+		$elasticQuery = $this->normalizeOrdering( $elasticQuery );
 		// The actual name of the index may vary, and doesn't really matter
 		unset( $elasticQuery['path'] );
 
@@ -132,6 +146,28 @@ class SearcherTest extends CirrusTestCase {
 
 			// Finally compare some things
 			$this->assertEquals( $expected, $elasticQuery, $encodedQuery );
+		}
+		$this->assertConfigIsExported();
+	}
+
+	private function assertConfigIsExported() {
+		try {
+			$notInApi = [];
+			$notInSearchConfig = [];
+			foreach ( array_keys( SearchConfigUsageDecorator::getUsedConfigKeys() ) as $k ) {
+				if ( !in_array( $k, \CirrusSearch\Api\ConfigDump::$WHITE_LIST ) ) {
+					$notInApi[] = $k;
+				}
+				if ( preg_match( '/^CirrusSearch/', $k ) == 0 ) {
+					if ( !in_array( 'wg' . $k, SearchConfig::getNonCirrusConfigVarNames() ) ) {
+						$notInSearchConfig[] = $k;
+					}
+				}
+			}
+			$this->assertEmpty( $notInApi, implode( ',', $notInApi ) . " are exported from \CirrusSearch\Api\ConfigDump" );
+			$this->assertEmpty( $notInSearchConfig, implode( ',', $notInSearchConfig ) . " are allowed in SearchConfig::getNonCirrusConfigVarNames()" );
+		} finally {
+			SearchConfigUsageDecorator::resetUsedConfigKeys();
 		}
 	}
 
@@ -153,6 +189,7 @@ class SearcherTest extends CirrusTestCase {
 		}
 		if ( isset( $query[0] ) ) {
 			// list like. Expensive, but sorta-works?
+			// TODO: This breaks things that require a specific ordering, such as the token count router
 			usort( $query, function ( $a, $b ) {
 				return strcmp( json_encode( $a ), json_encode( $b ) );
 			} );
@@ -229,5 +266,26 @@ class SearcherTest extends CirrusTestCase {
 			// Finally compare some things
 			$this->assertEquals( $expected, $decodedQuery, $elasticQuery );
 		}
+	}
+}
+
+class SearchConfigUsageDecorator extends SearchConfig {
+	private static $usedConfigKeys = [];
+
+	public function get( $name ) {
+		$val = parent::get( $name );
+		// Some config vars are objects.. (e.g. wgContLang)
+		if ( !is_object( $val ) ) {
+			static::$usedConfigKeys[$this->prefix . $name] = true;
+		}
+		return $val;
+	}
+
+	public static function getUsedConfigKeys() {
+		return static::$usedConfigKeys;
+	}
+
+	public static function resetUsedConfigKeys() {
+		static::$usedConfigKeys = [];
 	}
 }

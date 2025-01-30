@@ -172,7 +172,7 @@
                                             ]
                                         }
                                     },
-                                    "weight": "0.25"
+                                    "weight": 0.25
                                 },
                                 {
                                     "filter": {
@@ -182,7 +182,7 @@
                                             ]
                                         }
                                     },
-                                    "weight": "0.05"
+                                    "weight": 0.05
                                 },
                                 {
                                     "filter": {
@@ -192,7 +192,7 @@
                                             ]
                                         }
                                     },
-                                    "weight": "0.0125"
+                                    "weight": 0.0125
                                 }
                             ]
                         }
@@ -206,6 +206,7 @@
         "size": 20,
         "stats": [
             "filemime",
+            "filter_only",
             "full_text"
         ],
         "stored_fields": [

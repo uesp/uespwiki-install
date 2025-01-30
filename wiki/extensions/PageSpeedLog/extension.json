@@ -7,15 +7,40 @@
 	"license-name": "by-sa-2",
 	"type": "parserhook",
 	"AutoloadClasses": {
-		"PageSpeedLog": "PageSpeedLog.php"
+		"PageSpeedLog": "PageSpeedLog.php",
+		"SpecialPageSpeed": "SpecialPageSpeed.php"
 	},
 	"ExtensionFunctions" : [
 		"PageSpeedLog::onInitialize"
 	],
+	"ExtensionMessagesFiles": {
+		"PageSpeedAlias": "PageSpeed.i18n.alias.php"
+	},
+	"SpecialPages": {
+		"PageSpeed": "SpecialPageSpeed"
+	},
+	"MessagesDirs": {
+		"UespPatreon": [
+			"i18n"
+		]
+	},
 	"Hooks": {
 		"ParserFirstCallInit": [
 			"PageSpeedLog::setHooks"
 		]
+	},
+	"ResourceModules" : {
+		"ext.PageSpeed.modules": {
+			"localBasePath": "modules",
+			"remoteExtPath": "PageSpeed/modules",
+			"styles": [
+				"pageSpeed.css"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		}
 	},
 	"config": {
 		"PageSpeedLogFile": {

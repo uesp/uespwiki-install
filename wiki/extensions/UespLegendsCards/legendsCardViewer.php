@@ -145,6 +145,7 @@ class CUespLegendsCardDataViewer
 	
 	public $wikiContext = null;
 	public $db = null;
+	public $lastQuery = "";
 	public $errorMsg = "";
 	
 	public $cards = array();
@@ -375,13 +376,13 @@ class CUespLegendsCardDataViewer
 		if ($this->inputCardData['type'] != "")
 		{
 			$safeValue = $this->db->real_escape_string($this->inputCardData['type']);
-			$where[] = "type='$safeValue'";
+			$where[] = "`type`='$safeValue'";
 		}
 		
 		if ($this->inputCardData['subtype'] != "")
 		{
 			$safeValue = $this->db->real_escape_string($this->inputCardData['subtype']);
-			$where[] = "subtype='$safeValue'";
+			$where[] = "`subtype`='$safeValue'";
 		}
 		
 		if ($this->inputCardData['class'] != "")
@@ -865,7 +866,7 @@ class CUespLegendsCardDataViewer
 		$output .= "<input type='text' name='newset' value='' maxlength='36' /></td><td><input type='submit' value='Add New'>";
 		$output .= "</form>";
 		$output .= "</td></tr>";
-		$output .= "</table>";		
+		$output .= "</table>";
 		
 		return $output;
 	}
@@ -1248,6 +1249,14 @@ class CUespLegendsCardDataViewer
 		$power = $this->inputCardData['power'];
 		$health = $this->inputCardData['health'];
 		
+		if ($trainingLevel1 == "") $trainingLevel1 = 0;
+		if ($trainingLevel2 == "") $trainingLevel2 = 0;
+		if ($obtainable == "") $obtainable = 0;
+		if ($unique == "") $unique = 0;
+		if ($magicka == "") $magicka = 0;
+		if ($power == "") $power = 0;
+		if ($health == "") $health = 0;
+		
 		$cardExists = $this->DoesCardExist($this->inputCardName);
 		
 		if ($this->inputCreateCard)
@@ -1272,8 +1281,8 @@ class CUespLegendsCardDataViewer
 			$query = "UPDATE cards SET ";
 		}
 		
-		$query .= " type='$type',";
-		$query .= " subtype='$subtype',";
+		$query .= " `type`='$type',";
+		$query .= " `subtype`='$subtype',";
 		$query .= " magicka='$magicka',";
 		$query .= " power='$power',";
 		$query .= " health='$health',";
@@ -1295,6 +1304,7 @@ class CUespLegendsCardDataViewer
 		
 		if (!$this->inputCreateCard) $query .= " WHERE name='$name'";
 		$query .= ";";
+		$this->lastQuery = $query;
 		
 		$result = $this->db->query($query);
 		if ($result === false) return false;
@@ -1515,11 +1525,11 @@ class CUespLegendsCardDataViewer
 			
 			return $output;
 		}
-				
+		
 		if (!$this->SaveCard())
 		{
 			$output .= "<b>Error saving card data!</b> " . $this->errorMsg . " ";
-			if ($this->db->error) $output .= "<p>DB Error: " . $this->db->error . "<p>";
+			if ($this->db->error) $output .= "<p>DB Error: " . $this->db->error . "<p>{$this->lastQuery}<p>";
 			
 			$this->inputEditCard = $this->inputCardName;
 			$this->singleCardData = $this->inputCardData;

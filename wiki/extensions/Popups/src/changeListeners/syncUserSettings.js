@@ -1,4 +1,8 @@
 /**
+ * @module changeListeners/syncUserSettings
+ */
+
+/**
  * Creates an instance of the user settings sync change listener.
  *
  * This change listener syncs certain parts of the state tree to user
@@ -14,7 +18,7 @@
  * @param {ext.popups.UserSettings} userSettings
  * @return {ext.popups.ChangeListener}
  */
-module.exports = function ( userSettings ) {
+export default function syncUserSettings( userSettings ) {
 
 	return function ( prevState, state ) {
 
@@ -28,7 +32,7 @@ module.exports = function ( userSettings ) {
 		);
 
 	};
-};
+}
 
 /**
  * Given a state tree, reducer and property, safely return the value of the

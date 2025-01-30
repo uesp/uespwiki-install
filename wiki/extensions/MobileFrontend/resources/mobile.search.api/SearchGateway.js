@@ -18,7 +18,7 @@
 		 * The namespace to search in.
 		 * @type {number}
 		 */
-		searchNamespace: '0|102|104|106|108|110|112|114|116|118|120|122|124|126|128|130|132|134|136|138|140|142|144|146|148|150|152|154|156|158|160|162|164|166|168|170|172|174|176|178',
+		searchNamespace: '0|102|104|106|108|110|112|114|116|118|120|122|124|126|128|130|132|134|136|138|140|142|144|146|148|150|152|154|156|158|160|162|164|166|168|170|172|174|176|178|184',
 
 		/**
 		 * Get the data used to do the search query api call.
@@ -53,7 +53,9 @@
 		 * @private
 		 */
 		_createSearchRegEx: function ( str ) {
-			str = str.replace( /[\-\[\]{}()*+?.,\\\^$|#\s]/g, '\\$&' );
+			// '\[' can be unescaped, but leave it balanced with '`]'
+			// eslint-disable-next-line no-useless-escape
+			str = str.replace( /[-\[\]{}()*+?.,\\^$|#\s]/g, '\\$&' );
 			return new RegExp( '^(' + str + ')', 'ig' );
 		},
 

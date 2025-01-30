@@ -1,7 +1,4 @@
-var model = require( '../../../src/preview/model' ),
-	createModel = model.createModel,
-	TYPE_PAGE = model.TYPE_PAGE,
-	TYPE_GENERIC = model.TYPE_GENERIC;
+import { createModel, TYPE_PAGE, TYPE_GENERIC } from '../../../src/preview/model';
 
 QUnit.module( 'ext.popups.preview#createModel' );
 
@@ -23,22 +20,8 @@ QUnit.test( 'it should copy the basic properties', function ( assert ) {
 	assert.strictEqual( model.thumbnail, thumbnail );
 } );
 
-QUnit.test( 'it computes the extract property', function ( assert ) {
-	var i, testCase, cases = [
-			// removeEllipsis
-			[ '', undefined ],
-			[ 'Extract...', 'Extract' ],
-			[ 'Extract.', 'Extract.' ],
-			[ '...', undefined ],
-
-			// removeParentheticals
-			[ 'Foo', 'Foo' ],
-			[ 'Foo (', 'Foo (' ],
-			[ 'Foo (Bar)', 'Foo' ],
-			[ 'Foo (Bar))', 'Foo (Bar))' ],
-			[ 'Foo )(Bar)', 'Foo )(Bar)' ],
-			[ '(Bar)', undefined ]
-		];
+QUnit.test( 'it computes the type property', function ( assert ) {
+	var model;
 
 	function createModelWithExtract( extract ) {
 		return createModel(
@@ -49,16 +32,6 @@ QUnit.test( 'it computes the extract property', function ( assert ) {
 			extract
 		);
 	}
-
-	for ( i = 0; i < cases.length; i++ ) {
-		testCase = cases[ i ],
-			model = createModelWithExtract( testCase[ 0 ] );
-
-		assert.strictEqual( model.extract, testCase[ 1 ] );
-	}
-
-	// ---
-	// It computes the type property...
 
 	model = createModelWithExtract( 'Foo' );
 

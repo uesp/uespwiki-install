@@ -214,10 +214,10 @@ class UespPatreonUpdate {
 			$existingUser['__isupdated'] = true;
 			
 				// TODO: Tier Check
-			if ($existingUser['tier'] != $user['tier'] && $existingUser['tier'] != "" && $user['tier'] != "") {
+			if ($existingUser['tier'] != $user['tier'] && $existingUser['tier'] != "" && $user['tier'] != "" && $existingUser['tier'] != "Free" && $user['tier'] != "Free") {
 				
 					// Don't update tier changes on new or non-active users
-				if ( !$existingUser['__isnew'] && !($user['tier'] == "" && $user['status'] != "active_patron") ) {
+				if ( !$existingUser['__isnew'] && !($user['tier'] == "" && $user['status'] != "active_patron")) {
 					$newTier = array();
 					$newTier['user_id'] = $existingUser['id']; 
 					$newTier['patreon_id'] = $id;
@@ -242,12 +242,15 @@ class UespPatreonUpdate {
 				$existingUser['tier'] = $user['tier'];
 			}
 			
+			$lastChargeDate = new DateTime($user['lastChargeDate']);
+			$startDate = new DateTime($user['startDate']);
+			
 			$existingUser['status'] = $user['status'];
 			$existingUser['pledgeCadence'] = $user['pledgeCadence'];
 			$existingUser['note'] = $user['note'];
 			$existingUser['lifetimePledgeCents'] = $user['lifetimePledgeCents'];
-			$existingUser['startDate'] = $user['startDate'];
-			$existingUser['lastChargeDate'] = $user['lastChargeDate'];
+			$existingUser['startDate'] = $startDate->format('Y-m-d H:i:s');
+			$existingUser['lastChargeDate'] = $lastChargeDate->format('Y-m-d H:i:s');
 			$existingUser['addressName'] = $user['addressName'];
 			$existingUser['addressLine1'] = $user['addressLine1'];
 			$existingUser['addressLine2'] = $user['addressLine2'];

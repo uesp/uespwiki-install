@@ -79,7 +79,7 @@ class UploadWizardConfig {
 		static $mergedConfig = false;
 
 		if ( !$mergedConfig ) {
-			$wgUploadWizardConfig = UploadWizardConfig::array_replace_sanely(
+			$wgUploadWizardConfig = self::array_replace_sanely(
 				self::getDefaultConfig(),
 				$wgUploadWizardConfig
 			);
@@ -87,7 +87,7 @@ class UploadWizardConfig {
 		}
 
 		if ( !is_null( $campaignName ) ) {
-			$wgUploadWizardConfig = UploadWizardConfig::array_replace_sanely(
+			$wgUploadWizardConfig = self::array_replace_sanely(
 				$wgUploadWizardConfig,
 				self::getCampaignConfig( $campaignName )
 			);
@@ -132,8 +132,8 @@ class UploadWizardConfig {
 	 * @return array
 	 */
 	protected static function getDefaultConfig() {
-		$configPath =  dirname( __DIR__ ) . '/UploadWizard.config.php';
-		return is_file( $configPath ) ? include ( $configPath ) : [];
+		$configPath = dirname( __DIR__ ) . '/UploadWizard.config.php';
+		return is_file( $configPath ) ? include $configPath : [];
 	}
 
 	/**

@@ -5,6 +5,7 @@ use CirrusSearch\ElasticsearchIntermediary;
 use CirrusSearch\InterwikiSearcher;
 use CirrusSearch\InterwikiResolver;
 use CirrusSearch\Search\FullTextResultsType;
+use CirrusSearch\Search\SearchMetricsProvider;
 use CirrusSearch\Searcher;
 use CirrusSearch\CompletionSuggester;
 use CirrusSearch\Search\ResultSet;
@@ -81,10 +82,10 @@ class CirrusSearch extends SearchEngine {
 	 */
 	private $request;
 
-    /**
-     * CirrusSearchIndexFieldFactory
-     */
-    private $searchIndexFieldFactory;
+	/**
+	 * CirrusSearchIndexFieldFactory
+	 */
+	private $searchIndexFieldFactory;
 
 	/**
 	 * Sets the behaviour for the dump query, dump result, etc debugging features.
@@ -100,14 +101,14 @@ class CirrusSearch extends SearchEngine {
 		// This is useful to do tests accross multiple clusters
 		UserTesting::getInstance();
 		$this->config = MediaWikiServices::getInstance()
-				->getConfigFactory()
-				->makeConfig( 'CirrusSearch' );
+			->getConfigFactory()
+			->makeConfig( 'CirrusSearch' );
 		$this->indexBaseName = $baseName === null
 			? $this->config->get( SearchConfig::INDEX_BASE_NAME )
 			: $baseName;
 		$this->connection = new Connection( $this->config );
 		$this->request = RequestContext::getMain()->getRequest();
-        $this->searchIndexFieldFactory = new CirrusSearchIndexFieldFactory( $this->config );
+		$this->searchIndexFieldFactory = new CirrusSearchIndexFieldFactory( $this->config );
 
 		// enable interwiki by default
 		$this->features['interwiki'] = true;
@@ -170,10 +171,14 @@ class CirrusSearch extends SearchEngine {
 		}
 
 		if ( $this->isFeatureEnabled( 'rewrite' ) &&
-				$matches->isQueryRewriteAllowed( $GLOBALS['wgCirrusSearchInterwikiThreshold'] ) ) {
+			$matches->isQueryRewriteAllowed( $GLOBALS['wgCirrusSearchInterwikiThreshold'] )
+		) {
 			$status = $this->searchTextSecondTry( $term, $status );
 		}
 		ElasticsearchIntermediary::setResultPages( [ $status->getValue() ] );
+		if ( $status->getValue() instanceof SearchMetricsProvider ) {
+			$this->extraSearchMetrics += $status->getValue()->getMetrics();
+		}
 
 		return $status;
 	}
@@ -202,7 +207,7 @@ class CirrusSearch extends SearchEngine {
 
 			}
 			$detector = new $klass();
-			if( !( $detector instanceof \CirrusSearch\LanguageDetector\Detector ) ) {
+			if ( !( $detector instanceof \CirrusSearch\LanguageDetector\Detector ) ) {
 				LoggerFactory::getInstance( 'CirrusSearch' )->info(
 					"Bad detector class for {name}: {class}",
 					[
@@ -235,7 +240,7 @@ class CirrusSearch extends SearchEngine {
 				break;
 			}
 		}
-		if ( is_array( $detected  ) ) {
+		if ( is_array( $detected ) ) {
 			// Report language detection with search metrics
 			// TODO: do we still need this metric? (see T151796)
 			$this->extraSearchMetrics['wgCirrusSearchAltLanguage'] = $detected;
@@ -306,7 +311,7 @@ class CirrusSearch extends SearchEngine {
 					// This comes after the actual query is run so we can collect metrics about
 					// users in the control buckets, and provide them the same latency as users
 					// in the test bucket.
-					if ( $GLOBALS['wgCirrusSearchEnableAltLanguage'] && $numRows > 0) {
+					if ( $GLOBALS['wgCirrusSearchEnableAltLanguage'] && $numRows > 0 ) {
 						$oldResult->addInterwikiResults( $matches, SearchResultSet::INLINE_RESULTS, $altWikiId );
 					}
 				}
@@ -321,7 +326,7 @@ class CirrusSearch extends SearchEngine {
 	 * Do the hard part of the searching - actual Searcher invocation
 	 * @param string $term
 	 * @param SearchConfig $config
-	 * @param boolean $forceLocal set to true to force searching on the
+	 * @param bool $forceLocal set to true to force searching on the
 	 *        local wiki (e.g. avoid searching on commons)
 	 * @return Status
 	 */
@@ -329,7 +334,7 @@ class CirrusSearch extends SearchEngine {
 		$searcher = new Searcher( $this->connection, $this->offset, $this->limit, $config, $this->namespaces, null, $this->indexBaseName );
 
 		// Ignore leading ~ because it is used to force displaying search results but not to effect them
-		if ( substr( $term, 0, 1 ) === '~' )  {
+		if ( substr( $term, 0, 1 ) === '~' ) {
 			$term = substr( $term, 1 );
 			$searcher->addSuggestPrefix( '~' );
 		}
@@ -402,7 +407,6 @@ class CirrusSearch extends SearchEngine {
 			$config->isCrossProjectSearchEnabled() &&
 			( $searcher->isReturnRaw() || method_exists( $result, 'addInterwikiResults' ) )
 		) {
-
 			$iwSearch = new InterwikiSearcher( $this->connection, $config, $this->namespaces, null, $highlightingConfig );
 			$iwSearch->setOptionsFromRequest( $this->request );
 			$interwikiResults = $iwSearch->getInterwikiResults( $term );
@@ -411,7 +415,7 @@ class CirrusSearch extends SearchEngine {
 				// If we are dumping we need to convert into an array that can be appended to
 				$recallMetrics = [];
 				if ( $iwSearch->isReturnRaw() ) {
-					$result = [$result];
+					$result = [ $result ];
 				}
 				foreach ( $interwikiResults as $interwiki => $interwikiResult ) {
 					$recallMetrics[$interwiki] = "$interwiki:0";
@@ -433,6 +437,7 @@ class CirrusSearch extends SearchEngine {
 				if ( $this->config->get( 'CirrusSearchNewCrossProjectPage' ) &&
 					!$this->config->get( 'CirrusSearchHideCrossProjectResults' ) ) {
 					$this->features['enable-new-crossproject-page'] = true;
+					$this->features['show-multimedia-search-results'] = $this->config->get( 'CirrusSearchCrossProjectShowMultimedia' );
 				}
 			}
 		}
@@ -523,7 +528,7 @@ class CirrusSearch extends SearchEngine {
 
 	protected function completionSuggesterEnabled( SearchConfig $config ) {
 		$useCompletion = $config->getElement( 'CirrusSearchUseCompletionSuggester' );
-		if( $useCompletion !== 'yes' && $useCompletion !== 'beta' ) {
+		if ( $useCompletion !== 'yes' && $useCompletion !== 'beta' ) {
 			return false;
 		}
 
@@ -574,7 +579,8 @@ class CirrusSearch extends SearchEngine {
 		}
 
 		if ( count( $this->namespaces ) != 1 ||
-		     reset( $this->namespaces ) != NS_MAIN ) {
+			reset( $this->namespaces ) != NS_MAIN
+		) {
 			// for now, suggester only works for main namespace
 			return $this->prefixSearch( $search );
 		}
@@ -591,7 +597,7 @@ class CirrusSearch extends SearchEngine {
 		if ( empty( $variants ) ) {
 			global $wgContLang;
 			$variants = $wgContLang->autoConvertToAllVariants( $search );
-		} else if ( count( $variants ) > 3 ) {
+		} elseif ( count( $variants ) > 3 ) {
 			// We should not allow too many variants
 			$variants = array_slice( $variants, 0, 3 );
 		}
@@ -647,7 +653,7 @@ class CirrusSearch extends SearchEngine {
 				// No need to unpack the simple title matches from non-fancy TitleResultsType
 				return SearchSuggestionSet::fromTitles( $status->getValue() );
 			}
-			$results = array_filter( array_map( function( $match ) {
+			$results = array_filter( array_map( function ( $match ) {
 				if ( isset( $match[ 'titleMatch' ] ) ) {
 					return $match[ 'titleMatch' ];
 				} else {
@@ -670,7 +676,7 @@ class CirrusSearch extends SearchEngine {
 	 * @return array|null
 	 */
 	public function getProfiles( $profileType, User $user = null ) {
-		switch( $profileType ) {
+		switch ( $profileType ) {
 		case SearchEngine::COMPLETION_PROFILE_TYPE:
 			if ( $this->config->get( 'CirrusSearchUseCompletionSuggester' ) == 'no' ) {
 				// No profile selection if completion suggester is disabled.
@@ -687,12 +693,11 @@ class CirrusSearch extends SearchEngine {
 					$user->getOption( 'cirrussearch-pref-completion-profile' ),
 					$allowedProfiles )
 			) {
-
 				$userDefault = $user->getOption( 'cirrussearch-pref-completion-profile' );
 			}
 
 			$profiles = [];
-			foreach( array_keys( $allowedProfiles ) as $name ) {
+			foreach ( array_keys( $allowedProfiles ) as $name ) {
 				$profiles[] = [
 					'name' => $name,
 					'desc-message' => 'cirrussearch-completion-profile-' . $name,
@@ -708,7 +713,7 @@ class CirrusSearch extends SearchEngine {
 			// cirrusRescoreProfile=profile is set.
 			$cirrusDefault = $this->config->get( 'CirrusSearchRescoreProfile' );
 			$defaultFound = false;
-			foreach( $this->config->get( 'CirrusSearchRescoreProfiles' ) as $name => $profile ) {
+			foreach ( $this->config->get( 'CirrusSearchRescoreProfiles' ) as $name => $profile ) {
 				$default = $cirrusDefault === $name;
 				$defaultFound |= $default;
 				$profiles[] = [
@@ -720,7 +725,7 @@ class CirrusSearch extends SearchEngine {
 					// It may require a change in core since ApiBase is
 					// strict and won't allow unknown values to be set
 					// here.
-					'desc-message' => isset ( $profile['i18n_msg'] ) ? $profile['i18n_msg'] : null,
+					'desc-message' => isset( $profile['i18n_msg'] ) ? $profile['i18n_msg'] : null,
 					'default' => $default,
 				];
 			}
@@ -740,9 +745,9 @@ class CirrusSearch extends SearchEngine {
 		if ( $this->config->getElement( 'CirrusSearchCompletionSuggesterSubphrases', 'use' ) ) {
 			$allowedFields['suggest-subphrases'] = true;
 		}
-		foreach( $this->config->get( 'CirrusSearchCompletionProfiles' ) as $name => $settings ) {
+		foreach ( $this->config->get( 'CirrusSearchCompletionProfiles' ) as $name => $settings ) {
 			$allowed = true;
-			foreach( $settings as $value ) {
+			foreach ( $settings as $value ) {
 				if ( !array_key_exists( $value['field'], $allowedFields ) ) {
 					$allowed = false;
 					break;
@@ -761,7 +766,7 @@ class CirrusSearch extends SearchEngine {
 	/**
 	 * Create a search field definition
 	 * @param string $name
-	 * @param int    $type
+	 * @param int $type
 	 * @return SearchIndexField
 	 */
 	public function makeSearchFieldMapping( $name, $type ) {
@@ -784,8 +789,7 @@ class CirrusSearch extends SearchEngine {
 	 * @param string $term Raw search term
 	 * @return Status<Title[]>
 	 */
-	public function searchArchiveTitle ( $term ) {
-
+	public function searchArchiveTitle( $term ) {
 		if ( !$this->config->get( 'CirrusSearchEnableArchive' ) ) {
 			return Status::newGood( [] );
 		}

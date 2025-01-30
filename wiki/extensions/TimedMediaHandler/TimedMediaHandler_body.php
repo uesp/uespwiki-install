@@ -68,14 +68,14 @@ class TimedMediaHandler extends MediaHandler {
 	 */
 	function makeParamString( $params ) {
 		// Add the width param string ( same as images {width}px )
-		$paramString ='';
-		$paramString.= ( isset( $params['width'] ) )?  $params['width'] . 'px' : '';
-		$paramString.= ( $paramString != '' )? '-' : '';
+		$paramString = '';
+		$paramString .= ( isset( $params['width'] ) ) ? $params['width'] . 'px' : '';
+		$paramString .= ( $paramString != '' ) ? '-' : '';
 
 		// Get the raw thumbTime from thumbtime or start param
-		if ( isset ( $params['thumbtime'] ) ) {
+		if ( isset( $params['thumbtime'] ) ) {
 			$thumbTime = $params['thumbtime'];
-		} elseif ( isset ( $params['start'] ) ) {
+		} elseif ( isset( $params['start'] ) ) {
 			$thumbTime = $params['start'];
 		} else {
 			$thumbTime = false;
@@ -112,10 +112,10 @@ class TimedMediaHandler extends MediaHandler {
 			}
 
 			if ( !is_null( $size ) && $size !== '' ) {
-				$params['width'] = (int) $size;
+				$params['width'] = (int)$size;
 			}
 			if ( !is_null( $thumbtime ) ) {
-				$params['thumbtime'] = (float) $thumbtime;
+				$params['thumbtime'] = (float)$thumbtime;
 			}
 			return $params; // valid thumbnail URL
 		} else {
@@ -198,28 +198,23 @@ class TimedMediaHandler extends MediaHandler {
 	 */
 	function parserTransformHook( $parser, $file ) {
 		$parserOutput = $parser->getOutput();
-		if ( isset( $parserOutput->hasTimedMediaTransform ) ) {
+		if ( $parserOutput->getExtensionData( 'mw_ext_TMH_hasTimedMediaTransform' ) ) {
 			return;
 		}
-		$parserOutput->hasTimedMediaTransform = true;
-		if ( TimedMediaHandlerHooks::activePlayerMode() === 'mwembed' ) {
+		$activePlayerMode = TimedMediaHandlerHooks::activePlayerMode();
+		if ( $activePlayerMode === 'mwembed' ) {
 			$parserOutput->addModuleStyles( 'ext.tmh.thumbnail.styles' );
 			$parserOutput->addModules( [
 				'mw.MediaWikiPlayer.loader',
 				'mw.PopUpMediaTransform',
 				'mw.TMHGalleryHook.js',
 			] );
-		}
-
-		if ( TimedMediaHandlerHooks::activePlayerMode() === 'videojs' ) {
+		} elseif ( $activePlayerMode === 'videojs' ) {
 			$parserOutput->addModuleStyles( 'ext.tmh.player.styles' );
 			$parserOutput->addModules( 'ext.tmh.player' );
 		}
 
-		if ( $parserOutput ) {
-			// Not present when run from outputpage hooks, like File/Category etc...
-			$parserOutput->setExtensionData( 'mw_ext_TMH_hasTimedMediaTransform', true );
-		}
+		$parserOutput->setExtensionData( 'mw_ext_TMH_hasTimedMediaTransform', true );
 	}
 
 	/**
@@ -261,10 +256,10 @@ class TimedMediaHandler extends MediaHandler {
 	 */
 	public static function getTimePassedMsg( $timePassed ) {
 		$t = [];
-		$t['days'] = floor( $timePassed/60/60/24 );
-		$t['hours'] = floor( $timePassed/60/60 )%24;
-		$t['minutes'] = floor( $timePassed/60 )%60;
-		$t['seconds'] = $timePassed%60;
+		$t['days'] = floor( $timePassed / 60 / 60 / 24 );
+		$t['hours'] = floor( $timePassed / 60 / 60 ) % 24;
+		$t['minutes'] = floor( $timePassed / 60 ) % 60;
+		$t['seconds'] = $timePassed % 60;
 
 		foreach ( $t as $k => $v ) {
 			if ( $v == 0 ) {
@@ -388,7 +383,7 @@ class TimedMediaHandler extends MediaHandler {
 			'start' => isset( $params['start'] ) ? $params['start'] : false,
 			'end' => isset( $params['end'] ) ? $params['end'] : false,
 			'fillwindow' => isset( $params['fillwindow'] ) ? $params['fillwindow'] : false,
-			'disablecontrols' => isset ( $params['disablecontrols'] ) ? $params['disablecontrols'] : false
+			'disablecontrols' => isset( $params['disablecontrols'] ) ? $params['disablecontrols'] : false
 		];
 
 		// No thumbs for audio
@@ -478,22 +473,6 @@ class TimedMediaHandler extends MediaHandler {
 				->numParams( $file->getWidth(), $file->getHeight() )->text();
 		} else {
 			return $wgLang->formatTimePeriod( $this->getLength( $file ) );
-		}
-	}
-
-	public function filterThumbnailPurgeList( &$files, $options ) {
-		global $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet;
-
-		$transcodeSet = array_merge( $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet );
-
-		// dont remove derivatives on normal purge
-		foreach ( array_slice( $files, 1 ) as $key => $file ) {
-			foreach ( $transcodeSet as $transcodeKey ) {
-				if ( preg_match( '/' . preg_quote( $transcodeKey ) . '$/', $file ) ) {
-					unset( $files[$key] );
-					break;
-				}
-			}
 		}
 	}
 }

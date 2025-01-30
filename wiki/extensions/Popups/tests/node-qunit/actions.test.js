@@ -1,7 +1,8 @@
-var mock = require( 'mock-require' ),
-	createStubUser = require( './stubs' ).createStubUser,
-	actions = require( '../../src/actions' ),
-	mw = mediaWiki;
+import { createStubUser, createStubTitle } from './stubs';
+import * as actions from '../../src/actions';
+import * as WaitModule from '../../src/wait';
+
+var mw = mediaWiki;
 
 function generateToken() {
 	return '9876543210';
@@ -79,24 +80,18 @@ function setupWait( module ) {
 		return promise;
 	} );
 
-	mock( '../../src/wait', module.wait );
-	// Re-require actions so that it uses the mocked wait module
-	actions = mock.reRequire( '../../src/actions' );
-}
-
-function teardownWait() {
-	mock.stop( '../../src/wait' );
+	module.sandbox.stub( WaitModule, 'default', module.wait );
 }
 
 /**
-	* Sets up an `a` element that can be passed to action creators.
+	* Sets up a link/mw.Title stub pair that can be passed to the linkDwell action
+	* creator.
 	*
 	* @param {Object} module
 	*/
 function setupEl( module ) {
-	module.el = $( '<a>' )
-		.data( 'page-previews-title', 'Foo' )
-		.eq( 0 );
+	module.title = createStubTitle( 1, 'Foo' );
+	module.el = $( '<a>' ).eq( 0 );
 }
 
 QUnit.module( 'ext.popups/actions#linkDwell @integration', {
@@ -115,14 +110,11 @@ QUnit.module( 'ext.popups/actions#linkDwell @integration', {
 
 		setupWait( this );
 		setupEl( this );
-	},
-	afterEach: function () {
-		teardownWait();
 	}
 } );
 
 QUnit.test( '#linkDwell', function ( assert ) {
-	var done = assert.async(),
+	var p,
 		event = {},
 		dispatch = this.sandbox.spy();
 
@@ -134,7 +126,7 @@ QUnit.test( '#linkDwell', function ( assert ) {
 		activeToken: generateToken()
 	};
 
-	actions.linkDwell( this.el, event, /* gateway = */ null, generateToken )(
+	actions.linkDwell( this.title, this.el, event, /* gateway = */ null, generateToken )(
 		dispatch,
 		this.getState
 	);
@@ -144,7 +136,9 @@ QUnit.test( '#linkDwell', function ( assert ) {
 		el: this.el,
 		event: event,
 		token: '9876543210',
-		timestamp: mw.now()
+		timestamp: mw.now(),
+		title: 'Foo',
+		namespaceID: 1
 	} );
 
 	// Stub the state tree being updated.
@@ -156,22 +150,21 @@ QUnit.test( '#linkDwell', function ( assert ) {
 
 	// ---
 
-	this.waitPromises[ 0 ].then( function () {
+	p = this.waitPromises[ 0 ].then( function () {
 		assert.strictEqual(
 			dispatch.callCount,
 			2,
 			'The fetch action is dispatched after FETCH_COMPLETE milliseconds.'
 		);
-
-		done();
 	} );
 
 	// After FETCH_START_DELAY milliseconds...
 	this.waitDeferreds[ 0 ].resolve();
+	return p;
 } );
 
 QUnit.test( '#linkDwell doesn\'t continue when previews are disabled', function ( assert ) {
-	var done = assert.async(),
+	var p,
 		event = {},
 		dispatch = this.sandbox.spy();
 
@@ -182,25 +175,24 @@ QUnit.test( '#linkDwell doesn\'t continue when previews are disabled', function 
 		activeToken: generateToken()
 	};
 
-	actions.linkDwell( this.el, event, /* gateway = */ null, generateToken )(
+	actions.linkDwell( this.title, this.el, event, /* gateway = */ null, generateToken )(
 		dispatch,
 		this.getState
 	);
 
 	assert.strictEqual( this.wait.callCount, 1 );
 
-	this.waitPromises[ 0 ].then( function () {
+	p = this.waitPromises[ 0 ].then( function () {
 		assert.strictEqual( dispatch.callCount, 1 );
-
-		done();
 	} );
 
 	// After FETCH_START_DELAY milliseconds...
 	this.waitDeferreds[ 0 ].resolve();
+	return p;
 } );
 
 QUnit.test( '#linkDwell doesn\'t continue if the token has changed', function ( assert ) {
-	var done = assert.async(),
+	var p,
 		event = {},
 		dispatch = this.sandbox.spy();
 
@@ -211,7 +203,7 @@ QUnit.test( '#linkDwell doesn\'t continue if the token has changed', function ( 
 		activeToken: generateToken()
 	};
 
-	actions.linkDwell( this.el, event, /* gateway = */ null, generateToken )(
+	actions.linkDwell( this.title, this.el, event, /* gateway = */ null, generateToken )(
 		dispatch,
 		this.getState
 	);
@@ -228,18 +220,17 @@ QUnit.test( '#linkDwell doesn\'t continue if the token has changed', function ( 
 		activeToken: 'banana'
 	};
 
-	this.waitPromises[ 0 ].then( function () {
+	p = this.waitPromises[ 0 ].then( function () {
 		assert.strictEqual( dispatch.callCount, 1 );
-
-		done();
 	} );
 
 	// After FETCH_START_DELAY milliseconds...
 	this.waitDeferreds[ 0 ].resolve();
+	return p;
 } );
 
 QUnit.test( '#linkDwell dispatches the fetch action', function ( assert ) {
-	var done = assert.async(),
+	var p,
 		event = {},
 		dispatch = this.sandbox.spy();
 
@@ -248,19 +239,18 @@ QUnit.test( '#linkDwell dispatches the fetch action', function ( assert ) {
 		activeToken: generateToken()
 	};
 
-	actions.linkDwell( this.el, event, /* gateway = */ null, generateToken )(
+	actions.linkDwell( this.title, this.el, event, /* gateway = */ null, generateToken )(
 		dispatch,
 		this.getState
 	);
 
-	this.waitPromises[ 0 ].then( function () {
+	p = this.waitPromises[ 0 ].then( function () {
 		assert.strictEqual( dispatch.callCount, 2 );
-
-		done();
 	} );
 
 	// After FETCH_START_DELAY milliseconds...
 	this.waitDeferreds[ 0 ].resolve();
+	return p;
 } );
 
 QUnit.module( 'ext.popups/actions#fetch', {
@@ -277,7 +267,7 @@ QUnit.module( 'ext.popups/actions#fetch', {
 		setupWait( this );
 		setupEl( this );
 
-		this.gatewayDeferred = $.Deferred(),
+		this.gatewayDeferred = $.Deferred();
 		this.gatewayPromise = this.gatewayDeferred.promise();
 		this.gateway = {
 			getPageSummary: this.sandbox.stub().returns( this.gatewayPromise )
@@ -289,11 +279,8 @@ QUnit.module( 'ext.popups/actions#fetch', {
 
 		// Sugar.
 		this.fetch = function () {
-			actions.fetch( that.gateway, that.el, that.token )( that.dispatch );
+			return actions.fetch( that.gateway, that.title, that.el, that.token )( that.dispatch );
 		};
-	},
-	afterEach: function () {
-		teardownWait();
 	}
 } );
 
@@ -302,27 +289,29 @@ QUnit.test( 'it should fetch data from the gateway immediately', function ( asse
 
 	assert.ok( this.gateway.getPageSummary.calledWith( 'Foo' ) );
 
-	assert.ok(
-		this.dispatch.calledWith( {
+	assert.ok( this.dispatch.calledOnce );
+	assert.deepEqual(
+		this.dispatch.getCall( 0 ).args[ 0 ],
+		{
 			type: 'FETCH_START',
 			el: this.el,
 			title: 'Foo',
+			namespaceID: 1,
 			timestamp: this.now
-		} ),
+		},
 		'It dispatches the FETCH_START action immediately.'
 	);
 } );
 
 QUnit.test( 'it should dispatch the FETCH_END action when the API request ends', function ( assert ) {
-	var that = this,
-		done = assert.async();
+	var that = this;
 
 	this.fetch();
 
 	this.now += 115;
 	this.gatewayDeferred.resolve( {} );
 
-	this.gatewayPromise.then( function () {
+	return this.gatewayPromise.then( function () {
 		assert.deepEqual(
 			that.dispatch.getCall( 1 ).args[ 0 ],
 			{
@@ -331,8 +320,6 @@ QUnit.test( 'it should dispatch the FETCH_END action when the API request ends',
 				timestamp: 115
 			}
 		);
-
-		done();
 	} );
 } );
 
@@ -341,8 +328,7 @@ QUnit.test( 'it should delay dispatching the FETCH_COMPLETE action', function ( 
 		whenSpy,
 		args,
 		result = {},
-		that = this,
-		done = assert.async();
+		that = this;
 
 	whenSpy = this.sandbox.stub( $, 'when' )
 		.returns( whenDeferred.promise() );
@@ -368,7 +354,7 @@ QUnit.test( 'it should delay dispatching the FETCH_COMPLETE action', function ( 
 	this.now += 500;
 	whenDeferred.resolve( result );
 
-	whenDeferred.then( function () {
+	return whenDeferred.then( function () {
 
 		// Ensure the following assertions are made after all callbacks have been
 		// executed. Use setTimeout( _, 0 ) since it's not critical that these
@@ -385,18 +371,62 @@ QUnit.test( 'it should delay dispatching the FETCH_COMPLETE action', function ( 
 					token: that.token
 				}
 			);
-
-			done();
 		}, 0 );
 	} );
+} );
+
+QUnit.test( 'it should dispatch the FETCH_FAILED action when the request fails', function ( assert ) {
+	var that = this;
+
+	assert.expect( 2 );
+
+	this.gatewayDeferred.reject( new Error( 'API req failed' ) );
+
+	const fetch = this.fetch().catch( function () {
+		assert.equal( that.dispatch.callCount, 2, 'dispatch called twice, START and FAILED' );
+		assert.deepEqual(
+			that.dispatch.getCall( 1 ).args[ 0 ],
+			{
+				type: 'FETCH_FAILED',
+				el: that.el
+			}
+		);
+	} );
+
+	this.now += 115;
+
+	return fetch;
+} );
+
+QUnit.test( 'it should dispatch the FETCH_FAILED action when the request fails even after the wait timeout', function ( assert ) {
+	var that = this;
+
+	assert.expect( 2 );
+
+	const fetch = this.fetch().catch( function () {
+		assert.equal( that.dispatch.callCount, 2, 'dispatch called twice, START and FAILED' );
+		assert.deepEqual(
+			that.dispatch.getCall( 1 ).args[ 0 ],
+			{
+				type: 'FETCH_FAILED',
+				el: that.el
+			}
+		);
+	} );
+
+	// After the wait interval happens, resolve the gateway request
+	this.waitPromises[ 0 ].then( function () {
+		that.gatewayDeferred.reject( new Error( 'API req failed' ) );
+	} );
+
+	this.waitDeferreds[ 0 ].resolve();
+
+	return fetch;
 } );
 
 QUnit.module( 'ext.popups/actions#abandon', {
 	beforeEach: function () {
 		setupWait( this );
-	},
-	afterEach: function () {
-		teardownWait();
 	}
 } );
 
@@ -409,8 +439,7 @@ QUnit.test( 'it should dispatch start and end actions', function ( assert ) {
 					activeToken: token
 				}
 			};
-		},
-		done = assert.async();
+		}, p;
 
 	this.sandbox.stub( mw, 'now' ).returns( new Date() );
 
@@ -429,7 +458,7 @@ QUnit.test( 'it should dispatch start and end actions', function ( assert ) {
 		'Have you spoken with #Design about changing this value?'
 	);
 
-	this.waitPromises[ 0 ].then( function () {
+	p = this.waitPromises[ 0 ].then( function () {
 		assert.ok(
 			dispatch.calledWith( {
 				type: 'ABANDON_END',
@@ -437,12 +466,11 @@ QUnit.test( 'it should dispatch start and end actions', function ( assert ) {
 			} ),
 			'ABANDON_* share the same token.'
 		);
-
-		done();
 	} );
 
 	// After ABANDON_END_DELAY milliseconds...
 	this.waitDeferreds[ 0 ].resolve();
+	return p;
 } );
 
 QUnit.test( 'it shouldn\'t dispatch under certain conditions', function ( assert ) {

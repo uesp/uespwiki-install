@@ -104,9 +104,21 @@
 			"targets": [ "desktop", "mobile" ],
 			"group": "ext.uploadWizard"
 		},
+		"ext.uploadWizard.apiUploadHandler": {
+			"scripts": "resources/handlers/mw.ApiUploadHandler.js",
+			"dependencies": [
+				"uw.EventFlowLogger"
+			],
+			"messages": "mwe-upwiz-transport-started",
+			"targets": [ "desktop", "mobile" ],
+			"group": "ext.uploadWizard"
+		},
 		"ext.uploadWizard.apiUploadPostHandler": {
 			"scripts": "resources/handlers/mw.ApiUploadPostHandler.js",
-			"dependencies": "uw.EventFlowLogger",
+			"dependencies": [
+				"ext.uploadWizard.apiUploadHandler",
+				"oojs"
+			],
 			"messages": "mwe-upwiz-transport-started",
 			"targets": [ "desktop", "mobile" ],
 			"group": "ext.uploadWizard"
@@ -114,8 +126,9 @@
 		"ext.uploadWizard.apiUploadFormDataHandler": {
 			"scripts": "resources/handlers/mw.ApiUploadFormDataHandler.js",
 			"dependencies": [
-				"uw.EventFlowLogger",
-				"ext.uploadWizard.formDataTransport"
+				"ext.uploadWizard.apiUploadHandler",
+				"ext.uploadWizard.formDataTransport",
+				"oojs"
 			],
 			"messages": "mwe-upwiz-transport-started",
 			"targets": [ "desktop", "mobile" ],
@@ -147,7 +160,6 @@
 			],
 			"dependencies": [
 				"uw.base",
-				"es5-shim",
 				"oojs"
 			],
 			"targets": [ "desktop", "mobile" ],
@@ -167,7 +179,6 @@
 				"ext.uploadWizard.jquery.arrowSteps",
 				"jquery.client",
 				"jquery.spinner",
-				"jquery.placeholder",
 				"jquery.makeCollapsible",
 				"mediawiki.icon",
 				"mediawiki.Uri",
@@ -195,13 +206,14 @@
 				"uw.controller.Tutorial",
 				"uw.controller.Upload",
 				"uw.units",
-				"es5-shim",
 				"oojs",
 				"oojs-ui",
-				"oojs-ui.styles.icons",
+				"oojs-ui.styles.icons-alerts",
+				"oojs-ui.styles.icons-content",
 				"oojs-ui.styles.icons-editing-core",
 				"oojs-ui.styles.icons-editing-advanced",
 				"oojs-ui.styles.icons-location",
+				"oojs-ui.styles.icons-moderation",
 				"mediawiki.widgets.DateInputWidget",
 				"mediawiki.widgets.CategoryMultiselectWidget"
 			],
@@ -226,9 +238,6 @@
 				"resources/mw.Escaper.js",
 				"resources/mw.DestinationChecker.js",
 				"resources/mw.QuickTitleChecker.js",
-				"resources/mw.Firefogg.js",
-				"resources/handlers/mw.FirefoggHandler.js",
-				"resources/transports/mw.FirefoggTransport.js",
 				"resources/mw.FlickrChecker.js",
 				"resources/mw.GroupProgressBar.js",
 				"resources/mw.UploadWizardDeed.js",
@@ -258,13 +267,12 @@
 				"mwe-upwiz-step-details",
 				"mwe-upwiz-step-thanks",
 				"api-error-aborted",
-				"api-error-firefogg",
 				"api-error-noimageinfo",
-				"api-error-offline",
 				"api-error-parsererror",
-				"api-error-timeout",
 				"api-error-unknown-warning",
 				"unknown-error",
+				"apierror-offline",
+				"apierror-timeout",
 				"apierror-unknownerror",
 				"apierror-stashfailed-complete",
 				"file-exists-duplicate",
@@ -282,8 +290,6 @@
 				"mwe-upwiz-select-flickr",
 				"mwe-upwiz-flickr-disclaimer1",
 				"mwe-upwiz-flickr-disclaimer2",
-				"mwe-upwiz-firefogg-nonascii",
-				"mwe-upwiz-encoding",
 				"mwe-upwiz-uploading",
 				"mwe-upwiz-queued",
 				"mwe-upwiz-assembling",
@@ -373,7 +379,6 @@
 				"mwe-upwiz-autoconverted",
 				"mwe-upwiz-other",
 				"mwe-upwiz-source",
-				"mwe-upwiz-upload-error-bad-extension-video-firefogg",
 				"mwe-upwiz-upload-error-bad-filename-extension",
 				"mwe-upwiz-upload-error-bad-filename-no-extension",
 				"mwe-upwiz-upload-error-duplicate-filename-error",
@@ -812,6 +817,10 @@
 		"GetPreferences": "UploadWizardHooks::onGetPreferences",
 		"IsUploadAllowedFromUrl": "UploadWizardHooks::onIsUploadAllowedFromUrl",
 		"ResourceLoaderTestModules": "UploadWizardHooks::onResourceLoaderTestModules",
+		"ListDefinedTags": "UploadWizardHooks::onListDefinedTags",
+		"ChangeTagsListActive": "UploadWizardHooks::onListDefinedTags",
+		"ChangeTagsAllowedAdd": "UploadWizardHooks::onListDefinedTags",
+
 		"ContentModelCanBeUsedOn": "CampaignHooks::onContentModelCanBeUsedOn",
 		"EditFilterMergedContent": "CampaignHooks::onEditFilterMergedContent",
 		"CodeEditorGetPageLanguage": "CampaignHooks::onCodeEditorGetPageLanguage",

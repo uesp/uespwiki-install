@@ -41,7 +41,9 @@ mw.EmbedPlayerOgvJs = {
 	 * @return OGVPlayer
 	 */
 	_ogvJsInit: function() {
-		var options = {};
+		var options = {
+			enableWebM: true
+		};
 		if ( this._iOSAudioContext ) {
 			// Reuse the audio context we opened earlier
 			options.audioContext = this._iOSAudioContext;
@@ -89,19 +91,9 @@ mw.EmbedPlayerOgvJs = {
 				_this.onClipDone();
 			});
 
-			// simulate timeupdate events, needed for subtitles
-			// @todo switch this to native timeupdate event when available upstream
-			var lastTime = 0,
-				timeupdateInterval = 0.25;
-			player.addEventListener( 'framecallback', function( event ) {
-				var player = _this.getPlayerElement(),
-					now = player ? player.currentTime : lastTime;
-				// Don't spam time updates on every frame
-				if ( Math.abs( now - lastTime ) >= timeupdateInterval ) {
-					lastTime = now;
-					$( _this ).trigger( 'timeupdate', [event, _this.id] );
-				}
-			});
+			player.addEventListener( 'timeupdate', function( event ) {
+				$( _this ).trigger( 'timeupdate', [event, _this.id] );
+			} );
 
 			$( _this ).empty().append( player );
 			player.play();
@@ -207,12 +199,17 @@ mw.EmbedPlayerOgvJs = {
 		this.currentTime = time;
 		this.previousTime = time; // prevent weird double-seek. MwEmbedPlyer is weird!
 
-		// Run the onSeeking interface update
-		this.controlBuilder.onSeek();
-		// @todo add proper events upstream
 		if( this.seeking ){
-			this.seeking = false;
-			$( this ).trigger( 'seeked' );
+			// Run the onSeeking interface update
+			this.controlBuilder.onSeek();
+			var _this = this;
+			function onseeked(event) {
+				_this.seeking = false;
+				_this.hideSpinner();
+				$( _this ).trigger( 'seeked' );
+				this.removeEventListener( 'seeked', onseeked );
+			}
+			this.playerElement.addEventListener( 'seeked', onseeked );
 		}
 		if ( $.isFunction( callback ) ) {
 			callback();

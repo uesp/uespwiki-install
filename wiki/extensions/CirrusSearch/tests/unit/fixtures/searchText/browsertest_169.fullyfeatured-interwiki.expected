@@ -159,6 +159,7 @@
                                             "allow_leading_wildcard": true,
                                             "default_operator": "AND",
                                             "fields": [
+                                                "redirect.title.plain",
                                                 "title.plain"
                                             ],
                                             "fuzzy_prefix_length": 2,
@@ -180,16 +181,7 @@
                             }
                         }
                     ],
-                    "minimum_should_match": 1,
-                    "should": [
-                        {
-                            "multi_match": {
-                                "fields": [
-                                    "all_near_match^2"
-                                ],
-                                "query": " "
-                            }
-                        },
+                    "must": [
                         {
                             "query_string": {
                                 "allow_leading_wildcard": true,
@@ -231,7 +223,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.25"
+                                        "weight": 0.25
                                     },
                                     {
                                         "filter": {
@@ -241,7 +233,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.05"
+                                        "weight": 0.05
                                     },
                                     {
                                         "filter": {
@@ -251,7 +243,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.0125"
+                                        "weight": 0.0125
                                     }
                                 ]
                             }
@@ -434,6 +426,7 @@
                                             "allow_leading_wildcard": true,
                                             "default_operator": "AND",
                                             "fields": [
+                                                "redirect.title.plain",
                                                 "title.plain"
                                             ],
                                             "fuzzy_prefix_length": 2,
@@ -455,16 +448,7 @@
                             }
                         }
                     ],
-                    "minimum_should_match": 1,
-                    "should": [
-                        {
-                            "multi_match": {
-                                "fields": [
-                                    "all_near_match^2"
-                                ],
-                                "query": " "
-                            }
-                        },
+                    "must": [
                         {
                             "query_string": {
                                 "allow_leading_wildcard": true,
@@ -499,7 +483,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.25"
+                                        "weight": 0.25
                                     },
                                     {
                                         "filter": {
@@ -509,7 +493,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.05"
+                                        "weight": 0.05
                                     },
                                     {
                                         "filter": {
@@ -519,7 +503,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.0125"
+                                        "weight": 0.0125
                                     }
                                 ]
                             }
@@ -725,6 +709,7 @@
                                             "allow_leading_wildcard": true,
                                             "default_operator": "AND",
                                             "fields": [
+                                                "redirect.title.plain",
                                                 "title.plain"
                                             ],
                                             "fuzzy_prefix_length": 2,
@@ -746,16 +731,7 @@
                             }
                         }
                     ],
-                    "minimum_should_match": 1,
-                    "should": [
-                        {
-                            "multi_match": {
-                                "fields": [
-                                    "all_near_match^2"
-                                ],
-                                "query": " "
-                            }
-                        },
+                    "must": [
                         {
                             "query_string": {
                                 "allow_leading_wildcard": true,
@@ -797,7 +773,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.25"
+                                        "weight": 0.25
                                     },
                                     {
                                         "filter": {
@@ -807,7 +783,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.05"
+                                        "weight": 0.05
                                     },
                                     {
                                         "filter": {
@@ -817,7 +793,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.0125"
+                                        "weight": 0.0125
                                     }
                                 ]
                             }
@@ -1000,6 +976,7 @@
                                             "allow_leading_wildcard": true,
                                             "default_operator": "AND",
                                             "fields": [
+                                                "redirect.title.plain",
                                                 "title.plain"
                                             ],
                                             "fuzzy_prefix_length": 2,
@@ -1021,16 +998,7 @@
                             }
                         }
                     ],
-                    "minimum_should_match": 1,
-                    "should": [
-                        {
-                            "multi_match": {
-                                "fields": [
-                                    "all_near_match^2"
-                                ],
-                                "query": " "
-                            }
-                        },
+                    "must": [
                         {
                             "query_string": {
                                 "allow_leading_wildcard": true,
@@ -1072,7 +1040,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.25"
+                                        "weight": 0.25
                                     },
                                     {
                                         "filter": {
@@ -1082,7 +1050,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.05"
+                                        "weight": 0.05
                                     },
                                     {
                                         "filter": {
@@ -1092,7 +1060,7 @@
                                                 ]
                                             }
                                         },
-                                        "weight": "0.0125"
+                                        "weight": 0.0125
                                     }
                                 ]
                             }

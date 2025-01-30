@@ -20,10 +20,20 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
+use RunningStat\PSquare;
+
 /**
  * Hooks for the Scribunto extension.
  */
 class ScribuntoHooks {
+
+	/**
+	 * Define content handler constant upon extension registration
+	 */
+	public static function onRegistration() {
+		define( 'CONTENT_MODEL_SCRIBUNTO', 'Scribunto' );
+	}
+
 	/**
 	 * Get software information for Special:Version
 	 *
@@ -93,12 +103,12 @@ class ScribuntoHooks {
 			$title = Title::makeTitleSafe( NS_MODULE, $moduleName );
 			if ( !$title || !$title->hasContentModel( CONTENT_MODEL_SCRIBUNTO ) ) {
 				throw new ScribuntoException( 'scribunto-common-nosuchmodule',
-					array( 'args' => array( $moduleName ) ) );
+					[ 'args' => [ $moduleName ] ] );
 			}
 			$module = $engine->fetchModuleFromParser( $title );
 			if ( !$module ) {
 				throw new ScribuntoException( 'scribunto-common-nosuchmodule',
-					array( 'args' => array( $moduleName ) ) );
+					[ 'args' => [ $moduleName ] ] );
 			}
 			$functionName = trim( $frame->expand( $args[1] ) );
 
@@ -117,7 +127,7 @@ class ScribuntoHooks {
 				$u1 = $engine->getResourceUsage( $engine::CPU_SECONDS );
 
 				if ( $u1 > $u0 ) {
-					$timingMs = (int) ( 1000 * ( $u1 - $u0 ) );
+					$timingMs = (int)( 1000 * ( $u1 - $u0 ) );
 					// Since the overhead of stats is worst when when #invoke
 					// calls are very short, don't process measurements <= 20ms.
 					if ( $timingMs > 20 ) {
@@ -130,16 +140,16 @@ class ScribuntoHooks {
 
 			return UtfNormal::cleanUp( strval( $result ) );
 		} catch ( ScribuntoException $e ) {
-			$trace = $e->getScriptTraceHtml( array( 'msgOptions' => array( 'content' ) ) );
-			$html = Html::element( 'p', array(), $e->getMessage() );
+			$trace = $e->getScriptTraceHtml( [ 'msgOptions' => [ 'content' ] ] );
+			$html = Html::element( 'p', [], $e->getMessage() );
 			if ( $trace !== false ) {
 				$html .= Html::element( 'p',
-					array(),
+					[],
 					wfMessage( 'scribunto-common-backtrace' )->inContentLanguage()->text()
 				) . $trace;
 			} else {
 				$html .= Html::element( 'p',
-					array(),
+					[],
 					wfMessage( 'scribunto-common-no-details' )->inContentLanguage()->text()
 				);
 			}
@@ -147,7 +157,7 @@ class ScribuntoHooks {
 			$errors = $out->getExtensionData( 'ScribuntoErrors' );
 			if ( $errors === null ) {
 				// On first hook use, set up error array and output
-				$errors = array();
+				$errors = [];
 				$parser->addTrackingCategory( 'scribunto-common-error-category' );
 				$out->addModules( 'ext.scribunto.errors' );
 			}
@@ -197,7 +207,7 @@ class ScribuntoHooks {
 		// observations in APC, and extract the Nth percentile (specified
 		// via $wgScribuntoSlowFunctionThreshold; defaults to 0.90).
 		// We need APC and \RunningStat\PSquare to do that.
-		if ( !class_exists( '\RunningStat\PSquare' ) || $cache instanceof EmptyBagOStuff ) {
+		if ( !class_exists( PSquare::class ) || $cache instanceof EmptyBagOStuff ) {
 			return;
 		}
 
@@ -207,7 +217,7 @@ class ScribuntoHooks {
 		// mutual exclusion, but the only consequence is that some samples
 		// will be dropped. We only need enough samples to estimate the
 		// the shape of the data, so that's fine.
-		$ps = $cache->get( $key ) ?: new \RunningStat\PSquare( $threshold );
+		$ps = $cache->get( $key ) ?: new PSquare( $threshold );
 		$ps->addObservation( $timing );
 		$cache->set( $key, $ps, 60 );
 
@@ -271,31 +281,11 @@ class ScribuntoHooks {
 	/**
 	 * Adds report of number of evaluations by the single wikitext page.
 	 *
-	 * @deprecated
-	 * @param Parser $parser
-	 * @param string $report
-	 * @return bool
-	 */
-	public static function reportLimits( Parser $parser, &$report ) {
-		if ( Scribunto::isParserEnginePresent( $parser ) ) {
-			$engine = Scribunto::getParserEngine( $parser );
-			$report .= $engine->getLimitReport();
-		}
-		return true;
-	}
-
-	/**
-	 * Adds report of number of evaluations by the single wikitext page.
-	 *
 	 * @param Parser $parser
 	 * @param ParserOutput $output
 	 * @return bool
 	 */
 	public static function reportLimitData( Parser $parser, ParserOutput $output ) {
-		// Unhook the deprecated hook, since the new one exists.
-		global $wgHooks;
-		unset( $wgHooks['ParserLimitReport']['scribunto'] );
-
 		if ( Scribunto::isParserEnginePresent( $parser ) ) {
 			$engine = Scribunto::getParserEngine( $parser );
 			$engine->reportLimitData( $output );
@@ -316,18 +306,6 @@ class ScribuntoHooks {
 	public static function formatLimitData( $key, &$value, &$report, $isHTML, $localize ) {
 		$engine = Scribunto::newDefaultEngine();
 		return $engine->formatLimitData( $key, $value, $report, $isHTML, $localize );
-	}
-
-	/**
-	 * Adds the module namespaces.
-	 *
-	 * @param string[] $list
-	 * @return bool
-	 */
-	public static function addCanonicalNamespaces( array &$list ) {
-		$list[NS_MODULE] = 'Module';
-		$list[NS_MODULE_TALK] = 'Module_talk';
-		return true;
 	}
 
 	/**
@@ -406,36 +384,6 @@ class ScribuntoHooks {
 			}
 		}
 
-		return true;
-	}
-
-	/**
-	 * @param array $files
-	 * @return bool
-	 */
-	public static function unitTestsList( array &$files ) {
-		$tests = array(
-			'engines/LuaStandalone/LuaStandaloneInterpreterTest.php',
-			'engines/LuaStandalone/StandaloneTest.php',
-			'engines/LuaSandbox/LuaSandboxInterpreterTest.php',
-			'engines/LuaSandbox/SandboxTest.php',
-			'engines/LuaCommon/LuaEnvironmentComparisonTest.php',
-			'engines/LuaCommon/CommonTest.php',
-			'engines/LuaCommon/SiteLibraryTest.php',
-			'engines/LuaCommon/UriLibraryTest.php',
-			'engines/LuaCommon/UstringLibraryTest.php',
-			'engines/LuaCommon/MessageLibraryTest.php',
-			'engines/LuaCommon/TitleLibraryTest.php',
-			'engines/LuaCommon/TextLibraryTest.php',
-			'engines/LuaCommon/HtmlLibraryTest.php',
-			'engines/LuaCommon/HashLibraryTest.php',
-			'engines/LuaCommon/LanguageLibraryTest.php',
-			'engines/LuaCommon/UstringLibraryPureLuaTest.php',
-			'engines/LuaCommon/LibraryUtilTest.php',
-		);
-		foreach ( $tests as $test ) {
-			$files[] = __DIR__ . '/../tests/' . $test;
-		}
 		return true;
 	}
 

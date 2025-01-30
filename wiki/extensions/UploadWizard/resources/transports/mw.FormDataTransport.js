@@ -27,13 +27,19 @@
 		this.maxRetries = 2;
 		this.retries = 0;
 		this.firstPoll = false;
+
+		// running API request
+		this.request = null;
 	};
 
 	OO.mixinClass( mw.FormDataTransport, OO.EventEmitter );
 
 	mw.FormDataTransport.prototype.abort = function () {
 		this.aborted = true;
-		this.api.abort();
+
+		if ( this.request ) {
+			this.request.abort();
+		}
 	};
 
 	/**
@@ -43,10 +49,9 @@
 	 * @return {jQuery.Promise}
 	 */
 	mw.FormDataTransport.prototype.post = function ( params ) {
-		var deferred = $.Deferred(),
-			request;
+		var deferred = $.Deferred();
 
-		request = this.api.post( params, {
+		this.request = this.api.post( params, {
 			/*
 			 * $.ajax is not quite equiped to handle File uploads with params.
 			 * The most convenient way would be to submit it with a FormData
@@ -75,7 +80,7 @@
 		} );
 
 		// just pass on success & failures
-		request.then( deferred.resolve, deferred.reject );
+		this.request.then( deferred.resolve, deferred.reject );
 
 		return deferred.promise();
 	};
@@ -193,12 +198,11 @@
 			chunk;
 
 		if ( this.aborted ) {
-			this.api.abort();
 			return $.Deferred().reject( 'aborted', {
-				error: {
+				errors: [ {
 					code: 'aborted',
 					html: mw.message( 'api-error-aborted' ).parse()
-				}
+				} ]
 			} );
 		}
 
@@ -347,10 +351,10 @@
 
 		if ( this.aborted ) {
 			return $.Deferred().reject( 'aborted', {
-				error: {
+				errors: [ {
 					code: 'aborted',
 					html: mw.message( 'api-error-aborted' ).parse()
-				}
+				} ]
 			} );
 		}
 
@@ -359,22 +363,22 @@
 		}
 		params.checkstatus = true;
 		params.filekey = this.filekey;
-		return this.api.post( params )
+		this.request = this.api.post( params )
 			.then( function ( response ) {
 				if ( response.upload && response.upload.result === 'Poll' ) {
 					// If concatenation takes longer than 10 minutes give up
 					if ( ( ( new Date() ).getTime() - transport.firstPoll ) > 10 * 60 * 1000 ) {
-						return $.Deferred().reject( 'server-error', { error: {
+						return $.Deferred().reject( 'server-error', { errors: [ {
 							code: 'server-error',
 							html: mw.message( 'apierror-unknownerror' ).parse()
-						} } );
+						} ] } );
 					} else {
 						if ( response.upload.stage === undefined ) {
 							mw.log.warn( 'Unable to check file\'s status' );
-							return $.Deferred().reject( 'server-error', { error: {
+							return $.Deferred().reject( 'server-error', { errors: [ {
 								code: 'server-error',
 								html: mw.message( 'apierror-unknownerror' ).parse()
-							} } );
+							} ] } );
 						} else {
 							// Statuses that can be returned:
 							// * queued
@@ -390,6 +394,7 @@
 			}, function ( code, result ) {
 				return $.Deferred().reject( code, result );
 			} );
-	};
 
+		return this.request;
+	};
 }( mediaWiki, jQuery, OO ) );

@@ -25,11 +25,11 @@ use CirrusSearch\Maintenance\Maintenance;
  */
 
 $IP = getenv( 'MW_INSTALL_PATH' );
-if( $IP === false ) {
+if ( $IP === false ) {
 	$IP = __DIR__ . '/../../../..';
 }
-require_once( "$IP/maintenance/Maintenance.php" );
-require_once( __DIR__ . '/../../includes/Maintenance/Maintenance.php' );
+require_once "$IP/maintenance/Maintenance.php";
+require_once __DIR__ . '/../../includes/Maintenance/Maintenance.php';
 
 class NukeAllIndexes extends Maintenance {
 	public function execute() {
@@ -37,7 +37,7 @@ class NukeAllIndexes extends Maintenance {
 
 		if ( !isset( $wgCirrusSearchDevelOptions['allow_nuke'] ) || !$wgCirrusSearchDevelOptions['allow_nuke'] ) {
 			$this->output( "Nuke not enabled. Please set \$wgCirrusSearchDevelOptions['allow_nuke'] = true" );
-			return 1;
+			return;
 		}
 
 		$client = $this->getConnection()->getClient();

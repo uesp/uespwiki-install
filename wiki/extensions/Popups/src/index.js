@@ -1,24 +1,29 @@
+/**
+ * @module popups
+ */
+
+import * as Redux from 'redux';
+import * as ReduxThunk from 'redux-thunk';
+
+import createGateway from './gateway';
+import createUserSettings from './userSettings';
+import createPreviewBehavior from './previewBehavior';
+import createSettingsDialogRenderer from './ui/settingsDialog';
+import registerChangeListener from './changeListener';
+import createIsEnabled from './isEnabled';
+import { fromElement as titleFromElement } from './title';
+import { init as rendererInit } from './ui/renderer';
+import createExperiments from './experiments';
+import { isEnabled as isStatsvEnabled } from './instrumentation/statsv';
+import { isEnabled as isEventLoggingEnabled } from './instrumentation/eventLogging';
+import changeListeners from './changeListeners';
+import * as actions from './actions';
+import reducers from './reducers';
+import createMediaWikiPopupsObject from './integrations/mwpopups';
+import getUserBucket from './getUserBucket';
+
 var mw = mediaWiki,
 	$ = jQuery,
-	Redux = require( 'redux' ),
-	ReduxThunk = require( 'redux-thunk' ),
-	constants = require( './constants' ),
-
-	createRESTBaseGateway = require( './gateway/rest' ),
-	createMediaWikiApiGateway = require( './gateway/mediawiki' ),
-	createUserSettings = require( './userSettings' ),
-	createPreviewBehavior = require( './previewBehavior' ),
-	createSchema = require( './schema' ),
-	createSettingsDialogRenderer = require( './settingsDialog' ),
-	registerChangeListener = require( './changeListener' ),
-	createIsEnabled = require( './isEnabled' ),
-	processLinks = require( './processLinks' ),
-	renderer = require( './renderer' ),
-	statsvInstrumentation = require( './statsvInstrumentation' ),
-
-	changeListeners = require( './changeListeners' ),
-	actions = require( './actions' ),
-	reducers = require( './reducers' ),
 
 	BLACKLISTED_LINKS = [
 		'.extiw',
@@ -31,16 +36,58 @@ var mw = mediaWiki,
 	];
 
 /**
- * Creates a gateway with sensible values for the dependencies.
+ * @typedef {Function} EventTracker
  *
- * @param {mw.Map} config
- * @return {ext.popups.Gateway}
+ * An analytics event tracker, i.e. `mw.track`.
+ *
+ * @param {String} topic
+ * @param {Object} data
+ *
+ * @global
  */
-function createGateway( config ) {
-	if ( config.get( 'wgPopupsAPIUseRESTBase' ) ) {
-		return createRESTBaseGateway( $.ajax, constants );
-	}
-	return createMediaWikiApiGateway( new mw.Api(), constants );
+
+/**
+ * Gets the appropriate analytics event tracker for logging metrics to StatsD
+ * via [the "StatsD timers and counters" analytics event protocol][0].
+ *
+ * If logging metrics to StatsD is enabled for the duration of the user's
+ * session, then the appriopriate function is `mw.track`; otherwise it's
+ * `$.noop`.
+ *
+ * [0]: https://github.com/wikimedia/mediawiki-extensions-WikimediaEvents/blob/29c864a0/modules/ext.wikimediaEvents.statsd.js
+ *
+ * @param {Object} user
+ * @param {Object} config
+ * @param {Experiments} experiments
+ * @return {EventTracker}
+ */
+function getStatsvTracker( user, config, experiments ) {
+	return isStatsvEnabled( user, config, experiments ) ? mw.track : $.noop;
+}
+
+/**
+ * Gets the appropriate analytics event tracker for logging EventLogging events
+ * via [the "EventLogging subscriber" analytics event protocol][0].
+ *
+ * If logging EventLogging events is enabled for the duration of the user's
+ * session, then the appriopriate function is `mw.track`; otherwise it's
+ * `$.noop`.
+ *
+ * [0]: https://github.com/wikimedia/mediawiki-extensions-EventLogging/blob/d1409759/modules/ext.eventLogging.subscriber.js
+ *
+ * @param {Object} user
+ * @param {Object} config
+ * @param {String} bucket for user
+ * @param {Window} window
+ * @return {EventTracker}
+ */
+function getEventLoggingTracker( user, config, bucket, window ) {
+	return isEventLoggingEnabled(
+		user,
+		config,
+		bucket,
+		window
+	) ? mw.track : $.noop;
 }
 
 /**
@@ -49,19 +96,20 @@ function createGateway( config ) {
  *
  * @param {Redux.Store} store
  * @param {Object} actions
- * @param {ext.popups.UserSettings} userSettings
+ * @param {UserSettings} userSettings
  * @param {Function} settingsDialog
- * @param {ext.popups.PreviewBehavior} previewBehavior
- * @param {bool} isStatsvLoggingEnabled
- * @param {Function} track mw.track
+ * @param {PreviewBehavior} previewBehavior
+ * @param {EventTracker} statsvTracker
+ * @param {EventTracker} eventLoggingTracker
  */
-function registerChangeListeners( store, actions, userSettings, settingsDialog, previewBehavior, isStatsvLoggingEnabled, track ) {
+function registerChangeListeners( store, actions, userSettings, settingsDialog, previewBehavior, statsvTracker, eventLoggingTracker ) {
 	registerChangeListener( store, changeListeners.footerLink( actions ) );
 	registerChangeListener( store, changeListeners.linkTitle() );
 	registerChangeListener( store, changeListeners.render( previewBehavior ) );
-	registerChangeListener( store, changeListeners.statsv( actions, isStatsvLoggingEnabled, track ) );
+	registerChangeListener( store, changeListeners.statsv( actions, statsvTracker ) );
 	registerChangeListener( store, changeListeners.syncUserSettings( userSettings ) );
 	registerChangeListener( store, changeListeners.settings( actions, settingsDialog ) );
+	registerChangeListener( store, changeListeners.eventLogging( actions, eventLoggingTracker ) );
 }
 
 /*
@@ -76,6 +124,7 @@ function registerChangeListeners( store, actions, userSettings, settingsDialog, 
  */
 mw.requestIdleCallback( function () {
 	var compose = Redux.compose,
+		userBucket,
 		store,
 		boundActions,
 
@@ -84,16 +133,26 @@ mw.requestIdleCallback( function () {
 		gateway = createGateway( mw.config ),
 		userSettings,
 		settingsDialog,
+		experiments,
+		statsvTracker,
+		eventLoggingTracker,
 		isEnabled,
-		schema,
-		previewBehavior,
-		isStatsvLoggingEnabled;
+		previewBehavior;
 
+	userBucket = getUserBucket( mw.experiments, mw.config.get( 'wgPopupsAnonsExperimentalGroupSize' ),
+		mw.user.sessionId() );
 	userSettings = createUserSettings( mw.storage );
 	settingsDialog = createSettingsDialogRenderer();
-	isStatsvLoggingEnabled = statsvInstrumentation.isEnabled( mw.user, mw.config, mw.experiments );
+	experiments = createExperiments( mw.experiments );
+	statsvTracker = getStatsvTracker( mw.user, mw.config, experiments );
+	eventLoggingTracker = getEventLoggingTracker(
+		mw.user,
+		mw.config,
+		userBucket,
+		window
+	);
 
-	isEnabled = createIsEnabled( mw.user, userSettings, mw.config, mw.experiments );
+	isEnabled = createIsEnabled( mw.user, userSettings, mw.config, userBucket );
 
 	// If debug mode is enabled, then enable Redux DevTools.
 	if ( mw.config.get( 'debug' ) === true ) {
@@ -113,14 +172,8 @@ mw.requestIdleCallback( function () {
 
 	registerChangeListeners(
 		store, boundActions, userSettings, settingsDialog,
-		previewBehavior, isStatsvLoggingEnabled, mw.track
+		previewBehavior, statsvTracker, eventLoggingTracker
 	);
-
-	// Load EventLogging schema if possible...
-	mw.loader.using( 'ext.eventLogging.Schema' ).done( function () {
-		schema = createSchema( mw.config, window );
-		registerChangeListener( store, changeListeners.eventLogging( boundActions, schema ) );
-	} );
 
 	boundActions.boot(
 		isEnabled,
@@ -130,25 +183,39 @@ mw.requestIdleCallback( function () {
 		mw.config
 	);
 
+	/*
+	 * Register external interface exposing popups internals so that other
+	 * extensions can query it (T171287)
+	 */
+	mw.popups = createMediaWikiPopupsObject( store );
+
 	mw.hook( 'wikipage.content' ).add( function ( $container ) {
-		var previewLinks =
-			processLinks(
-				$container,
-				BLACKLISTED_LINKS,
-				mw.config
-			);
+		var invalidLinksSelector = BLACKLISTED_LINKS.join( ', ' ),
+			validLinkSelector = 'a[href][title]:not(' + invalidLinksSelector + ')';
 
-		renderer.init();
+		rendererInit();
 
-		previewLinks
-			.on( 'mouseover keyup', function ( event ) {
-				boundActions.linkDwell( this, event, gateway, generateToken );
+		$container
+			.on( 'mouseover keyup', validLinkSelector, function ( event ) {
+				var mwTitle = titleFromElement( this, mw.config );
+
+				if ( mwTitle ) {
+					boundActions.linkDwell( mwTitle, this, event, gateway, generateToken );
+				}
 			} )
-			.on( 'mouseout blur', function () {
-				boundActions.abandon( this );
+			.on( 'mouseout blur', validLinkSelector, function () {
+				var mwTitle = titleFromElement( this, mw.config );
+
+				if ( mwTitle ) {
+					boundActions.abandon( this );
+				}
 			} )
-			.on( 'click', function () {
-				boundActions.linkClick( this );
+			.on( 'click', validLinkSelector, function () {
+				var mwTitle = titleFromElement( this, mw.config );
+
+				if ( mwTitle ) {
+					boundActions.linkClick( this );
+				}
 			} );
 
 	} );

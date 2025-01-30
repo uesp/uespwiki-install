@@ -23,7 +23,7 @@ class TranscodeStatusTable {
 			$file->getTitle(),
 			wfMessage( 'timedmedia-update-status' )->escaped(),
 			[],
-			[ 'action'=> 'purge' ]
+			[ 'action' => 'purge' ]
 		);
 
 		$o .= self::getTranscodesTable( $file );
@@ -67,7 +67,7 @@ class TranscodeStatusTable {
 			return '<p>'. wfMessage( 'timedmedia-no-derivatives' )->escaped() . '</p>';
 		}
 
-		uksort( $transcodeRows, function( $a, $b ) {
+		uksort( $transcodeRows, function ( $a, $b ) {
 			$formatOrder = [ 'vp9', 'vp8', 'h264', 'theora', 'opus', 'vorbis', 'aac' ];
 
 			$aFormat = self::codecFromTranscodeKey( $a );
@@ -133,7 +133,7 @@ class TranscodeStatusTable {
 
 			$o .= '</tr>';
 		}
-		$o .=  Xml::closeElement( 'table' );
+		$o .= Xml::closeElement( 'table' );
 
 		return $o;
 	}

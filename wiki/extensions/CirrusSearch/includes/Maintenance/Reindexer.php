@@ -3,24 +3,17 @@
 namespace CirrusSearch\Maintenance;
 
 use CirrusSearch\Connection;
-use CirrusSearch\ElasticaErrorHandler;
 use CirrusSearch\Elastica\PooledHttps;
 use CirrusSearch\Elastica\ReindexRequest;
 use CirrusSearch\Elastica\ReindexResponse;
 use CirrusSearch\Elastica\ReindexTask;
 use CirrusSearch\SearchConfig;
-use Elastica\Document;
 use Elastica\Exception\Connection\HttpException;
-use Elastica\Exception\ExceptionInterface;
 use Elastica\Index;
-use Elastica\Query;
 use Elastica\Request;
 use Elastica\Transport\Http;
 use Elastica\Transport\Https;
 use Elastica\Type;
-use ForkController;
-use MediaWiki\Logger\LoggerFactory;
-use MWElasticUtils;
 
 /**
  * This program is free software; you can redistribute it and/or modify
@@ -47,7 +40,7 @@ class Reindexer {
 	 */
 	private $searchConfig;
 
-	/*** "From" portion ***/
+	/* "From" portion */
 	/**
 	 * @var Index
 	 */
@@ -58,7 +51,7 @@ class Reindexer {
 	 */
 	private $oldConnection;
 
-	/*** "To" portion ***/
+	/* "To" portion */
 
 	/**
 	 * @var Index
@@ -118,7 +111,18 @@ class Reindexer {
 	 * @param string[] $fieldsToDelete
 	 * @throws \Exception
 	 */
-	public function __construct( SearchConfig $searchConfig, Connection $source, Connection $target, array $types, array $oldTypes, $shardCount, $replicaCount, array $mergeSettings, Maintenance $out = null, $fieldsToDelete = [] ) {
+	public function __construct(
+		SearchConfig $searchConfig,
+		Connection $source,
+		Connection $target,
+		array $types,
+		array $oldTypes,
+		$shardCount,
+		$replicaCount,
+		array $mergeSettings,
+		Maintenance $out = null,
+		$fieldsToDelete = []
+	) {
 		// @todo: this constructor has too many arguments - refactor!
 		$this->searchConfig = $searchConfig;
 		$this->oldConnection = $source;
@@ -131,7 +135,7 @@ class Reindexer {
 		$this->out = $out;
 		$this->fieldsToDelete = $fieldsToDelete;
 
-		if ( empty($types) || empty($oldTypes) ) {
+		if ( empty( $types ) || empty( $oldTypes ) ) {
 			throw new \Exception( "Types list should be non-empty" );
 		}
 		$this->index = $types[0]->getIndex();
@@ -147,7 +151,12 @@ class Reindexer {
 	 * @param int $chunkSize
 	 * @param float $acceptableCountDeviation
 	 */
-	public function reindex( $slices = null, $refreshInterval = 1, $chunkSize = 100, $acceptableCountDeviation = .05 ) {
+	public function reindex(
+		$slices = null,
+		$refreshInterval = 1,
+		$chunkSize = 100,
+		$acceptableCountDeviation = 0.05
+	) {
 		// Set some settings that should help io load during bulk indexing.  We'll have to
 		// optimize after this to consolidate down to a proper number of segments but that is
 		// is worth the price.  total_shards_per_node will help to make sure that each shard
@@ -198,16 +207,18 @@ class Reindexer {
 		}
 
 		$this->outputIndented( "Verifying counts..." );
-		// We can't verify counts are exactly equal because they won't be - we still push updates into
-		// the old index while reindexing the new one.
+		// We can't verify counts are exactly equal because they won't be - we still push updates
+		// into the old index while reindexing the new one.
 		foreach ( $this->types as $i => $type ) {
 			$oldType = $this->oldTypes[$i];
-			$oldCount = (float) $oldType->count();
+			$oldCount = (float)$oldType->count();
 			$this->index->refresh();
-			$newCount = (float) $type->count();
+			$newCount = (float)$type->count();
 			$difference = $oldCount > 0 ? abs( $oldCount - $newCount ) / $oldCount : 0;
 			if ( $difference > $acceptableCountDeviation ) {
-				$this->output( "Not close enough!  old=$oldCount new=$newCount difference=$difference\n" );
+				$this->output(
+					"Not close enough!  old=$oldCount new=$newCount difference=$difference\n"
+				);
 				$this->error( 'Failed to load index - counts not close enough.  ' .
 					"old=$oldCount new=$newCount difference=$difference.  " .
 					'Check for warnings above.', 1 );
@@ -243,7 +254,7 @@ class Reindexer {
 	}
 
 	public function waitForShards() {
-		if( !$this->replicaCount || $this->replicaCount === "false" ) {
+		if ( !$this->replicaCount || $this->replicaCount === "false" ) {
 			$this->outputIndented( "\tNo replicas, skipping.\n" );
 			return;
 		}
@@ -265,11 +276,11 @@ class Reindexer {
 			if ( $upper === 'all' ) {
 				$upper = $nodes - 1;
 			}
-			$expectedReplicas =  min( max( $nodes - 1, $lower ), $upper );
+			$expectedReplicas = min( max( $nodes - 1, $lower ), $upper );
 			$expectedActive = $this->shardCount * ( 1 + $expectedReplicas );
 			if ( $each === 0 || $active === $expectedActive ) {
-				$this->outputIndented( "\t\tactive:$active/$expectedActive relocating:$relocating " .
-					"initializing:$initializing unassigned:$unassigned\n" );
+				$this->outputIndented( "\t\tactive:$active/$expectedActive relocating:$relocating" .
+					" initializing:$initializing unassigned:$unassigned\n" );
 				if ( $active === $expectedActive ) {
 					break;
 				}
@@ -290,7 +301,8 @@ class Reindexer {
 			$path = "_cluster/health/$indexName";
 			$response = $this->index->getClient()->request( $path );
 			if ( $response->hasError() ) {
-				$this->error( 'Error fetching index health but going to retry.  Message: ' . $response->getError() );
+				$this->error( 'Error fetching index health but going to retry.  Message: ' .
+					$response->getError() );
 				sleep( 1 );
 				continue;
 			}
@@ -305,7 +317,7 @@ class Reindexer {
 		$health = $this->getHealth();
 		$totalNodes = $health[ 'number_of_nodes' ];
 		$totalShards = $this->shardCount * ( $this->getMaxReplicaCount() + 1 );
-		return (int) ceil( 1.0 * $totalShards / $totalNodes );
+		return (int)ceil( 1.0 * $totalShards / $totalNodes );
 	}
 
 	/**
@@ -313,7 +325,7 @@ class Reindexer {
 	 */
 	private function getMaxReplicaCount() {
 		$replica = explode( '-', $this->replicaCount );
-		return (int) $replica[ count( $replica ) - 1 ];
+		return (int)$replica[ count( $replica ) - 1 ];
 	}
 
 	/**
@@ -387,8 +399,13 @@ class Reindexer {
 			'lang' => 'painless',
 		];
 		foreach ( $this->fieldsToDelete as $field ) {
-			// Does this actually work?
-			$script['inline'] .= "ctx._source.remove('$field');";
+			$field = trim( $field );
+			if ( strlen( $field ) ) {
+				$script['inline'] .= "ctx._source.remove('$field');";
+			}
+		}
+		if ( $script['inline'] === '' ) {
+			return null;
 		}
 
 		return $script;
@@ -404,7 +421,7 @@ class Reindexer {
 	 * @param Connection $dest Connection to reindex data into
 	 * @return array|null
 	 */
-	static public function makeRemoteReindexInfo( Connection $source, Connection $dest ) {
+	public static function makeRemoteReindexInfo( Connection $source, Connection $dest ) {
 		if ( $source->getClusterName() === $dest->getClusterName() ) {
 			return null;
 		}
@@ -412,11 +429,13 @@ class Reindexer {
 		$innerConnection = $source->getClient()->getConnection();
 		$transport = $innerConnection->getTransportObject();
 		if ( !$transport instanceof Http ) {
-			throw new \RuntimeException( 'Remote reindex not implemented for transport: ' . get_class( $transport ) );
+			throw new \RuntimeException(
+				'Remote reindex not implemented for transport: ' . get_class( $transport )
+			);
 		}
 
-		// We make some pretty bold assumptions that classes extending from \Elastica\Transport\Http don't
-		// change how any of this works.
+		// We make some pretty bold assumptions that classes extending from \Elastica\Transport\Http
+		// don't change how any of this works.
 		$url = $innerConnection->hasConfig( 'url' )
 			? $innerConnection->getConfig( 'url' )
 			: '';
@@ -424,7 +443,8 @@ class Reindexer {
 			$scheme = ( $transport instanceof Https || $transport instanceof PooledHttps )
 				? 'https'
 				: 'http';
-			$url = $scheme . '://' . $innerConnection->getHost() . ':' . $innerConnection->getPort() . '/' . $innerConnection->getPath();
+			$url = $scheme . '://' . $innerConnection->getHost() . ':' .
+				$innerConnection->getPort() . '/' . $innerConnection->getPath();
 		}
 
 		if ( $innerConnection->getUsername() && $innerConnection->getPassword() ) {
@@ -453,8 +473,9 @@ class Reindexer {
 					$this->out->outputIndented( "\n" );
 					$this->error(
 						"$e\n\n" .
-						"Lost connection to elasticsearch cluster. The reindex task {$task->getId()} is still running.\n"
-						. "The task should be manually canceled, and the index {$target->getIndex()->getName()}\n"
+						"Lost connection to elasticsearch cluster. The reindex task "
+						. "{$task->getId()} is still running.\nThe task should be manually "
+						. "canceled, and the index {$target->getIndex()->getName()}\n"
 						. "should be removed.\n" .
 						$e->getMessage(),
 						1
@@ -500,7 +521,9 @@ class Reindexer {
 		// In theory this should never happen, we will get a ResponseException if the index doesn't
 		// exist and every index must have a number_of_shards settings. But better safe than sorry.
 		if ( !isset( $data[$realIndexName]['settings']['index']['number_of_shards'] ) ) {
-			throw new \RuntimeException( "Couldn't detect number of shards in {$index->getName()}" );
+			throw new \RuntimeException(
+				"Couldn't detect number of shards in {$index->getName()}"
+			);
 		}
 		return $data[$realIndexName]['settings']['index']['number_of_shards'];
 	}

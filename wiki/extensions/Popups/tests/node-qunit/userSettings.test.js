@@ -1,7 +1,5 @@
-var stubs = require( './stubs' ),
-	createStubUser = stubs.createStubUser,
-	createStubMap = stubs.createStubMap,
-	createUserSettings = require( '../../src/userSettings' );
+import { createStubUser, createStubMap } from './stubs';
+import createUserSettings from '../../src/userSettings';
 
 QUnit.module( 'ext.popups/userSettings', {
 	beforeEach: function () {
@@ -93,4 +91,11 @@ QUnit.test( '#setPreviewCount should store the count as a string', function ( as
 	this.userSettings.setPreviewCount( 222 );
 
 	assert.strictEqual( this.storage.get( 'ext.popups.core.previewCount' ), '222' );
+} );
+
+QUnit.test( '#getPreviewCount should override value in storage when is not a number', function ( assert ) {
+	this.storage.set( 'ext.popups.core.previewCount', 'NaN' );
+
+	assert.strictEqual( this.userSettings.getPreviewCount(), 0 );
+	assert.strictEqual( this.storage.get( 'ext.popups.core.previewCount' ), '0' );
 } );

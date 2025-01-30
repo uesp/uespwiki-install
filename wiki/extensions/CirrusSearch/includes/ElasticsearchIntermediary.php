@@ -65,8 +65,6 @@ abstract class ElasticsearchIntermediary {
 	protected static $requestLogger;
 
 	/**
-	 * Constructor.
-	 *
 	 * @param Connection $connection
 	 * @param User|null $user user for which this search is being performed.
 	 *  Attached to slow request logs.  Note that null isn't for anonymous users
@@ -85,7 +83,7 @@ abstract class ElasticsearchIntermediary {
 			$user = RequestContext::getMain()->getUser();
 		}
 		$this->user = $user;
-		$this->slowMillis = (int) ( 1000 * $slowSeconds );
+		$this->slowMillis = (int)( 1000 * $slowSeconds );
 		$this->extraBackendLatency = $extraBackendLatency;
 		if ( self::$requestLogger === null ) {
 			self::$requestLogger = new RequestLogger;
@@ -243,7 +241,7 @@ abstract class ElasticsearchIntermediary {
 		$stats = MediaWikiServices::getInstance()->getStatsdDataFactory();
 		$stats->timing( "CirrusSearch.$clusterName.requestTime", $tookMs );
 		$this->searchMetrics['wgCirrusTookMs'] = $tookMs;
-		$logContext = self::$requestLogger->addRequest( $log, $this->user, $this->slowMillis );
+		self::$requestLogger->addRequest( $log, $this->user, $this->slowMillis );
 		$type = $log->getQueryType();
 		$stats->timing( "CirrusSearch.$clusterName.requestTimeMs.$type", $tookMs );
 		if ( $log->getElasticTookMs() ) {
@@ -257,7 +255,7 @@ abstract class ElasticsearchIntermediary {
 	 * @param string $key
 	 * @param string $value
 	 */
-	static public function appendLastLogPayload( $key, $value ) {
+	public static function appendLastLogPayload( $key, $value ) {
 		self::$requestLogger->appendLastLogPayload( $key, $value );
 	}
 

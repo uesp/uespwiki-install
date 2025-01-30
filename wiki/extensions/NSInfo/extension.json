@@ -1,0 +1,45 @@
+{
+	"name": "Namespace Info",
+	"description": "Enhances namespaces by adding associated information",
+	"version": "1.0",
+	"author": [
+		"RobinHood70"
+	],
+	"url": "https://en.uesp.net/wiki/UESPWiki:Namespace_Info",
+	"license-name": "GPL-2.0-or-later",
+	"manifest_version": 1,
+	"requires": {
+		"MediaWiki": ">= 1.28.0"
+	},
+	"type": "parserhook",
+	"APIListModules": {
+		"nsinfo": "ApiQueryNSInfo"
+	},
+	"AutoloadClasses": {
+		"ApiQueryNSInfo": "includes/ApiQueryNSInfo.php",
+		"NSInfo": "includes/NSInfo.php",
+		"NSInfoHooks": "includes/NSInfoHooks.php",
+		"NSInfoNamespace": "includes/NSInfoNamespace.php",
+		"NSInfoSql": "includes/NSInfoSql.php"
+	},
+	"ExtensionMessagesFiles": {
+		"NSInfoMagic": "i18n/NSInfo.i18n.magic.php"
+	},
+	"Hooks": {
+		"MagicWordwgVariableIDs": "NSInfoHooks::onMagicWordwgVariableIDs",
+		"ParserFirstCallInit": "NSInfoHooks::onParserFirstCallInit",
+		"ParserGetVariableValueSwitch": "NSInfoHooks::onParserGetVariableValueSwitch"
+	},
+	"MessagesDirs": {
+		"NSInfo": [
+			"i18n"
+		]
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "modules",
+		"remoteExtPath": "NSInfo/modules"
+	},
+	"TrackingCategories": [
+		"nsinfo-tracking-variable"
+	]
+}

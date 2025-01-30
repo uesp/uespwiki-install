@@ -301,7 +301,7 @@ class SpecialPatroller extends SpecialPage {
 			__METHOD__,
 			'IGNORE'
 		);
-		return (bool) $dbw->affectedRows();
+		return (bool)$dbw->affectedRows();
 	}
 
 	/**

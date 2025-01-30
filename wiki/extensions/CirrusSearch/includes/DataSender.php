@@ -135,7 +135,9 @@ class DataSender extends ElasticsearchIntermediary {
 	 *  already fully qualified elasticsearch index names.
 	 * @return bool
 	 */
-	public function areIndexesAvailableForWrites( array $indexes, $areIndexesFullyQualified = false ) {
+	public function areIndexesAvailableForWrites(
+		array $indexes, $areIndexesFullyQualified = false
+	) {
 		if ( count( $indexes ) === 0 ) {
 			return true;
 		}
@@ -176,7 +178,9 @@ class DataSender extends ElasticsearchIntermediary {
 		$responseSet = null;
 		$justDocumentMissing = false;
 		try {
-			$pageType = $this->connection->getIndexType( $this->indexBaseName, $indexType, $elasticType );
+			$pageType = $this->connection->getIndexType(
+				$this->indexBaseName, $indexType, $elasticType
+			);
 			$this->start( new BulkUpdateRequestLog(
 				$this->connection->getClient(),
 				'sending {numBulk} documents to the {index} index(s)',
@@ -189,7 +193,7 @@ class DataSender extends ElasticsearchIntermediary {
 			$responseSet = $bulk->send();
 		} catch ( ResponseException $e ) {
 			$justDocumentMissing = $this->bulkResponseExceptionIsJustDocumentMissing( $e,
-				function( $docId ) use ( $e, $indexType ) {
+				function ( $docId ) use ( $e, $indexType ) {
 					$this->log->info(
 						"Updating a page that doesn't yet exist in Elasticsearch: {docId}",
 						[ 'docId' => $docId, 'indexType' => $indexType ]
@@ -213,7 +217,7 @@ class DataSender extends ElasticsearchIntermediary {
 			return Status::newGood();
 		} else {
 			$this->failure( $exception );
-			$documentIds = array_map( function( $d ) {
+			$documentIds = array_map( function ( $d ) {
 				return $d->getId();
 			}, $data );
 			$this->failedLog->warning(
@@ -229,12 +233,14 @@ class DataSender extends ElasticsearchIntermediary {
 	 * @param string $indexType
 	 * @param int $sent
 	 */
-	private function reportUpdateMetrics( \Elastica\Bulk\ResponseSet $responseSet, $indexType, $sent ) {
+	private function reportUpdateMetrics(
+		\Elastica\Bulk\ResponseSet $responseSet, $indexType, $sent
+	) {
 		$updateStats = [
 			'sent' => $sent,
 		];
 		$allowedOps = [ 'created', 'updated', 'noop' ];
-		foreach( $responseSet->getBulkResponses() as $bulk ) {
+		foreach ( $responseSet->getBulkResponses() as $bulk ) {
 			$opRes = 'unknown';
 			if ( $bulk instanceof \Elastica\Bulk\Response ) {
 				if ( isset( $bulk->getData()['result'] )
@@ -243,7 +249,7 @@ class DataSender extends ElasticsearchIntermediary {
 					$opRes = $bulk->getData()['result'];
 				}
 			}
-			if ( isset ( $updateStats[$opRes] ) ) {
+			if ( isset( $updateStats[$opRes] ) ) {
 				$updateStats[$opRes]++;
 			} else {
 				$updateStats[$opRes] = 1;
@@ -252,8 +258,10 @@ class DataSender extends ElasticsearchIntermediary {
 		$stats = \MediaWiki\MediaWikiServices::getInstance()->getStatsdDataFactory();
 		$cluster = $this->connection->getClusterName();
 		$metricsPrefix = "CirrusSearch.$cluster.updates";
-		foreach( $updateStats as $what => $num ) {
-			$stats->updateCount( "$metricsPrefix.details.{$this->indexBaseName}.$indexType.$what", $num );
+		foreach ( $updateStats as $what => $num ) {
+			$stats->updateCount(
+				"$metricsPrefix.details.{$this->indexBaseName}.$indexType.$what", $num
+			);
 			$stats->updateCount( "$metricsPrefix.all.$what", $num );
 		}
 	}
@@ -285,11 +293,14 @@ class DataSender extends ElasticsearchIntermediary {
 		if ( $idCount !== 0 ) {
 			try {
 				foreach ( $indexes as $indexType ) {
-					$this->startNewLog( 'deleting {numIds} from {indexType}/{elasticType}', 'send_deletes', [
-						'numIds' => $idCount,
-						'indexType' => $indexType,
-						'elasticType' => $elasticType,
-					] );
+					$this->startNewLog(
+						'deleting {numIds} from {indexType}/{elasticType}',
+						'send_deletes', [
+							'numIds' => $idCount,
+							'indexType' => $indexType,
+							'elasticType' => $elasticType,
+						]
+					);
 					$this->connection
 						->getIndexType( $this->indexBaseName, $indexType, $elasticType )
 						->deleteIds( $docIds );
@@ -311,7 +322,8 @@ class DataSender extends ElasticsearchIntermediary {
 	/**
 	 * @param string $localSite The wikiId to add/remove from local_sites_with_dupe
 	 * @param string $indexName The name of the index to perform updates to
-	 * @param array $otherActions A list of arrays each containing the id within elasticsearch ('docId') and the article namespace ('ns') and DB key ('dbKey') at the within $localSite
+	 * @param array $otherActions A list of arrays each containing the id within elasticsearch
+	 *   ('docId') and the article namespace ('ns') and DB key ('dbKey') at the within $localSite
 	 * @return Status
 	 */
 	public function sendOtherIndexUpdates( $localSite, $indexName, array $otherActions ) {
@@ -402,7 +414,9 @@ class DataSender extends ElasticsearchIntermediary {
 	 *   Callback will be passed the id of the missing document.
 	 * @return bool
 	 */
-	protected function bulkResponseExceptionIsJustDocumentMissing( ResponseException $exception, $logCallback = null ) {
+	protected function bulkResponseExceptionIsJustDocumentMissing(
+		ResponseException $exception, $logCallback = null
+	) {
 		$justDocumentMissing = true;
 		foreach ( $exception->getResponseSet()->getBulkResponses() as $bulkResponse ) {
 			if ( !$bulkResponse->hasError() ) {

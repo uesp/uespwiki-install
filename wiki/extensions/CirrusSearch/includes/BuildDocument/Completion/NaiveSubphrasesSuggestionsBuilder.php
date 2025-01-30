@@ -57,7 +57,6 @@ class NaiveSubphrasesSuggestionsBuilder implements ExtraSuggestionsBuilder {
 		}
 		$cr = self::$RANGES_BY_TYPE[$config['type']];
 		return new self( $cr, $limit );
-
 	}
 
 	/**
@@ -76,7 +75,7 @@ class NaiveSubphrasesSuggestionsBuilder implements ExtraSuggestionsBuilder {
 	 * @return string[]
 	 */
 	protected function getExtraFields() {
-		return ['suggest-subphrases'];
+		return [ 'suggest-subphrases' ];
 	}
 
 	/**
@@ -107,7 +106,7 @@ class NaiveSubphrasesSuggestionsBuilder implements ExtraSuggestionsBuilder {
 		}
 
 		$language = "";
-		if ( isset ( $inputDoc[self::LANG_FIELD] ) ) {
+		if ( isset( $inputDoc[self::LANG_FIELD] ) ) {
 			$language = $inputDoc[self::LANG_FIELD];
 		}
 
@@ -115,7 +114,7 @@ class NaiveSubphrasesSuggestionsBuilder implements ExtraSuggestionsBuilder {
 		if ( !empty( $subPages ) ) {
 			$suggest = $suggestDoc->get( 'suggest' );
 			$suggest['input'] = $subPages;
-			foreach( $this->getExtraFields() as $field ) {
+			foreach ( $this->getExtraFields() as $field ) {
 				$suggestDoc->set( $field, $suggest );
 			}
 		}
@@ -168,7 +167,7 @@ class NaiveSubphrasesSuggestionsBuilder implements ExtraSuggestionsBuilder {
 		// Remove the first one because it's the whole title
 		array_shift( $matches );
 		$subphrases = [];
-		foreach( $matches as $m ) {
+		foreach ( $matches as $m ) {
 			$subphrases[] = substr( $title, $m[1] ) . $langSubPage;
 		}
 		return $subphrases;

@@ -44,7 +44,9 @@ class JCObjContentTest extends MediaWikiTestCase {
 	 * @-dataProvider provideValidationFirst
 	 * @dataProvider provideValidation
 	 */
-	public function testValidation( $message, $initial, $expectedWithDflts, $expectedNoDflts, $validators, $errors = null ) {
+	public function testValidation(
+		$message, $initial, $expectedWithDflts, $expectedNoDflts, $validators, $errors = null
+	) {
 		if ( $expectedWithDflts === true ) {
 			$expectedWithDflts = $initial;
 		}
@@ -59,13 +61,17 @@ class JCObjContentTest extends MediaWikiTestCase {
 			} else {
 				$this->assertFalse( $c->isValid(), $msg . 'MUST-BE-INVALID' );
 				$errCount = is_int( $errors ) ? $errors : count( $errors );
-				$this->assertCount( $errCount, $c->getStatus()->getErrorsArray(), $msg . 'ERROR-COUNT' );
+				$this->assertCount(
+					$errCount, $c->getStatus()->getErrorsArray(), $msg . 'ERROR-COUNT'
+				);
 			}
-			$expected = is_array( $expectedWithDflts ) ? $expectedWithDflts[(int)$th] : $expectedWithDflts;
+			$expected = is_array( $expectedWithDflts )
+				? $expectedWithDflts[(int)$th] : $expectedWithDflts;
 			$this->assertJsonEquals( $expected, $c->getDataWithDefaults(), $msg . 'WITH-DEFAULTS' );
 
 			if ( $expectedNoDflts ) {
-				$expected = is_array( $expectedNoDflts ) ? $expectedNoDflts[(int)$th] : $expectedNoDflts;
+				$expected = is_array( $expectedNoDflts )
+					? $expectedNoDflts[(int)$th] : $expectedNoDflts;
 			}
 			$this->assertJsonEquals( $expected, $c->getData(), $msg . 'NO-DEFAULTS' );
 		}
@@ -75,9 +81,7 @@ class JCObjContentTest extends MediaWikiTestCase {
 		$self = $this;
 		return array_merge( $this->provideValidationFirst(), [
 
-			//
 			// $message, $initial, $expectedWithDflts, $expectedNoDflts, $validators, $errors = null
-			//
 
 			[
 				'fldA', '{"fldA":5}', true, true,
@@ -201,8 +205,8 @@ class JCObjContentTest extends MediaWikiTestCase {
 				'fldA->fldB', '{"fldA":5}', '{"fldB":5}', true,
 				function ( JCObjContent $o ) use ( $self ) {
 					$o->test( 'fldA',
-						function( JCValue $v, array $path, JCObjContent $cn ) use ( $self ) {
-							$new = clone( $v );
+						function ( JCValue $v, array $path, JCObjContent $cn ) use ( $self ) {
+							$new = clone $v;
 							$new->status( JCValue::CHECKED );
 							$cn->getValidationData()->setField( 'fldB', $new );
 							$v->status( JCValue::MISSING ); // delete this field
@@ -214,8 +218,8 @@ class JCObjContentTest extends MediaWikiTestCase {
 				'fldA/fldB->fldB', '{"fldA":{"fldB":5}}', '{"fldB":5}', true,
 				function ( JCObjContent $o ) use ( $self ) {
 					$o->test( [ 'fldA', 'fldB' ],
-						function( JCValue $v, array $path, JCObjContent $cn ) use ( $self ) {
-							$new = clone( $v );
+						function ( JCValue $v, array $path, JCObjContent $cn ) use ( $self ) {
+							$new = clone $v;
 							$new->status( JCValue::CHECKED );
 							$cn->getValidationData()->setField( 'fldB', $new );
 							$v->status( JCValue::MISSING ); // delete this field
@@ -274,7 +278,7 @@ class JCObjContentTest extends MediaWikiTestCase {
 			[
 				'fld to array', '{"fldA":{"a":1,"b":2}}', true, true,
 				function ( JCObjContent $o ) {
-					$o->test( 'fldA', JCValidators::isDictionary(), function( JCValue $v ) {
+					$o->test( 'fldA', JCValidators::isDictionary(), function ( JCValue $v ) {
 						$v->setValue( (array)$v->getValue() );
 					} );
 				},
@@ -282,7 +286,10 @@ class JCObjContentTest extends MediaWikiTestCase {
 			[
 				'sort1',
 				'{"unknown":1, "checked":2}',
-				[ '{"unknown":1, "checked":2, "default":0}', '{"default":0, "checked":2, "unknown":1}' ],
+				[
+					'{"unknown":1, "checked":2, "default":0}',
+					'{"default":0, "checked":2, "unknown":1}'
+				],
 				[ '{"unknown":1, "checked":2}', '{"checked":2, "unknown":1}' ],
 				function ( JCObjContent $o ) {
 					$o->testOptional( 'default', 0, JCValidators::isInt() );
@@ -292,7 +299,10 @@ class JCObjContentTest extends MediaWikiTestCase {
 			[
 				'sort2',
 				'{"f":[{"unknown":1, "checked":2}]}',
-				[ '{"f":[{"unknown":1, "checked":2, "default":0}]}', '{"f":[{"default":0, "checked":2, "unknown":1}]}' ],
+				[
+					'{"f":[{"unknown":1, "checked":2, "default":0}]}',
+					'{"f":[{"default":0, "checked":2, "unknown":1}]}'
+				],
 				[ '{"f":[{"unknown":1, "checked":2}]}', '{"f":[{"checked":2, "unknown":1}]}' ],
 				function ( JCObjContent $o ) {
 					$o->testOptional( [ 'f', 0, 'default' ], 0, JCValidators::isInt() );
@@ -365,9 +375,7 @@ class JCObjContentTest extends MediaWikiTestCase {
 				}, 1,
 			],
 
-			//
 			// $message, $initial, $expectedWithDflts, $expectedNoDflts, $validators, $errors = null
-			//
 		] );
 	}
 

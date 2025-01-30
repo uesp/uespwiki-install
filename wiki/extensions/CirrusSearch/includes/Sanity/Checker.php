@@ -79,7 +79,15 @@ class Checker {
 	 * @param bool $fastRedirectCheck fast but inconsistent redirect check
 	 * @param ArrayObject|null $pageCache cache for WikiPage loaded from db
 	 */
-	public function __construct( SearchConfig $config, Connection $connection, Remediator $remediator, Searcher $searcher, $logSane, $fastRedirectCheck, ArrayObject $pageCache = null ) {
+	public function __construct(
+		SearchConfig $config,
+		Connection $connection,
+		Remediator $remediator,
+		Searcher $searcher,
+		$logSane,
+		$fastRedirectCheck,
+		ArrayObject $pageCache = null
+	) {
 		$this->searchConfig = $config;
 		$this->connection = $connection;
 		$this->remediator = $remediator;
@@ -101,19 +109,19 @@ class Checker {
 		$pagesFromDb = $this->loadPagesFromDB( $pageIds );
 		$pagesFromIndex = $this->loadPagesFromIndex( $docIds );
 		$nbPagesFixed = 0;
-		foreach( array_combine( $pageIds, $docIds ) as $pageId => $docId ) {
+		foreach ( array_combine( $pageIds, $docIds ) as $pageId => $docId ) {
 			$fromIndex = [];
 			if ( isset( $pagesFromIndex[$docId] ) ) {
 				$fromIndex = $pagesFromIndex[$docId];
 			}
 
-			if ( isset ( $pagesFromDb[$pageId] ) ) {
+			if ( isset( $pagesFromDb[$pageId] ) ) {
 				$page = $pagesFromDb[$pageId];
 				$updated = $this->checkExisitingPage( $docId, $pageId, $page, $fromIndex );
 			} else {
 				$updated = $this->checkInexistentPage( $docId, $pageId, $fromIndex );
 			}
-			if( $updated ) {
+			if ( $updated ) {
 				$nbPagesFixed++;
 			}
 		}
@@ -167,7 +175,7 @@ class Checker {
 		if ( $content == null ) {
 			return false;
 		}
-		if( is_object ( $content ) ) {
+		if ( is_object( $content ) ) {
 			return $content->isRedirect();
 		}
 		return false;
@@ -185,7 +193,7 @@ class Checker {
 	private function checkInexistentPage( $docId, $pageId, $fromIndex ) {
 		$inIndex = count( $fromIndex ) > 0;
 		if ( $inIndex ) {
-			foreach( $fromIndex as $r ) {
+			foreach ( $fromIndex as $r ) {
 				$title = Title::makeTitle( $r->namespace, $r->title );
 				$this->remediator->ghostPageInIndex( $docId, $title );
 			}
@@ -231,7 +239,9 @@ class Checker {
 	 */
 	private function checkIndexMismatch( $docId, $pageId, WikiPage $page, array $fromIndex ) {
 		$foundInsanityInIndex = false;
-		$expectedType = $this->connection->getIndexSuffixForNamespace( $page->getTitle()->getNamespace() );
+		$expectedType = $this->connection->getIndexSuffixForNamespace(
+			$page->getTitle()->getNamespace()
+		);
 		foreach ( $fromIndex as $indexInfo ) {
 			$type = $this->connection->extractIndexSuffix( $indexInfo->getIndex() );
 			if ( $type !== $expectedType ) {
@@ -248,7 +258,6 @@ class Checker {
 		return false;
 	}
 
-
 	/**
 	 * Check that the indexed version of the page is the
 	 * latest version in the database.
@@ -263,7 +272,9 @@ class Checker {
 		$latest = $page->getLatest();
 		$foundInsanityInIndex = false;
 		foreach ( $fromIndex as $indexInfo ) {
-			$version = isset( $indexInfo->getSource()['version'] ) ? $indexInfo->getSource()['version'] : -1;
+			$version = isset( $indexInfo->getSource()['version'] )
+				? $indexInfo->getSource()['version']
+				: -1;
 			if ( $version < $latest ) {
 				$type = $this->connection->extractIndexSuffix( $indexInfo->getIndex() );
 				$this->remediator->oldVersionInIndex( $docId, $page, $type );

@@ -2,12 +2,12 @@
 
 namespace CirrusSearch;
 
+use CirrusSearch\Search\CrossProjectBlockScorerFactory;
 use CirrusSearch\Search\FullTextResultsType;
 use CirrusSearch\Search\ResultSet;
 use CirrusSearch\Search\SearchContext;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
-use SpecialPageFactory;
 use User;
 
 /**
@@ -40,7 +40,6 @@ class InterwikiSearcher extends Searcher {
 	private $highlightingConfig;
 
 	/**
-	 * Constructor
 	 * @param Connection $connection
 	 * @param SearchConfig $config
 	 * @param int[]|null $namespaces Namespace numbers to search, or null for all of them
@@ -56,7 +55,7 @@ class InterwikiSearcher extends Searcher {
 	) {
 		// Only allow core namespaces. We can't be sure any others exist
 		if ( $namespaces !== null ) {
-			$namespaces = array_filter( $namespaces, function( $namespace ) {
+			$namespaces = array_filter( $namespaces, function ( $namespace ) {
 				return $namespace <= 15;
 			} );
 		}
@@ -98,7 +97,7 @@ class InterwikiSearcher extends Searcher {
 				'wikis' => [],
 			]
 		];
-		foreach( $sources as $interwiki => $index ) {
+		foreach ( $sources as $interwiki => $index ) {
 			if ( isset( $overriddenProfiles[$interwiki] ) ) {
 				$key = $this->prepareContextKey( $overriddenProfiles[$interwiki] );
 			} else {
@@ -119,7 +118,7 @@ class InterwikiSearcher extends Searcher {
 		$retval = [];
 		$searches = [];
 		$this->setResultsType( new FullTextResultsType( $this->highlightingConfig ) );
-		foreach( $byProfile as $contexts ) {
+		foreach ( $byProfile as $contexts ) {
 			// Build a new context for every search
 			// Some bits in the context may add up when calling
 			// buildFullTextSearch (such as filters).
@@ -155,33 +154,8 @@ class InterwikiSearcher extends Searcher {
 			return $retval;
 		}
 
-		switch ( $this->config->get( 'CirrusSearchCrossProjectOrder' ) ) {
-		case 'recall':
-			uasort( $retval, function( $a, $b ) {
-				return $b->getTotalHits() - $a->getTotalHits();
-			} );
-			return $retval;
-		case 'random':
-			// reset the random number generator
-			// take the first 8 chars from the md5 to build a uint32
-			// and to prevent hexdec from returning floats
-			mt_srand( hexdec( substr( Util::generateIdentToken(), 0, 8 ) ) );
-			$sortKeys = array_map( function () { return mt_rand(); }, $retval );
-			// "Randomly" sort crossproject results
-			// Should give the same order for the same identity
-			array_multisort( $sortKeys, SORT_ASC, $retval );
-			return $retval;
-		case 'static':
-			return $retval;
-		default:
-			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
-				'wgCirrusSearchCrossProjectOrder is set to ' .
-				'unkown value {invalid_order} using static ' .
-				'instead.',
-				[ 'invalid_order' => $this->config->get( 'CirrusSearchCrossProjectOrder' ) ]
-			);
-			return $retval;
-		}
+		return CrossProjectBlockScorerFactory::load( $this->config )
+			->reorder( $retval );
 	}
 
 	/**
@@ -209,7 +183,9 @@ class InterwikiSearcher extends Searcher {
 	 */
 	private function prepareContextKey( $overriddenProfiles ) {
 		return implode( '|', array_map(
-			function( $v, $k ) { return "$k:$v"; },
+			function ( $v, $k ) {
+				return "$k:$v";
+			},
 			$overriddenProfiles,
 			array_keys( $overriddenProfiles )
 		) );
@@ -217,8 +193,8 @@ class InterwikiSearcher extends Searcher {
 
 	private function buildOverriddenContext( array $overrides ) {
 		$searchContext = new SearchContext( $this->searchContext->getConfig(), $this->searchContext->getNamespaces() );
-		foreach( $overrides as $name => $profile ) {
-			switch( $name ) {
+		foreach ( $overrides as $name => $profile ) {
+			switch ( $name ) {
 			case 'ftbuilder':
 				$searchContext->setFulltextQueryBuilderProfile( $profile );
 				break;

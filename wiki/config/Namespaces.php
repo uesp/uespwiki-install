@@ -49,58 +49,63 @@ array(	100 => 'Tamold',             101 => 'Tamold_talk',
 		178 => 'Beyond_Skyrim',      179 => 'Beyond_Skyrim_talk',
 		180 => 'DFU_Mod',            181 => 'DFU_Mod_talk',
 		182 => 'SkyrimTAG',          183 => 'SkyrimTAG_talk',
+		184 => 'Castles',            185 => 'Castles_talk',
+		186 => 'Betrayal',           187 => 'Betrayal_talk',
 		200 => 'Dapel',              201 => 'Dapel_talk');
 
 $wgNamespaceAliases =
-array(	'UESP' => NS_PROJECT, 'UESP_talk' => NS_PROJECT+1,
-		'DF' => 104,          'DF_talk' => 105,
-		'BS' => 106,          'BS_talk' => 107,
-		'RG' => 108,          'RG_talk' => 109,
-		'MW' => 110,          'MW_talk' => 111,
-		'TR' => 112,          'TR_talk' => 113,
-		'BM' => 114,          'BM_talk' => 115,
-		'OB' => 116,          'OB_talk' => 117,
-		'GEN' => 118,         'GEN_talk' => 119,
-		'T3' => 122,          'T3_talk' => 123,
-		'Tes3Mod' => 122,     'Tes3Mod_talk' => 123,
-		'T4' => 124,          'T4_talk' => 125,
-		'Tes4Mod' => 124,     'Tes4Mod_talk' => 125,
-		'SI' => 126,          'SI_talk' => 127,
-		'SK' => 128,          'SK_talk' => 129,
-		'LO' => 130,          'LO_talk' => 131,
-		'Tamriel' => 130,     'Tamriel_talk' => 131,
-		'DS' => 132,          'DS_talk' => 133,
-		'SR' => 134,          'SR_talk' => 135,
-		'OM' => 136,          'OM_talk' => 137,
-		'SH' => 138,          'SH_talk' => 139,
-		'BK' => 140,          'BK_talk' => 141,
-		'T5' => 142,          'T5_talk' => 143,
-		'Tes5Mod' => 142,     'Tes5Mod_talk' => 145,
-		'ON' => 144,          'ON_talk' => 145,
-		'ESO' => 144,         'ESO_talk' => 145,
-		'TESO' => 144,        'TESO_talk' => 145,
-		'DB' => 146,          'DB_talk' => 147,
-		'ESOMod' => 148,      'ESOMod_talk' => 149,
-		'Online_Mod' => 148,  'Online_Mod_talk' => 149,
-		'ONMOD' => 148,       'ONMOD_talk' => 149,
-		'LG' => 150,          'LG_talk' => 151,
-		'BL' => 152,          'BL_talk' => 153,
-		'T1' => 154,          'T1_talk' => 155,
-		'Tes1Mod' => 154,     'Tes1Mod_talk' => 155,
-		'Tes2Mod' => 156,     'Tes2Mod_talk' => 157,
-		'T2' => 156,          'T2_talk' => 157,
-		'CA' => 158,          'CA_talk' => 159,
-		'CtA' => 158,         'CtA_talk' => 159,
-		'Call' => 158,        'Call_talk' => 159,
-		'TOther' => 160,      'TOther_talk' => 161,
-		'TesOtherMod' => 160, 'TesOtherMod_talk' => 161,
-		'VSE' => 166,         'VSE_talk' => 167,
-		'TD3' => 168,         'TD3_talk' => 169,
-		'TR3' => 170,         'TR3_talk' => 171,
-		'BC4' => 174,         'BC4_talk' => 175,
-		'MR3' => 176,         'MR3_talk' => 177,
-		'BS5' => 178,         'BS5_talk' => 179,
-		'DFUMod' => 180,      'DFUMod_talk' => 181
+array(	'UESP' => NS_PROJECT,     'UESP_talk' => NS_PROJECT+1,
+		'DF' => 104,              'DF_talk' => 105,
+		'BS' => 106,              'BS_talk' => 107,
+		'RG' => 108,              'RG_talk' => 109,
+		'MW' => 110,              'MW_talk' => 111,
+		'TR' => 112,              'TR_talk' => 113,
+		'BM' => 114,              'BM_talk' => 115,
+		'OB' => 116,              'OB_talk' => 117,
+		'GEN' => 118,             'GEN_talk' => 119,
+		'T3' => 122,              'T3_talk' => 123,
+		'Tes3Mod' => 122,         'Tes3Mod_talk' => 123,
+		'T4' => 124,              'T4_talk' => 125,
+		'Tes4Mod' => 124,         'Tes4Mod_talk' => 125,
+		'SI' => 126,              'SI_talk' => 127,
+		'Shivering_Isles' => 126, 'Shivering_Isles_talk' => 127,
+		'SK' => 128,              'SK_talk' => 129,
+		'LO' => 130,              'LO_talk' => 131,
+		'Tamriel' => 130,         'Tamriel_talk' => 131,
+		'DS' => 132,              'DS_talk' => 133,
+		'SR' => 134,              'SR_talk' => 135,
+		'OM' => 136,              'OM_talk' => 137,
+		'SH' => 138,              'SH_talk' => 139,
+		'BK' => 140,              'BK_talk' => 141,
+		'T5' => 142,              'T5_talk' => 143,
+		'Tes5Mod' => 142,         'Tes5Mod_talk' => 145,
+		'ON' => 144,              'ON_talk' => 145,
+		'ESO' => 144,             'ESO_talk' => 145,
+		'TESO' => 144,            'TESO_talk' => 145,
+		'DB' => 146,              'DB_talk' => 147,
+		'ESOMod' => 148,          'ESOMod_talk' => 149,
+		'Online_Mod' => 148,      'Online_Mod_talk' => 149,
+		'ONMOD' => 148,           'ONMOD_talk' => 149,
+		'LG' => 150,              'LG_talk' => 151,
+		'BL' => 152,              'BL_talk' => 153,
+		'T1' => 154,              'T1_talk' => 155,
+		'Tes1Mod' => 154,         'Tes1Mod_talk' => 155,
+		'Tes2Mod' => 156,         'Tes2Mod_talk' => 157,
+		'T2' => 156,              'T2_talk' => 157,
+		'CA' => 158,              'CA_talk' => 159,
+		'CtA' => 158,             'CtA_talk' => 159,
+		'Call' => 158,            'Call_talk' => 159,
+		'TOther' => 160,          'TOther_talk' => 161,
+		'TesOtherMod' => 160,     'TesOtherMod_talk' => 161,
+		'VSE' => 166,             'VSE_talk' => 167,
+		'TD3' => 168,             'TD3_talk' => 169,
+		'TR3' => 170,             'TR3_talk' => 171,
+		'BC4' => 174,             'BC4_talk' => 175,
+		'MR3' => 176,             'MR3_talk' => 177,
+		'BS5' => 178,             'BS5_talk' => 179,
+		'DFUMod' => 180,          'DFUMod_talk' => 181,
+		'CT' => 184,              'CT_talk' => 185,
+		'BT' => 186,              'BT_talk' => 187,
 );
 
 $wgNamespacesWithSubpages = array(
@@ -115,7 +120,7 @@ $wgNamespacesWithSubpages = array(
 		150 => 1, 151 => 1, 152 => 1, 153 => 1, 154 => 1, 155 => 1, 156 => 1, 157 => 1, 158 => 1, 159 => 1,
 		160 => 1, 161 => 1, 162 => 1, 163 => 1, 164 => 1, 165 => 1, 166 => 1, 167 => 1, 168 => 1, 169 => 1,
 		170 => 1, 171 => 1, 172 => 1, 173 => 1, 174 => 1, 175 => 1, 176 => 1, 177 => 1, 178 => 1, 179 => 1,
-		180 => 1, 181 => 1, 182 => 1, 183 => 1,
+		180 => 1, 181 => 1, 182 => 1, 183 => 1, 184 => 1, 185 => 1, 186 => 1, 187 => 1,
 		200 => 1, 201 => 1);
 
 $wgNamespacesToBeSearchedDefault = array(
@@ -130,7 +135,7 @@ $wgNamespacesToBeSearchedDefault = array(
 		150 => 1, 151 => 0, 152 => 1, 153 => 0, 154 => 1, 155 => 0, 156 => 1, 157 => 0, 158 => 1, 159 => 0,
 		160 => 1, 161 => 0, 162 => 1, 163 => 0, 164 => 1, 165 => 0, 166 => 1, 167 => 0, 168 => 1, 169 => 0,
 		170 => 1, 171 => 0, 172 => 1, 173 => 0, 174 => 1, 175 => 0, 176 => 1, 177 => 0, 178 => 1, 179 => 0,
-		180 => 1, 181 => 0, 182 => 1, 183 => 0,
+		180 => 1, 181 => 0, 182 => 1, 183 => 0, 184 => 1, 185 => 0, 186 => 1, 187 => 0,
 		200 => 0, 201 => 0);
 
 $wgContentNamespaces = array(
@@ -142,7 +147,7 @@ $wgContentNamespaces = array(
 		150, 152, 154, 156, 158,
 		160, 162, 164, 166, 168,
 		170, 172, 174, 176, 178,
-		180, 182);
+		180, 182, 184, 186);
 
 $wgExtraSignatureNamespaces[] = NS_PROJECT;
 
@@ -242,4 +247,8 @@ if ($wgLanguageCode == "fr")
 	$wgNamespaceAliases['DFU_Mod_talk'] = 181;
 	$wgExtraNamespaces[183] = 'SkyrimTAG_discussion';
 	$wgNamespaceAliases['SkyrimTAG_talk'] = 183;
+	$wgExtraNamespaces[185] = 'Castles_discussion';
+	$wgNamespaceAliases['Castles_talk'] = 185;
+	$wgExtraNamespaces[187] = 'Betrayal_discussion';
+	$wgNamespaceAliases['Betrayal_talk'] = 187;
 }

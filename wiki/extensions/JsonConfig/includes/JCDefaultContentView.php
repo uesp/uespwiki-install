@@ -48,7 +48,7 @@ class JCDefaultContentView extends JCContentView {
 	 * @param JCContent $content
 	 * @param mixed $data
 	 * @param array $path path to this field
-	 * @return string: HTML.
+	 * @return string HTML.
 	 */
 	public function renderValue( JCContent $content, $data, array $path ) {
 		$isList = $this->isList( $content, $data, $path );
@@ -127,7 +127,7 @@ class JCDefaultContentView extends JCContentView {
 	/**
 	 * Determine if data is a container and should be rendered as a complex structure
 	 * @param JCContent $content
-	 * @param $data
+	 * @param array|object $data
 	 * @param array $path
 	 * @return bool
 	 */
@@ -142,7 +142,7 @@ class JCDefaultContentView extends JCContentView {
 	 * Determine if data is a special container that needs to be rendered as a comma-separated list.
 	 * By default,
 	 * @param JCContent $content
-	 * @param $data
+	 * @param array|object $data
 	 * @param array $path
 	 * @return bool
 	 */

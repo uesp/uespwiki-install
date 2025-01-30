@@ -61,7 +61,7 @@ class RegexInSourceFeature implements KeywordFeature {
 		return QueryHelper::extractSpecialSyntaxFromTerm(
 			$context,
 			$term,
-            '/(?<not>-)?insource:\/(?<pattern>(?:[^\\\\\/]|\\\\.)+)\/(?<insensitive>i)? ?/',
+			'/(?<not>-)?insource:\/(?<pattern>(?:[^\\\\\/]|\\\\.)+)\/(?<insensitive>i)? ?/',
 			function ( $matches ) use ( $context ) {
 				if ( !$this->enabled ) {
 					$context->addWarning(
@@ -108,7 +108,7 @@ class RegexInSourceFeature implements KeywordFeature {
 			$filter->setMaxNgramsExtracted( $this->regexPlugin['max_ngrams_extracted'] );
 		}
 		if ( isset( $this->regexPlugin['max_ngram_clauses'] ) && is_numeric( $this->regexPlugin['max_ngram_clauses'] ) ) {
-			$filter->setMaxNgramClauses( (int) $this->regexPlugin['max_ngram_clauses'] );
+			$filter->setMaxNgramClauses( (int)$this->regexPlugin['max_ngram_clauses'] );
 		}
 		$filter->setCaseSensitive( !$insensitive );
 		$filter->setLocale( $this->languageCode );

@@ -8,11 +8,14 @@ use CirrusSearch\Search\TitleResultsType;
 use CirrusSearch\Search\ResultsType;
 use CirrusSearch\Search\RescoreBuilder;
 use CirrusSearch\Search\SearchContext;
+use CirrusSearch\Search\ResultSet;
+use CirrusSearch\Search\TeamDraftInterleaver;
 use CirrusSearch\Query\FullTextQueryBuilder;
 use CirrusSearch\Elastica\MultiSearch as MultiSearch;
 use Elastica\Exception\RuntimeException;
 use Elastica\Query\BoolQuery;
 use Elastica\Query\MultiMatch;
+use Elastica\Search;
 use Language;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
@@ -24,7 +27,6 @@ use ApiUsageException;
 use UsageException;
 use User;
 use WebRequest;
-
 
 /**
  * Performs searches using Elasticsearch.  Note that each instance of this class
@@ -74,12 +76,12 @@ class Searcher extends ElasticsearchIntermediary {
 	/**
 	 * @var integer search offset
 	 */
-	private $offset;
+	protected $offset;
 
 	/**
 	 * @var integer maximum number of result
 	 */
-	private $limit;
+	protected $limit;
 
 	/**
 	 * @var Language language of the wiki
@@ -133,18 +135,17 @@ class Searcher extends ElasticsearchIntermediary {
 	private $pageType;
 
 	/**
-	 * Constructor
 	 * @param Connection $conn
 	 * @param int $offset Offset the results by this much
 	 * @param int $limit Limit the results to this many
 	 * @param SearchConfig|null $config Configuration settings
 	 * @param int[]|null $namespaces Array of namespace numbers to search or null to search all namespaces.
 	 * @param User|null $user user for which this search is being performed.  Attached to slow request logs.
-	 * @param string|boolean $index Base name for index to search from, defaults to $wgCirrusSearchIndexBaseName
+	 * @param string|bool $index Base name for index to search from, defaults to $wgCirrusSearchIndexBaseName
 	 */
 	public function __construct( Connection $conn, $offset, $limit, SearchConfig $config, array $namespaces = null,
-		User $user = null, $index = false ) {
-
+		User $user = null, $index = false
+	) {
 		parent::__construct( $conn, $user, $config->get( 'CirrusSearchSlowSearch' ), $config->get( 'CirrusSearchExtraBackendLatency' ) );
 		$this->config = $config;
 		$this->offset = $offset;
@@ -166,14 +167,14 @@ class Searcher extends ElasticsearchIntermediary {
 	}
 
 	/**
-	 * @param boolean $returnQuery just return the array that makes up the query instead of searching
+	 * @param bool $returnQuery just return the array that makes up the query instead of searching
 	 */
 	public function setReturnQuery( $returnQuery ) {
 		$this->returnQuery = $returnQuery;
 	}
 
 	/**
-	 * @param boolean $dumpResult return raw Elasticsearch result instead of processing it
+	 * @param bool $dumpResult return raw Elasticsearch result instead of processing it
 	 */
 	public function setDumpResult( $dumpResult ) {
 		$this->returnResult = $dumpResult;
@@ -204,7 +205,7 @@ class Searcher extends ElasticsearchIntermediary {
 
 	/**
 	 * Should this search limit results to the local wiki?  If not called the default is false.
-	 * @param boolean $limitSearchToLocalWiki should the results be limited?
+	 * @param bool $limitSearchToLocalWiki should the results be limited?
 	 */
 	public function limitSearchToLocalWiki( $limitSearchToLocalWiki ) {
 		$this->searchContext->setLimitSearchToLocalWiki( $limitSearchToLocalWiki );
@@ -299,7 +300,7 @@ class Searcher extends ElasticsearchIntermediary {
 	 * builder can be used to build a degraded query if necessary.
 	 *
 	 * @param string $term term to search
-	 * @param boolean $showSuggestion should this search suggest alternative searches that might be better?
+	 * @param bool $showSuggestion should this search suggest alternative searches that might be better?
 	 * @return FullTextQueryBuilder
 	 */
 	protected function buildFullTextSearch( $term, $showSuggestion ) {
@@ -350,6 +351,8 @@ class Searcher extends ElasticsearchIntermediary {
 			new Query\FileNumericFeature(),
 			// Content model feature
 			new Query\ContentModelFeature(),
+			// subpageof keyword
+			new Query\SubPageOfFeature(),
 		];
 
 		$extraFeatures = [];
@@ -360,7 +363,7 @@ class Searcher extends ElasticsearchIntermediary {
 			} else {
 				LoggerFactory::getInstance( 'CirrusSearch' )
 					->warning( 'Skipped invalid feature of class ' . get_class( $extra ) .
-					           ' - should be instanceof SimpleKeywordFeature' );
+						' - should be instanceof SimpleKeywordFeature' );
 			}
 		}
 
@@ -370,8 +373,6 @@ class Searcher extends ElasticsearchIntermediary {
 			$features,
 			$builderSettings['settings']
 		);
-
-
 
 		if ( !( $qb instanceof FullTextQueryBuilder ) ) {
 			throw new RuntimeException( "Bad builder class configured: {$builderSettings['builder_class']}" );
@@ -387,7 +388,7 @@ class Searcher extends ElasticsearchIntermediary {
 	/**
 	 * Search articles with provided term.
 	 * @param string $term term to search
-	 * @param boolean $showSuggestion should this search suggest alternative searches that might be better?
+	 * @param bool $showSuggestion should this search suggest alternative searches that might be better?
 	 * @return Status
 	 */
 	public function searchText( $term, $showSuggestion ) {
@@ -397,17 +398,57 @@ class Searcher extends ElasticsearchIntermediary {
 			return $checkLengthStatus;
 		}
 
-		$qb = $this->buildFullTextSearch( $term, $showSuggestion );
+		// Searcher needs to be cloned before any actual query building is done.
+		$interleaveSearcher = $this->buildInterleaveSearcher();
 
-		$status = $this->searchOne();
-		if ( !$status->isOK() && ElasticaErrorHandler::isParseError( $status ) ) {
-			if ( $qb->buildDegraded( $this->searchContext ) ) {
-				// If that doesn't work we're out of luck but it should.  There no guarantee it'll work properly
-				// with the syntax we've built above but it'll do _something_ and we'll still work on fixing all
-				// the parse errors that come in.
-				$status = $this->searchOne();
+		$searches = [];
+		$qb = $this->buildFullTextSearch( $term, $showSuggestion );
+		$searches[] = $this->buildSearch();
+
+		if ( !$this->searchContext->areResultsPossible() ) {
+			return Status::newGood( new SearchResultSet( true ) );
+		}
+
+		if ( $interleaveSearcher !== null ) {
+			$interleaveSearcher->buildFullTextSearch( $term, $showSuggestion );
+			$interleaveSearch = $interleaveSearcher->buildSearch();
+			if ( $this->areSearchesTheSame( $searches[0], $interleaveSearch ) ) {
+				$interleaveSearcher = null;
+			} else {
+				$searches[] = $interleaveSearch;
 			}
 		}
+
+		$status = $this->searchMulti( $searches );
+		if ( !$status->isOK() ) {
+			if ( ElasticaErrorHandler::isParseError( $status ) ) {
+				if ( $qb->buildDegraded( $this->searchContext ) ) {
+					// If that doesn't work we're out of luck but it should.
+					// There no guarantee it'll work properly with the syntax
+					// we've built above but it'll do _something_ and we'll
+					// still work on fixing all the parse errors that come in.
+					$status = $this->searchOne();
+				}
+			}
+			return $status;
+		}
+
+		if ( $interleaveSearcher === null ) {
+			// Convert array of responses to single value
+			$value = $status->getValue();
+			$response = reset( $value );
+		} else {
+			// Evil hax to support cirrusDumpResult. This is probably
+			// very fragile.
+			$value = $status->getValue();
+			if ( $value[0] instanceof ResultSet ) {
+				$interleaver = new TeamDraftInterleaver( $this->searchContext->getOriginalSearchTerm() );
+				$response = $interleaver->interleave( $value[0], $value[1], $this->limit );
+			} else {
+				$response = $value;
+			}
+		}
+		$status->setResult( true, $response );
 
 		foreach ( $this->searchContext->getWarnings() as $warning ) {
 			call_user_func_array( [ $status, 'warning' ], $warning );
@@ -431,15 +472,15 @@ class Searcher extends ElasticsearchIntermediary {
 
 		// The worst case would be to have all ids duplicated in all available indices.
 		// We set the limit accordingly
-		$size = count ( $this->connection->getAllIndexSuffixesForNamespaces(
+		$size = count( $this->connection->getAllIndexSuffixesForNamespaces(
 			$this->searchContext->getNamespaces()
-		));
+		) );
 		$size *= count( $docIds );
 
 		return Util::doPoolCounterWork(
 			$this->getPoolCounterType(),
 			$this->user,
-			function() use ( $docIds, $sourceFiltering, $indexType, $size ) {
+			function () use ( $docIds, $sourceFiltering, $indexType, $size ) {
 				try {
 					$this->startNewLog( 'get of {indexType}.{docIds}', 'get', [
 						'indexType' => $indexType,
@@ -468,7 +509,7 @@ class Searcher extends ElasticsearchIntermediary {
 				} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 					return $this->failure( $e );
 				}
-			});
+			} );
 	}
 
 	/**
@@ -479,7 +520,7 @@ class Searcher extends ElasticsearchIntermediary {
 		return Util::doPoolCounterWork(
 			'CirrusSearch-NamespaceLookup',
 			$this->user,
-			function() use ( $name ) {
+			function () use ( $name ) {
 				try {
 					$this->startNewLog( 'lookup namespace for {namespaceName}', 'namespace', [
 						'namespaceName' => $name,
@@ -503,14 +544,13 @@ class Searcher extends ElasticsearchIntermediary {
 				} catch ( \Elastica\Exception\ExceptionInterface $e ) {
 					return $this->failure( $e );
 				}
-			});
+			} );
 	}
 
 	/**
 	 * @return \Elastica\Search
 	 */
-	protected  function buildSearch() {
-
+	protected function buildSearch() {
 		if ( $this->resultsType === null ) {
 			$this->resultsType = new FullTextResultsType( FullTextResultsType::HIGHLIGHT_ALL );
 		}
@@ -558,10 +598,10 @@ class Searcher extends ElasticsearchIntermediary {
 			}
 			$query->addParam( 'stats', 'suggest' );
 		}
-		if( $this->offset ) {
+		if ( $this->offset ) {
 			$query->setFrom( $this->offset );
 		}
-		if( $this->limit ) {
+		if ( $this->limit ) {
 			$query->setSize( $this->limit );
 		}
 
@@ -647,7 +687,7 @@ class Searcher extends ElasticsearchIntermediary {
 			return Status::newGood( new SearchResultSet( true ) );
 		}
 
-		$result = $this->searchMulti( [$search] );
+		$result = $this->searchMulti( [ $search ] );
 		if ( $result->isOK() ) {
 			// Convert array of responses to single value
 			$value = $result->getValue();
@@ -774,12 +814,12 @@ class Searcher extends ElasticsearchIntermediary {
 				$statsKey = $this->getQueryCacheStatsKey();
 				if ( $cacheResult ) {
 					list( $logVariables, $multiResultSet ) = $cacheResult;
-					$requestStats->increment("$statsKey.hit");
+					$requestStats->increment( "$statsKey.hit" );
 					$log->setCachedResult( $logVariables );
 					$this->successViaCache( $log );
 					return $multiResultSet;
 				} else {
-					$requestStats->increment("$statsKey.miss");
+					$requestStats->increment( "$statsKey.miss" );
 				}
 
 				$multiResultSet = $work();
@@ -794,10 +834,10 @@ class Searcher extends ElasticsearchIntermediary {
 						}
 					}
 					if ( !$isPartialResult ) {
-						$requestStats->increment("$statsKey.set");
+						$requestStats->increment( "$statsKey.set" );
 						$cache->set(
 							$key,
-							[$log->getLogVariables(), $multiResultSet],
+							[ $log->getLogVariables(), $multiResultSet ],
 							$this->searchContext->getCacheTtl()
 						);
 					}
@@ -834,8 +874,6 @@ class Searcher extends ElasticsearchIntermediary {
 				// @todo error handling
 				$retval[$key] = null;
 			} else {
-				$responseData = $response->getData();
-
 				$resultsType = isset( $resultsTypes[$key] ) ? $resultsTypes[$key] : $this->resultsType;
 				$retval[$key] = $resultsType->transformElasticsearchResult(
 					$this->searchContext,
@@ -972,10 +1010,11 @@ class Searcher extends ElasticsearchIntermediary {
 	}
 
 	private function getPoolCounterType() {
-		$poolCounterTypes = array(
+		$poolCounterTypes = [
 			'regex' => 'CirrusSearch-Regex',
 			'prefix' => 'CirrusSearch-Prefix',
-		);
+			'more_like' => 'CirrusSearch-MoreLike',
+		];
 		foreach ( $poolCounterTypes as $type => $counter ) {
 			if ( $this->searchContext->isSyntaxUsed( $type ) ) {
 				return $counter;
@@ -1103,7 +1142,7 @@ class Searcher extends ElasticsearchIntermediary {
 	 * @return Status<Title[]>
 	 */
 	public function searchArchive( $term ) {
-		list( $term, $fuzzyUnused ) = $this->searchContext->escaper()->fixupWholeQueryString( $term );
+		list( $term, ) = $this->searchContext->escaper()->fixupWholeQueryString( $term );
 		$this->setResultsType( new TitleResultsType() );
 
 		$this->pageType = $this->connection->getArchiveType( $this->indexBaseName );
@@ -1140,4 +1179,67 @@ class Searcher extends ElasticsearchIntermediary {
 		return $this->searchOne();
 	}
 
+	/**
+	 * Tests if two search objects are equivalent
+	 *
+	 * @param Search $a
+	 * @param Search $b
+	 * @return bool
+	 */
+	private function areSearchesTheSame( Search $a, Search $b ) {
+		// same object.
+		if ( $a === $b ) {
+			return true;
+		}
+
+		// Check values not included in toArray()
+		if ( $a->getPath() !== $b->getPath()
+			|| $a->getOptions() != $b->getOptions()
+		) {
+			return false;
+		}
+
+		$aArray = $a->getQuery()->toArray();
+		$bArray = $b->getQuery()->toArray();
+
+		// normalize the 'now' value which contains a timestamp that
+		// may vary.
+		$fixNow = function ( &$value, $key ) {
+			if ( $key === 'now' && is_int( $value ) ) {
+				$value = 12345678;
+			}
+		};
+		array_walk_recursive( $aArray, $fixNow );
+		array_walk_recursive( $bArray, $fixNow );
+
+		// Simplest form, requires both arrays to have exact same ordering,
+		// types, keys, etc. We could try much harder to remove edge cases,
+		// but they probably don't matter too much. The main thing we are
+		// looking for is if configuration used for interleaved search didn't
+		// have an effect query building. If we get it wrong in some rare
+		// cases it should have minimal effects on the interleaved search test.
+		return $aArray === $bArray;
+	}
+
+	private function buildInterleaveSearcher() {
+		// If we aren't on the first page, or the user has specified
+		// some custom magic query options (override rescore profile,
+		// etc) then don't interleave.
+		if ( $this->offset > 0 || $this->searchContext->isDirty() ) {
+			return null;
+		}
+
+		// Is interleaving configured?
+		$overrides = $this->config->get( 'CirrusSearchInterleaveConfig' );
+		if ( $overrides === null ) {
+			return null;
+		}
+
+		$config = new HashSearchConfig( $overrides, [ 'inherit' ] );
+		$other = clone $this;
+		$other->config = $config;
+		$other->searchContext = $other->searchContext->withConfig( $config );
+
+		return $other;
+	}
 }

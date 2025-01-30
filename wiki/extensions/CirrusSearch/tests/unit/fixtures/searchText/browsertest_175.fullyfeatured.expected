@@ -169,6 +169,7 @@
                                         "allow_leading_wildcard": true,
                                         "default_operator": "AND",
                                         "fields": [
+                                            "redirect.title",
                                             "title"
                                         ],
                                         "fuzzy_prefix_length": 2,
@@ -366,7 +367,7 @@
                                             ]
                                         }
                                     },
-                                    "weight": "0.25"
+                                    "weight": 0.25
                                 },
                                 {
                                     "filter": {
@@ -376,7 +377,7 @@
                                             ]
                                         }
                                     },
-                                    "weight": "0.05"
+                                    "weight": 0.05
                                 },
                                 {
                                     "filter": {
@@ -386,7 +387,7 @@
                                             ]
                                         }
                                     },
-                                    "weight": "0.0125"
+                                    "weight": 0.0125
                                 }
                             ]
                         }

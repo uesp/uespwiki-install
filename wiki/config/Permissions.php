@@ -11,14 +11,19 @@ $wgExtensionFunctions[] = function() use ( &$wgGroupPermissions ) {
 };
 
 # Rights to add or remove user groups
-$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer', 'developer' );
-$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer', 'developer' );
+$wgAddGroups   ['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer', 'developer', 'interface-editor' );
+$wgRemoveGroups['sysop'] = array ( 'abuseeditor', 'autopatrolled', 'blockuser', 'cartographer', 'confirmed', 'patroller', 'translator', 'userpatroller', 'esocartographer', 'trcartographer', 'othercartographer', 'developer', 'interface-editor' );
+
+# Vandalism lockdown
+//$wgGroupPermissions['*']['edit'] = false;
+//$wgGroupPermissions['*']['createaccount'] = false;
 
 # Removed group rights
 $wgGroupPermissions['*']['createpage'] = false;
 $wgGroupPermissions['*']['mapedit'] = false;
-$wgGroupPermissions['*']['esomapedit'] = false;
-$wgGroupPermissions['*']['trmapedit'] = false;
+$wgGroupPermissions['*']['mapadmin'] = false;
+$wgGroupPermissions['*']['esomapedit'] = false;	//TODO: Remove eventually
+$wgGroupPermissions['*']['trmapedit'] = false;	//TODO: Remove eventually
 $wgGroupPermissions['*']['patroller'] = false;
 
 $wgGroupPermissions['user']['move'] = false;
@@ -54,27 +59,29 @@ $wgGroupPermissions['cartographer']['mapedit'] = true;
 $wgGroupPermissions['cartographer']['esomapedit'] = true;
 $wgGroupPermissions['cartographer']['trmapedit'] = true;
 
-$wgGroupPermissions['esocartographer']['map'] = true;
-$wgGroupPermissions['esocartographer']['mapedit'] = false;
-$wgGroupPermissions['esocartographer']['esomapedit'] = true;
-$wgGroupPermissions['esocartographer']['trmapedit'] = false;
-
-$wgGroupPermissions['trcartographer']['map'] = true;
-$wgGroupPermissions['trcartographer']['mapedit'] = false;
-$wgGroupPermissions['trcartographer']['esomapedit'] = false;
-$wgGroupPermissions['trcartographer']['trmapedit'] = true;
-
-$wgGroupPermissions['othercartographer']['map'] = true;
-$wgGroupPermissions['othercartographer']['mapedit'] = true;
-$wgGroupPermissions['othercartographer']['esomapedit'] = false;
-$wgGroupPermissions['othercartographer']['trmapedit'] = false;
-
 $wgGroupPermissions['confirmed']['autoconfirmed'] = true;
+$wgGroupPermissions['confirmed']['editsemiprotected'] = true;
+$wgGroupPermissions['confirmed']['move'] = true;
+$wgGroupPermissions['confirmed']['reupload'] = true;
+$wgGroupPermissions['confirmed']['transcode-reset'] = true;
 
-//$wgGroupPermissions['map']['map'] = true;
+$wgGroupPermissions['employee']['autoconfirmed'] = true;
+$wgGroupPermissions['employee']['autopatrol'] = true;
+$wgGroupPermissions['employee']['editcontentmodel'] = true;
+$wgGroupPermissions['employee']['editprotected'] = true;
+$wgGroupPermissions['employee']['editsemiprotected'] = true;
+$wgGroupPermissions['employee']['ipblock-exempt'] = true;
+$wgGroupPermissions['employee']['move'] = true;
+$wgGroupPermissions['employee']['noratelimit'] = true;
+$wgGroupPermissions['employee']['override-antispoof'] = true;
+$wgGroupPermissions['employee']['reupload'] = true;
+$wgGroupPermissions['employee']['skipcaptcha'] = true;
+$wgGroupPermissions['employee']['suppressredirect'] = true;
+$wgGroupPermissions['employee']['tboverride'] = true;
+
+$wgGroupPermissions['interface-editor']['editinterface'] = true;
 
 $wgGroupPermissions['patroller']['autopatrol'] = true;
-$wgGroupPermissions['patroller']['editinterface'] = true;
 $wgGroupPermissions['patroller']['movefile'] = true;
 $wgGroupPermissions['patroller']['patrol'] = true;
 $wgGroupPermissions['patroller']['patroller'] = true;
@@ -116,6 +123,27 @@ $wgGroupPermissions['translator']['tboverride'] = true;
 $wgGroupPermissions['translator']['undelete'] = true;
 
 $wgGroupPermissions['userpatroller']['tboverride'] = true;
+
+//TODO: Remove once new maps goes live
+$wgGroupPermissions['esocartographer']['map'] = true;
+$wgGroupPermissions['esocartographer']['mapedit'] = false;
+$wgGroupPermissions['esocartographer']['esomapedit'] = true;
+$wgGroupPermissions['esocartographer']['trmapedit'] = false;
+
+$wgGroupPermissions['trcartographer']['map'] = true;
+$wgGroupPermissions['trcartographer']['mapedit'] = false;
+$wgGroupPermissions['trcartographer']['esomapedit'] = false;
+$wgGroupPermissions['trcartographer']['trmapedit'] = true;
+
+$wgGroupPermissions['othercartographer']['map'] = true;
+$wgGroupPermissions['othercartographer']['mapedit'] = true;
+$wgGroupPermissions['othercartographer']['esomapedit'] = false;
+$wgGroupPermissions['othercartographer']['trmapedit'] = false;
+//End TODO
+
+$wgGroupPermissions['mapadmin']['mapadmin'] = true;
+
+//$wgGroupPermissions['map']['map'] = true;
 
 # Temporary elevation of reupload rights
 $wgGroupPermissions['user']['reupload'] = false;

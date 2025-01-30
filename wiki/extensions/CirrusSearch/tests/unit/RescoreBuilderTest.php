@@ -3,7 +3,7 @@
 namespace CirrusSearch\Search;
 
 use CirrusSearch\CirrusTestCase;
-use CirrusSearch\Test\HashSearchConfig;
+use CirrusSearch\HashSearchConfig;
 
 /**
  * @group CirrusSearch
@@ -30,7 +30,7 @@ class RescoreBuilderTest extends CirrusTestCase {
 
 		$func = new FunctionScoreDecorator();
 		$this->assertTrue( $func->isEmptyFunction() );
-		$func->addScriptScoreFunction( new \Elastica\Script\Script("foo+2") );
+		$func->addScriptScoreFunction( new \Elastica\Script\Script( "foo+2" ) );
 		$this->assertFalse( $func->isEmptyFunction() );
 		$array = $func->toArray();
 		$this->assertEquals( 1, count( $array['function_score']['functions'] ) );
@@ -265,6 +265,7 @@ class RescoreBuilderTest extends CirrusTestCase {
 		];
 		$profile = [
 			'ContentNamespaces' => [ 1, 2 ],
+			'NamespacesToBeSearchedDefault' => [ 1 => true ],
 			'CirrusSearchRescoreProfiles' => [
 				'full' => [
 					'supported_namespaces' => [ 0, 1 ],
@@ -529,7 +530,7 @@ class RescoreBuilderTest extends CirrusTestCase {
 						],
 					],
 					'CirrusSearchRescoreFunctionScoreChains' => [
-						'test' => [ ]
+						'test' => []
 					]
 				],
 			],

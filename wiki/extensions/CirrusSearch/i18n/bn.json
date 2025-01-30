@@ -2,7 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Aftab1995",
-			"Aftabuzzaman"
+			"Aftabuzzaman",
+			"Bodhisattwa"
 		]
 	},
 	"cirrussearch-desc": "মিডিয়াউইকির জন্য নমনীয়অনুসন্ধান-চালিত অনুসন্ধান",
@@ -25,11 +26,14 @@
 	"cirrussearch-pref-completion-section-legend": "[https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:CirrusSearch/CompletionSuggester সম্পূর্ণতা পরামর্শক] হচ্ছে ভালো টাইপো সংশোধনসহ অনুসন্ধানের পরামর্শ এবং অনুসন্ধানের প্রাসঙ্গিকতার জন্য একটি অ্যালগরিদম।",
 	"cirrussearch-completion-profile-fuzzy-pref-name": "পূর্বনির্ধারিত (সুপারিশকৃত)",
 	"cirrussearch-completion-profile-fuzzy-pref-desc": "দুটি পর্যন্ত টাইপো সংশোধন করে। নিকট পুননির্দেশনা মীমাংসা করে।",
-	"cirrussearch-completion-profile-fuzzy-subphrases-pref-desc": "দুটি পর্যন্ত টাইপো সংশোধন করে। নিকট পুননির্দেশনা মীমাংসা করে। শিরোনামের উপশব্দগুচ্ছ মিলায়।",
+	"cirrussearch-completion-profile-fuzzy-subphrases-pref-name": "উপশব্দগুচ্ছ মেলানো (দীর্ঘতর শিরোনামযুক্ত পাতার জন্য সুপারিশকৃত)",
+	"cirrussearch-completion-profile-fuzzy-subphrases-pref-desc": "দুটি পর্যন্ত টাইপো সংশোধন করে। নিকট পুননির্দেশনা মীমাংসা করে। শিরোনামের উপশব্দগুচ্ছ মেলায়।",
 	"cirrussearch-completion-profile-strict-pref-name": "কঠোর মোড (উন্নত)",
 	"cirrussearch-completion-profile-strict-pref-desc": "কোন টাইপো সংশোধন নয়। কোন স্বরাঘাত ভাঁজ নয়। কঠোর মিলানো।",
 	"cirrussearch-completion-profile-normal-pref-name": "পুনর্নির্দেশ মোড (উন্নত)",
 	"cirrussearch-completion-profile-normal-pref-desc": "কোন টাইপো সংশোধন নয়। নিকট পুননির্দেশনা মীমাংসা করে।",
+	"cirrussearch-completion-profile-normal-subphrases-pref-name": "উপশব্দগুচ্ছ মেলানো সহ পুনর্নির্দেশ মোড (উন্নত)",
+	"cirrussearch-completion-profile-normal-subphrases-pref-desc": "কোন টাইপো সংশোধন নয়। নিকট পুননির্দেশনা মীমাংসা করে। শিরোনামে উপশব্দগুচ্ছ মেলায়।",
 	"cirrussearch-pref-completion-legacy-section-desc": "উপসর্গ অনুসন্ধান",
 	"cirrussearch-pref-completion-legacy-section-legend": "লেখার-সময়-অনুসন্ধানের পরামর্শ অ্যালগরিদম",
 	"cirrussearch-completion-profile-classic-pref-name": "ক্লাসিক উপসর্গ অনুসন্ধান",
@@ -37,5 +41,11 @@
 	"cirrussearch-timed-out": "অনুসন্ধানের সময় শেষ হয়েছে, শুধুমাত্র আংশিক ফলাফল উপলব্ধ।",
 	"cirrussearch-regex-timed-out": "রেজেক্স অনুসন্ধানের সময় শেষ হয়েছে, শুধুমাত্র আংশিক ফলাফল উপলব্ধ। সম্পূর্ণ ফলাফল পেতে আপনার রেগুলার এক্সপ্রেশন সরল করার চেষ্টা করুন।",
 	"cirrussearch-incategory-feature-no-valid-categories": "'$1'-এ কোন বৈধ বিষয়শ্রেণী প্রদান করা হয়নি।",
-	"cirrussearch-mlt-feature-no-valid-titles": "'$1'-এ কোন বৈধ শিরোনাম প্রদান করা হয়নি।"
+	"cirrussearch-mlt-feature-no-valid-titles": "'$1'-এ কোন বৈধ শিরোনাম প্রদান করা হয়নি।",
+	"cirrussearch-explore-similar-related": "সম্পর্কিত",
+	"cirrussearch-explore-similar-categories": "বিষয়শ্রেণীসমূহ",
+	"cirrussearch-explore-similar-languages": "ভাষাসমূহ",
+	"cirrussearch-explore-similar-related-none": "কোন সম্পর্কিত পাতা উপলব্ধ নয়",
+	"cirrussearch-explore-similar-categories-none": "কোন বিষয়শ্রেণী উপলব্ধ নয়",
+	"cirrussearch-explore-similar-languages-none": "অন্য ভাষাসমূহে উপলব্ধ নয়"
 }

@@ -10,220 +10,235 @@
 	 * @param {jQuery} containerDiv The `div` to put the interface into
 	 */
 	mw.UploadWizardDetails = function ( upload, containerDiv ) {
-		var
-			descriptionRequired, uri,
-			$moreDetailsWrapperDiv, $moreDetailsDiv,
-			details = this;
-
 		this.upload = upload;
 		this.containerDiv = containerDiv;
 		this.api = upload.api;
 
 		this.mainFields = [];
 
-		this.div = $( '<div class="mwe-upwiz-info-file ui-helper-clearfix filled"></div>' );
-
-		this.thumbnailDiv = $( '<div class="mwe-upwiz-thumbnail mwe-upwiz-thumbnail-side"></div>' );
-
-		this.dataDiv = $( '<div class="mwe-upwiz-data"></div>' );
-
-		// descriptions
-		// Description is not required if a campaign provides alternative wikitext fields,
-		// which are assumed to function like a description
-		descriptionRequired = !(
-			mw.UploadWizard.config.fields &&
-			mw.UploadWizard.config.fields.length &&
-			mw.UploadWizard.config.fields[ 0 ].wikitext
-		);
-		this.descriptionsDetails = new uw.DescriptionsDetailsWidget( {
-			required: descriptionRequired
-		} );
-		this.descriptionsDetailsField = new uw.FieldLayout( this.descriptionsDetails, {
-			label: mw.message( 'mwe-upwiz-desc' ).text(),
-			help: mw.message( 'mwe-upwiz-tooltip-description' ).text(),
-			required: descriptionRequired
-		} );
-		this.mainFields.push( this.descriptionsDetailsField );
-
-		this.titleDetails = new uw.TitleDetailsWidget( {
-			// Normalize file extension, e.g. 'JPEG' to 'jpg'
-			extension: mw.Title.normalizeExtension( this.upload.title.getExtension() )
-		} );
-		this.titleDetailsField = new uw.FieldLayout( this.titleDetails, {
-			label: mw.message( 'mwe-upwiz-title' ).text(),
-			help: mw.message( 'mwe-upwiz-tooltip-title' ).text(),
-			required: true
-		} );
-		this.mainFields.push( this.titleDetailsField );
-
 		this.deedChooserDetails = new uw.DeedChooserDetailsWidget();
-		this.deedChooserDetailsField = new uw.FieldLayout( this.deedChooserDetails, {
-			label: mw.message( 'mwe-upwiz-copyright-info' ).text(),
-			required: true
-		} );
-		this.deedChooserDetailsField.toggle( false ); // See useCustomDeedChooser()
-		this.mainFields.push( this.deedChooserDetailsField );
+		this.customDeedChooser = false;
 
-		this.categoriesDetails = new uw.CategoriesDetailsWidget();
-		this.categoriesDetailsField = new uw.FieldLayout( this.categoriesDetails, {
-			label: mw.message( 'mwe-upwiz-categories' ).text(),
-			help: new OO.ui.HtmlSnippet(
-				mw.message( 'mwe-upwiz-tooltip-categories', $( '<a>' ).attr( {
-					target: '_blank',
-					href: 'https://commons.wikimedia.org/wiki/Commons:Categories'
-				} ) ).parse()
-			)
-		} );
-		this.mainFields.push( this.categoriesDetailsField );
-
-		this.dateDetails = new uw.DateDetailsWidget( { upload: this.upload } );
-		this.dateDetailsField = new uw.FieldLayout( this.dateDetails, {
-			label: mw.message( 'mwe-upwiz-date-created' ).text(),
-			help: mw.message( 'mwe-upwiz-tooltip-date' ).text(),
-			required: true
-		} );
-		this.mainFields.push( this.dateDetailsField );
-
-		this.otherDetails = new uw.OtherDetailsWidget();
-		this.otherDetailsField = new uw.FieldLayout( this.otherDetails, {
-			label: mw.message( 'mwe-upwiz-other' ).text(),
-			help: mw.message( 'mwe-upwiz-tooltip-other' ).text()
-		} );
-		this.mainFields.push( this.otherDetailsField );
-
-		this.locationInput = new uw.LocationDetailsWidget( { showHeading: true } );
-		this.locationInputField = new uw.FieldLayout( this.locationInput, {
-			// No 'label', labels are included in this widget
-			help: new OO.ui.HtmlSnippet(
-				mw.message( 'mwe-upwiz-tooltip-location', $( '<a>' ).attr( {
-					target: '_blank',
-					href: '//commons.wikimedia.org/wiki/Commons:Geocoding'
-				} ) ).parse()
-			)
-		} );
-		this.mainFields.push( this.locationInputField );
-
-		/* Build the form for the file upload */
-		this.$form = $( '<form id="mwe-upwiz-detailsform' + this.upload.index + '"></form>' ).addClass( 'detailsForm' );
-		this.$form.append(
-			this.titleDetailsField.$element,
-			this.descriptionsDetailsField.$element,
-			this.deedChooserDetailsField.$element,
-			this.dateDetailsField.$element,
-			this.categoriesDetailsField.$element
-		);
-
-		this.$form.on( 'submit', function ( e ) {
-			// Prevent actual form submission
-			e.preventDefault();
-		} );
-
-		this.campaignDetailsFields = [];
-		$.each( mw.UploadWizard.config.fields, function ( i, field ) {
-			var customDetails, customDetailsField;
-
-			if ( field.wikitext ) {
-				customDetails = new uw.CampaignDetailsWidget( field );
-				customDetailsField = new uw.FieldLayout( customDetails, {
-					label: $( $.parseHTML( field.label ) ),
-					required: !!field.required
-				} );
-
-				if ( field.initialValue ) {
-					customDetails.setSerialized( { value: field.initialValue } );
-				}
-
-				details.$form.append( customDetailsField.$element );
-				details.campaignDetailsFields.push( customDetailsField );
-			}
-		} );
-
-		$moreDetailsWrapperDiv = $( '<div class="mwe-more-details">' );
-		$moreDetailsDiv = $( '<div>' );
-
-		$moreDetailsDiv.append(
-			this.locationInputField.$element,
-			this.otherDetailsField.$element
-		);
-
-		$moreDetailsWrapperDiv
-			.append(
-				$( '<a>' ).text( mw.msg( 'mwe-upwiz-more-options' ) )
-					.addClass( 'mwe-upwiz-details-more-options mw-collapsible-toggle mw-collapsible-arrow' ),
-				$moreDetailsDiv.addClass( 'mw-collapsible-content' )
-			)
-			.makeCollapsible( { collapsed: true } );
-
-		// Expand collapsed sections if the fields within were changed (e.g. by metadata copier)
-		this.locationInput.on( 'change', function () {
-			$moreDetailsWrapperDiv.data( 'mw-collapsible' ).expand();
-		} );
-		this.otherDetails.on( 'change', function () {
-			$moreDetailsWrapperDiv.data( 'mw-collapsible' ).expand();
-		} );
-
-		this.$form.append(
-			$moreDetailsWrapperDiv
-		);
-
-		// Add in remove control to form
-		this.removeCtrl = new OO.ui.ButtonWidget( {
-			label: mw.message( 'mwe-upwiz-remove' ).text(),
-			title: mw.message( 'mwe-upwiz-remove-upload' ).text(),
-			classes: [ 'mwe-upwiz-remove-upload' ],
-			flags: 'destructive',
-			icon: 'remove',
-			framed: false
-		} ).on( 'click', function () {
-			OO.ui.confirm( mw.message( 'mwe-upwiz-license-confirm-remove' ).text(), {
-				title: mw.message( 'mwe-upwiz-license-confirm-remove-title' ).text()
-			} ).done( function ( confirmed ) {
-				if ( confirmed ) {
-					details.upload.emit( 'remove-upload' );
-				}
-			} );
-		} );
-
-		this.$form.append( this.removeCtrl.$element );
-
-		this.submittingDiv = $( '<div>' ).addClass( 'mwe-upwiz-submitting' )
-			.append(
-				$( '<div>' ).addClass( 'mwe-upwiz-file-indicator' ),
-				$( '<div>' ).addClass( 'mwe-upwiz-details-texts' ).append(
-					$( '<div>' ).addClass( 'mwe-upwiz-visible-file-filename-text' ),
-					$( '<div>' ).addClass( 'mwe-upwiz-file-status-line' )
-				)
-			);
-
-		$( this.dataDiv ).append(
-			this.$form,
-			this.submittingDiv
-		).morphCrossfader();
-
-		$( this.div ).append(
-			this.thumbnailDiv,
-			this.dataDiv
-		);
-
-		uri = new mw.Uri( location.href, { overrideKeys: true } );
-		if ( mw.UploadWizard.config.defaults.description || uri.query.descriptionlang ) {
-			this.descriptionsDetails.setSerialized( {
-				descriptions: [
-					{
-						language: uri.query.descriptionlang ?
-							uw.DescriptionDetailsWidget.static.getClosestAllowedLanguage( uri.query.descriptionlang ) :
-							uw.DescriptionDetailsWidget.static.getDefaultLanguage(),
-						description: mw.UploadWizard.config.defaults.description || ''
-					}
-				]
-			} );
-		}
+		this.div = $( '<div class="mwe-upwiz-info-file ui-helper-clearfix filled"></div>' );
 	};
 
 	mw.UploadWizardDetails.prototype = {
 
 		// Has this details object been attached to the DOM already?
 		isAttached: false,
+
+		/**
+		 * Build the interface and attach all elements - do this on demand.
+		 */
+		buildInterface: function () {
+			var descriptionRequired, uri,
+				$moreDetailsWrapperDiv, $moreDetailsDiv,
+				details = this;
+
+			this.thumbnailDiv = $( '<div class="mwe-upwiz-thumbnail mwe-upwiz-thumbnail-side"></div>' );
+
+			this.dataDiv = $( '<div class="mwe-upwiz-data"></div>' );
+
+			// descriptions
+			// Description is not required if a campaign provides alternative wikitext fields,
+			// which are assumed to function like a description
+			descriptionRequired = !(
+				mw.UploadWizard.config.fields &&
+				mw.UploadWizard.config.fields.length &&
+				mw.UploadWizard.config.fields[ 0 ].wikitext
+			);
+			this.descriptionsDetails = new uw.DescriptionsDetailsWidget( {
+				required: descriptionRequired
+			} );
+			this.descriptionsDetailsField = new uw.FieldLayout( this.descriptionsDetails, {
+				label: mw.message( 'mwe-upwiz-desc' ).text(),
+				help: mw.message( 'mwe-upwiz-tooltip-description' ).text(),
+				required: descriptionRequired
+			} );
+			this.mainFields.push( this.descriptionsDetailsField );
+
+			this.titleDetails = new uw.TitleDetailsWidget( {
+				// Normalize file extension, e.g. 'JPEG' to 'jpg'
+				extension: mw.Title.normalizeExtension( this.upload.title.getExtension() )
+			} );
+			this.titleDetailsField = new uw.FieldLayout( this.titleDetails, {
+				label: mw.message( 'mwe-upwiz-title' ).text(),
+				help: mw.message( 'mwe-upwiz-tooltip-title' ).text(),
+				required: true
+			} );
+			this.mainFields.push( this.titleDetailsField );
+
+			this.deedChooserDetailsField = new uw.FieldLayout( this.deedChooserDetails, {
+				label: mw.message( 'mwe-upwiz-copyright-info' ).text(),
+				required: true
+			} );
+			this.deedChooserDetailsField.toggle( this.customDeedChooser ); // See useCustomDeedChooser()
+			this.mainFields.push( this.deedChooserDetailsField );
+
+			this.categoriesDetails = new uw.CategoriesDetailsWidget();
+			this.categoriesDetailsField = new uw.FieldLayout( this.categoriesDetails, {
+				label: mw.message( 'mwe-upwiz-categories' ).text(),
+				help: new OO.ui.HtmlSnippet(
+					mw.message( 'mwe-upwiz-tooltip-categories', $( '<a>' ).attr( {
+						target: '_blank',
+						href: 'https://commons.wikimedia.org/wiki/Commons:Categories'
+					} ) ).parse()
+				)
+			} );
+			this.mainFields.push( this.categoriesDetailsField );
+
+			this.dateDetails = new uw.DateDetailsWidget( { upload: this.upload } );
+			this.dateDetailsField = new uw.FieldLayout( this.dateDetails, {
+				label: mw.message( 'mwe-upwiz-date-created' ).text(),
+				help: mw.message( 'mwe-upwiz-tooltip-date' ).text(),
+				required: true
+			} );
+			this.mainFields.push( this.dateDetailsField );
+
+			this.otherDetails = new uw.OtherDetailsWidget();
+			this.otherDetailsField = new uw.FieldLayout( this.otherDetails, {
+				label: mw.message( 'mwe-upwiz-other' ).text(),
+				help: mw.message( 'mwe-upwiz-tooltip-other' ).text()
+			} );
+			this.mainFields.push( this.otherDetailsField );
+
+			this.locationInput = new uw.LocationDetailsWidget( { showHeading: true } );
+			this.locationInputField = new uw.FieldLayout( this.locationInput, {
+				// No 'label', labels are included in this widget
+				help: new OO.ui.HtmlSnippet(
+					mw.message( 'mwe-upwiz-tooltip-location', $( '<a>' ).attr( {
+						target: '_blank',
+						href: '//commons.wikimedia.org/wiki/Commons:Geocoding'
+					} ) ).parse()
+				)
+			} );
+			this.mainFields.push( this.locationInputField );
+
+			/* Build the form for the file upload */
+			this.$form = $( '<form id="mwe-upwiz-detailsform' + this.upload.index + '"></form>' ).addClass( 'detailsForm' );
+			this.$form.append(
+				this.titleDetailsField.$element,
+				this.descriptionsDetailsField.$element,
+				this.deedChooserDetailsField.$element,
+				this.dateDetailsField.$element,
+				this.categoriesDetailsField.$element
+			);
+
+			this.$form.on( 'submit', function ( e ) {
+				// Prevent actual form submission
+				e.preventDefault();
+			} );
+
+			this.campaignDetailsFields = [];
+			$.each( mw.UploadWizard.config.fields, function ( i, field ) {
+				var customDetails, customDetailsField;
+
+				if ( field.wikitext ) {
+					customDetails = new uw.CampaignDetailsWidget( field );
+					customDetailsField = new uw.FieldLayout( customDetails, {
+						label: $( $.parseHTML( field.label ) ),
+						required: !!field.required
+					} );
+
+					if ( field.initialValue ) {
+						customDetails.setSerialized( { value: field.initialValue } );
+					}
+
+					details.$form.append( customDetailsField.$element );
+					details.campaignDetailsFields.push( customDetailsField );
+				}
+			} );
+
+			$moreDetailsWrapperDiv = $( '<div class="mwe-more-details">' );
+			$moreDetailsDiv = $( '<div>' );
+
+			$moreDetailsDiv.append(
+				this.locationInputField.$element,
+				this.otherDetailsField.$element
+			);
+
+			$moreDetailsWrapperDiv
+				.append(
+					$( '<a>' ).text( mw.msg( 'mwe-upwiz-more-options' ) )
+						.addClass( 'mwe-upwiz-details-more-options mw-collapsible-toggle mw-collapsible-arrow' ),
+					$moreDetailsDiv.addClass( 'mw-collapsible-content' )
+				)
+				.makeCollapsible( { collapsed: true } );
+
+			// Expand collapsed sections if the fields within were changed (e.g. by metadata copier)
+			this.locationInput.on( 'change', function () {
+				$moreDetailsWrapperDiv.data( 'mw-collapsible' ).expand();
+			} );
+			this.otherDetails.on( 'change', function () {
+				$moreDetailsWrapperDiv.data( 'mw-collapsible' ).expand();
+			} );
+
+			this.$form.append(
+				$moreDetailsWrapperDiv
+			);
+
+			// Add in remove control to form
+			this.removeCtrl = new OO.ui.ButtonWidget( {
+				label: mw.message( 'mwe-upwiz-remove' ).text(),
+				title: mw.message( 'mwe-upwiz-remove-upload' ).text(),
+				classes: [ 'mwe-upwiz-remove-upload' ],
+				flags: 'destructive',
+				icon: 'trash',
+				framed: false
+			} ).on( 'click', function () {
+				OO.ui.confirm( mw.message( 'mwe-upwiz-license-confirm-remove' ).text(), {
+					title: mw.message( 'mwe-upwiz-license-confirm-remove-title' ).text()
+				} ).done( function ( confirmed ) {
+					if ( confirmed ) {
+						details.upload.emit( 'remove-upload' );
+					}
+				} );
+			} );
+
+			this.$form.append( this.removeCtrl.$element );
+
+			this.submittingDiv = $( '<div>' ).addClass( 'mwe-upwiz-submitting' )
+				.append(
+					$( '<div>' ).addClass( 'mwe-upwiz-file-indicator' ),
+					$( '<div>' ).addClass( 'mwe-upwiz-details-texts' ).append(
+						$( '<div>' ).addClass( 'mwe-upwiz-visible-file-filename-text' ),
+						$( '<div>' ).addClass( 'mwe-upwiz-file-status-line' )
+					)
+				);
+
+			$( this.dataDiv ).append(
+				this.$form,
+				this.submittingDiv
+			).morphCrossfader();
+
+			$( this.div ).append(
+				this.thumbnailDiv,
+				this.dataDiv
+			);
+
+			uri = new mw.Uri( location.href, { overrideKeys: true } );
+			if ( mw.UploadWizard.config.defaults.description || uri.query.descriptionlang ) {
+				this.descriptionsDetails.setSerialized( {
+					descriptions: [
+						{
+							language: uri.query.descriptionlang ?
+								uw.DescriptionDetailsWidget.static.getClosestAllowedLanguage( uri.query.descriptionlang ) :
+								uw.DescriptionDetailsWidget.static.getDefaultLanguage(),
+							description: mw.UploadWizard.config.defaults.description || ''
+						}
+					]
+				} );
+			}
+
+			this.populate();
+
+			this.interfaceBuilt = true;
+
+			if ( this.savedSerialData ) {
+				this.setSerialized( this.savedSerialData );
+				this.savedSerialData = undefined;
+			}
+		},
 
 		/*
 		 * Append the div for this details object to the DOM.
@@ -233,8 +248,25 @@
 		 * Will only append once.
 		 */
 		attach: function () {
+			var $window = $( window ),
+				details = this;
+
+			function maybeBuild() {
+				if ( !this.interfaceBuilt && $window.scrollTop() + $window.height() + 1000 >= details.div.offset().top ) {
+					details.buildInterface();
+					$window.off( 'scroll', maybeBuild );
+				}
+			}
+
 			if ( !this.isAttached ) {
 				$( this.containerDiv ).append( this.div );
+
+				if ( $window.scrollTop() + $window.height() + 1000 >= this.div.offset().top ) {
+					this.buildInterface();
+				} else {
+					$window.on( 'scroll', maybeBuild );
+				}
+
 				this.isAttached = true;
 			}
 		},
@@ -325,14 +357,12 @@
 		 * toggles whether we use the 'macro' deed or our own
 		 */
 		useCustomDeedChooser: function () {
-			this.deedChooserDetailsField.toggle( true );
+			this.customDeedChooser = true;
 			this.deedChooserDetails.useCustomDeedChooser( this.upload );
 		},
 
 		/**
-		 * Given the API result pull some info into the form ( for instance, extracted from EXIF, desired filename )
-		 *
-		 * @param {Object} result Upload API result object
+		 * Pull some info into the form ( for instance, extracted from EXIF, desired filename )
 		 */
 		populate: function () {
 			var thumbnailDiv = this.thumbnailDiv;
@@ -575,6 +605,12 @@
 		 * @return {Object.<string,Object>}
 		 */
 		getSerialized: function () {
+			if ( !this.interfaceBuilt ) {
+				// We don't have the interface yet, but it'll get filled out as
+				// needed.
+				return;
+			}
+
 			return {
 				title: this.titleDetails.getSerialized(),
 				description: this.descriptionsDetails.getSerialized(),
@@ -595,10 +631,32 @@
 		 *
 		 * Fields from the representation can be omitted to keep the current value.
 		 *
-		 * @param {Object.<string,Object>} serialized
+		 * @param {Object.<string,Object>} [serialized]
 		 */
 		setSerialized: function ( serialized ) {
 			var i;
+
+			if ( !this.interfaceBuilt ) {
+				// There's no interface yet! Don't load the data, just keep it
+				// around.
+				if ( serialized === undefined ) {
+					// Note: This will happen if we "undo" a copy operation while
+					// some of the details interfaces aren't loaded.
+					this.savedSerialData = undefined;
+				} else {
+					this.savedSerialData = $.extend( true,
+						this.savedSerialData || {},
+						serialized
+					);
+				}
+				return;
+			}
+
+			if ( serialized === undefined ) {
+				// This is meaningless if the interface is already built.
+				return;
+			}
+
 			if ( serialized.title ) {
 				this.titleDetails.setSerialized( serialized.title );
 			}
@@ -728,7 +786,8 @@
 		 * @return {jQuery.Promise}
 		 */
 		submit: function () {
-			var params;
+			var params,
+				tags = [ 'uploadwizard' ];
 
 			$( 'form', this.containerDiv ).submit();
 
@@ -739,11 +798,16 @@
 
 			this.firstPoll = ( new Date() ).getTime();
 
+			if ( this.upload.file.source ) {
+				tags.push( 'uploadwizard-' + this.upload.file.source );
+			}
+
 			params = {
 				action: 'upload',
 				filekey: this.upload.fileKey,
 				filename: this.getTitle().getMain(),
-				comment: 'User created page with ' + mw.UploadWizard.userAgent
+				comment: 'User created page with ' + mw.UploadWizard.userAgent,
+				tags: mw.UploadWizard.config.CanAddTags ? tags : []
 			};
 
 			// Only enable async publishing if file is larger than 10MiB
@@ -801,16 +865,16 @@
 			if ( result && result.upload && result.upload.result === 'Poll' ) {
 				// if async publishing takes longer than 10 minutes give up
 				if ( ( ( new Date() ).getTime() - this.firstPoll ) > 10 * 60 * 1000 ) {
-					return deferred.reject( 'server-error', { error: {
+					return deferred.reject( 'server-error', { errors: [ {
 						code: 'server-error',
 						html: 'Unknown server error'
-					} } );
+					} ] } );
 				} else {
 					if ( result.upload.stage === undefined ) {
-						return deferred.reject( 'no-stage', { error: {
+						return deferred.reject( 'no-stage', { errors: [ {
 							code: 'no-stage',
 							html: 'Unable to check file\'s status'
-						} } );
+						} ] } );
 					} else {
 						// Messages that can be returned:
 						// * mwe-upwiz-queued
@@ -882,7 +946,7 @@
 					this.recoverFromError( 'upload-error-duplicate', mw.message( 'mwe-upwiz-upload-error-duplicate' ).parse() );
 				} else if ( warnings[ 'duplicate-archive' ] !== undefined ) {
 					// warnings[ 'duplicate-archive' ] may be '' (empty string) for revdeleted files
-					if ( this.upload.ignoreWarning[ 'duplicate-archive' ] ) {
+					if ( this.upload.handler.isIgnoredWarning( 'duplicate-archive' ) ) {
 						// We already told the interface to ignore this warning, so
 						// let's steamroll over it and re-call this handler.
 						params.ignorewarnings = true;

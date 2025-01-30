@@ -34,11 +34,11 @@ use Wikimedia\Rdbms\IDatabase;
  */
 
 $IP = getenv( 'MW_INSTALL_PATH' );
-if( $IP === false ) {
+if ( $IP === false ) {
 	$IP = __DIR__ . '/../../..';
 }
-require_once( "$IP/maintenance/Maintenance.php" );
-require_once( __DIR__ . '/../includes/Maintenance/Maintenance.php' );
+require_once "$IP/maintenance/Maintenance.php";
+require_once __DIR__ . '/../includes/Maintenance/Maintenance.php';
 
 class ForceSearchIndex extends Maintenance {
 	const SECONDS_BETWEEN_JOB_QUEUE_LENGTH_CHECKS = 3;
@@ -46,7 +46,7 @@ class ForceSearchIndex extends Maintenance {
 	public $toDate = null;
 	public $toId = null;
 	public $indexUpdates;
-	public $archiveOnly;
+	public $archive;
 	public $limit;
 	public $queue;
 	public $maxJobs;
@@ -65,46 +65,67 @@ class ForceSearchIndex extends Maintenance {
 	 */
 	private $pageIds;
 
-
 	public function __construct() {
 		parent::__construct();
-		$this->mDescription = "Force indexing some pages.  Setting --from or --to will switch from page id based indexing to "
+		$this->mDescription = "Force indexing some pages.  Setting --from or --to will switch "
+			. "from page id based indexing to "
 			. "date based indexing which uses less efficient queries and follows redirects.\n\n"
 			. "Note: All froms are _exclusive_ and all tos are _inclusive_.\n"
 			. "Note 2: Setting fromId and toId use the efficient query so those are ok.\n"
 			. "Note 3: Operates on all clusters unless --cluster is provided.\n";
 		$this->setBatchSize( 10 );
-		$this->addOption( 'from', 'Start date of reindex in YYYY-mm-ddTHH:mm:ssZ (exc.  Defaults to 0 epoch.', false, true );
-		$this->addOption( 'to', 'Stop date of reindex in YYYY-mm-ddTHH:mm:ssZ.  Defaults to now.', false, true );
-		$this->addOption( 'fromId', 'Start indexing at a specific page_id.  Not useful with --deletes.', false, true );
-		$this->addOption( 'toId', 'Stop indexing at a specific page_id.  Not useful with --deletes or --from or --to.', false, true );
-		$this->addOption( 'ids', 'List of page ids (comma separated) to reindex. Not allowed with deletes/from/to/fromId/toId/limit.', false, true );
-		$this->addOption( 'deletes', 'If this is set then just index deletes, not updates or creates.', false );
-		$this->addOption( 'archiveOnly', 'Don\'t delete pages, only index them into the archive. Only useful with --deletes', false, false );
-		$this->addOption( 'limit', 'Maximum number of pages to process before exiting the script. Default to unlimited.', false, true );
-		$this->addOption( 'buildChunks', 'Instead of running the script spit out commands that can be farmed out to ' .
-			'different processes or machines to rebuild the index.  Works with fromId and toId, not from and to.  ' .
-			'If specified as a number then chunks no larger than that size are spat out.  If specified as a number ' .
-			'followed by the word "total" without a space between them then that many chunks will be spat out sized to ' .
-			'cover the entire wiki.' , false, true );
-		$this->addOption( 'queue', 'Rather than perform the indexes in process add them to the job queue.  Ignored for delete.' );
-		$this->addOption( 'maxJobs', 'If there are more than this many index jobs in the queue then pause before adding ' .
-			'more.  This is only checked every ' . self::SECONDS_BETWEEN_JOB_QUEUE_LENGTH_CHECKS . ' seconds.  Not meaningful ' .
-			'without --queue.', false, true );
-		$this->addOption( 'pauseForJobs', 'If paused adding jobs then wait for there to be less than this many before ' .
-			'starting again.  Defaults to the value specified for --maxJobs.  Not meaningful without --queue.', false, true );
-		$this->addOption( 'indexOnSkip', 'When skipping either parsing or links send the document as an index.  ' .
-			'This replaces the contents of the index for that entry with the entry built from a skipped process.' .
-			'Without this if the entry does not exist then it will be skipped entirely.  Only set this when running ' .
-			'the first pass of building the index.  Otherwise, don\'t tempt fate by indexing half complete documents.' );
-		$this->addOption( 'forceParse', 'Bypass ParserCache and do a fresh parse of pages from the Content.' );
-		$this->addOption( 'skipParse', 'Skip parsing the page.  This is really only good for running the second half ' .
-			'of the two phase index build.  If this is specified then the default batch size is actually 50.' );
-		$this->addOption( 'skipLinks', 'Skip looking for links to the page (counting and finding redirects).  Use ' .
+		$this->addOption( 'from', 'Start date of reindex in YYYY-mm-ddTHH:mm:ssZ (exc.  Defaults ' .
+			'to 0 epoch.', false, true );
+		$this->addOption( 'to', 'Stop date of reindex in YYYY-mm-ddTHH:mm:ssZ.  Defaults to now.',
+			false, true );
+		$this->addOption( 'fromId', 'Start indexing at a specific page_id.  ' .
+			'Not useful with --deletes.', false, true );
+		$this->addOption( 'toId', 'Stop indexing at a specific page_id.  ' .
+			'Not useful with --deletes or --from or --to.', false, true );
+		$this->addOption( 'ids', 'List of page ids (comma separated) to reindex. ' .
+			'Not allowed with deletes/from/to/fromId/toId/limit.', false, true );
+		$this->addOption( 'deletes',
+			'If this is set then just index deletes, not updates or creates.', false );
+		$this->addOption( 'archive',
+			'Don\'t delete pages, only index them into the archive.', false, false );
+		$this->addOption( 'limit',
+			'Maximum number of pages to process before exiting the script. Default to unlimited.',
+			false, true );
+		$this->addOption( 'buildChunks', 'Instead of running the script spit out commands that ' .
+			'can be farmed out to different processes or machines to rebuild the index.  Works ' .
+			'with fromId and toId, not from and to.  If specified as a number then chunks no ' .
+			'larger than that size are spat out.  If specified as a number followed by the word ' .
+			'"total" without a space between them then that many chunks will be spat out sized ' .
+			'to cover the entire wiki.', false, true );
+		$this->addOption( 'queue', 'Rather than perform the indexes in process add them to the ' .
+			'job queue.  Ignored for delete.' );
+		$this->addOption( 'maxJobs', 'If there are more than this many index jobs in the queue ' .
+			'then pause before adding more.  This is only checked every ' .
+			self::SECONDS_BETWEEN_JOB_QUEUE_LENGTH_CHECKS .
+			' seconds.  Not meaningful without --queue.', false, true );
+		$this->addOption( 'pauseForJobs', 'If paused adding jobs then wait for there to be less ' .
+			'than this many before starting again.  Defaults to the value specified for ' .
+			'--maxJobs.  Not meaningful without --queue.', false, true );
+		$this->addOption( 'indexOnSkip', 'When skipping either parsing or links send the document' .
+			' as an index.  This replaces the contents of the index for that entry with the entry' .
+			' built from a skipped process. Without this if the entry does not exist then it will' .
+			' be skipped entirely.  Only set this when running the first pass of building the' .
+			' index.  Otherwise, don\'t tempt fate by indexing half complete documents.' );
+		$this->addOption( 'forceParse',
+			'Bypass ParserCache and do a fresh parse of pages from the Content.' );
+		$this->addOption( 'skipParse',
+			'Skip parsing the page.  This is really only good for running the second half ' .
+			'of the two phase index build.  If this is specified then the default batch size ' .
+			'is actually 50.' );
+		$this->addOption( 'skipLinks',
+			'Skip looking for links to the page (counting and finding redirects).  Use ' .
 			'this with --indexOnSkip for the first half of the two phase index build.' );
 		$this->addOption( 'namespace', 'Only index pages in this given namespace', false, true );
-		$this->addOption( 'excludeContentTypes', 'Exclude pages of the specified content types. These must be a comma separated list of strings such as "wikitext" or "json" matching the CONTENT_MODEL_* constants.', false, true, false );
-		$this->addOption( 'useDbIndex', 'Use specific index when fetching IDs from the database.', false, true, false );
+		$this->addOption( 'excludeContentTypes', 'Exclude pages of the specified content types. ' .
+			'These must be a comma separated list of strings such as "wikitext" or "json" ' .
+			'matching the CONTENT_MODEL_* constants.', false, true, false );
+		$this->addOption( 'useDbIndex',
+			'Use specific index when fetching IDs from the database.', false, true, false );
 	}
 
 	public function execute() {
@@ -113,7 +134,9 @@ class ForceSearchIndex extends Maintenance {
 
 		// Make sure we've actually got indices to populate
 		if ( !$this->simpleCheckIndexes() ) {
-			$this->error( "$wiki index(es) do not exist. Did you forget to run updateSearchIndexConfig?", 1 );
+			$this->error(
+				"$wiki index(es) do not exist. Did you forget to run updateSearchIndexConfig?", 1
+			);
 		}
 
 		// We need to check ids options early otherwise hasOption may return
@@ -125,12 +148,16 @@ class ForceSearchIndex extends Maintenance {
 
 		if ( !is_null( $this->getOption( 'from' ) ) || !is_null( $this->getOption( 'to' ) ) ) {
 			// 0 is falsy so MWTimestamp makes that `now`.  '00' is epoch 0.
-			$this->fromDate = new MWTimestamp( $this->getOption( 'from', '00' )  );
+			$this->fromDate = new MWTimestamp( $this->getOption( 'from', '00' ) );
 			$this->toDate = new MWTimestamp( $this->getOption( 'to', false ) );
 		}
 		$this->toId = $this->getOption( 'toId' );
 		$this->indexUpdates = !$this->getOption( 'deletes', false );
-		$this->archiveOnly = (bool) $this->getOption( 'archiveOnly', false );
+		$this->archive = (bool)$this->getOption( 'archive', false );
+		if ( $this->archive ) {
+			// If we're indexing only for archive, this implies deletes
+			$this->indexUpdates = false;
+		}
 		$this->limit = $this->getOption( 'limit' );
 		$buildChunks = $this->getOption( 'buildChunks' );
 		if ( $buildChunks !== null ) {
@@ -138,13 +165,15 @@ class ForceSearchIndex extends Maintenance {
 			return;
 		}
 		$this->queue = $this->getOption( 'queue' );
-		$this->maxJobs = $this->getOption( 'maxJobs' ) ? intval( $this->getOption( 'maxJobs' ) ) : null;
+		$this->maxJobs = $this->getOption( 'maxJobs' )
+			? intval( $this->getOption( 'maxJobs' ) )
+			: null;
 		$this->pauseForJobs = $this->getOption( 'pauseForJobs' ) ?
 			intval( $this->getOption( 'pauseForJobs' ) ) : $this->maxJobs;
 		$updateFlags = $this->buildUpdateFlags();
 
 		if ( !$this->getOption( 'batch-size' ) &&
-			( $this->getOption( 'queue' ) || $this->getOption( 'deletes' ) )
+			( $this->getOption( 'queue' ) || !$this->indexUpdates )
 		) {
 			$this->setBatchSize( 100 );
 		}
@@ -159,7 +188,7 @@ class ForceSearchIndex extends Maintenance {
 
 		$operationName = $this->indexUpdates
 			? ( $this->queue ? 'Queued' : 'Indexed' )
-			: 'Deleted';
+			: ( $this->archive ? 'Archived' : 'Deleted' );
 
 		$operationStartTime = microtime( true );
 		$completed = 0;
@@ -167,7 +196,7 @@ class ForceSearchIndex extends Maintenance {
 
 		if ( $this->runWithIds ) {
 			$it = $this->getIdsIterator();
-		} elseif ( $this->indexUpdates && $this->fromDate === null) {
+		} elseif ( $this->indexUpdates && $this->fromDate === null ) {
 			$it = $this->getUpdatesByIdIterator();
 		} elseif ( $this->indexUpdates ) {
 			$it = $this->getUpdatesByDateIterator();
@@ -181,9 +210,9 @@ class ForceSearchIndex extends Maintenance {
 				$updates = array_filter( $batch['updates'] );
 				if ( $this->queue ) {
 					$this->waitForQueueToShrink( $wiki );
-					JobQueueGroup::singleton()->push(
-						Job\MassIndex::build( $updates, $updateFlags, $this->getOption( 'cluster' ) )
-					);
+					JobQueueGroup::singleton()->push( Job\MassIndex::build(
+						$updates, $updateFlags, $this->getOption( 'cluster' )
+					) );
 				} else {
 					// Update size with the actual number of updated documents.
 					$updater = $this->createUpdater();
@@ -192,17 +221,18 @@ class ForceSearchIndex extends Maintenance {
 			} else {
 				$size = count( $batch['titlesToDelete'] );
 				$updater = $this->createUpdater();
-				$updater->archivePages( $batch['archive'] );
-				if ( !$this->archiveOnly ) {
+				$updater->archivePages( $batch['archive'], $this->archive );
+				if ( !$this->archive ) {
 					$updater->deletePages( $batch['titlesToDelete'], $batch['docIdsToDelete'] );
 				}
 			}
 
-
 			$completed += $size;
 			$rate = $this->calculateIndexingRate( $completed, $operationStartTime );
 
-			$this->output( "$wiki $operationName $size pages ending at {$batch['endingAt']} at $rate/second\n" );
+			$this->output(
+				"$wiki $operationName $size pages ending at {$batch['endingAt']} at $rate/second\n"
+			);
 			if ( !is_null( $this->limit ) && $completed > $this->limit ) {
 				break;
 			}
@@ -212,21 +242,26 @@ class ForceSearchIndex extends Maintenance {
 	}
 
 	private function buildPageIdBatches() {
-		if ( $this->getOption( 'deletes' ) || $this->hasOption( 'limit' )
+		if ( !$this->indexUpdates || $this->hasOption( 'limit' )
 			|| $this->hasOption( 'from' ) || $this->hasOption( 'to' )
 			|| $this->hasOption( 'fromId' ) || $this->hasOption( 'toId' )
 		) {
-			$this->error( '--ids cannot be used with deletes/from/to/fromId/toId/limit', 1 );
+			$this->error(
+				'--ids cannot be used with deletes/archive/from/to/fromId/toId/limit', 1
+			);
 		}
 
-		$pageIds = array_map( function( $pageId ) {
+		$pageIds = array_map(
+			function ( $pageId ) {
 				$pageId = trim( $pageId );
 				if ( !ctype_digit( $pageId ) ) {
-					$this->error( "Invalid page id provided in --ids, got '$pageId', expected a positive integer", 1 );
+					$this->error( "Invalid page id provided in --ids, got '$pageId', " .
+						"expected a positive integer", 1 );
 				}
 				return intval( $pageId );
 			},
-			explode( ',', $this->getOption( 'ids' ) ) );
+			explode( ',', $this->getOption( 'ids' ) )
+		);
 		return array_unique( $pageIds, SORT_REGULAR );
 	}
 
@@ -254,18 +289,22 @@ class ForceSearchIndex extends Maintenance {
 
 	private function waitForQueueToShrink( $wiki ) {
 		$now = microtime( true );
-		if ( $now - $this->lastJobQueueCheckTime <= self::SECONDS_BETWEEN_JOB_QUEUE_LENGTH_CHECKS ) {
+		if ( $now - $this->lastJobQueueCheckTime <=
+			self::SECONDS_BETWEEN_JOB_QUEUE_LENGTH_CHECKS
+		) {
 			return;
 		}
 
 		$this->lastJobQueueCheckTime = $now;
 		$queueSize = $this->getUpdatesInQueue();
-		if ( $this->maxJobs === null || $this->maxJobs >= $queueSize )  {
+		if ( $this->maxJobs === null || $this->maxJobs >= $queueSize ) {
 			return;
 		}
 
 		do {
-			$this->output( "$wiki Waiting while job queue shrinks: $this->pauseForJobs > $queueSize\n" );
+			$this->output(
+				"$wiki Waiting while job queue shrinks: $this->pauseForJobs > $queueSize\n"
+			);
 			usleep( self::SECONDS_BETWEEN_JOB_QUEUE_LENGTH_CHECKS * 1000000 );
 			$queueSize = $this->getUpdatesInQueue();
 		} while ( $this->pauseForJobs < $queueSize );
@@ -343,16 +382,17 @@ class ForceSearchIndex extends Maintenance {
 	}
 
 	protected function getDeletesIterator() {
-		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
+		$dbr = $this->getDB( DB_REPLICA, [ 'vslow' ] );
 		$it = new BatchRowIterator(
 			$dbr,
 			'archive',
-			[ 'ar_timestamp', 'ar_namespace', 'ar_title' ],
+			[ 'ar_namespace', 'ar_title', 'ar_timestamp' ],
 			$this->mBatchSize
 		);
 
 		$this->attachPageConditions( $dbr, $it, 'ar' );
 		$this->attachTimestampConditions( $dbr, $it, 'ar' );
+		$it->addConditions( [ 'ar_page_id IS NOT NULL' ] );
 
 		$it->setFetchColumns( [ 'ar_timestamp', 'ar_namespace', 'ar_title', 'ar_page_id' ] );
 
@@ -375,16 +415,17 @@ class ForceSearchIndex extends Maintenance {
 				'titlesToDelete' => $titlesToDelete,
 				'docIdsToDelete' => $docIdsToDelete,
 				'archive' => $archive,
-				'endingAt' => isset( $row )
-					? ( new MWTimestamp( $row->ar_timestamp ) )->getTimestamp( TS_ISO_8601 )
+				'endingAt' => isset( $title )
+					? substr( preg_replace(
+						'/[^' . Title::legalChars() . ']/', '_', $title->getPrefixedDBkey()
+					), 0, 30 )
 					: 'unknown',
 			];
 		} );
 	}
 
-
 	protected function getIdsIterator() {
-		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
+		$dbr = $this->getDB( DB_REPLICA, [ 'vslow' ] );
 		$it = new BatchRowIterator( $dbr, 'page', 'page_id', $this->mBatchSize );
 		$it->addConditions( [
 			'page_id in (' . $dbr->makeList( $this->pageIds, LIST_COMMA ) . ')',
@@ -395,7 +436,7 @@ class ForceSearchIndex extends Maintenance {
 	}
 
 	protected function getUpdatesByDateIterator() {
-		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
+		$dbr = $this->getDB( DB_REPLICA, [ 'vslow' ] );
 		$it = new BatchRowIterator(
 			$dbr,
 			[ 'page', 'revision' ],
@@ -414,7 +455,7 @@ class ForceSearchIndex extends Maintenance {
 	}
 
 	protected function getUpdatesByIdIterator() {
-		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
+		$dbr = $this->getDB( DB_REPLICA, [ 'vslow' ] );
 		$it = new BatchRowIterator( $dbr, 'page', 'page_id', $this->mBatchSize );
 		$fromId = $this->getOption( 'fromId', 0 );
 		if ( $fromId > 0 ) {
@@ -433,13 +474,17 @@ class ForceSearchIndex extends Maintenance {
 		return $this->wrapDecodeResults( $it, 'page_id' );
 	}
 
-	private function attachTimestampConditions( IDatabase $dbr, BatchRowIterator $it, $columnPrefix ) {
+	private function attachTimestampConditions(
+		IDatabase $dbr, BatchRowIterator $it, $columnPrefix
+	) {
 		// When initializing we guarantee that if either fromDate or toDate are provided
 		// the other has a sane default value.
 		if ( $this->fromDate ) {
 			$it->addConditions( [
-				"{$columnPrefix}_timestamp >= " . $dbr->addQuotes( $dbr->timestamp( $this->fromDate ) ),
-				"{$columnPrefix}_timestamp <= " . $dbr->addQuotes( $dbr->timestamp( $this->toDate ) ),
+				"{$columnPrefix}_timestamp >= " .
+					$dbr->addQuotes( $dbr->timestamp( $this->fromDate ) ),
+				"{$columnPrefix}_timestamp <= " .
+					$dbr->addQuotes( $dbr->timestamp( $this->toDate ) ),
 			] );
 		}
 	}
@@ -472,14 +517,14 @@ class ForceSearchIndex extends Maintenance {
 	 */
 	private function wrapDecodeResults( BatchRowIterator $it, $endingAtColumn ) {
 		return new CallbackIterator( $it, function ( $batch ) use ( $endingAtColumn ) {
-			// Build the updater outside the loop because it stores the redirects it hits.  Don't build it at the top
-			// level so those are stored when it is freed.
+			// Build the updater outside the loop because it stores the redirects it hits.
+			// Don't build it at the top level so those are stored when it is freed.
 			$updater = $this->createUpdater();
 
 			$pages = [];
 			foreach ( $batch as $row ) {
-				// No need to call Updater::traceRedirects here because we know this is a valid page because
-				// it is in the database.
+				// No need to call Updater::traceRedirects here because we know this is a valid page
+				// because it is in the database.
 				$page = WikiPage::newFromRow( $row, WikiPage::READ_LATEST );
 
 				// null pages still get attached to keep the counts the same. They will be filtered
@@ -529,7 +574,9 @@ class ForceSearchIndex extends Maintenance {
 		if ( $content === null ) {
 			// Skip pages without content.  Pages have no content because their latest revision
 			// as loaded by the query above doesn't exist.
-			$this->output( 'Skipping page with no content: ' . $page->getTitle()->getArticleID() . "\n" );
+			$this->output(
+				'Skipping page with no content: ' . $page->getTitle()->getArticleID() . "\n"
+			);
 			return null;
 		}
 
@@ -538,14 +585,14 @@ class ForceSearchIndex extends Maintenance {
 		}
 
 		if ( $this->toDate === null ) {
-			// Looks like we accidentally picked up a redirect when we were indexing by id and thus trying to
-			// ignore redirects!  Just ignore it!  We would filter them out at the db level but that is slow
-			// for large wikis.
+			// Looks like we accidentally picked up a redirect when we were indexing by id and thus
+			// trying to ignore redirects!  Just ignore it!  We would filter them out at the db
+			// level but that is slow for large wikis.
 			return null;
 		}
 
-		// We found a redirect.  Great.  Since we can't index special pages and redirects to special pages
-		// are totally possible, as well as fun stuff like redirect loops, we need to use
+		// We found a redirect.  Great.  Since we can't index special pages and redirects to special
+		// pages are totally possible, as well as fun stuff like redirect loops, we need to use
 		// Updater's redirect tracing logic which is very complete.  Also, it returns null on
 		// self redirects.  Great!
 		list( $page, ) = $updater->traceRedirects( $page->getTitle() );
@@ -560,7 +607,7 @@ class ForceSearchIndex extends Maintenance {
 	 *  will be spat out sized to cover the entire wiki.
 	 */
 	private function buildChunks( $buildChunks ) {
-		$dbr = $this->getDB( DB_REPLICA, ['vslow'] );
+		$dbr = $this->getDB( DB_REPLICA, [ 'vslow' ] );
 		if ( $this->toId === null ) {
 			$this->toId = $dbr->selectField( 'page', 'MAX(page_id)' );
 			if ( $this->toId === false ) {
@@ -575,7 +622,9 @@ class ForceSearchIndex extends Maintenance {
 			}
 		}
 		if ( $fromId === $this->toId ) {
-			$this->error( "Couldn't find any pages to index.  fromId = $fromId = $this->toId = toId.", 1 );
+			$this->error(
+				"Couldn't find any pages to index.  fromId = $fromId = $this->toId = toId.", 1
+			);
 		}
 		$builder = new \CirrusSearch\Maintenance\ChunkBuilder();
 		$builder->build( $this->mSelf, $this->mOptions, $buildChunks, $fromId, $this->toId );

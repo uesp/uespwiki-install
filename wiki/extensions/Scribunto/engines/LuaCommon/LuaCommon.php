@@ -1,12 +1,14 @@
 <?php
 
+use Wikimedia\ScopedCallback;
+
 // @codingStandardsIgnoreLine Squiz.Classes.ValidClassName.NotCamelCaps
 abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	/**
 	 * Libraries to load. See also the 'ScribuntoExternalLibraries' hook.
 	 * @var array Maps module names to PHP classes or definition arrays
 	 */
-	protected static $libraryClasses = array(
+	protected static $libraryClasses = [
 		'mw.site' => 'Scribunto_LuaSiteLibrary',
 		'mw.uri' => 'Scribunto_LuaUriLibrary',
 		'mw.ustring' => 'Scribunto_LuaUstringLibrary',
@@ -16,18 +18,18 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		'mw.text' => 'Scribunto_LuaTextLibrary',
 		'mw.html' => 'Scribunto_LuaHtmlLibrary',
 		'mw.hash' => 'Scribunto_LuaHashLibrary',
-	);
+	];
 
 	/**
 	 * Paths for modules that may be loaded from Lua. See also the
 	 * 'ScribuntoExternalLibraryPaths' hook.
 	 * @var array Paths
 	 */
-	protected static $libraryPaths = array(
+	protected static $libraryPaths = [
 		'.',
 		'luabit',
 		'ustring',
-	);
+	];
 
 	protected $loaded = false;
 
@@ -44,11 +46,35 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	/**
 	 * @var array
 	 */
-	protected $currentFrames = array();
-	protected $expandCache = array();
-	protected $availableLibraries = array();
+	protected $currentFrames = [];
+	protected $expandCache = [];
+	protected $availableLibraries = [];
 
 	const MAX_EXPAND_CACHE_SIZE = 100;
+
+	/**
+	 * If luasandbox is installed and usable then use it,
+	 * otherwise
+	 *
+	 * @param array $options
+	 * @return Scribunto_LuaEngine
+	 */
+	public static function newAutodetectEngine( array $options ) {
+		global $wgScribuntoEngineConf;
+		$engine = 'luastandalone';
+		try {
+			Scribunto_LuaSandboxInterpreter::checkLuaSandboxVersion();
+			$engine = 'luasandbox';
+		} catch ( Scribunto_LuaInterpreterNotFoundError $e ) {
+			// pass
+		} catch ( Scribunto_LuaInterpreterBadVersionError $e ) {
+			// pass
+		}
+
+		unset( $options['factory'] );
+
+		return Scribunto::newEngine( $options + $wgScribuntoEngineConf[$engine] );
+	}
 
 	/**
 	 * Create a new interpreter object
@@ -70,7 +96,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	 * @param array $params
 	 * @return Scribunto_LuaError
 	 */
-	public function newLuaError( $message, $params = array() ) {
+	public function newLuaError( $message, $params = [] ) {
 		return new Scribunto_LuaError( $message, $this->getDefaultExceptionParams() + $params );
 	}
 
@@ -94,7 +120,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		try {
 			$this->interpreter = $this->newInterpreter();
 
-			$funcs = array(
+			$funcs = [
 				'loadPackage',
 				'loadPHPLibrary',
 				'frameExists',
@@ -109,16 +135,16 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 				'getFrameTitle',
 				'setTTL',
 				'addWarning',
-			);
+			];
 
-			$lib = array();
+			$lib = [];
 			foreach ( $funcs as $name ) {
-				$lib[$name] = array( $this, $name );
+				$lib[$name] = [ $this, $name ];
 			}
 
-			$this->registerInterface( 'mwInit.lua', array() );
+			$this->registerInterface( 'mwInit.lua', [] );
 			$this->mw = $this->registerInterface( 'mw.lua', $lib,
-				array( 'allowEnvFuncs' => $this->options['allowEnvFuncs'] ) );
+				[ 'allowEnvFuncs' => $this->options['allowEnvFuncs'] ] );
 
 			$this->availableLibraries = $this->getLibraries( 'lua', self::$libraryClasses );
 			foreach ( $this->availableLibraries as $name => $def ) {
@@ -146,7 +172,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	 * @param $setupOptions array Passed to the modules setupInterface() method.
 	 * @return array Lua package
 	 */
-	public function registerInterface( $moduleFileName, $interfaceFuncs, $setupOptions = array() ) {
+	public function registerInterface( $moduleFileName, $interfaceFuncs, $setupOptions = [] ) {
 		$this->interpreter->registerLibrary( 'mw_interface', $interfaceFuncs );
 		$moduleFileName = $this->normalizeModuleFileName( $moduleFileName );
 		$package = $this->loadLibraryFromFile( $moduleFileName );
@@ -213,19 +239,15 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 
 		$oldFrames = $this->currentFrames;
 		$oldExpandCache = $this->expandCache;
-		$this->currentFrames = array(
+		$this->currentFrames = [
 			'current' => $frame,
 			'parent' => isset( $frame->parent ) ? $frame->parent : null,
-		);
-		$this->expandCache = array();
+		];
+		$this->expandCache = [];
 
-		// @todo Once support for PHP 5.3 (MW < 1.27) is dropped, lose $ref and just use
-		// $this->currentFrames directly in the callback.
-		$ref = &$this->currentFrames;
-		$ref2 = &$this->expandCache;
-		return new ScopedCallback( function () use ( &$ref, &$ref2, $oldFrames, $oldExpandCache ) {
-			$ref = $oldFrames;
-			$ref2 = $oldExpandCache;
+		return new ScopedCallback( function () use ( $oldFrames, $oldExpandCache ) {
+			$this->currentFrames = $oldFrames;
+			$this->expandCache = $oldExpandCache;
 		} );
 	}
 
@@ -248,7 +270,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 			// but it returned something other than a table. In this case, $retval[1] contains the type
 			// of what it did returned, instead of the value we asked for.
 			throw $this->newException(
-				'scribunto-lua-notarrayreturn', array( 'args' => array( $retval[1] ) )
+				'scribunto-lua-notarrayreturn', [ 'args' => [ $retval[1] ] ]
 			);
 		}
 		return $retval[1];
@@ -286,7 +308,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	/**
 	 * Format the logged data for HTML output
 	 * @param string $logs Logged data
-	 * @param boolean $localize Whether to localize the message key
+	 * @param bool $localize Whether to localize the message key
 	 * @return string HTML
 	 */
 	protected function formatHtmlLogs( $logs, $localize ) {
@@ -295,12 +317,12 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 			$keyMsg->inLanguage( 'en' )->useDatabase( false );
 		}
 		return Html::openElement( 'tr' ) .
-			Html::rawElement( 'th', array( 'colspan' => 2 ), $keyMsg->parse() ) .
+			Html::rawElement( 'th', [ 'colspan' => 2 ], $keyMsg->parse() ) .
 			Html::closeElement( 'tr' ) .
 			Html::openElement( 'tr' ) .
-			Html::openElement( 'td', array( 'colspan' => 2 ) ) .
-			Html::openElement( 'div', array( 'class' => 'mw-collapsible mw-collapsed' ) ) .
-			Html::element( 'pre', array( 'class' => 'scribunto-limitreport-logs' ), $logs ) .
+			Html::openElement( 'td', [ 'colspan' => 2 ] ) .
+			Html::openElement( 'div', [ 'class' => 'mw-collapsible mw-collapsed' ] ) .
+			Html::element( 'pre', [ 'class' => 'scribunto-limitreport-logs' ], $logs ) .
 			Html::closeElement( 'div' ) .
 			Html::closeElement( 'td' ) .
 			Html::closeElement( 'tr' );
@@ -343,7 +365,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 			if ( $code === false ) {
 				throw new MWException( 'Lua file does not exist: ' . $fileName );
 			}
-			$cache->set( $cacheKey, array( $code, $mtime ), 60 * 5 );
+			$cache->set( $cacheKey, [ $code, $mtime ], 60 * 5 );
 		}
 
 		# Prepending an "@" to the chunk name makes Lua think it is a filename
@@ -415,10 +437,10 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		$func = $ret[1];
 		$ret = $this->getInterpreter()->callFunction( $func, $contentInit, $contentExe );
 
-		return array(
+		return [
 			'return' => isset( $ret[0] ) ? $ret[0] : null,
 			'print' => isset( $ret[1] ) ? $ret[1] : '',
-		);
+		];
 	}
 
 	/**
@@ -433,7 +455,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	 */
 	public function checkType( $funcName, $args, $index0, $type, $msgType ) {
 		if ( !is_array( $type ) ) {
-			$type = array( $type );
+			$type = [ $type ];
 		}
 		if ( !isset( $args[$index0] ) || !in_array( gettype( $args[$index0] ), $type, true ) ) {
 			$index1 = $index0 + 1;
@@ -460,7 +482,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	 * @param int $index0 The zero-based argument index
 	 */
 	public function checkNumber( $funcName, $args, $index0 ) {
-		$this->checkType( $funcName, $args, $index0, array( 'integer', 'double' ), 'number' );
+		$this->checkType( $funcName, $args, $index0, [ 'integer', 'double' ], 'number' );
 	}
 
 	/**
@@ -503,7 +525,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 			$ret = $this->instantiatePHPLibrary( $name, $this->availableLibraries[$name], true );
 		}
 
-		return array( $ret );
+		return [ $ret ];
 	}
 
 	/**
@@ -526,19 +548,19 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 			}
 			$code = file_get_contents( $fileName );
 			$init = $this->interpreter->loadString( $code, "@$luaName" );
-			return array( $init );
+			return [ $init ];
 		}
 
 		$title = Title::newFromText( $name );
 		if ( !$title || !$title->hasContentModel( CONTENT_MODEL_SCRIBUNTO ) ) {
-			return array();
+			return [];
 		}
 
 		$module = $this->fetchModuleFromParser( $title );
 		if ( $module ) {
-			return array( $module->getInitChunk() );
+			return [ $module->getInitChunk() ];
 		} else {
-			return array();
+			return [];
 		}
 	}
 
@@ -567,7 +589,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	 * @return array
 	 */
 	function frameExists( $frameId ) {
-		return array( $frameId === 'empty' || isset( $this->currentFrames[$frameId] ) );
+		return [ $frameId === 'empty' || isset( $this->currentFrames[$frameId] ) ];
 	}
 
 	/**
@@ -593,7 +615,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		$newFrame = $frame->newChild( $args, $title );
 		$newFrameId = 'frame' . count( $this->currentFrames );
 		$this->currentFrames[$newFrameId] = $newFrame;
-		return array( $newFrameId );
+		return [ $newFrameId ];
 	}
 
 	/**
@@ -605,7 +627,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	 */
 	function getFrameTitle( $frameId ) {
 		$frame = $this->getFrameById( $frameId );
-		return array( $frame->getTitle()->getPrefixedText() );
+		return [ $frame->getTitle()->getPrefixedText() ];
 	}
 
 	/**
@@ -630,9 +652,9 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		$this->getInterpreter()->pauseUsageTimer();
 		$result = $frame->getArgument( $name );
 		if ( $result === false ) {
-			return array();
+			return [];
 		} else {
-			return array( $result );
+			return [ $result ];
 		}
 	}
 
@@ -642,7 +664,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	function getAllExpandedArguments( $frameId ) {
 		$frame = $this->getFrameById( $frameId );
 		$this->getInterpreter()->pauseUsageTimer();
-		return array( $frame->getArguments() );
+		return [ $frame->getArguments() ];
 	}
 
 	/**
@@ -673,12 +695,12 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		$fargs = $this->getParser()->getPreprocessor()->newPartNodeArray( $args );
 		$newFrame = $frame->newChild( $fargs, $finalTitle );
 		$text = $this->doCachedExpansion( $newFrame, $dom,
-			array(
+			[
 				'frameId' => $frameId,
 				'template' => $finalTitle->getPrefixedDBkey(),
 				'args' => $args
-			) );
-		return array( $text );
+			] );
+		return [ $text ];
 	}
 
 	/**
@@ -694,7 +716,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		$frame = $this->getFrameById( $frameId );
 
 		# Make zero-based, without screwing up named args
-		$args = array_merge( array(), $args );
+		$args = array_merge( [], $args );
 
 		# Sort, since we can't rely on the order coming in from Lua
 		uksort( $args, function ( $a, $b ) {
@@ -728,13 +750,13 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		}
 
 		# Set defaults for various flags
-		$result += array(
+		$result += [
 			'nowiki' => false,
 			'isChildObj' => false,
 			'isLocalObj' => false,
 			'isHTML' => false,
 			'title' => false,
-		);
+		];
 
 		$text = $result['text'];
 		if ( $result['isChildObj'] ) {
@@ -763,7 +785,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 			$text = $frame->expand( $text );
 		}
 
-		return array( "$text" );
+		return [ "$text" ];
 	}
 
 	/**
@@ -786,11 +808,11 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		$this->getInterpreter()->unpauseUsageTimer();
 
 		$text = $this->doCachedExpansion( $frame, $text,
-			array(
+			[
 				'frameId' => $frameId,
 				'inputText' => $text
-			) );
-		return array( $text );
+			] );
+		return [ $text ];
 	}
 
 	/**
@@ -822,7 +844,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 	 */
 	public function isSubsting() {
 		// See Parser::braceSubstitution, OT_WIKI is the switch
-		return array( $this->getParser()->OutputType() === Parser::OT_WIKI );
+		return [ $this->getParser()->OutputType() === Parser::OT_WIKI ];
 	}
 
 	function doCachedExpansion( $frame, $input, $cacheKey ) {
@@ -832,7 +854,7 @@ abstract class Scribunto_LuaEngine extends ScribuntoEngineBase {
 		}
 
 		if ( is_scalar( $input ) ) {
-			$input = str_replace( array( "\r\n", "\r" ), "\n", $input );
+			$input = str_replace( [ "\r\n", "\r" ], "\n", $input );
 			$dom = $this->parser->getPreprocessor()->preprocessToObj(
 				$input, $frame->depth ? Parser::PTD_FOR_INCLUSION : 0 );
 		} else {
@@ -902,12 +924,12 @@ class Scribunto_LuaModule extends ScribuntoModuleBase {
 
 		if ( !isset( $ret ) ) {
 			throw $this->engine->newException(
-				'scribunto-common-nosuchfunction', array( 'args' => array( $name ) )
+				'scribunto-common-nosuchfunction', [ 'args' => [ $name ] ]
 			);
 		}
 		if ( !$this->engine->getInterpreter()->isLuaFunction( $ret ) ) {
 			throw $this->engine->newException(
-				'scribunto-common-notafunction', array( 'args' => array( $name ) )
+				'scribunto-common-notafunction', [ 'args' => [ $name ] ]
 			);
 		}
 
@@ -922,11 +944,11 @@ class Scribunto_LuaModule extends ScribuntoModuleBase {
 
 // @codingStandardsIgnoreLine Squiz.Classes.ValidClassName.NotCamelCaps
 class Scribunto_LuaError extends ScribuntoException {
-	public $luaMessage, $lineMap = array();
+	public $luaMessage, $lineMap = [];
 
-	function __construct( $message, $options = array() ) {
+	function __construct( $message, $options = [] ) {
 		$this->luaMessage = $message;
-		$options = $options + array( 'args' => array( $message ) );
+		$options = $options + [ 'args' => [ $message ] ];
 		if ( isset( $options['module'] ) && isset( $options['line'] ) ) {
 			$msg = 'scribunto-lua-error-location';
 		} else {
@@ -949,14 +971,14 @@ class Scribunto_LuaError extends ScribuntoException {
 	 * $options['msgOptions']['content'] to use content language.
 	 * @return bool|string
 	 */
-	function getScriptTraceHtml( $options = array() ) {
+	function getScriptTraceHtml( $options = [] ) {
 		if ( !isset( $this->params['trace'] ) ) {
 			return false;
 		}
-		if ( isset( $options['msgOptions'] ) ){
+		if ( isset( $options['msgOptions'] ) ) {
 			$msgOptions = $options['msgOptions'];
 		} else {
-			$msgOptions = array();
+			$msgOptions = [];
 		}
 
 		$s = '<ol class="scribunto-trace">';
@@ -970,9 +992,9 @@ class Scribunto_LuaError extends ScribuntoException {
 
 				$title = Title::newFromText( $short_src );
 				if ( $title && $title->hasContentModel( CONTENT_MODEL_SCRIBUNTO ) ) {
-					$title->setFragment( '#mw-ce-l' . $currentline );
+					$title = $title->createFragmentTarget( 'mw-ce-l' . $currentline );
 					$src = Html::rawElement( 'a',
-						array( 'href' => $title->getFullURL( 'action=edit' ) ),
+						[ 'href' => $title->getFullURL( 'action=edit' ) ],
 						$src );
 				}
 			}

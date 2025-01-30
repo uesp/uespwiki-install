@@ -1,12 +1,13 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * Hooks for TimedMediaHandler extension
  *
  * @file
  * @ingroup Extensions
  */
-
 class TimedMediaHandlerHooks {
 
 	/**
@@ -22,7 +23,7 @@ class TimedMediaHandlerHooks {
 		if ( $wgEnableLocalTimedText ) {
 			if ( !defined( 'NS_TIMEDTEXT' ) ) {
 				define( 'NS_TIMEDTEXT', $wgTimedTextNS );
-				define( 'NS_TIMEDTEXT_TALK', $wgTimedTextNS +1 );
+				define( 'NS_TIMEDTEXT_TALK', $wgTimedTextNS + 1 );
 			}
 
 			$list[NS_TIMEDTEXT] = 'TimedText';
@@ -73,9 +74,9 @@ class TimedMediaHandlerHooks {
 					'mw.MwEmbedSupport',
 				],
 			],
-			"mw.MediaWikiPlayerSupport" =>  $baseExtensionResource + [
+			"mw.MediaWikiPlayerSupport" => $baseExtensionResource + [
 				'scripts' => 'resources/mw.MediaWikiPlayerSupport.js',
-				'dependencies'=> [
+				'dependencies' => [
 					'mw.Api',
 					'mw.MwEmbedSupport',
 				],
@@ -207,15 +208,23 @@ class TimedMediaHandlerHooks {
 	public static function register() {
 		global $wgHooks, $wgJobClasses, $wgJobTypesExcludedFromDefaultQueue, $wgMediaHandlers,
 		$wgResourceModules, $wgExcludeFromThumbnailPurge,
-		$wgFileExtensions, $wgTmhEnableMp4Uploads, $wgExtensionAssetsPath,
+		$wgFileExtensions, $wgTmhEnableMp3Uploads, $wgTmhEnableMp4Uploads, $wgExtensionAssetsPath,
 		$wgMwEmbedModuleConfig, $wgEnableLocalTimedText, $wgTmhFileExtensions,
 		$wgTmhTheoraTwoPassEncoding, $wgWikimediaJenkinsCI;
 
 		// set config for parser tests
-		if ( isset( $wgWikimediaJenkinsCI ) && $wgWikimediaJenkinsCI  === true ) {
+		if ( isset( $wgWikimediaJenkinsCI ) && $wgWikimediaJenkinsCI === true ) {
 			global $wgEnableTranscode, $wgFFmpegLocation;
 			$wgEnableTranscode = false;
 			$wgFFmpegLocation = '/usr/bin/ffmpeg';
+		}
+
+		// Remove mp3 if not enabled:
+		if ( $wgTmhEnableMp3Uploads === false ) {
+			$index = array_search( 'mp3', $wgFileExtensions );
+			if ( $index !== false ) {
+				array_splice( $wgFileExtensions, $index, 1 );
+			}
 		}
 
 		// Remove mp4 if not enabled:
@@ -258,6 +267,7 @@ class TimedMediaHandlerHooks {
 		$wgMediaHandlers['audio/x-flac'] = 'FLACHandler';
 		$wgMediaHandlers['audio/flac'] = 'FLACHandler';
 		$wgMediaHandlers['audio/wav'] = 'WAVHandler';
+		$wgMediaHandlers['audio/mpeg'] = 'Mp3Handler';
 
 		// Add transcode job class:
 		$wgJobClasses['webVideoTranscode'] = 'WebVideoTranscodeJob';
@@ -284,7 +294,7 @@ class TimedMediaHandlerHooks {
 					'mediawiki.api.edit',
 					'oojs-ui',
 				],
-				'messages'=> [
+				'messages' => [
 					'timedmedia-reset-button-cancel',
 					'timedmedia-reset-button-dismiss',
 					'timedmedia-reset-button-reset',
@@ -294,7 +304,7 @@ class TimedMediaHandlerHooks {
 					'timedmedia-reset-explanation',
 				]
 			],
-			'ext.tmh.TimedTextSelector' =>  $baseExtensionResource + [
+			'ext.tmh.TimedTextSelector' => $baseExtensionResource + [
 				'scripts' => 'resources/ext.tmh.TimedTextSelector.js',
 			],
 			// Add OgvJs-related modules for Safari/IE/Edge Ogg playback
@@ -312,7 +322,7 @@ class TimedMediaHandlerHooks {
 				'dependencies' => 'ext.tmh.OgvJsSupport',
 				'targets' => [ 'mobile', 'desktop' ],
 			],
-			'embedPlayerIframeStyle'=> $baseExtensionResource + [
+			'embedPlayerIframeStyle' => $baseExtensionResource + [
 				'styles' => 'resources/embedPlayerIframe.css',
 				'targets' => [ 'mobile', 'desktop' ],
 			],
@@ -389,7 +399,7 @@ class TimedMediaHandlerHooks {
 	 */
 	public static function onImageOpenShowImageInlineBefore( &$imagePage, &$out ) {
 		$file = $imagePage->getDisplayedFile();
-		return TimedMediaHandlerHooks::onImagePageHooks( $file, $out );
+		return self::onImagePageHooks( $file, $out );
 	}
 
 	/**
@@ -401,7 +411,7 @@ class TimedMediaHandlerHooks {
 	 */
 	public static function onImagePageFileHistoryLine( $imagePage, $file, &$line, &$css ) {
 		$out = $imagePage->getContext()->getOutput();
-		return TimedMediaHandlerHooks::onImagePageHooks( $file, $out );
+		return self::onImagePageHooks( $file, $out );
 	}
 
 	/**
@@ -514,7 +524,7 @@ class TimedMediaHandlerHooks {
 		$mediaType = $handler->getMetadataType( $file );
 		// If ogg or webm format and not audio we can "transcode" this file
 		$isAudio = $handler instanceof TimedMediaHandler && $handler->isAudio( $file );
-		if ( ( $mediaType == 'webm' || $mediaType == 'ogg' || $mediaType =='mp4' )
+		if ( ( $mediaType == 'webm' || $mediaType == 'ogg' || $mediaType == 'mp4' )
 			&& !$isAudio
 		) {
 			return true;
@@ -751,7 +761,7 @@ class TimedMediaHandlerHooks {
 		switch ( $updater->getDB()->getType() ) {
 		case 'mysql':
 		case 'sqlite':
-			 // Initial install tables
+			// Initial install tables
 			$updater->addExtensionTable( 'transcode', "$base/TimedMediaHandler.sql" );
 			$updater->addExtensionUpdate( [ 'addIndex', 'transcode', 'transcode_name_key',
 				"$base/archives/transcode_name_key.sql", true ] );
@@ -780,19 +790,17 @@ class TimedMediaHandlerHooks {
 	 * @return bool
 	 */
 	public static function rejectParserCacheValue( $parserOutput, $wikiPage, $parserOptions ) {
-		if (
-			$parserOutput->getExtensionData( 'mw_ext_TMH_hasTimedMediaTransform' )
-			|| isset( $parserOutput->hasTimedMediaTransform )
-		) {
-			/* page has old style TMH elements */
-			if (
-				self::activePlayerMode() === 'mwembed' &&
+		if ( $parserOutput->getExtensionData( 'mw_ext_TMH_hasTimedMediaTransform' ) && (
+			(
+				self::defaultPlayerMode() === 'mwembed' &&
 				!in_array( 'mw.MediaWikiPlayer.loader', $parserOutput->getModules() )
-			) {
-				wfDebug( 'Bad TMH parsercache value, throw this out.' );
-				$wikiPage->getTitle()->purgeSquid();
-				return false;
-			}
+			) || (
+				self::defaultPlayerMode() === 'videojs' &&
+				!in_array( 'ext.tmh.video-js', $parserOutput->getModules() )
+			)
+		) ) {
+			$wikiPage->getTitle()->purgeSquid();
+			return false;
 		}
 		return true;
 	}
@@ -818,41 +826,56 @@ class TimedMediaHandlerHooks {
 	 * @return bool
 	 */
 	public static function onGetBetaFeaturePreferences( $user, &$prefs ) {
-		global $wgTmhUseBetaFeatures, $wgExtensionAssetsPath;
+		global $wgTmhUseBetaFeatures;
+
+		$coreConfig = RequestContext::getMain()->getConfig();
+		$iconpath = $coreConfig->get( 'ExtensionAssetsPath' ) . "/TimedMediaHandler";
 
 		if ( $wgTmhUseBetaFeatures ) {
 			$prefs['tmh-videojs'] = [
-				// The first two are message keys
 				'label-message' => 'beta-feature-timedmediahandler-message-videojs',
 				'desc-message' => 'beta-feature-timedmediahandler-description-videojs',
-				// Paths to images that represents the feature.
-				// The image is usually different for ltr and rtl languages.
-				// Images for specific languages can also specified using the language code.
 				'screenshot' => [
-					'ltr' => "$wgExtensionAssetsPath/TimedMediaHandler/resources/BetaFeature_TMH_VIDEOJS.svg",
-					'rtl' => "$wgExtensionAssetsPath/TimedMediaHandler/resources/BetaFeature_TMH_VIDEOJS.svg",
+					'ltr' => "$iconpath/resources/betafeatures-icon-VideoJS-ltr.svg",
+					'rtl' => "$iconpath/resources/betafeatures-icon-VideoJS-rtl.svg",
 				],
-				// Link to information on the feature
-				'info-link' => 'https://www.mediawiki.org/wiki/Extension:TimedMediaHandler',
-				// Link to discussion about the feature
-				'discussion-link' => 'https://www.mediawiki.org/wiki/Extension_talk:TimedMediaHandler',
+				'info-link' =>
+					'https://www.mediawiki.org/wiki/Extension:TimedMediaHandler/VideoJS_Player',
+				'discussion-link' =>
+					'https://www.mediawiki.org/wiki/Extension_talk:TimedMediaHandler/VideoJS_Player',
+				'requirements' => [
+					'javascript' => true
+				],
+
 			];
 		}
 		return true;
 	}
 
 	/**
+	 * Return the configured player mode for this user
 	 * @return string
 	 */
 	public static function activePlayerMode() {
-		global $wgTmhWebPlayer, $wgTmhUseBetaFeatures, $wgUser;
+		global $wgTmhUseBetaFeatures, $wgUser;
 		$context = new RequestContext();
 		if ( $wgTmhUseBetaFeatures && class_exists( 'BetaFeatures' ) &&
 			$wgUser->isSafeToLoad() && BetaFeatures::isFeatureEnabled( $context->getUser(), 'tmh-videojs' )
 		) {
 			return 'videojs';
 		} else {
-			return $wgTmhWebPlayer;
+			return self::defaultPlayerMode();
 		}
+	}
+
+	/**
+	 * Return the default configured player mode
+	 * This mode is used for anonymous users
+	 * @since 1.30
+	 * @return string
+	 */
+	public static function defaultPlayerMode() {
+		global $wgTmhWebPlayer;
+		return $wgTmhWebPlayer;
 	}
 }

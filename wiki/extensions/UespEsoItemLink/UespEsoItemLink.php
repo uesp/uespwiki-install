@@ -42,7 +42,7 @@ function uespEsoItemLinkParserInit(Parser $parser)
 	
 	$wgOut->addModules( 'ext.EsoItemLink.scripts' );
 	$wgOut->addModuleStyles( 'ext.EsoItemLink.styles' );
-		
+	
 	return true;
 }
 
@@ -97,7 +97,7 @@ function uespRenderEsoItemLink($input, array $args, Parser $parser, PPFrame $fra
 		elseif ($name == "version")
 			$version = $value;
 		elseif ($name == "trait")
-			$trait = $value;		
+			$trait = $value;
 	}
 	
 	$itemURL = "//esoitem.uesp.net/itemLink.php?";

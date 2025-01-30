@@ -46,8 +46,6 @@ abstract class Job extends MWJob {
 	private $allowRetries = true;
 
 	/**
-	 * Job constructor.
-	 *
 	 * @param Title $title
 	 * @param array $params
 	 */
@@ -78,12 +76,14 @@ abstract class Job extends MWJob {
 
 	/**
 	 * Some boilerplate stuff for all jobs goes here
+	 *
+	 * @return bool
 	 */
 	public function run() {
 		global $wgDisableSearchUpdate, $wgPoolCounterConf;
 
 		if ( $wgDisableSearchUpdate ) {
-			return;
+			return true;
 		}
 
 		// Make sure we don't flood the pool counter.  This is safe since this is only used
@@ -146,6 +146,8 @@ abstract class Job extends MWJob {
 
 	/**
 	 * Actually perform the labor of the job
+	 *
+	 * @return bool
 	 */
 	abstract protected function doJob();
 
@@ -171,7 +173,7 @@ abstract class Job extends MWJob {
 	 */
 	public static function backoffDelay( $retryCount ) {
 		global $wgCirrusSearchWriteBackoffExponent;
-		return ceil( pow( 2, $wgCirrusSearchWriteBackoffExponent + rand(0, min( $retryCount, 4 ) ) ) );
+		return ceil( pow( 2, $wgCirrusSearchWriteBackoffExponent + rand( 0, min( $retryCount, 4 ) ) ) );
 	}
 
 	/**
@@ -182,7 +184,7 @@ abstract class Job extends MWJob {
 	 * @return Connection[] indexed by cluster name
 	 */
 	protected function decideClusters() {
-		$cluster = isset ( $this->params['cluster'] ) ? $this->params['cluster'] : null;
+		$cluster = isset( $this->params['cluster'] ) ? $this->params['cluster'] : null;
 		if ( $cluster === null ) {
 			$conns = Connection::getWritableClusterConnections( $this->searchConfig );
 		} else {
@@ -193,7 +195,7 @@ abstract class Job extends MWJob {
 					"Received {command} job for unwritable cluster {cluster}",
 					[
 						'command' => $this->command,
-						'cluster' =>  $cluster
+						'cluster' => $cluster
 					]
 				);
 				// this job does not allow retries so we just need to throw an exception

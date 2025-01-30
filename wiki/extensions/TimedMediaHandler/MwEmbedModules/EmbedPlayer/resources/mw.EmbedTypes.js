@@ -94,6 +94,16 @@ var IEWebMPrompt = new mw.MediaPlayer( 'IEWebMPrompt', [
 ], 'IEWebMPrompt' );
 
 var ogvJsPlayer = new mw.MediaPlayer( 'ogvJsPlayer', [
+	'video/webm',
+	'video/webm; codecs="vp8"',
+	'video/webm; codecs="vp8, vorbis"',
+	'video/webm; codecs="vp8, opus"',
+	'video/webm; codecs="vp9"',
+	'video/webm; codecs="vp9, vorbis"',
+	'video/webm; codecs="vp9, opus"',
+	'audio/webm',
+	'audio/webm; codecs="vorbis"',
+	'audio/webm; codecs="opus"',
 	'video/ogg',
 	'video/ogg; codecs="theora"',
 	'video/ogg; codecs="theora, vorbis"',
@@ -137,21 +147,6 @@ mw.EmbedTypes = {
 		return this.mediaPlayers;
 	},
 
-	/**
-	 * If the browsers supports a given mimetype
-	 *
-	 * @param {String}
-	 *      mimeType Mime type for browser plug-in check
-	 */
-	supportedMimeType: function( mimeType ) {
-		for ( var i =0; i < navigator.plugins.length; i++ ) {
-			var plugin = navigator.plugins[i];
-			if ( typeof plugin[ mimeType ] != "undefined" ){
-				return true;
-			}
-		}
-		return false;
-	},
 	addFlashPlayer: function(){
 		if( !mw.config.get( 'EmbedPlayer.DisableHTML5FlashFallback' ) ){
 			this.mediaPlayers.addPlayer( kplayer );
@@ -208,7 +203,7 @@ mw.EmbedTypes = {
 					}
 
 					// Test for MP3:
-					if ( this.supportedMimeType('audio/mpeg') ) {
+					if ( dummyvid.canPlayType('audio/mpeg') ) {
 							this.mediaPlayers.addPlayer( mp3NativePlayer );
 					}
 
@@ -228,11 +223,6 @@ mw.EmbedTypes = {
 							}
 						}
 
-					}
-					// For now if Android assume we support h264Native (FIXME
-					// test on real devices )
-					if ( mw.isAndroid2() ){
-						this.mediaPlayers.addPlayer( h264NativePlayer );
 					}
 
 					// Test for ogg

@@ -226,14 +226,14 @@ class Hooks {
 				continue;
 			}
 			list( $k, $v ) = explode( ':', $line, 2 );
-			switch( $k ) {
+			switch ( $k ) {
 			case 'min_doc_freq':
 			case 'max_doc_freq':
 			case 'max_query_terms':
 			case 'min_term_freq':
 			case 'min_word_length':
 			case 'max_word_length':
-				if( is_numeric( $v ) && $v >= 0 ) {
+				if ( is_numeric( $v ) && $v >= 0 ) {
 					$wgCirrusSearchMoreLikeThisConfig[$k] = intval( $v );
 				} elseif ( $v === 'null' ) {
 					unset( $wgCirrusSearchMoreLikeThisConfig[$k] );
@@ -243,7 +243,7 @@ class Hooks {
 				// @deprecated Use minimum_should_match now
 				$k = 'minimum_should_match';
 				if ( is_numeric( $v ) && $v > 0 && $v <= 1 ) {
-					$v = ((int) ($v * 100)) . '%';
+					$v = ( (int)( $v * 100 ) ) . '%';
 				} else {
 					break;
 				}
@@ -251,7 +251,7 @@ class Hooks {
 			case 'minimum_should_match':
 				if ( self::isMinimumShouldMatch( $v ) ) {
 					$wgCirrusSearchMoreLikeThisConfig[$k] = $v;
-				} elseif ($v === 'null' ) {
+				} elseif ( $v === 'null' ) {
 					unset( $wgCirrusSearchMoreLikeThisConfig[$k] );
 				}
 				break;
@@ -308,7 +308,7 @@ class Hooks {
 		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['min_word_length'], $request, 'cirrusMltMinWordLength' );
 		self::overrideNumeric( $wgCirrusSearchMoreLikeThisConfig['max_word_length'], $request, 'cirrusMltMaxWordLength' );
 		$fields = $request->getVal( 'cirrusMltFields' );
-		if( isset( $fields ) ) {
+		if ( isset( $fields ) ) {
 			$wgCirrusSearchMoreLikeThisFields = array_intersect(
 				array_map( 'trim', explode( ',', $fields ) ),
 				$wgCirrusSearchMoreLikeThisAllowedFields );
@@ -324,13 +324,12 @@ class Hooks {
 		// We use this to pick up redirects so we can update their targets.
 		// Can't re-use ArticleDeleteComplete because the page info's
 		// already gone
-		//
 		// If we abort or fail deletion it's no big deal because this will
 		// end up being a no-op when it executes.
 		$target = $page->getRedirectTarget();
 		if ( $target ) {
 			// DeferredUpdate so we don't end up racing our own page deletion
-			DeferredUpdates::addCallableUpdate( function() use ( $target ) {
+			DeferredUpdates::addCallableUpdate( function () use ( $target ) {
 				JobQueueGroup::singleton()->push(
 					new Job\LinksUpdate( $target, [
 						'addedLinks' => [],
@@ -519,7 +518,7 @@ class Hooks {
 	 * Extract namespaces from query string.
 	 * @param array $namespaces
 	 * @param string $search
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function prefixSearchExtractNamespace( &$namespaces, &$search ) {
 		$searcher = new Searcher( self::getConnection(), 0, 1, self::getConfig(), $namespaces );
@@ -616,7 +615,7 @@ class Hooks {
 				'docId' => self::getConfig()->makeId( $oldId )
 			] );
 			// Push the job after DB commit but cancel on rollback
-			wfGetDB( DB_MASTER )->onTransactionIdle( function() use ( $job ) {
+			wfGetDB( DB_MASTER )->onTransactionIdle( function () use ( $job ) {
 				JobQueueGroup::singleton()->lazyPush( $job );
 			} );
 		}
@@ -664,7 +663,6 @@ class Hooks {
 		}
 		return $result;
 	}
-
 
 	/**
 	 * ResourceLoaderGetConfigVars hook handler
@@ -714,7 +712,7 @@ class Hooks {
 	 */
 	public static function onShowSearchHitTitle( Title $title, &$text, $result, $terms, $page, &$query = [] ) {
 		global $wgCirrusSearchInterwikiProv;
-		if( $wgCirrusSearchInterwikiProv && $title->isExternal() ) {
+		if ( $wgCirrusSearchInterwikiProv && $title->isExternal() ) {
 			$query["wprov"] = $wgCirrusSearchInterwikiProv;
 		}
 	}
@@ -723,7 +721,7 @@ class Hooks {
 	 * Activate Completion Suggester as a Beta Feature if available
 	 * @param User $user
 	 * @param array &$pref beta feature prefs
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function getBetaFeaturePreferences( User $user, &$pref ) {
 		global $wgCirrusSearchUseCompletionSuggester,
@@ -771,9 +769,15 @@ class Hooks {
 	 * @param SearchResultSet|null $textMatches
 	 */
 	public static function onSpecialSearchResults( $term, $titleMatches, $textMatches ) {
-		global $wgOut;
+		global $wgOut,
+			$wgCirrusExploreSimilarResults;
 
 		$wgOut->addModules( 'ext.cirrus.serp' );
+
+		if ( $wgCirrusExploreSimilarResults ) {
+			$wgOut->addModules( 'ext.cirrus.explore-similar' );
+		}
+
 		$wgOut->addJsConfigVars( [
 			'wgCirrusSearchRequestSetToken' => Util::getRequestSetToken(),
 		] );
@@ -814,11 +818,11 @@ class Hooks {
 	public static function onMediaWikiServices( MediaWikiServices $container ) {
 		$container->defineService(
 			InterwikiResolverFactory::SERVICE,
-			[InterwikiResolverFactory::class, 'newFactory']
+			[ InterwikiResolverFactory::class, 'newFactory' ]
 		);
 		$container->defineService(
 			InterwikiResolver::SERVICE,
-			function( MediaWikiServices $serviceContainer ) {
+			function ( MediaWikiServices $serviceContainer ) {
 				$config = $serviceContainer->getConfigFactory()
 						->makeConfig( 'CirrusSearch' );
 				return $serviceContainer
@@ -828,7 +832,6 @@ class Hooks {
 		);
 		return true;
 	}
-
 
 	/**
 	 * When article is undeleted - check the archive for other instances of the title,
@@ -850,7 +853,6 @@ class Hooks {
 			new Job\DeleteArchive( $title, [ 'docIds' => $restoredPages ] )
 		);
 		return true;
-
 	}
 
 }

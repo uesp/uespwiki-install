@@ -5,7 +5,6 @@ namespace TextExtracts;
 use Config;
 use DOMElement;
 use HtmlFormatter\HtmlFormatter;
-use Exception;
 
 /**
  * Provides text-only or limited-HTML extracts of page HTML
@@ -32,8 +31,8 @@ class ExtractFormatter extends HtmlFormatter {
 	private $plainText;
 
 	/**
-	 * @param string $text: Text to convert
-	 * @param bool $plainText: Whether extract should be plaintext
+	 * @param string $text Text to convert
+	 * @param bool $plainText Whether extract should be plaintext
 	 * @param Config $config
 	 */
 	public function __construct( $text, $plainText, Config $config ) {

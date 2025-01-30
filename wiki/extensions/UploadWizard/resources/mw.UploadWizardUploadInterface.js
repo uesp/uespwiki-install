@@ -42,7 +42,7 @@
 			label: mw.message( 'mwe-upwiz-remove' ).text(),
 			title: mw.message( 'mwe-upwiz-remove-upload' ).text(),
 			flags: 'destructive',
-			icon: 'remove',
+			icon: 'trash',
 			framed: false
 		} ).on( 'click', function () {
 			ui.emit( 'upload-removed' );
@@ -67,8 +67,9 @@
 		$( this.div ).append( this.$form );
 
 		// this.progressBar = ( no progress bar for individual uploads yet )
-		// we bind to the ui div since unbind doesn't work for non-DOM objects
-		$( this.div ).bind( 'transportProgressEvent', function () { ui.showTransportProgress(); } );
+		// we bind to the ui div since .off() doesn't work for non-DOM objects
+		// TODO Convert this to an OO.EventEmitter, and use OOjs events
+		$( this.div ).on( 'transportProgressEvent', function () { ui.showTransportProgress(); } );
 	};
 
 	OO.mixinClass( mw.UploadWizardUploadInterface, OO.EventEmitter );

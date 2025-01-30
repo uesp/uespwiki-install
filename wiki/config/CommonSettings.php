@@ -42,7 +42,7 @@ $wgSVGConverters['ImageMagick'] = '$path/convert -background "#ffffff00" -thumbn
 # $wgSVGConverters['ImageMagick'] = $wgImageMagickConvertCommand . ' -background "#ffffff00" -thumbnail $widthx$height\! $input PNG:$output';
 
 $wgHashedUploadDirectory = true;
-array_push($wgFileExtensions, 'ogg', 'zip', 'bmp', 'pcx', 'tga', 'apng', 'svg', 'webm', 'webp');
+array_push($wgFileExtensions, 'ogg', 'zip', 'pcx', 'tga', 'apng', 'svg', 'webm', 'webp');
 $wgThumbnailEpoch = '20090624000000';
 $wgUseSharedUploads = false;
 
@@ -118,7 +118,6 @@ $wgLocaltimezone = "UTC";
 $wgMaxArticleSize = 8192;
 $wgMaxShellMemory = 1310720;
 $wgMaxShellFileSize = 1310720;
-$wgRateLimits = array(20, 360); # RM: More advanced options are supported now. Do we need/want them?
 $wgResourceLoaderMaxage = array(
 		'versioned' => array(
 				'server' => 30 * 24 * 60 * 60,
@@ -140,10 +139,13 @@ $wgAllowSiteCSSOnRestrictedPages = true;
 
 # When you make changes to this configuration file, change this date if
 # required to make sure that cached pages are cleared.
-$wgCacheEpoch = '20190925101600';
+$wgCacheEpoch = '20230705090600';
 $wgInvalidateCacheOnLocalSettingsChange = false;
 
+//$wgReadOnly = ( PHP_SAPI === 'cli' ) ? false : 'This wiki is currently being upgraded to a newer software version. Please check back shortly.';
+//$wgIgnoreImageErrors = true;
 $wgReadOnlyFile = "$wgUploadDirectory/UESP_LOCK_DB";
+
 $wgApplyIpBlocksToXff = true;
 
 $wgSkipSkins = array( 'monobook', 'vector' );

@@ -75,7 +75,7 @@ class ElasticaErrorHandler {
 		$error = self::extractFullError( $exception );
 		if ( isset( $error['root_cause'][0]['type'] ) ) {
 			$error = reset( $error['root_cause'] );
-		} else if ( ! ( isset( $error['type'] ) && isset( $error['reason'] ) ) ) {
+		} elseif ( ! ( isset( $error['type'] ) && isset( $error['reason'] ) ) ) {
 			return 'unknown';
 		}
 
@@ -108,7 +108,7 @@ class ElasticaErrorHandler {
 				],
 			],
 		];
-		foreach( $heuristics as $type => $heuristic ) {
+		foreach ( $heuristics as $type => $heuristic ) {
 			$regex = implode( '|', $heuristic['type_regexes'] );
 			if ( $regex && preg_match( "/$regex/", $error['type'] ) ) {
 				return $type;
@@ -124,7 +124,7 @@ class ElasticaErrorHandler {
 	/**
 	 * Does this status represent an Elasticsearch parse error?
 	 * @param Status $status Status to check
-	 * @return boolean is this a parse error?
+	 * @return bool is this a parse error?
 	 */
 	public static function isParseError( Status $status ) {
 		/** @suppress PhanDeprecatedFunction No good replacements for getErrorsArray */
@@ -211,13 +211,13 @@ class ElasticaErrorHandler {
 			// In some cases elastic will serialize the exception by adding
 			// an extra message prefix with the exception type.
 			// If the exception is serialized through Transport:
-			//   invalid_regex_exception: expected ']' at position 2
+			// invalid_regex_exception: expected ']' at position 2
 			// Or if the exception is thrown locally by the node receiving the query:
-			//   expected ']' at position 2
+			// expected ']' at position 2
 			if ( preg_match( '/(?:[a-z_]+: )?(.+) at position (\d+)/', $syntaxError, $matches ) ) {
 				$errorMessage = $matches[ 1 ];
 				$position = $matches[ 2 ];
-			} else if ( $syntaxError === 'unexpected end-of-string' ) {
+			} elseif ( $syntaxError === 'unexpected end-of-string' ) {
 				$errorMessage = 'regex too short to be correct';
 			}
 			$status = Status::newFatal( 'cirrussearch-regex-syntax-error', $errorMessage, $position );

@@ -43,7 +43,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 				'buff' => 'Buff',
 				'cp' => 'CP',
 				'armorenchant' => 'Enchantment (Armor)',
-				'offhandenchant' => 'Enchantment (Off-Hand Weapon)',
+				//'offhandenchant' => 'Enchantment (Off-Hand Weapon)',
 				'offhandweaponenchant' => 'Enchantment (Off-Hand Weapon)',
 				'weaponenchant' => 'Enchantment (Weapon)',
 				'mundus' => 'Mundus',
@@ -111,6 +111,20 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		if (! $user->isLoggedIn()) return false;
 		
 		return $user->isAllowedAny( 'esochardata_ruleedit' );
+	}
+	
+	
+	public function isUserAdmin()
+	{
+		$context = $this->getContext();
+		if ($context == null) return false;
+		
+		$user = $context->getUser ();
+		if ($user == null) return false;
+		
+		if (! $user->isLoggedIn()) return false;
+		
+		return $user->isAllowedAny( 'esochardata_ruleadmin' );
 	}
 	
 	
@@ -314,9 +328,9 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	}
 	
 	
-	public function OutputAddVersionForm() 
+	public function OutputAddVersionForm()
 	{
-		$permission = $this->canUserEdit();
+		$permission = $this->isUserAdmin();
 		if ($permission === false) return $this->reportError( "Error: you have no permission to add versions!" );
 		
 		$output = $this->getOutput ();
@@ -341,7 +355,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	
 	public function SaveNewVersion()
 	{
-		$permission = $this->canUserEdit();
+		$permission = $this->isUserAdmin();
 		if ($permission === false) return $this->reportError( "Error: you have no permission to add versions" );
 		
 		$output = $this->getOutput ();
@@ -676,7 +690,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		
 		$result = $this->db->query( $query );
 		
-		if ($result === false) return $this->reportError( "Error: failed to INSERT data into database" );
+		if ($result === false) return $this->reportError( "Error: failed to INSERT data into database! $query" );
 		return true;
 	}
 	
@@ -687,7 +701,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$query = "DELETE FROM $tableName WHERE $conditionName='$value';";
 		$result = $this->db->query( $query );
 		
-		if ($result === false) return $this->reportError( "Error: failed to DELETE data from database" );
+		if ($result === false) return $this->reportError( "Error: failed to DELETE data from database!" );
 		return true;
 	}
 	
@@ -702,7 +716,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		
 		$result = $this->db->query( $query );
 		
-		if ($result === false) return $this->reportError( "Error: failed to UPDATE data in database" );
+		if ($result === false) return $this->reportError( "Error: failed to UPDATE data in database!" );
 		return true;
 	}
 	
@@ -780,6 +794,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$req = $this->getRequest();
 		
 		$version = $req->getVal('version');
+		if ($version === null) $version = GetEsoUpdateVersion();
 		if ($version) $where[] = $this->MakeSafeMatchQuery('version', $version);
 		
 		$ruleType = $req->getVal('ruletype');
@@ -929,6 +944,8 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		
 		$output->addHTML( "<form id='filterRuleForm' action='$baselink/showrules'>" );
 		
+		if ($version == null && $version !== "") $version = "" . GetEsoUpdateVersion();
+		
 		$this->OutputVersionListHtml( 'version', $version, true );
 		
 		$output->addHTML( "<label for='ruletype'>Rule Type</label>" );
@@ -1034,6 +1051,8 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$output->addHTML( "<th>Display Name</th>" );
 		$output->addHTML( "<th>Match Regex</th>" );
 		$output->addHTML( "<th>Required Stat</th>" );
+		$output->addHTML( "<th>Stat Require Value</th>" );
+		$output->addHTML( "<th>Factor Stat</th>" );
 		$output->addHTML( "<th>Original Id</th>" );
 		$output->addHTML( "<th>Group Name</th>" );
 		$output->addHTML( "<th>Description</th>" );
@@ -1043,19 +1062,19 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$output->addHTML( "<th>Max Times</th>" );
 		$output->addHTML( "<th>Visible</th>" );
 		$output->addHTML( "<th>Enable Off Bar</th>" );
-		$output->addHTML( "<th>Stat Require Value</th>" );
 		$output->addHTML( "<th>Custom Data</th>" );
 		$output->addHTML( "<th>Delete</th>" );
 		$output->addHTML( "</tr></thead><tbody>" );
 		
-		foreach ( $this->rulesDatas as $rulesData ) {
-			
+		foreach ( $this->rulesDatas as $rulesData ) 
+		{
 			$id = $this->escapeHtml( $rulesData['id'] );
 			$ruleType = $this->escapeHtml( $this->MakeNiceShortRuleType($rulesData['ruleType']) );
 			$nameId = $this->escapeHtml( $rulesData['nameId'] );
 			$displayName = $this->escapeHtml( $rulesData['displayName'] );
 			$matchRegex = $this->escapeHtml( $rulesData['matchRegex'] );
 			$statRequireId = $this->escapeHtml( $rulesData['statRequireId'] );
+			$factorStatId = $this->escapeHtml( $rulesData['factorStatId'] );
 			$originalId = $this->escapeHtml( $rulesData['originalId'] );
 			$groupName = $this->escapeHtml( $rulesData['groupName'] );
 			$description = $this->escapeHtml( $rulesData['description'] );
@@ -1100,6 +1119,8 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			$output->addHTML( "<td>$displayName</td>" );
 			$output->addHTML( "<td>$matchRegex</td>" );
 			$output->addHTML( "<td>$statRequireId</td>" );
+			$output->addHTML( "<td>$statRequireValue</td>" );
+			$output->addHTML( "<td>$factorStatId</td>" );
 			$output->addHTML( "<td>$originalId</td>" );
 			$output->addHTML( "<td>$groupName</td>" );
 			$output->addHTML( "<td>$description</td>" );
@@ -1108,7 +1129,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			$output->addHTML( "<td>$maxTimes</td>" );
 			$output->addHTML( "<td>$isVisibleDisplay</td>" );
 			$output->addHTML( "<td>$enableOffBarDisplay</td>" );
-			$output->addHTML( "<td>$statRequireValue</td>" );
+			
 			
 			$output->addHTML( "<td>" );
 			
@@ -1252,10 +1273,10 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			$maxTimes = $this->rule['maxTimes'];
 			$comment = $this->rule['comment'];
 			$description = $this->rule['description'];
-			$isEnabled = $this->rule['isEnabled'];
-			$isVisible = $this->rule['isVisible'];
-			$enableOffBar = $this->rule['enableOffBar'];
-			$isToggle = $this->rule['isToggle'];
+			$isEnabled = intval($this->rule['isEnabled']);
+			$isVisible = intval($this->rule['isVisible']);
+			$enableOffBar = intval($this->rule['enableOffBar']);
+			$isToggle = intval($this->rule['isToggle']);
 			
 			$customData = $this->rule['customData'];
 			
@@ -1297,7 +1318,12 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			$values[] = "'" . $this->db->real_escape_string( $version ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $icon ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $groupName ) . "'";
-			$values[] = "'" . $this->db->real_escape_string( $maxTimes ) . "'";
+			
+			if ($input_maxTimes == '')
+				$values[] = "NULL";
+			else
+				$values[] = "'" . $this->db->real_escape_string( $maxTimes ) . "'";
+			
 			$values[] = "'" . $this->db->real_escape_string( $comment ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $description ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $isEnabled ) . "'";
@@ -1308,9 +1334,6 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			
 			$insertResult = $this->InsertQueries ( 'rulesArchive', $cols, $values );
 			if (!$insertResult) return $this->reportError("Error: Failed to insert record into rulesArchive!");
-			
-			$deleteResult = $this->DeleteQueries ( 'rules', 'id', $id );
-			if (!$deleteResult) return $this->reportError("Error: Failed to delete record from rules!");
 			
 			if (!$this->LoadEffects($id)) return $this->reportError("Error: Failed to load effects for rule #$id!");
 			
@@ -1354,7 +1377,12 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 				$values[] = "'" . $this->db->real_escape_string( $category ) . "'";
 				$values[] = "'" . $this->db->real_escape_string( $combineAs ) . "'";
 				$values[] = "'" . $this->db->real_escape_string( $roundNum ) . "'";
-				$values[] = "'" . $this->db->real_escape_string( $factorValue ) . "'";
+				
+				if ($input_maxTimes == '')
+					$values[] = "NULL";
+				else
+					$values[] = "'" . $this->db->real_escape_string( $factorValue ) . "'";
+				
 				$values[] = "'" . $this->db->real_escape_string( $statDesc ) . "'";
 				$values[] = "'" . $this->db->real_escape_string( $buffId ) . "'";
 				$values[] = "'" . $this->db->real_escape_string( $regexVar ) . "'";
@@ -1362,6 +1390,9 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 				$insertResult = $this->InsertQueries ( 'effectsArchive', $cols, $values );
 				if (!$insertResult) return $this->reportError("Error: Failed to insert record into effectsArchive!");
 			}
+			
+			$deleteResult = $this->DeleteQueries ( 'rules', 'id', $id );
+			if (!$deleteResult) return $this->reportError("Error: Failed to delete record from rules!");
 			
 			$deleteResult = $this->DeleteQueries ( 'effects', 'ruleId', $id );
 			if (!$deleteResult) return $this->reportError("Error: Failed to delete record from effects!");
@@ -1394,8 +1425,8 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	
 	public function OutputEditRuleForm()
 	{
-		$permission = $this->canUserEdit();
-		if ($permission === false) return $this->reportError( "Error: you have no permission to edit rules" );
+		//$permission = $this->canUserEdit();
+		//if ($permission === false) return $this->reportError( "Error: you have no permission to edit rules" );
 		
 		$output = $this->getOutput();
 		$baselink = $this->GetBaseLink();
@@ -1443,7 +1474,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		
 		$this->rule['customData'] = $data;
 		
-		$output->addHTML( "<a href='$baselink/showrules'>Show Rules</a> : <a href='$baselink/testrule?ruleid=$id'>Test Rule</a> : <a href='$baselink/copyrule?ruleid=$id'>Copy Rule</a> : <a href='$baselink/deleterule?ruleid=$id'>Delete Rule</a> <br/>" );
+		$output->addHTML( "<a href='$baselink'>Home</a> : <a href='$baselink/showrules'>Show Rules</a> : <a href='$baselink/addrule'>Add Rule</a> : <a href='$baselink/testrule?ruleid=$id'>Test Rule</a> : <a href='$baselink/copyrule?ruleid=$id'>Copy Rule</a> : <a href='$baselink/deleterule?ruleid=$id'>Delete Rule</a> <br/>" );
 		$output->addHTML( "<h3>Editing Rule #$id</h3>" );
 		$output->addHTML( "<form action='$baselink/saveeditruleform?ruleid=$id' method='POST'>" );
 		
@@ -1462,12 +1493,14 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$output->addHTML( "<input type='text' id='edit_displayName' name='edit_displayName' value='$displayName' size='60'><br>" );
 		
 		$output->addHTML( "<label for='edit_matchRegex'>Match Regex</label>" );
-		$output->addHTML( "<input type='text' id='edit_matchRegex' name='edit_matchRegex' value='$matchRegex' size='60'>" );
+		//$output->addHTML( "<input type='text' id='edit_matchRegex' name='edit_matchRegex' value='$matchRegex' size='60'>" );
+		$output->addHTML( "<textarea id='edit_matchRegex' name='edit_matchRegex' rows='5' cols='10' wrap='soft' maxlength='1000' class='ruleTextArea'>$matchRegex</textarea>" );
 		$output->addHTML( "<p class='errorMsg'></p>" );
 		$output->addHTML( "<p class='warningErr'></p>" );
 		
 		$output->addHTML( "<label for='edit_displayRegex'>Display Regex</label>" );
-		$output->addHTML( "<input type='text' id='edit_displayRegex' name='edit_displayRegex' value='$displayRegex' size='60'>" );
+		//$output->addHTML( "<input type='text' id='edit_displayRegex' name='edit_displayRegex' value='$displayRegex' size='60'>" );
+		$output->addHTML( "<textarea id='edit_displayRegex' name='edit_displayRegex' rows='5' cols='10' wrap='soft' maxlength='1000' class='ruleTextArea'>$displayRegex</textarea>" ); 
 		$output->addHTML( "<p class='errorMsg'></p>" );
 		
 		$output->addHTML( "<label for='edit_statRequireId'>Stat Require Id</label>" );
@@ -1493,19 +1526,19 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		
 		$output->addHTML( "<label for='edit_customData'>Custom Data</label>" );
 		$output->addHTML( "<input type='text' class='custReadOnly' value='name' readonly></input> " );
-		$output->addHTML( "<input type='text' class='custReadOnly' value='value' readonly></input><br/>" );
+		$output->addHTML( "<input type='text' class='custReadOnly custDataValue' value='value' readonly></input><br/>" );
 		
 		foreach ( $this->rule['customData'] as $key => $val )
 		{
 			if ($val === true) $val = "true";
 			if ($val === false) $val = "false";
 			$output->addHTML( "<input type='text' id='edit_customName' name='edit_customName[]' class='custCol' value='$key'>   </input>" );
-			$output->addHTML( "<input type='text' id='edit_customValue' name='edit_customValue[]' value='$val'></input><br>" );
+			$output->addHTML( "<input type='text' id='edit_customValue' name='edit_customValue[]' value='$val' class='custDataValue'></input><br>" );
 		}
 		$output->addHTML( "<input type='text' id='edit_customName' name='edit_customName[]' class='custCol'>   </input>" );
-		$output->addHTML( "<input type='text' id='edit_customValue' name='edit_customValue[]'></input><br>" );
+		$output->addHTML( "<input type='text' id='edit_customValue' name='edit_customValue[]' class='custDataValue'></input><br>" );
 		$output->addHTML( "<input type='text' id='edit_customName' name='edit_customName[]' class='custCol'>   </input>" );
-		$output->addHTML( "<input type='text' id='edit_customValue' name='edit_customValue[]'></input><br>" );
+		$output->addHTML( "<input type='text' id='edit_customValue' name='edit_customValue[]'  class='custDataValue'></input><br>" );
 		
 		$isEnabledBoxCheck = $this->GetCheckboxState ( $isEnabled );
 		$isVisibleBoxCheck = $this->GetCheckboxState ( $isVisible );
@@ -1522,7 +1555,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$output->addHTML( "<label for='edit_toggle'>Toggle</label>" );
 		$output->addHTML( "<input $toggleBoxCheck type='checkbox' id='edit_toggle' name='edit_toggle' value='1'><br>" );
 		
-		$output->addHTML( "<br><input type='submit' value='Save Edits' class='submit_btn'>" );
+		$output->addHTML( "<br><input type='submit' value='Save Rule' class='submit_btn'>" );
 		$output->addHTML( "</form><br>" );
 		
 		$this->OutputShowEffectsTable ();
@@ -1541,7 +1574,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$output->addHTML( "<h3>Adding New Rule</h3>" );
 		$output->addHTML( "<form action='$baselink/saverule' method='POST'>" );
 		
-		$this->OutputVersionListHtml( 'version', '1' );
+		$this->OutputVersionListHtml( 'version', strval(GetEsoUpdateVersion()) );
 		$output->addHTML( "<br/>" );
 		
 		$output->addHTML( "<label for='ruleType'>Rule Type</label>" );
@@ -1556,12 +1589,14 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$output->addHTML( "<input type='text' id='displayName' name='displayName' size='60'><br>" );
 		
 		$output->addHTML( "<label for='matchRegex'>Match Regex</label>" );
-		$output->addHTML( "<input type='text' id='matchRegex' name='matchRegex' size='60'>" );
+		//$output->addHTML( "<input type='text' id='matchRegex' name='matchRegex' size='60'>" );
+		$output->addHTML( "<textarea id='matchRegex' name='matchRegex' rows='5' cols='10' wrap='soft' maxlength='1000' class='ruleTextArea'></textarea>" );
 		$output->addHTML( "<p class='errorMsg'></p>" );
 		$output->addHTML( "<p class='warningErr'></p>" );
 		
 		$output->addHTML( "<label for='displayRegex'>Display Regex</label>" );
-		$output->addHTML( "<input type='text' id='displayRegex' name='displayRegex' size='60'>" );
+		//$output->addHTML( "<input type='text' id='displayRegex' name='displayRegex' size='60'>" );
+		$output->addHTML( "<textarea id='displayRegex' name='displayRegex' rows='5' cols='10' wrap='soft' maxlength='1000' class='ruleTextArea'></textarea>" );
 		$output->addHTML( "<p class='errorMsg'></p>" );
 		
 		$output->addHTML( "<label for='statRequireId'>Stat Require Id</label>" );
@@ -1690,10 +1725,10 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$input_maxTimes = trim($req->getVal( 'maxTimes' ));
 		$input_comment = $req->getVal( 'comment' );
 		$input_description = $req->getVal( 'description' );
-		$input_isEnabled = $req->getVal( 'isEnabled' );
-		$input_isVisible = $req->getVal( 'isVisible' );
-		$input_enableOffBar = $req->getVal( 'enableOffBar' );
-		$input_toggle = $req->getVal( 'toggle' );
+		$input_isEnabled = intval($req->getVal( 'isEnabled' ));
+		$input_isVisible = intval($req->getVal( 'isVisible' ));
+		$input_enableOffBar = intval($req->getVal( 'enableOffBar' ));
+		$input_toggle = intval($req->getVal( 'toggle' ));
 		$input_statRequireValue = $req->getVal( 'statRequireValue' );
 		
 		$customNames = $req->getArray( 'customNames' );
@@ -1791,6 +1826,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$new_nameId = $req->getVal( 'edit_nameId' );
 		$new_displayName = $req->getVal( 'edit_displayName' );
 		$new_matchRegex = $req->getVal( 'edit_matchRegex' );
+		$new_displayRegex = $req->getVal( 'edit_displayRegex' );
 		$new_statRequireId = $req->getVal( 'edit_statRequireId' );
 		$new_factorStatId = $req->getVal( 'edit_factorStatId' );
 		$new_originalId = $req->getVal( 'edit_originalId' );
@@ -1800,10 +1836,10 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$new_maxTimes = $req->getVal( 'edit_maxTimes' );
 		$new_comment = $req->getVal( 'edit_comment' );
 		$new_description = $req->getVal( 'edit_description' );
-		$new_isEnabled = $req->getVal( 'edit_isEnabled' );
-		$new_isVisible = $req->getVal( 'edit_isVisible' );
-		$new_enableOffBar = $req->getVal( 'edit_enableOffBar' );
-		$new_toggle = $req->getVal( 'edit_toggle' );
+		$new_isEnabled = intval($req->getVal( 'edit_isEnabled' ));
+		$new_isVisible = intval($req->getVal( 'edit_isVisible' ));
+		$new_enableOffBar = intval($req->getVal( 'edit_enableOffBar' ));
+		$new_toggle = intval($req->getVal( 'edit_toggle' ));
 		$new_statRequireValue = $req->getVal( 'edit_statRequireValue' );
 		
 		$customNames = $req->getArray( 'edit_customName' );
@@ -1830,6 +1866,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$values[] = "nameId='" . $this->db->real_escape_string( $new_nameId ) . "'";
 		$values[] = "displayName='" . $this->db->real_escape_string( $new_displayName ) . "'";
 		$values[] = "matchRegex='" . $this->db->real_escape_string( $new_matchRegex ) . "'";
+		$values[] = "displayRegex='" . $this->db->real_escape_string( $new_displayRegex ) . "'";
 		$values[] = "statRequireId='" . $this->db->real_escape_string( $new_statRequireId ) . "'";
 		$values[] = "factorStatId='" . $this->db->real_escape_string( $new_factorStatId ) . "'";
 		$values[] = "originalId='" . $this->db->real_escape_string( $new_originalId ) . "'";
@@ -1855,7 +1892,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		if (!$updateResult) return $this->reportError("Error: Failed to save rule record!");
 		
 		$output->addHTML( "<p>Successfully saved rule #$id!</p><br>" );
-		$output->addHTML( "<a href='$baselink'>Home</a> : <a href='$baselink/showrules'>Show Rules</a> : <a href='$baselink/editrule?ruleid=$id'>Edit Rule</a> : <a href='$baselink/testrule?ruleid=$id'>Test Rule</a> : <a href='$baselink/copyrule?ruleid=$id'>Copy Rule</a><br/>" );
+		$output->addHTML( "<a href='$baselink'>Home</a> : <a href='$baselink/showrules'>Show Rules</a> : <a href='$baselink/addrule'>Add Rule</a> : <a href='$baselink/editrule?ruleid=$id'>Edit Rule</a> : <a href='$baselink/testrule?ruleid=$id'>Test Rule</a> : <a href='$baselink/copyrule?ruleid=$id'>Copy Rule</a><br/>" );
 	}
 	
 	
@@ -1870,7 +1907,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	
 	public static function GetBaseLink()
 	{
-		$link = "https://dev.uesp.net/wiki/Special:EsoBuildRuleEditor";
+		$link = "https://en.uesp.net/wiki/Special:EsoBuildRuleEditor";
 		
 		return ($link);
 	}
@@ -2073,13 +2110,14 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			$category = $this->escapeHtml( $this->effect['category'] );
 			$combineAs = $this->escapeHtml( $this->effect['combineAs'] );
 			$round = $this->escapeHtml( $this->effect['roundNum'] );
-			$factorValue = $this->escapeHtml( $this->effect['factorValue'] );
 			$statDesc = $this->escapeHtml( $this->effect['statDesc'] );
 			$buffId = $this->escapeHtml( $this->effect['buffId'] );
 			$regexVar = $this->escapeHtml( $this->effect['regexVar'] );
+			$factorValue = $this->escapeHtml( $this->effect['factorValue'] );
 			
 			$cols = [ ];
 			$values = [ ];
+			$cols[] = 'id';
 			$cols[] = 'ruleId';
 			$cols[] = 'version';
 			$cols[] = 'statId';
@@ -2093,6 +2131,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			$cols[] = 'buffId';
 			$cols[] = 'regexVar';
 			
+			$values[] = "'" . $this->db->real_escape_string( $effectId ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $id ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $version ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $statId ) . "'";
@@ -2101,7 +2140,12 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			$values[] = "'" . $this->db->real_escape_string( $category ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $combineAs ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $round ) . "'";
-			$values[] = "'" . $this->db->real_escape_string( $factorValue ) . "'";
+			
+			if ($factorValue == '')
+					$values[] = "NULL";
+				else
+					$values[] = "'" . $this->db->real_escape_string( $factorValue ) . "'";
+				
 			$values[] = "'" . $this->db->real_escape_string( $statDesc ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $buffId ) . "'";
 			$values[] = "'" . $this->db->real_escape_string( $regexVar ) . "'";
@@ -2113,8 +2157,9 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			if (!$deleteResult) return $this->reportError("Error: Failed to delete record from effects!");
 			
 			$output->addHTML( "<p>Effect deleted</p><br>" );
-			$output->addHTML( "<a href='$baselink'>Home : </a>" );
-			$output->addHTML( "<a href='$baselink/editrule?ruleid=$id'>Rule #$id</a>" );
+			$output->addHTML( "<a href='$baselink'>Home</a> : " );
+			$output->addHTML( "<a href='$baselink/showrules'>Home</a> : " );
+			$output->addHTML( "<a href='$baselink/editrule?ruleid=$id'>Edit Rule #$id</a>" );
 		}
 	}
 	
@@ -2178,8 +2223,11 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		if (!$insertResult) return $this->reportError("Error: Failed to insert record into effects!");
 		
 		$output->addHTML( "<p>New effect added</p><br>" );
-		$output->addHTML( "<a href='$baselink'>Home : </a>" );
-		$output->addHTML( "<a href='$baselink/editrule?ruleid=$id'>Rule #$id</a>" );
+		$output->addHTML( "<a href='$baselink'>Home</a> : " );
+		$output->addHTML( "<a href='$baselink/showrules'>Show Rule</a> : " );
+		$output->addHTML( "<a href='$baselink/addrule'>Add Rule</a> : " );
+		$output->addHTML( "<a href='$baselink/editrule?ruleid=$id'>Edit Rule #$id</a> : " );
+		$output->addHTML( "<a href='$baselink/addneweffect?ruleid=$id'>Add Effect to Rule #$id</a>" );
 	}
 	
 	
@@ -2287,8 +2335,8 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	
 	public function OutputEditEffectForm()
 	{
-		$permission = $this->canUserEdit();
-		if ($permission === false) return $this->reportError( "Error: you have no permission to edit effects" );
+		//$permission = $this->canUserEdit();
+		//if ($permission === false) return $this->reportError( "Error: you have no permission to edit effects" );
 		
 		$output = $this->getOutput();
 		$baselink = $this->GetBaseLink();
@@ -2311,7 +2359,9 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$buffId = $this->escapeHtml( $this->effect['buffId'] );
 		$regexVar = $this->escapeHtml( $this->effect['regexVar'] );
 		
+		$output->addHTML( "<a href='$baselink'>Home : </a>" );
 		$output->addHTML( "<a href='$baselink/showrules'>Show Rules : </a>" );
+		$output->addHTML( "<a href='$baselink/addrule'>Add Rule : </a>" );
 		$output->addHTML( "<a href='$baselink/editrule?ruleid=$ruleId'>Rule #$ruleId</a><br>" );
 		$output->addHTML( "<h3>Editing Effect #$effectId for Rule #$ruleId</h3>" );
 		$output->addHTML( "<form action='$baselink/saveediteffectform?effectid=$effectId&ruleid=$ruleId' method='POST'>" );
@@ -2354,7 +2404,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$output->addHTML( "<input type='text' id='edit_regexVar' name='edit_regexVar' value='$regexVar'>" );
 		$output->addHTML( "<p class='errorMsg'></p>" );
 		
-		$output->addHTML( "<br><input type='submit' value='Save Edits' class='submit_btn'>" );
+		$output->addHTML( "<br><input type='submit' value='Save Effect' class='submit_btn'>" );
 		$output->addHTML( "</form><br>" );
 	}
 	
@@ -2409,7 +2459,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		if (!$updateResult) return $this->reportError("Error: Failed to save effect record!");
 		
 		$output->addHTML( "<p>Successfully saved effect #$effectId!</p><br>" );
-		$output->addHTML( "<a href='$baselink/showrules'>Show Rules</a> : <a href='$baselink/editrule?ruleid=$ruleId'>Edit Rule #$ruleId</a> <br>" );
+		$output->addHTML( "<a href='$baselink'>Home</a> : <a href='$baselink/showrules'>Show Rules</a> : <a href='$baselink/addrule'>Add Rule</a> : <a href='$baselink/editrule?ruleid=$ruleId'>Edit Rule #$ruleId</a> <br>" );
 	}
 	
 	
@@ -2600,7 +2650,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$output->addHTML( "<label title='Should be a unique name composed of letters.' for='statId'>Stat Id</label>" );
 		$output->addHTML( "<input type='text' id='statId' name='statId'><br>" );
 		
-		$this->OutputVersionListHtml( 'version', '1' );
+		$this->OutputVersionListHtml( 'version', strval(GetEsoUpdateVersion()) );
 		$output->addHTML( "<br/>" );
 		$this->OutputRoundsListHtml( 'round', '' );
 		
@@ -2634,7 +2684,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$output->addHTML( "<label title='Optional list of stats that this stat depends on (one stat per line).' for='dependsOn'>Depends On</label>" );
 		$output->addHTML( "<textarea id='dependsOn' name='dependsOn' class='txtArea' rows='4' cols='50'></textarea><br>" );
 		
-		$output->addHTML( "<br><input type='submit' value='Save computed Stat'>" );
+		$output->addHTML( "<br><input type='submit' value='Save Stat'>" );
 		$output->addHTML( "</form>" );
 	}
 	
@@ -2781,8 +2831,8 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	
 	public function OutputEditComputedStatForm()
 	{
-		$permission = $this->canUserEdit();
-		if ($permission === false) return $this->reportError( "Error: you have no permission to edit computed stats" );
+		//$permission = $this->canUserEdit();
+		//if ($permission === false) return $this->reportError( "Error: you have no permission to edit computed stats" );
 		
 		$output = $this->getOutput();
 		$baselink = $this->GetBaseLink();
@@ -2894,7 +2944,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		}
 		$output->addHTML( "</textarea><br>" );
 		
-		$output->addHTML( "<br><input class='btn' type='submit' value='Save Edits'>" );
+		$output->addHTML( "<br><input class='btn' type='submit' value='Save Stat'>" );
 		$output->addHTML( "</form><br>" );
 	}
 	
@@ -3137,6 +3187,9 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	
 	public function OutputShowTestForm($title = "Test Rules")
 	{
+		$permission = $this->canUserEdit();
+		if ($permission === false) return $this->reportError( "Error: you have no permission to test rules" );
+		
 		$req = $this->getRequest();
 		$output = $this->getOutput();
 		$baselink = $this->GetBaseLink();
@@ -3144,7 +3197,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$version = $req->getVal("version");
 		$ruleType = $req->getVal("ruletype");
 		
-		$output->addHTML( "<a href='$baselink'>Home</a> : <a href='$baselink/showrules'>Show Rules</a> <br/>" );
+		$output->addHTML( "<a href='$baselink'>Home</a> : <a href='$baselink/showrules'>Show Rules</a> : <a href='$baselink/addrule'>Add Rule</a> <br/>" );
 		
 		$output->addHTML( "<h3>$title</h3>" );
 		$output->addHTML( "<form action='$baselink/testrules' method='GET'>" );
@@ -3233,8 +3286,10 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	
 	public function LoadTestSetData($version)
 	{
-		$version = preg_replace('/[^0-9a-zA-Z_]/', '', $version);
 		if ($this->testSetData) return $this->testSetData;
+		
+		$version = preg_replace('/[^0-9a-zA-Z_]/', '', $version);
+		//if ($version == 'test') $version = strval(GetEsoUpdateVersion());
 		
 		$this->InitLogDatabase();
 		
@@ -3242,6 +3297,8 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			$table = "setSummary";
 		else
 			$table = "setSummary$version";
+		
+		#error_log("Loading test set data from $table!");
 		
 		$query = "SELECT * FROM `$table`;";
 		$result = $this->logdb->query($query);
@@ -3346,7 +3403,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		foreach ($itemDatas as $itemId => $itemData)
 		{
 			//$traitDesc = $setData["description"];
-			$abilityDesc = $setData["abilityDesc"];
+			$abilityDesc = $itemData["abilityDesc"];
 			if ($abilityDesc == "") continue;
 			
 			$this->testMatchData['item'][$itemId] = [];
@@ -3374,7 +3431,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 			$desc = str_replace("\r", " ", $desc);
 			$desc = FormatRemoveEsoItemDescriptionText($desc);
 			
-			error_log("$desc");
+			//error_log("$desc");
 			
 			$result = preg_match($rule['matchRegex'], $desc, $matches);
 			if (!$result) continue;
@@ -3412,10 +3469,27 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$originalId = strtolower($rule['originalId']);
 		if ($originalId != '') $nameId = $originalId;
 		
+		$customData = json_decode( $rule['customData'], true );
+		if ($customData == null) $customData = []; // TODO: Error handling?
+		if (!is_array($customData)) $customData = [];
+		
 		foreach ($setDatas as $setName => $setData)
 		{
 			$isMatched = false;
-			if ($nameId != '' && $nameId != strtolower($setName)) continue;
+			
+			if ($nameId != '' && $nameId != strtolower($setName)) 
+			{
+				//error_log("$setName: " . $customData['addPerfected']);
+				
+				if ($customData['addPerfected'] && substr($setName, 0, 10) == "perfected " && substr($setName, 10) == $nameId)
+				{
+					// Continue if set is perfected and matches the non-perfected rule set name that adds a perfected match
+				}
+				else
+				{
+					continue;
+				}
+			}
 			
 			for ($i = 1; $i <= 12; ++$i)
 			{
@@ -3884,10 +3958,10 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		$statRequireId = $this->rule['statRequireId'];
 		$statRequireValue = $this->rule['statRequireValue'];
 		$factorStatId = $this->rule['factorStatId'];
-		$isEnabled = $this->rule['isEnabled'];
-		$isVisible = $this->rule['isVisible'];
-		$isToggle = $this->rule['isToggle'];
-		$enableOffBar = $this->rule['enableOffBar'];
+		$isEnabled = intval($this->rule['isEnabled']);
+		$isVisible = intval($this->rule['isVisible']);
+		$isToggle = intval($this->rule['isToggle']);
+		$enableOffBar = intval($this->rule['enableOffBar']);
 		$originalId = $this->rule['originalId'];
 		$icon = $this->rule['icon'];
 		$groupName = $this->rule['groupName'];
@@ -4041,6 +4115,9 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	
 	public function OutputDoTestRule()
 	{
+		$permission = $this->canUserEdit();
+		if ($permission === false) return $this->reportError( "Error: you have no permission to test rules" );
+		
 		$req = $this->getRequest();
 		$output = $this->getOutput();
 		$baselink = $this->GetBaseLink();
@@ -4049,7 +4126,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		
 		if (!$this->LoadRule($ruleId)) return $this->reportError("Error: Failed to load rule $ruleId for testing!");
 		
-		$output->addHTML( "<a href='$baselink'>Home</a> : <a href='$baselink/showrules'>Show Rules</a> : <a href='$baselink/editrule?ruleid=$ruleId'>Edit Rule</a><br/>" );
+		$output->addHTML( "<a href='$baselink'>Home</a> : <a href='$baselink/showrules'>Show Rules</a> : <a href='$baselink/addrule'>Add Rule</a> : <a href='$baselink/editrule?ruleid=$ruleId'>Edit Rule</a><br/>" );
 		
 		$output->addHTML( "<h2>Testing Rule #$ruleId</h2>" );
 		
@@ -4066,6 +4143,9 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	
 	public function OutputDoRuleTests()
 	{
+		$permission = $this->canUserEdit();
+		if ($permission === false) return $this->reportError( "Error: you have no permission to test rules" );
+		
 		$req = $this->getRequest();
 		$output = $this->getOutput();
 		$baselink = $this->GetBaseLink();
@@ -4106,8 +4186,13 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	public function OutputTestMatchData()
 	{
 		$errors = $this->OutputTestMatchSetData();
-		array_push($errors, ...$this->OutputTestMatchSkillData());
-		array_push($errors, ...$this->OutputTestMatchCpData());
+		$itemErrors = $this->OutputTestMatchItemData();
+		$skillErrors = $this->OutputTestMatchSkillData();
+		$cpErrors = $this->OutputTestMatchCpData();
+		
+		if (count($skillErrors) > 0) array_push($errors, ...$skillErrors);
+		if (count($cpErrors) > 0) array_push($errors, ...$cpErrors);
+		if (count($itemErrors) > 0) array_push($errors, ...$itemErrors);
 		
 		$output = $this->getOutput();
 		
@@ -4125,6 +4210,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	public function GetOutputTestRulesHtml($matchData)
 	{
 		$ruleTexts = [];
+		$baselink = $this->GetBaseLink();
 		
 		foreach ($matchData as $data)
 		{
@@ -4180,7 +4266,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 				$desc = FormatRemoveEsoItemDescriptionText($cpData["minDescription"]);
 				$desc = $this->escapeHtml($desc);
 				$desc = "<pre>$desc</pre>";
-				$errors[] = "#$abilityId CP has no rule match!<br/>$desc";
+				$errors[] = "CP {$cpData['name']} (#$abilityId) has no rule match!<br/>$desc";
 			}
 			else
 			{
@@ -4190,7 +4276,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 				$desc = "<pre>$desc</pre>";
 				
 				$ruleTexts = $this->GetOutputTestRulesHtml($matchData);
-				$errors[] = "#$abilityId CP has $count rule matches!<br/>$desc</br><ul>$ruleTexts</ul>";
+				$errors[] = "CP {$cpData['name']} (#$abilityId) has $count rule matches!<br/>$desc</br><ul>$ruleTexts</ul>";
 			}
 		}
 		
@@ -4227,7 +4313,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 				$desc = FormatRemoveEsoItemDescriptionText($desc);
 				$desc = $this->escapeHtml($desc);
 				$desc = "<pre>$desc</pre>";
-				$errors[] = "$abilityId Skill has no rule match!<br/>$desc";
+				$errors[] = "Skill {$skillData['name']} ($abilityId) has no rule match!<br/>$desc";
 			}
 			else
 			{
@@ -4241,7 +4327,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 				$desc = $this->escapeHtml($desc);
 				$desc = "<pre>$desc</pre>";
 				$ruleTexts = $this->GetOutputTestRulesHtml($matchData);
-				$errors[] = "$abilityId Skill has $count rule matches!<br/>$desc</br><ul>$ruleTexts</ul>";
+				$errors[] = "Skill {$skillData['name']} ($abilityId) has $count rule matches!<br/>$desc</br><ul>$ruleTexts</ul>";
 			}
 		}
 		
@@ -4270,14 +4356,14 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 				{
 					$setData = $this->testSetData[strtolower($setName)];
 					$setBonusDesc = "<pre>" . $this->escapeHtml($setData["setBonusDesc$i"]) . "</pre>";
-					$errors[] = "$setName Bonus #$i has no rule match!<br/>$setBonusDesc";
+					$errors[] = "Set $setName Bonus #$i has no rule match!<br/>$setBonusDesc";
 				}
 				else
 				{
 					$setData = $matchData[0]['set'];
 					$setBonusDesc = "<pre>" . $this->escapeHtml($setData["setBonusDesc$i"]) . "</pre>";
 					$ruleTexts = $this->GetOutputTestRulesHtml($matchData);
-					$errors[] = "$setName Bonus #$i has $count rule matches!<br/>$setBonusDesc</br><ul>$ruleTexts</ul>";
+					$errors[] = "Set $setName Bonus #$i has $count rule matches!<br/>$setBonusDesc</br><ul>$ruleTexts</ul>";
 				}
 			}
 		}
@@ -4286,8 +4372,40 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 	}
 	
 	
+	public function OutputTestMatchItemData()
+	{
+		$errors = [];
+		if ($this->testMatchData['item'] == null) return $errors;
+		
+		$baselink = $this->GetBaseLink();
+		
+		foreach ($this->testMatchData['item'] as $itemId => $matchData)
+		{
+			$count = count($matchData);
+			
+			if ($count == 0)
+			{
+				$itemData = $this->testItemData[$itemId];
+				
+				$desc = $itemData["abilityDesc"];
+				
+				$desc = FormatRemoveEsoItemDescriptionText($desc);
+				$desc = $this->escapeHtml($desc);
+				$desc = "<pre>$desc</pre>";
+				$errors[] = "Item {$itemData['name']} ($itemId) has no rule match!<br/>$desc";
+			}
+			
+		}
+		
+		return $errors;
+	}
+	
+	
 	public function CheckDuplicateRules()
 	{
+		$permission = $this->canUserEdit();
+		if ($permission === false) return $this->reportError( "Error: you have no permission to test rules" );
+		
 		$req = $this->getRequest();
 		$output = $this->getOutput();
 		$baselink = $this->GetBaseLink();
@@ -4353,7 +4471,7 @@ class SpecialEsoBuildRuleEditor extends SpecialPage {
 		
 		$baselink = $this->GetBaseLink();
 		
-		$output->addHTML( "Edit rules, effects, and computed stats used for the <a href='/wiki/Special:EsoBuildEditor'>ESO Build Editor</a>.<p/>" );
+		$output->addHTML( "Edit rules, effects, and computed stats used for the <a href='/wiki/Special:EsoBuildEditor'>ESO Build Editor</a>. For more information and help see <a href='/wiki/UESPWiki:ESO_Build_Rules_Editor'>here></a>.<p/>" );
 		
 		$output->addHTML( "<ul>" );
 		$output->addHTML( "<li><a href='$baselink/showrules'>Show Rules</a></li>" );

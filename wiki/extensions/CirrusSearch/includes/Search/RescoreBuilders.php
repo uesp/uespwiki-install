@@ -2,6 +2,7 @@
 
 namespace CirrusSearch\Search;
 
+use CirrusSearch\Elastica\LtrQuery;
 use CirrusSearch\Util;
 use Elastica\Query\FunctionScore;
 use Elastica\Query\AbstractQuery;
@@ -31,6 +32,12 @@ use MWNamespace;
  * Builds a rescore queries by reading a rescore profile.
  */
 class RescoreBuilder {
+
+	/**
+	 * @var int Maximum number of rescore profile fallbacks
+	 */
+	const FALLBACK_LIMIT = 4;
+
 	/**
 	 * List of allowed rescore params
 	 * @todo: refactor to const with php 5.6
@@ -44,6 +51,7 @@ class RescoreBuilder {
 	];
 
 	const FUNCTION_SCORE_TYPE = "function_score";
+	const LTR_TYPE = "ltr";
 
 	/**
 	 * @var SearchContext
@@ -64,9 +72,6 @@ class RescoreBuilder {
 		if ( $profile === null ) {
 			$profile = $context->getRescoreProfile();
 		}
-		if ( is_string( $profile ) ) {
-			$profile = $this->context->getConfig()->getElement( 'CirrusSearchRescoreProfiles', $profile );
-		}
 		$this->profile = $this->getSupportedProfile( $profile );
 	}
 
@@ -75,7 +80,7 @@ class RescoreBuilder {
 	 */
 	public function build() {
 		$rescores = [];
-		foreach( $this->profile['rescore'] as $rescoreDef ) {
+		foreach ( $this->profile['rescore'] as $rescoreDef ) {
 			$windowSize = $this->windowSize( $rescoreDef );
 			$rescore = [
 				'window_size' => $windowSize,
@@ -96,16 +101,39 @@ class RescoreBuilder {
 	 * builds the 'query' attribute by reading type
 	 *
 	 * @param array $rescoreDef
-	 * @return FunctionScore|null the rescore query
+	 * @return AbstractQuery|null the rescore query
 	 * @throws InvalidRescoreProfileException
 	 */
 	private function buildRescoreQuery( array $rescoreDef ) {
-		switch( $rescoreDef['type'] ) {
+		switch ( $rescoreDef['type'] ) {
 		case self::FUNCTION_SCORE_TYPE:
 			$funcChain = new FunctionScoreChain( $this->context, $rescoreDef['function_chain'] );
 			return $funcChain->buildRescoreQuery();
-		default: throw new InvalidRescoreProfileException( "Unsupported rescore query type: " . $rescoreDef['type'] );
+		case self::LTR_TYPE:
+			return $this->buildLtrQuery( $rescoreDef['model'] );
+		default:
+			throw new InvalidRescoreProfileException( "Unsupported rescore query type: " . $rescoreDef['type'] );
 		}
+	}
+
+	/**
+	 * @param string $model Name of the sltr model to use
+	 * @return AbstractQuery
+	 */
+	private function buildLtrQuery( $model ) {
+		$bool = new \Elastica\Query\BoolQuery();
+		// the ltr query can return negative scores, which mucks with elasticsearch
+		// sorting as that will put these results below documents set to 0. Fix
+		// that up by adding a large constant boost.
+		$constant = new \Elastica\Query\ConstantScore( new \Elastica\Query\MatchAll );
+		$constant->setBoost( 100000 );
+		$bool->addShould( $constant );
+		$bool->addShould( new LtrQuery( $model, [
+				// TODO: These params probably shouldn't be hard coded
+				'query_string' => $this->context->getCleanedSearchTerm(),
+			] ) );
+
+		return $bool;
 	}
 
 	/**
@@ -126,17 +154,81 @@ class RescoreBuilder {
 	/**
 	 * Inspect requested namespaces and return the supported profile
 	 *
-	 * @param array $profile
+	 * @param string|array $profileName
 	 * @return array the supported rescore profile.
 	 * @throws InvalidRescoreProfileException
 	 */
-	private function getSupportedProfile( array $profile ) {
+	private function getSupportedProfile( $profileName ) {
+		if ( is_array( $profileName ) ) {
+			$profile = $profileName;
+			$profileName = '__provided__';
+		} else {
+			$profile = $this->context->getConfig()->getElement( 'CirrusSearchRescoreProfiles', $profileName );
+			if ( !$profile ) {
+				throw new InvalidRescoreProfileException( "Unknown fallback profile: $profileName" );
+			} elseif ( !is_array( $profile ) ) {
+				throw new InvalidRescoreProfileException( "Invalid fallback profile, must be array: $profileName" );
+			}
+		}
+
+		$seen = [];
+		while ( true ) {
+			$seen[$profileName] = true;
+			if ( count( $seen ) > self::FALLBACK_LIMIT ) {
+				throw new InvalidRescoreProfileException(
+					"Fell back more than " . self::FALLBACK_LIMIT . " times"
+				);
+			}
+
+			if ( ! $this->isProfileNamespaceSupported( $profile )
+				|| ! $this->isProfileSyntaxSupported( $profile )
+			) {
+				if ( ! isset( $profile['fallback_profile'] ) ) {
+					throw new InvalidRescoreProfileException(
+						"Invalid rescore profile: fallback_profile is mandatory "
+						. "if supported_namespaces is not 'all' or "
+						. "unsupported_syntax is not null."
+					);
+				}
+				$profileName = $profile['fallback_profile'];
+				if ( isset( $seen[$profileName] ) ) {
+					$chain = implode( '->', $seen ) . "->$profileName";
+					throw new InvalidRescoreProfileException( "Cycle in rescore fallbacks: $chain" );
+				}
+
+				$profile = $this->context->getConfig()->getElement( 'CirrusSearchRescoreProfiles', $profileName );
+				if ( !$profile ) {
+					throw new InvalidRescoreProfileException( "Unknown fallback profile: $profileName" );
+				} elseif ( !is_array( $profile ) ) {
+					throw new InvalidRescoreProfileException( "Invalid fallback profile, must be array: $profileName" );
+				}
+				continue;
+			}
+			return $profile;
+		}
+	}
+
+	/**
+	 * Check if a given profile supports the namespaces used by the current
+	 * search request.
+	 *
+	 * @param array $profile Profile to check
+	 * @return bool True is the profile supports current namespaces
+	 */
+	private function isProfileNamespaceSupported( array $profile ) {
 		if ( !is_array( $profile['supported_namespaces'] ) ) {
 			switch ( $profile['supported_namespaces'] ) {
 			case 'all':
-				return $profile;
+				return true;
 			case 'content':
 				$profileNs = $this->context->getConfig()->get( 'ContentNamespaces' );
+				// Default search namespaces are also considered content
+				$defaultSearch = $this->context->getConfig()->get( 'NamespacesToBeSearchedDefault' );
+				foreach ( $defaultSearch as $ns => $isDefault ) {
+					if ( $isDefault ) {
+						$profileNs[] = $ns;
+					}
+				}
 				break;
 			default:
 				throw new InvalidRescoreProfileException( "Invalid rescore profile: supported_namespaces should be 'all', 'content' or an array of namespaces" );
@@ -145,41 +237,43 @@ class RescoreBuilder {
 			$profileNs = $profile['supported_namespaces'];
 		}
 
-		if ( ! isset( $profile['fallback_profile'] ) ) {
-			throw new InvalidRescoreProfileException( "Invalid rescore profile: fallback_profile is mandatory if supported_namespaces is not 'all'." );
-		}
-
 		$queryNs = $this->context->getNamespaces();
 
 		if ( !$queryNs ) {
 			// According to comments in Searcher if namespaces is
 			// not set we run the query on all namespaces
 			// @todo: verify comments.
-			return $this->getFallbackProfile( $profile['fallback_profile'] );
+			return false;
 		}
 
-		foreach( $queryNs as $ns ) {
+		foreach ( $queryNs as $ns ) {
 			if ( !in_array( $ns, $profileNs ) ) {
-				return $this->getFallbackProfile( $profile['fallback_profile'] );
+				return false;
 			}
 		}
-		return $profile;
+
+		return true;
 	}
 
 	/**
-	 * @param string $profileName the profile to load
-	 * @return array the rescore profile identified by $profileName
-	 * @throws InvalidRescoreProfileException
+	 * Check if the given profile supports the syntax used by the
+	 * current search request.
+	 *
+	 * @param array $profile
+	 * @return bool
 	 */
-	private function getFallbackProfile( $profileName ) {
-		$profile = $this->context->getConfig()->getElement( 'CirrusSearchRescoreProfiles', $profileName );
-		if ( !$profile ) {
-			throw new InvalidRescoreProfileException( "Unknown fallback profile $profileName." );
+	private function isProfileSyntaxSupported( array $profile ) {
+		if ( !isset( $profile['unsupported_syntax'] ) ) {
+			return true;
 		}
-		if ( $profile['supported_namespaces'] !== 'all' ) {
-			throw new InvalidRescoreProfileException( "Fallback profile $profileName must support all namespaces." );
+
+		foreach ( $profile['unsupported_syntax'] as $reject ) {
+			if ( $this->context->isSyntaxUsed( $reject ) ) {
+				return false;
+			}
 		}
-		return $profile;
+
+		return true;
 	}
 }
 
@@ -224,7 +318,7 @@ class FunctionScoreChain {
 	 * Builds a new function score chain.
 	 *
 	 * @param SearchContext $context
-	 * @param string        $chainName the name of the chain (must be a valid
+	 * @param string $chainName the name of the chain (must be a valid
 	 *  chain in wgCirrusSearchRescoreFunctionScoreChains)
 	 * @throws InvalidRescoreProfileException
 	 */
@@ -238,7 +332,7 @@ class FunctionScoreChain {
 		}
 
 		$params = array_intersect_key( $this->chain, array_flip( self::$functionScoreParams ) );
-		foreach( $params as $param => $value ) {
+		foreach ( $params as $param => $value ) {
 			$this->functionScore->setParam( $param, $value );
 		}
 	}
@@ -252,7 +346,7 @@ class FunctionScoreChain {
 		if ( !isset( $this->chain['functions'] ) ) {
 			throw new InvalidRescoreProfileException( "No functions defined in chain {$this->chainName}." );
 		}
-		foreach( $this->chain['functions'] as $func ) {
+		foreach ( $this->chain['functions'] as $func ) {
 			$impl = $this->getImplementation( $func );
 			$impl->append( $this->functionScore );
 		}
@@ -275,8 +369,8 @@ class FunctionScoreChain {
 	 * @suppress PhanTypeMismatchReturn phan does not understand hooks and by-ref parameters
 	 */
 	private function getImplementation( $func ) {
-		$weight = isset ( $func['weight'] ) ? $func['weight'] : 1;
-		switch( $func['type'] ) {
+		$weight = isset( $func['weight'] ) ? $func['weight'] : 1;
+		switch ( $func['type'] ) {
 		case 'boostlinks':
 			return new IncomingLinksFunctionScoreBuilder( $this->context, $weight );
 		case 'recency':
@@ -338,7 +432,7 @@ class FunctionScoreDecorator extends FunctionScore {
 	}
 
 	/**
-	 * @return boolean true if this function score is empty
+	 * @return bool true if this function score is empty
 	 */
 	public function isEmptyFunction() {
 		return $this->size == 0;
@@ -388,7 +482,7 @@ abstract class FunctionScoreBuilder {
 	 *
 	 * @param FunctionScore $container
 	 */
-	public abstract function append( FunctionScore $container );
+	abstract public function append( FunctionScore $container );
 
 	/**
 	 * Utility method to extract a factor (float) that can
@@ -399,13 +493,13 @@ abstract class FunctionScoreBuilder {
 	 */
 	protected function getOverriddenFactor( $value ) {
 		if ( is_array( $value ) ) {
-			$returnValue = (float) $value['value'];
+			$returnValue = (float)$value['value'];
 
 			if ( isset( $value['config_override'] ) ) {
 				// Override factor with config
 				$fromConfig = $this->context->getConfig()->get( $value['config_override'] );
 				if ( $fromConfig !== null ) {
-					$returnValue = (float) $fromConfig;
+					$returnValue = (float)$fromConfig;
 				}
 			}
 
@@ -416,13 +510,13 @@ abstract class FunctionScoreBuilder {
 				if ( $request ) {
 					$fromUri = $request->getVal( $uriParam );
 					if ( $fromUri !== null && is_numeric( $fromUri ) ) {
-						$returnValue = (float) $fromUri;
+						$returnValue = (float)$fromUri;
 					}
 				}
 			}
 			return $returnValue;
 		} else {
-			return (float) $value;
+			return (float)$value;
 		}
 	}
 }
@@ -563,23 +657,26 @@ class NamespacesFunctionScoreBuilder extends FunctionScoreBuilder {
 		// first build the opposite map, this will allow us to add a
 		// single factor function per weight by using a terms filter.
 		$weightToNs = [];
-		foreach( $this->namespacesToBoost as $ns ) {
+		foreach ( $this->namespacesToBoost as $ns ) {
 			$weight = $this->getBoostForNamespace( $ns ) * $this->weight;
-			$key = (string) $weight;
+			$key = (string)$weight;
 			if ( $key == '1' ) {
 				// such weights would have no effect
 				// we can ignore them.
 				continue;
 			}
 			if ( !isset( $weightToNs[$key] ) ) {
-				$weightToNs[$key] = [ $ns ];
+				$weightToNs[$key] = [
+					'weight' => $weight,
+					'ns' => [ $ns ]
+				];
 			} else {
-				$weightToNs[$key][] = $ns;
+				$weightToNs[$key]['ns'][] = $ns;
 			}
 		}
-		foreach( $weightToNs as $weight => $namespaces ) {
-			$filter = new \Elastica\Query\Terms( 'namespace', $namespaces );
-			$functionScore->addWeightFunction( $weight, $filter );
+		foreach ( $weightToNs as $weight => $namespacesAndWeight ) {
+			$filter = new \Elastica\Query\Terms( 'namespace', $namespacesAndWeight['ns'] );
+			$functionScore->addWeightFunction( $namespacesAndWeight['weight'], $filter );
 		}
 	}
 }
@@ -600,7 +697,7 @@ class IncomingLinksFunctionScoreBuilder extends FunctionScoreBuilder {
 	public function append( FunctionScore $functionScore ) {
 		// Backward compat code, allows to disable this function
 		// even if specified in the rescore profile
-		if( !$this->context->isBoostLinks() ) {
+		if ( !$this->context->isBoostLinks() ) {
 			return;
 		}
 		$functionScore->addFunction( 'field_value_factor', [
@@ -629,7 +726,7 @@ class CustomFieldFunctionScoreBuilder extends FunctionScoreBuilder {
 	 */
 	public function __construct( SearchContext $context, $weight, $profile ) {
 		parent::__construct( $context, $weight );
-		if ( isset ( $profile['factor'] ) ) {
+		if ( isset( $profile['factor'] ) ) {
 			$profile['factor'] = $this->getOverriddenFactor( $profile['factor'] );
 		}
 		$this->profile = $profile;
@@ -671,8 +768,8 @@ class LogScaleBoostFunctionScoreBuilder extends FunctionScoreBuilder {
 
 	/**
 	 * @param SearchContext $context
-	 * @param float         $weight
-	 * @param array         $profile
+	 * @param float $weight
+	 * @param array $profile
 	 * @throws InvalidRescoreProfileException
 	 */
 	public function __construct( SearchContext $context, $weight, $profile ) {
@@ -684,13 +781,13 @@ class LogScaleBoostFunctionScoreBuilder extends FunctionScoreBuilder {
 			throw new InvalidRescoreProfileException( 'midpoint is mandatory' );
 		}
 
-		if ( isset ( $profile['scale'] ) ) {
+		if ( isset( $profile['scale'] ) ) {
 			$this->scale = $this->getOverriddenFactor( $profile['scale'] );
 		} else {
 			throw new InvalidRescoreProfileException( 'scale is mandatory' );
 		}
 
-		if ( isset ( $profile['field' ] ) ) {
+		if ( isset( $profile['field' ] ) ) {
 			$this->field = $profile['field'];
 		} else {
 			throw new InvalidRescoreProfileException( 'field is mandatory' );
@@ -713,14 +810,14 @@ class LogScaleBoostFunctionScoreBuilder extends FunctionScoreBuilder {
 		// N²x² + (2N - M)x + 1 = 0
 		// so we we use the quadratic formula:
 		// (-(2N-M) + sqrt((2N-M)²-4N²)) / 2N²
-		if ( 4*$N >= $M ) {
+		if ( 4 * $N >= $M ) {
 			throw new InvalidRescoreProfileException( 'The midpoint point cannot be higher than scale/4' );
 		}
-		return ( -( 2*$N - $M ) + sqrt( (2 * $N - $M) * (2 * $N - $M) - 4 * $N * $N ) ) / (2 * $N * $N);
+		return ( -( 2 * $N - $M ) + sqrt( ( 2 * $N - $M ) * ( 2 * $N - $M ) - 4 * $N * $N ) ) / ( 2 * $N * $N );
 	}
 
 	public function append( FunctionScore $functionScore ) {
-		if( $this->impact == 0 ) {
+		if ( $this->impact == 0 ) {
 			return;
 		}
 		$formula = $this->getScript();
@@ -757,8 +854,8 @@ class SatuFunctionScoreBuilder extends FunctionScoreBuilder {
 
 	/**
 	 * @param SearchContext $context
-	 * @param float         $weight
-	 * @param array         $profile
+	 * @param float $weight
+	 * @param array $profile
 	 * @throws InvalidRescoreProfileException
 	 */
 	public function __construct( SearchContext $context, $weight, $profile ) {
@@ -818,8 +915,8 @@ class LogMultFunctionScoreBuilder extends FunctionScoreBuilder {
 
 	/**
 	 * @param SearchContext $context
-	 * @param float         $weight
-	 * @param array         $profile
+	 * @param float $weight
+	 * @param array $profile
 	 * @throws InvalidRescoreProfileException
 	 */
 	public function __construct( SearchContext $context, $weight, $profile ) {
@@ -874,8 +971,8 @@ class GeoMeanFunctionScoreBuilder extends FunctionScoreBuilder {
 
 	/**
 	 * @param SearchContext $context
-	 * @param float         $weight
-	 * @param array         $profile
+	 * @param float $weight
+	 * @param array $profile
 	 * @throws InvalidRescoreProfileException
 	 */
 	public function __construct( SearchContext $context, $weight, $profile ) {
@@ -897,7 +994,7 @@ class GeoMeanFunctionScoreBuilder extends FunctionScoreBuilder {
 		if ( !isset( $profile['members'] ) || !is_array( $profile['members'] ) ) {
 			throw new InvalidRescoreProfileException( 'members must be an array of arrays' );
 		}
-		foreach( $profile['members'] as $member ) {
+		foreach ( $profile['members'] as $member ) {
 			if ( !is_array( $member ) ) {
 				throw new InvalidRescoreProfileException( "members must be an array of arrays" );
 			}
@@ -907,7 +1004,7 @@ class GeoMeanFunctionScoreBuilder extends FunctionScoreBuilder {
 				$weight = $this->getOverriddenFactor( $member['weight'] );
 			}
 			$function = [ 'weight' => $weight ];
-			switch( $member['type'] ) {
+			switch ( $member['type'] ) {
 			case 'satu':
 				$function['script'] = new SatuFunctionScoreBuilder( $this->context, 1, $member['params'] );
 				break;
@@ -936,7 +1033,7 @@ class GeoMeanFunctionScoreBuilder extends FunctionScoreBuilder {
 		$formula .= "exp((";
 		$first = true;
 		$sumWeight = 0;
-		foreach( $this->scriptFunctions as $func ) {
+		foreach ( $this->scriptFunctions as $func ) {
 			if ( $first ) {
 				$first = false;
 			} else {

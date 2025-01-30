@@ -56,16 +56,16 @@ class SpecialUespPatreon extends SpecialPage
 	
 	public static $YEARLY_DISCOUNT = 0.10;			// TODO: Put in database?
 	
-	public static $REWARD_YEAR = 2022;				// TODO: Put in database?
-	public static $REWARD_YEAR_START = "20 October 2022";
-	public static $REWARD_YEAR_END = "30 June 2023";
-	public static $REWARD_CHARGE_DATE = "2 January 2022";
+	public static $REWARD_YEAR = 2024;				// TODO: Put in database?
+	public static $REWARD_YEAR_START = "1 September 2024";
+	public static $REWARD_YEAR_END = "30 June 2025";
+	public static $REWARD_CHARGE_DATE = "1 January 2024";	// Should be the first of the year if not a little sooner?
 	
 	public $accessToken = "";
 	public $lastPatronUpdate = 0;
 	
 		/* These are the default values only. Actual values are stored and loaded from the database */
-	public $orderSuffix = "22";
+	public $orderSuffix = "24";
 	public $orderIndex = array( "Iron" => 1, "Steel" => 1, "Elven" => 1, "Orcish" => 1, "Glass" => 1, "Daedric" => 1, "Other" => 1);
 	public $orderSku = array(
 			"Iron" => "UESPIron{suffix}",
@@ -544,9 +544,9 @@ class SpecialUespPatreon extends SpecialPage
 		$db = wfGetDB(DB_SLAVE);
 		
 		if ($this->inputShowOnlyUnprocessed)
-			$res = $db->select('patreon_shipment', '*', 'isProcessed = 0');
+			$res = $db->select(['patreon_shipment', 'patreon_user'], ['patreon_shipment.*', 'patreon_user.name'], 'isProcessed = 0', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.patreon_id' ] ]);
 		else
-			$res = $db->select('patreon_shipment', '*');
+			$res = $db->select(['patreon_shipment', 'patreon_user'], ['patreon_shipment.*', 'patreon_user.name'], '', __METHOD__, [], [ 'patreon_user' =>[ 'LEFT JOIN', 'patreon_shipment.patreon_id=patreon_user.patreon_id' ] ]);
 		
 		while ($row = $res->fetchRow()) {
 			$id = intval($row['id']);
@@ -879,6 +879,7 @@ class SpecialUespPatreon extends SpecialPage
 			if ($this->inputHideTierGlass && $row['tier'] == 'Glass') continue;
 			if ($this->inputHideTierDaedric && $row['tier'] == 'Daedric') continue;
 			if ($this->inputHideTierOther && $row['tier'] == '') continue;
+			if ($this->inputHideTierOther && $row['tier'] == 'Free') continue;
 			
 			$row['rewards'] = array();
 			$row['totalRewardValue'] = 0;
@@ -1796,6 +1797,20 @@ class SpecialUespPatreon extends SpecialPage
 	}
 	
 	
+	private function getPatronPublicName($patron)
+	{
+		//error_log("getPatronPublicName: " .  $patron['name'] . ":" . $patron['specialNote']);
+		
+		$result = preg_match('/private\((.*)\)/', $patron['specialNote'], $matches);
+		if ($result) return $matches[1];
+		
+		$result = preg_match('/private/', $patron['specialNote']);
+		if ($result) return "(Anonymous)";
+		
+		return $patron['name'];
+	}
+	
+	
 	private function showWikiList() {
 		$wgOut = $this->getOutput();
 		
@@ -1854,7 +1869,7 @@ class SpecialUespPatreon extends SpecialPage
 					$wikiText .= ";$tier Patrons (cont'd)\n";
 				}
 				
-				$name = $this->escapeHtml($patron['name']);
+				$name = $this->escapeHtml($this->getPatronPublicName($patron));
 				$wikiText .= ":$name\n";
 			}
 		}
@@ -2080,8 +2095,8 @@ class SpecialUespPatreon extends SpecialPage
 		{
 			if ($patron['addressName'] == "" || $patron['addressLine1'] == "" || $patron['addressCountry'] == "") continue;
 			
-			$lastChargeDate = new DateTime($patron['lastChargeDate']);
-			if ($lastChargeDate < $rewardChargeDate) continue;
+			//$lastChargeDate = new DateTime($patron['lastChargeDate']);
+			//if ($lastChargeDate < $rewardChargeDate) continue;
 			
 			$yearRewardData = $this->getYearlyRewardData($patron['rewards']);
 			if ($yearRewardData['count'] > 0) continue;
@@ -2097,7 +2112,7 @@ class SpecialUespPatreon extends SpecialPage
 	{
 		global $wgOut;
 		
-		if (!$this->hasPermission("view")) 
+		if (!$this->hasPermission("view"))
 		{
 			$wgOut->addHTML("Permission Denied!");
 			return;
@@ -2112,7 +2127,7 @@ class SpecialUespPatreon extends SpecialPage
 		$this->loadInfo();
 		$patrons = $this->loadAllPatronDataDB(true, true, false);
 		
-		if ($patrons == null || count($patrons) == 0) 
+		if ($patrons == null || count($patrons) == 0)
 		{
 			$wgOut->addHTML("No patrons found!");
 			return;
@@ -3121,6 +3136,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<th>SKU</th>");
 		$wgOut->addHTML("<th>Qnt</th>");
 		$wgOut->addHTML("<th>Ship Method</th>");
+		$wgOut->addHTML("<th>Patron</th>");
 		$wgOut->addHTML("<th>Addressee</th>");
 		$wgOut->addHTML("<th>Line 1</th>");
 		$wgOut->addHTML("<th>Line 2</th>");
@@ -3154,8 +3170,11 @@ class SpecialUespPatreon extends SpecialPage
 			$addressPhone = $this->escapeHtml($shipment['addressPhone']);
 			$email = $this->escapeHtml($shipment['email']);
 			$emailText = "<a href='mailto:$email' target='_blank'><small>$email</small></a>";
-			
 			$checkbox = "<input type='checkbox' name='shipmentids[]' class='uesppatShipmentRowCheckbox' value='$id'/>";
+			
+			$patron =  $this->escapeHtml($shipment['name']);
+			$userLink = $this->getLink("viewpatron", "patronid={$shipment['patreon_id']}");
+			if ($showPatronLink) $patron = "<a href='$userLink'>$patron</a>";
 			
 			$processClass = "";
 			
@@ -3181,20 +3200,21 @@ class SpecialUespPatreon extends SpecialPage
 			$wgOut->addHTML("<td>$index</td>");
 			$wgOut->addHTML("<td class='$processClass'>$isProcessed</td>");
 			$wgOut->addHTML("<td><small>$createDate</small></td>");
-			$wgOut->addHTML("<td>$orderNumber</td>");
+			$wgOut->addHTML("<td><small>$orderNumber</small></td>");
 			$wgOut->addHTML("<td>$orderSku</td>");
 			$wgOut->addHTML("<td>$orderQnt</td>");
-			$wgOut->addHTML("<td>$shipMethod</td>");
-			$wgOut->addHTML("<td>$addressName</td>");
+			$wgOut->addHTML("<td><small>$shipMethod</small></td>");
+			$wgOut->addHTML("<td><small>$patron</small></td>");
+			$wgOut->addHTML("<td><small>$addressName</small></td>");
 			$wgOut->addHTML("<td><small>$addressLine1</small></td>");
 			$wgOut->addHTML("<td><small>$addressLine2</small></td>");
-			$wgOut->addHTML("<td>$addressCity</td>");
-			$wgOut->addHTML("<td>$addressState</td>");
-			$wgOut->addHTML("<td>$addressZip</td>");
-			$wgOut->addHTML("<td>$addressCountry</td>");
+			$wgOut->addHTML("<td><small>$addressCity</small></td>");
+			$wgOut->addHTML("<td><small>$addressState</small></td>");
+			$wgOut->addHTML("<td><small>$addressZip</small></td>");
+			$wgOut->addHTML("<td><small>$addressCountry</small></td>");
 			$wgOut->addHTML("<td>$emailText</td>");
 			$wgOut->addHTML("<td><small>$addressPhone</small></td>");
-			$wgOut->addHTML("<td><a href='$editLink'>Edit</a> &nbsp; &nbsp; <a href='$rewardsLink'>Rewards</a> &nbsp; &nbsp; $patronLink</td>");
+			$wgOut->addHTML("<td><a href='$editLink'>Edit</a> &nbsp; &nbsp; <a href='$rewardsLink'>Rewards</a></td>");
 			$wgOut->addHTML("</tr>");
 			
 			++$index;
@@ -3465,6 +3485,7 @@ class SpecialUespPatreon extends SpecialPage
 		$wgOut->addHTML("<p/>");
 		$viewLink = $this->getLink("viewshipment");
 		$wgOut->addHTML("<a href='$viewLink'>View Shipments</a>");
+		$wgOut->addHTML(" &nbsp; <a href='$viewLink?onlyunprocess=1'>View Unprocessed Shipments</a>");
 		
 		return true;
 	}
@@ -4531,7 +4552,7 @@ class SpecialUespPatreon extends SpecialPage
 			$shirtSize = $patron['shirtSize'];
 			if ($shirtSize == "?") $shirtSize = "";
 			
-			if ($shirtSizeTiers[$tier]) 
+			if ($shirtSizeTiers[$tier])
 			{
 				$shirtSizes[$shirtSize]++;
 				$totalShirtCount++;

@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"RobinHood70"
+		]
+	},
+	"nsinfo-nslink-emptypagename": "Invalid link - page name is empty.",
+	"nsinfo-tracking-variable": "Uses Deprecated Namespace Variable",
+	"nsinfo-tracking-variable-desc": "The page uses a deprecated NSInfo variable (e.g., <code><nowiki>{{NS_FULL}}</nowiki></code>) instead of the equivalent parser function (e.g., <code><nowiki>{{NS_FULL:}}</nowiki></code>)."
+}

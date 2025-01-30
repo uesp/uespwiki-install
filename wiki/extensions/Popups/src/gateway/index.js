@@ -1,19 +1,45 @@
+import constants from '../constants';
+import createMediaWikiApiGateway from './mediawiki';
+import createRESTBaseGateway from './rest';
+import * as formatters from './restFormatters';
+
+var mw = mediaWiki,
+	$ = jQuery;
+
+// Note that this interface definition is in the global scope.
 /**
- * Interface for API gateway that fetches page summary
+ * The interface implemented by all preview gateways.
  *
- * @interface ext.popups.Gateway
+ * @interface Gateway
  */
 
 /**
- * Returns a preview model fetched from the api
+ * Fetches a preview for a page.
+ *
+ * If the underlying request is successful and contains data about the page,
+ * then the resulting promise will resolve. If not, then it will reject.
+ *
  * @function
- * @name ext.popups.Gateway#getPageSummary
- * @param {String} title Page title we're querying
- * @returns {jQuery.Promise} that resolves with {ext.popups.PreviewModel}
- * if the request is successful and the response is not empty; otherwise
- * it rejects.
+ * @name Gateway#getPageSummary
+ * @param {String} title The title of the page
+ * @returns {jQuery.Promise<PreviewModel>}
  */
-module.exports = {
-	createMediaWikiApiGateway: require( './mediawiki' ),
-	createRESTBaseGateway: require( './rest' )
-};
+
+/**
+ * Creates a gateway with sensible values for the dependencies.
+ *
+ * @param {mw.Map} config
+ * @return {Gateway}
+ */
+export default function createGateway( config ) {
+	switch ( config.get( 'wgPopupsGateway' ) ) {
+		case 'mwApiPlain':
+			return createMediaWikiApiGateway( new mw.Api(), constants );
+		case 'restbasePlain':
+			return createRESTBaseGateway( $.ajax, constants, formatters.parsePlainTextResponse );
+		case 'restbaseHTML':
+			return createRESTBaseGateway( $.ajax, constants, formatters.parseHTMLResponse );
+		default:
+			throw new Error( 'Unknown gateway' );
+	}
+}

@@ -1,6 +1,5 @@
 <?php
-/*
-* This file is part of the MediaWiki extension Popups.
+/** This file is part of the MediaWiki extension Popups.
 *
 * Popups is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -46,11 +45,11 @@ class PopupsGadgetsIntegration {
 	/**
 	 * PopupsGadgetsIntegration constructor.
 	 *
-	 * @param Config $config
-	 * @param ExtensionRegistry $extensionRegistry
+	 * @param Config $config MediaWiki configuration
+	 * @param ExtensionRegistry $extensionRegistry MediaWiki extension registry
 	 */
-	public function __construct( Config $config , ExtensionRegistry $extensionRegistry ) {
-		$this->extensionRegistry =  $extensionRegistry;
+	public function __construct( Config $config, ExtensionRegistry $extensionRegistry ) {
+		$this->extensionRegistry = $extensionRegistry;
 		$this->navPopupsGadgetName = $this->sanitizeGadgetName(
 			$config->get( self::CONFIG_NAVIGATION_POPUPS_NAME ) );
 	}
@@ -75,7 +74,7 @@ class PopupsGadgetsIntegration {
 	 * Check if Page Previews conflicts with Nav Popups Gadget
 	 * If user enabled Nav Popups PagePreviews are not available
 	 *
-	 * @param \User $user
+	 * @param \User $user User whose gadget settings are checked
 	 * @return bool
 	 */
 	public function conflictsWithNavPopupsGadget( \User $user ) {

@@ -4,15 +4,15 @@
 # This file contains extension includes and settings.
 # It is included by LocalSettings.php.
 #
+# error_reporting(E_ALL ^ E_NOTICE);
 
-
-$wgDebugComments = true;
-$wgDebugToolbar = true;
-$wgUseSquid = false;
-$wgShowSQLErrors = true;
-$wgShowExceptionDetails = true;
-$wgDevelopmentWarnings = true;
-
+//$wgDebugComments = true;
+//$wgDebugToolbar = true;
+//$wgUseSquid = false;
+//$wgShowSQLErrors = true;
+//$wgShowExceptionDetails = true;
+//$wgDevelopmentWarnings = true;
+/*
 $wgDebugLogGroups = array(
 	'resourceloader' => '/var/log/httpd/mwresourceloader.log',
 	'exception' => '/var/log/httpd/mwexception.log',

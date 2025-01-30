@@ -103,6 +103,28 @@ class ResultSet extends SearchResultSet {
 	}
 
 	/**
+	 * Copy object state into another object
+	 *
+	 * Copies the state of this object into another class
+	 * (likely extendde from this class). Used in place of a decorator
+	 * because core does not expose an interface for this, and we cannot
+	 * otherwise satisfy type constraints matching this class.
+	 *
+	 * @param ResultSet $other
+	 */
+	protected function copyTo( ResultSet $other ) {
+		$other->result = $this->result;
+		$other->hits = $this->hits;
+		$other->totalHits = $this->totalHits;
+		$other->suggestionQuery = $this->suggestionQuery;
+		$other->suggestionSnippet = $this->suggestionSnippet;
+		$other->searchContainedSyntax = $this->searchContainedSyntax;
+		$other->interwikiResults = $this->interwikiResults;
+		$other->rewrittenQuery = $this->rewrittenQuery;
+		$other->rewrittenQuerySnippet = $this->rewrittenQuerySnippet;
+	}
+
+	/**
 	 * Is rewriting this query OK?
 	 *
 	 * @param int $threshold Minimum number of results to reach before rewriting is not allowed.
@@ -189,7 +211,6 @@ class ResultSet extends SearchResultSet {
 		$lb = new LinkBatch;
 		foreach ( $resultSet->getResults() as $result ) {
 			if ( !TitleHelper::isExternal( $result ) ) {
-
 				$lb->add( $result->namespace, $result->title );
 			}
 		}
@@ -266,7 +287,7 @@ class ResultSet extends SearchResultSet {
 	 * @return SearchResultSet[]
 	 */
 	public function getInterwikiResults( $type = SearchResultSet::SECONDARY_RESULTS ) {
-		return isset($this->interwikiResults[$type]) ? $this->interwikiResults[$type] : [];
+		return isset( $this->interwikiResults[$type] ) ? $this->interwikiResults[$type] : [];
 	}
 
 	/**
@@ -274,7 +295,7 @@ class ResultSet extends SearchResultSet {
 	 * @return bool
 	 */
 	public function hasInterwikiResults( $type = SearchResultSet::SECONDARY_RESULTS ) {
-		return isset($this->interwikiResults[$type]);
+		return isset( $this->interwikiResults[$type] );
 	}
 
 	/**
@@ -288,7 +309,7 @@ class ResultSet extends SearchResultSet {
 	 * @param string $newQuery
 	 * @param string|null $newQuerySnippet
 	 */
-	public function setRewrittenQuery($newQuery, $newQuerySnippet=null) {
+	public function setRewrittenQuery( $newQuery, $newQuerySnippet=null ) {
 		$this->rewrittenQuery = $newQuery;
 		$this->rewrittenQuerySnippet = $newQuerySnippet ?: htmlspecialchars( $newQuery );
 	}

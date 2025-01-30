@@ -1,8 +1,12 @@
+/**
+ * @module actions
+ */
+
+import types from './actionTypes';
+import wait from './wait';
+
 var $ = jQuery,
 	mw = window.mediaWiki,
-	actions = {},
-	types = require( './actionTypes' ),
-	wait = require( './wait' ),
 
 	// See the following for context around this value.
 	//
@@ -54,7 +58,7 @@ function timedAction( baseAction ) {
  *  i.e. `mw.config`
  * @returns {Object}
  */
-actions.boot = function (
+export function boot(
 	isEnabled,
 	user,
 	userSettings,
@@ -81,19 +85,21 @@ actions.boot = function (
 			previewCount: previewCount
 		}
 	};
-};
+}
 
 /**
  * Represents Page Previews fetching data via the gateway.
  *
- * @param {ext.popups.Gateway} gateway
+ * @param {Gateway} gateway
+ * @param {mw.Title} title
  * @param {Element} el
  * @param {String} token The unique token representing the link interaction that
  *  triggered the fetch
  * @return {Redux.Thunk}
  */
-actions.fetch = function ( gateway, el, token ) {
-	var title = $( el ).data( 'page-previews-title' );
+export function fetch( gateway, title, el, token ) {
+	var titleText = title.getPrefixedDb(),
+		namespaceID = title.namespace;
 
 	return function ( dispatch ) {
 		var request;
@@ -101,10 +107,11 @@ actions.fetch = function ( gateway, el, token ) {
 		dispatch( timedAction( {
 			type: types.FETCH_START,
 			el: el,
-			title: title
+			title: titleText,
+			namespaceID: namespaceID
 		} ) );
 
-		request = gateway.getPageSummary( title )
+		request = gateway.getPageSummary( titleText )
 			.then( function ( result ) {
 				dispatch( timedAction( {
 					type: types.FETCH_END,
@@ -113,6 +120,9 @@ actions.fetch = function ( gateway, el, token ) {
 
 				return result;
 			} )
+			// FIXME: Convert to Promises A/A+ when "T124742: Upgrade to jQuery 3" is
+			// fully rolled out by changing fail to catch, and re-throwing the error
+			// to keep the promise in a rejected state.
 			.fail( function () {
 				dispatch( {
 					type: types.FETCH_FAILED,
@@ -120,7 +130,7 @@ actions.fetch = function ( gateway, el, token ) {
 				} );
 			} );
 
-		$.when( request, wait( FETCH_COMPLETE_TARGET_DELAY - FETCH_START_DELAY ) )
+		return $.when( request, wait( FETCH_COMPLETE_TARGET_DELAY - FETCH_START_DELAY ) )
 			.then( function ( result ) {
 				dispatch( timedAction( {
 					type: types.FETCH_COMPLETE,
@@ -130,27 +140,32 @@ actions.fetch = function ( gateway, el, token ) {
 				} ) );
 			} );
 	};
-};
+}
 
 /**
  * Represents the user dwelling on a link, either by hovering over it with
  * their mouse or by focussing it using their keyboard or an assistive device.
  *
+ * @param {mw.Title} title
  * @param {Element} el
  * @param {Event} event
- * @param {ext.popups.Gateway} gateway
+ * @param {Gateway} gateway
  * @param {Function} generateToken
  * @return {Redux.Thunk}
  */
-actions.linkDwell = function ( el, event, gateway, generateToken ) {
-	var token = generateToken();
+export function linkDwell( title, el, event, gateway, generateToken ) {
+	var token = generateToken(),
+		titleText = title.getPrefixedDb(),
+		namespaceID = title.namespace;
 
 	return function ( dispatch, getState ) {
 		var action = timedAction( {
 			type: types.LINK_DWELL,
 			el: el,
 			event: event,
-			token: token
+			token: token,
+			title: titleText,
+			namespaceID: namespaceID
 		} );
 
 		// Has the new generated token been accepted?
@@ -169,11 +184,11 @@ actions.linkDwell = function ( el, event, gateway, generateToken ) {
 				var previewState = getState().preview;
 
 				if ( previewState.enabled && isNewInteraction() ) {
-					dispatch( actions.fetch( gateway, el, token ) );
+					dispatch( fetch( gateway, title, el, token ) );
 				}
 			} );
 	};
-};
+}
 
 /**
  * Represents the user abandoning a link, either by moving their mouse away
@@ -183,7 +198,7 @@ actions.linkDwell = function ( el, event, gateway, generateToken ) {
  *
  * @return {Redux.Thunk}
  */
-actions.abandon = function () {
+export function abandon() {
 	return function ( dispatch, getState ) {
 		var token = getState().preview.activeToken;
 
@@ -204,7 +219,7 @@ actions.abandon = function () {
 				} );
 			} );
 	};
-};
+}
 
 /**
  * Represents the user clicking on a link with their mouse, keyboard, or an
@@ -213,23 +228,23 @@ actions.abandon = function () {
  * @param {Element} el
  * @return {Object}
  */
-actions.linkClick = function ( el ) {
+export function linkClick( el ) {
 	return timedAction( {
 		type: types.LINK_CLICK,
 		el: el
 	} );
-};
+}
 
 /**
  * Represents the user dwelling on a preview with their mouse.
  *
  * @return {Object}
  */
-actions.previewDwell = function () {
+export function previewDwell() {
 	return {
 		type: types.PREVIEW_DWELL
 	};
-};
+}
 
 /**
  * Represents a preview being shown to the user.
@@ -240,12 +255,12 @@ actions.previewDwell = function () {
  * @param {String} token
  * @return {Object}
  */
-actions.previewShow = function ( token ) {
+export function previewShow( token ) {
 	return timedAction( {
 		type: types.PREVIEW_SHOW,
 		token: token
 	} );
-};
+}
 
 /**
  * Represents the user clicking either the "Enable previews" footer menu link,
@@ -253,22 +268,22 @@ actions.previewShow = function ( token ) {
  *
  * @return {Object}
  */
-actions.showSettings = function () {
+export function showSettings() {
 	return {
 		type: types.SETTINGS_SHOW
 	};
-};
+}
 
 /**
  * Represents the user closing the settings dialog and saving their settings.
  *
  * @return {Object}
  */
-actions.hideSettings = function () {
+export function hideSettings() {
 	return {
 		type: types.SETTINGS_HIDE
 	};
-};
+}
 
 /**
  * Represents the user saving their settings.
@@ -285,7 +300,7 @@ actions.hideSettings = function () {
  * @param {Boolean} enabled if previews are enabled or not
  * @return {Redux.Thunk}
  */
-actions.saveSettings = function ( enabled ) {
+export function saveSettings( enabled ) {
 	return function ( dispatch, getState ) {
 		dispatch( {
 			type: types.SETTINGS_CHANGE,
@@ -293,19 +308,21 @@ actions.saveSettings = function ( enabled ) {
 			enabled: enabled
 		} );
 	};
-};
+}
 
 /**
  * Represents the queued event being logged `changeListeners/eventLogging.js`
  * change listener.
  *
+ * @param {Object} event
  * @return {Object}
  */
-actions.eventLogged = function () {
+export function eventLogged( event ) {
 	return {
-		type: types.EVENT_LOGGED
+		type: types.EVENT_LOGGED,
+		event: event
 	};
-};
+}
 
 /**
  * Represents the queued statsv event being logged.
@@ -313,9 +330,8 @@ actions.eventLogged = function () {
  *
  * @return {Object}
  */
-actions.statsvLogged = function () {
+export function statsvLogged() {
 	return {
 		type: types.STATSV_LOGGED
 	};
-};
-module.exports = actions;
+}

@@ -18,8 +18,11 @@
  * @file
  * @ingroup extensions
  */
+
 use Popups\PopupsContext;
 use Popups\PopupsGadgetsIntegration;
+use Popups\EventLogging\EventLogger;
+use Popups\EventLogging\NullLogger;
 
 /**
  * Create an initializable Popups context.
@@ -37,17 +40,19 @@ class PopupsContextTestWrapper extends PopupsContext {
 	/**
 	 * Override constructor so we can create new instances for testing.
 	 *
-	 * @param Config $config
-	 * @param ExtensionRegistry $extensionRegistry
-	 * @param PopupsGadgetsIntegration|null $gadgetsIntegration
+	 * @param Config $config MediaWiki config
+	 * @param ExtensionRegistry $extensionRegistry MediaWiki extension registry
+	 * @param PopupsGadgetsIntegration|null $gadgetsIntegration Gadgets integration helper
+	 * @param EventLogger|null $eventLogger EventLogger
 	 */
 	public function __construct( Config $config, ExtensionRegistry $extensionRegistry,
-		PopupsGadgetsIntegration $gadgetsIntegration = null ) {
-
+		PopupsGadgetsIntegration $gadgetsIntegration = null,
+		EventLogger $eventLogger = null ) {
 		$gadgetsIntegration = $gadgetsIntegration ? $gadgetsIntegration :
 			new PopupsGadgetsIntegration( $config, $extensionRegistry );
+		$eventLogger = $eventLogger ? $eventLogger : new NullLogger();
 
-		parent::__construct( $config, $extensionRegistry, $gadgetsIntegration );
+		parent::__construct( $config, $extensionRegistry, $gadgetsIntegration, $eventLogger );
 	}
 
 	/**
@@ -60,7 +65,7 @@ class PopupsContextTestWrapper extends PopupsContext {
 	/**
 	 * Override cached instance
 	 *
-	 * @param PopupsContext $testInstance
+	 * @param PopupsContext $testInstance PopupsContext/Mock class to test
 	 */
 	public static function injectTestInstance( PopupsContext $testInstance ) {
 		self::$instance = $testInstance;

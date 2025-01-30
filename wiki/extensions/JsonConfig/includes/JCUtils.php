@@ -15,7 +15,8 @@ use StubUserLang;
 class JCUtils {
 
 	/**
-	 * Uses wfLogWarning() to report an error. All complex arguments are escaped with FormatJson::encode()
+	 * Uses wfLogWarning() to report an error.
+	 * All complex arguments are escaped with FormatJson::encode()
 	 * @param string $msg
 	 * @param mixed|array $vals
 	 * @param bool|array $query
@@ -94,7 +95,8 @@ class JCUtils {
 				self::warn( 'Failed to login', [
 						'url' => $url,
 						'user' => $username,
-						'result' => isset( $res['login']['result'] ) ? $res['login']['result'] : '???'
+						'result' => isset( $res['login']['result'] )
+							? $res['login']['result'] : '???'
 				] );
 				$req = false;
 			}
@@ -123,7 +125,9 @@ class JCUtils {
 				[ 'warnings' => $res['warnings'] ], $query );
 		}
 		if ( isset( $res['error'] ) ) {
-			self::warn( 'API call failed trying to ' . $debugMsg, [ 'error' => $res['error'] ], $query );
+			self::warn(
+				'API call failed trying to ' . $debugMsg, [ 'error' => $res['error'] ], $query
+			);
 			return false;
 		}
 		return $res;
@@ -137,7 +141,7 @@ class JCUtils {
 	 */
 	public static function isList( $value ) {
 		return is_array( $value ) &&
-		       count( array_filter( array_keys( $value ), 'is_int' ) ) === count( $value );
+			count( array_filter( array_keys( $value ), 'is_int' ) ) === count( $value );
 	}
 
 	/**
@@ -148,7 +152,7 @@ class JCUtils {
 	 */
 	public static function isDictionary( $value ) {
 		return is_array( $value ) &&
-		       count( array_filter( array_keys( $value ), 'is_string' ) ) === count( $value );
+			count( array_filter( array_keys( $value ), 'is_string' ) ) === count( $value );
 	}
 
 	/**
@@ -157,18 +161,19 @@ class JCUtils {
 	 * @return bool
 	 */
 	public static function allValuesAreStrings( $array ) {
-		return is_array( $array ) && count( array_filter( $array, 'is_string' ) ) === count( $array );
+		return is_array( $array )
+			&& count( array_filter( $array, 'is_string' ) ) === count( $array );
 	}
 
 	/** Helper function to check if the given value is a valid string no longer than maxlength,
 	 * that it has no tabs or new line chars, and that it does not begin or end with spaces
-	 * @param $str
+	 * @param string $str
 	 * @param int $maxlength
 	 * @return bool
 	 */
 	public static function isValidLineString( $str, $maxlength ) {
 		return is_string( $str ) && mb_strlen( $str ) <= $maxlength &&
-			   !preg_match( '/^\s|[\r\n\t]|\s$/', $str );
+			!preg_match( '/^\s|[\r\n\t]|\s$/', $str );
 	}
 
 	/**
@@ -185,7 +190,9 @@ class JCUtils {
 			} elseif ( is_string( $fld ) ) {
 				$res .= $res !== '' ? ( '/' . $fld ) : $fld;
 			} else {
-				throw new Exception( 'Unexpected field type, only strings and integers are allowed' );
+				throw new Exception(
+					'Unexpected field type, only strings and integers are allowed'
+				);
 			}
 		}
 		return $res === '' ? '/' : $res;
@@ -257,8 +264,8 @@ class JCUtils {
 	 */
 	public static function isLocalizedArray( $arr, $maxlength ) {
 		if ( is_array( $arr ) &&
-			   $arr &&
-			   self::isListOfLangs( array_keys( $arr ) )
+			$arr &&
+			self::isListOfLangs( array_keys( $arr ) )
 		) {
 			$validStrCount = count( array_filter( $arr, function ( $str ) use ( $maxlength ) {
 				return self::isValidLineString( $str, $maxlength );

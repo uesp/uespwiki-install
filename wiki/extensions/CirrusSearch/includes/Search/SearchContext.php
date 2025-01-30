@@ -45,7 +45,7 @@ class SearchContext {
 	private $boostTemplatesFromQuery;
 
 	/**
-	 * @var array set of per-wiki template boosts from extra index handling
+	 * @var array[] set of per-wiki template boosts from extra index handling
 	 */
 	private $extraIndexBoostTemplates = [];
 
@@ -173,6 +173,11 @@ class SearchContext {
 	private $originalSearchTerm;
 
 	/**
+	 * @var string The users search term with keywords removed
+	 */
+	private $cleanedSearchTerm;
+
+	/**
 	 * @var Escaper $escaper
 	 */
 	private $escaper;
@@ -200,14 +205,39 @@ class SearchContext {
 	private $fulltextQueryBuilderProfile;
 
 	/**
+	 * @var bool Have custom options that effect the search results been set
+	 *  outside the defaults from config?
+	 */
+	private $isDirty = false;
+
+	/**
 	 * @param SearchConfig $config
 	 * @param int[]|null $namespaces
 	 */
 	public function __construct( SearchConfig $config, array $namespaces = null ) {
 		$this->config = $config;
 		/** @suppress PhanDeprecatedProperty */
-		$this->boostLinks = $this->config->get( 'CirrusSearchBoostLinks' );
 		$this->namespaces = $namespaces;
+		$this->loadConfig();
+	}
+
+	/**
+	 * Return a copy of this context with a new configuration.
+	 *
+	 * @param SearchConfig $config The new configuration
+	 * @return SearchContext
+	 */
+	public function withConfig( SearchConfig $config ) {
+		$other = clone $this;
+		$other->config = $config;
+		$other->loadConfig();
+
+		return $other;
+	}
+
+	private function loadConfig() {
+		/** @suppress PhanDeprecatedProperty */
+		$this->boostLinks = $this->config->get( 'CirrusSearchBoostLinks' );
 		$this->rescoreProfile = $this->config->get( 'CirrusSearchRescoreProfile' );
 		$this->fulltextQueryBuilderProfile = $this->config->get( 'CirrusSearchFullTextQueryBuilderProfile' );
 
@@ -216,13 +246,23 @@ class SearchContext {
 			$this->preferRecentDecayPortion = $decay;
 			$this->preferRecentHalfLife = $this->config->get( 'CirrusSearchPreferRecentDefaultHalfLife' );
 		}
-		$this->escaper = new Escaper( $config->get( 'LanguageCode' ), $config->get( 'CirrusSearchAllowLeadingWildcard' ) );
+		$this->escaper = new Escaper( $this->config->get( 'LanguageCode' ), $this->config->get( 'CirrusSearchAllowLeadingWildcard' ) );
 	}
 
 	public function __clone() {
 		if ( $this->mainQuery ) {
 			$this->mainQuery = clone $this->mainQuery;
 		}
+	}
+
+	/**
+	 * Have custom options that effect the search results been set outside the
+	 * defaults from config?
+	 *
+	 * @return bool
+	 */
+	public function isDirty() {
+		return $this->isDirty;
 	}
 
 	/**
@@ -248,6 +288,7 @@ class SearchContext {
 	 * @param int[]|null $namespaces array of integer
 	 */
 	public function setNamespaces( $namespaces ) {
+		$this->isDirty = true;
 		$this->namespaces = $namespaces;
 	}
 
@@ -268,13 +309,14 @@ class SearchContext {
 	 *  null indicates the default template boosts should be used.
 	 */
 	public function setBoostTemplatesFromQuery( $boostTemplatesFromQuery ) {
+		$this->isDirty = true;
 		$this->boostTemplatesFromQuery = $boostTemplatesFromQuery;
 	}
 
 	/**
 	 * Returns list of boosted templates specified by extra indexes query.
 	 *
-	 * @return array Map from wiki id to list of templates to boost
+	 * @return array[] Map from wiki id to list of templates to boost
 	 *  within that wiki
 	 */
 	public function getExtraIndexBoostTemplates() {
@@ -282,10 +324,11 @@ class SearchContext {
 	}
 
 	/**
-	 * @param string $index Index to boost templates within
-	 * @param array Map from template name to weight to apply to that template
+	 * @param string $wiki Index to boost templates within
+	 * @param float[] $extraIndexBoostTemplates Map from template name to weight to apply to that template
 	 */
 	public function addExtraIndexBoostTemplates( $wiki, array $extraIndexBoostTemplates ) {
+		$this->isDirty = true;
 		$this->extraIndexBoostTemplates[$wiki] = $extraIndexBoostTemplates;
 	}
 
@@ -294,6 +337,7 @@ class SearchContext {
 	 * @param bool $boostLinks Deactivate IncomingLinksFunctionScoreBuilder if present in the rescore profile
 	 */
 	public function setBoostLinks( $boostLinks ) {
+		$this->isDirty = true;
 		/** @suppress PhanDeprecatedProperty */
 		$this->boostLinks = $boostLinks;
 	}
@@ -314,10 +358,10 @@ class SearchContext {
 	 * @param float $preferRecentHalfLife
 	 */
 	public function setPreferRecentOptions( $preferRecentDecayPortion, $preferRecentHalfLife ) {
+		$this->isDirty = true;
 		$this->preferRecentDecayPortion = $preferRecentDecayPortion;
 		$this->preferRecentHalfLife = $preferRecentHalfLife;
 	}
-
 
 	/**
 	 * @return bool true if preferRecent options have been set.
@@ -355,6 +399,7 @@ class SearchContext {
 	 * @param string $rescoreProfile the rescore profile to use
 	 */
 	public function setRescoreProfile( $rescoreProfile ) {
+		$this->isDirty = true;
 		$this->rescoreProfile = $rescoreProfile;
 	}
 
@@ -370,6 +415,7 @@ class SearchContext {
 	 *  if not called.
 	 */
 	public function setResultsPossible( $possible ) {
+		$this->isDirty = true;
 		$this->resultsPossible = $possible;
 	}
 
@@ -385,7 +431,7 @@ class SearchContext {
 	}
 
 	/**
-	 * @return boolean true if a special keyword was used in the query
+	 * @return bool true if a special keyword was used in the query
 	 */
 	public function isSpecialKeywordUsed() {
 		// full_text is not considered a special keyword
@@ -412,11 +458,12 @@ class SearchContext {
 
 	/**
 	 * @param string $feature Name of a syntax feature used in the query string
-	 * @param int    $weight How "complex" is this feature.
+	 * @param int $weight How "complex" is this feature.
 	 */
 	public function addSyntaxUsed( $feature, $weight = null ) {
+		$this->isDirty = true;
 		if ( is_null( $weight ) ) {
-			if(isset(self::$syntaxWeights[$feature])) {
+			if ( isset( self::$syntaxWeights[$feature] ) ) {
 				$weight = self::$syntaxWeights[$feature];
 			} else {
 				$weight = 1;
@@ -462,6 +509,7 @@ class SearchContext {
 	 * @param AbstractQuery $filter Query results must match this filter
 	 */
 	public function addFilter( AbstractQuery $filter ) {
+		$this->isDirty = true;
 		$this->filters[] = $filter;
 	}
 
@@ -469,6 +517,7 @@ class SearchContext {
 	 * @param AbstractQuery $filter Query results must not match this filter
 	 */
 	public function addNotFilter( AbstractQuery $filter ) {
+		$this->isDirty = true;
 		$this->notFilters[] = $filter;
 	}
 
@@ -476,6 +525,7 @@ class SearchContext {
 	 * @param bool $isFuzzy is this a fuzzy query?
 	 */
 	public function setFuzzyQuery( $isFuzzy ) {
+		$this->isDirty = true;
 		$this->fuzzyQuery = $isFuzzy;
 	}
 
@@ -483,6 +533,7 @@ class SearchContext {
 	 * @return bool is this a fuzzy query?
 	 */
 	public function isFuzzyQuery() {
+		$this->isDirty = true;
 		return $this->fuzzyQuery;
 	}
 
@@ -492,6 +543,7 @@ class SearchContext {
 	 *  configuration.
 	 */
 	public function addHighlightSource( array $config ) {
+		$this->isDirty = true;
 		$this->highlightSource[] = $config;
 	}
 
@@ -500,6 +552,7 @@ class SearchContext {
 	 *  from the query used for selecting.
 	 */
 	public function setHighlightQuery( AbstractQuery $query ) {
+		$this->isDirty = true;
 		$this->highlightQuery = $query;
 	}
 
@@ -509,6 +562,7 @@ class SearchContext {
 	 * for regular quoted strings).
 	 */
 	public function addNonTextHighlightQuery( AbstractQuery $query ) {
+		$this->isDirty = true;
 		$this->nonTextHighlightQueries[] = $query;
 	}
 
@@ -547,7 +601,7 @@ class SearchContext {
 		}
 
 		$bool = new \Elastica\Query\BoolQuery();
-		if ( $this->highlightQuery) {
+		if ( $this->highlightQuery ) {
 			$bool->addShould( $this->highlightQuery );
 		}
 		foreach ( $this->nonTextHighlightQueries as $nonTextHighlightQuery ) {
@@ -585,6 +639,7 @@ class SearchContext {
 	 *  to be an Elastica query.
 	 */
 	public function addRescore( array $rescore ) {
+		$this->isDirty = true;
 		$this->rescore[] = $rescore;
 	}
 
@@ -594,6 +649,7 @@ class SearchContext {
 	 * have been added.
 	 */
 	public function clearRescore() {
+		$this->isDirty = true;
 		$this->rescore = [];
 	}
 
@@ -602,6 +658,7 @@ class SearchContext {
 	 *  query needs to be an Elastica query.
 	 */
 	public function mergeRescore( $rescores ) {
+		$this->isDirty = true;
 		$this->rescore = array_merge( $this->rescore, $rescores );
 	}
 
@@ -616,6 +673,10 @@ class SearchContext {
 	 * @param string $prefix Prefix to be prepended to suggestions
 	 */
 	public function addSuggestPrefix( $prefix ) {
+		// This intentionally does not update the dirty state. It's a bit
+		// unrelated .. but it has no practical effect on the search it
+		// is only used by certain result types to adjust the way output
+		// is represented.
 		$this->suggestPrefixes[] = $prefix;
 	}
 
@@ -630,6 +691,7 @@ class SearchContext {
 	 * @param string $suffix Suffix to be appended to suggestions
 	 */
 	public function addSuggestSuffix( $suffix ) {
+		$this->isDirty = true;
 		$this->suggestSuffixes[] = $suffix;
 	}
 
@@ -660,7 +722,6 @@ class SearchContext {
 			$mainQuery->addFilter( $unifiedFilter );
 		}
 
-
 		return $mainQuery;
 	}
 
@@ -669,6 +730,7 @@ class SearchContext {
 	 *  elasticsearch.
 	 */
 	public function setMainQuery( AbstractQuery $query ) {
+		$this->isDirty = true;
 		$this->mainQuery = $query;
 	}
 
@@ -678,6 +740,7 @@ class SearchContext {
 	 *  match_phrase_prefix for regular quoted strings).
 	 */
 	public function addNonTextQuery( \Elastica\Query\AbstractQuery $match ) {
+		$this->isDirty = true;
 		$this->nonTextQueries[] = $match;
 	}
 
@@ -692,11 +755,12 @@ class SearchContext {
 	 * @param array $suggest Configuration for suggest query
 	 */
 	public function setSuggest( array $suggest ) {
+		$this->isDirty = true;
 		$this->suggest = $suggest;
 	}
 
 	/**
-	 * @return boolean Should this search limit results to the local wiki? If
+	 * @return bool Should this search limit results to the local wiki? If
 	 *  not called the default is false.
 	 */
 	public function getLimitSearchToLocalWiki() {
@@ -704,11 +768,14 @@ class SearchContext {
 	}
 
 	/**
-	 * @param boolean $localWikiOnly Should this search limit results to the local wiki? If
+	 * @param bool $localWikiOnly Should this search limit results to the local wiki? If
 	 *  not called the default is false.
 	 */
 	public function setLimitSearchToLocalWiki( $localWikiOnly ) {
-		$this->limitSearchToLocalWiki = $localWikiOnly;
+		if ( $localWikiOnly !== $this->limitSearchToLocalWiki ) {
+			$this->isDirty = true;
+			$this->limitSearchToLocalWiki = $localWikiOnly;
+		}
 	}
 
 	/**
@@ -722,6 +789,7 @@ class SearchContext {
 	 * @param int $ttl The number of seconds to cache results for
 	 */
 	public function setCacheTtl( $ttl ) {
+		$this->isDirty = true;
 		$this->cacheTtl = $ttl;
 	}
 
@@ -737,7 +805,24 @@ class SearchContext {
 	 * @param string $term
 	 */
 	public function setOriginalSearchTerm( $term ) {
+		// Intentionally does not set dirty to true. This is used only
+		// for logging, as of july 2017.
 		$this->originalSearchTerm = $term;
+	}
+
+	/**
+	 * @return string The search term with keywords removed
+	 */
+	public function getCleanedSearchTerm() {
+		return $this->cleanedSearchTerm;
+	}
+
+	/**
+	 * @param string The search term with keywords removed
+	 */
+	public function setCleanedSearchTerm( $term ) {
+		$this->isDirty = true;
+		$this->cleanedSearchTerm = $term;
 	}
 
 	/**
@@ -760,6 +845,7 @@ class SearchContext {
 	 * @param FunctionScoreBuilder $rescore
 	 */
 	public function addCustomRescoreComponent( FunctionScoreBuilder $rescore ) {
+		$this->isDirty = true;
 		$this->extraScoreBuilders[] = $rescore;
 	}
 
@@ -767,6 +853,7 @@ class SearchContext {
 	 * @param string $message i18n message key
 	 */
 	public function addWarning( $message /*, parameters... */ ) {
+		$this->isDirty = true;
 		$this->warnings[] = func_get_args();
 	}
 
@@ -789,6 +876,7 @@ class SearchContext {
 	 * @param string $profile set the name of the fulltext query builder profile
 	 */
 	public function setFulltextQueryBuilderProfile( $profile ) {
+		$this->isDirty = true;
 		$this->fulltextQueryBuilderProfile = $profile;
 	}
 }

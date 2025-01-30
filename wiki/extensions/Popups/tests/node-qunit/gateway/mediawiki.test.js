@@ -1,6 +1,7 @@
-var createModel = require( '../../../src/preview/model' ).createModel,
-	createMediaWikiApiGateway = require( '../../../src/gateway/mediawiki' ),
-	DEFAULT_CONSTANTS = {
+import { createModel } from '../../../src/preview/model';
+import createMediaWikiApiGateway from '../../../src/gateway/mediawiki';
+
+var DEFAULT_CONSTANTS = {
 		THUMBNAIL_SIZE: 300,
 		EXTRACT_LENGTH: 525
 	},
@@ -39,7 +40,7 @@ var createModel = require( '../../../src/preview/model' ).createModel,
 		'https://en.wikipedia.org/wiki/Rick_Astley',
 		'en',
 		'ltr',
-		'Richard Paul "Rick" Astley is an English singer, songwriter, musician, and radio personality. His 1987 song, "Never Gonna Give You Up" was a No. 1 hit single in 25 countries. By the time of his retirement in 1993, Astley had sold approximately 40 million records worldwide.\nAstley made a comeback in 2007, becoming an Internet phenomenon when his video "Never Gonna Give You Up" became integral to the meme known as "rickrolling". Astley was voted "Best Act Ever" by Internet users at the',
+		[ document.createTextNode( 'Richard Paul "Rick" Astley is an English singer, songwriter, musician, and radio personality. His 1987 song, "Never Gonna Give You Up" was a No. 1 hit single in 25 countries. By the time of his retirement in 1993, Astley had sold approximately 40 million records worldwide.\nAstley made a comeback in 2007, becoming an Internet phenomenon when his video "Never Gonna Give You Up" became integral to the meme known as "rickrolling". Astley was voted "Best Act Ever" by Internet users at the' ) ],
 		{
 			height: 300,
 			source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Rick_Astley_-_Pepsifest_2009.jpg/200px-Rick_Astley_-_Pepsifest_2009.jpg',
@@ -47,7 +48,18 @@ var createModel = require( '../../../src/preview/model' ).createModel,
 		}
 	);
 
-QUnit.module( 'ext.popups/gateway/mediawiki' );
+QUnit.module( 'ext.popups/gateway/mediawiki', {
+	beforeEach: function () {
+		window.mediaWiki.RegExp = {
+			escape: this.sandbox.spy( function ( str ) {
+				return str.replace( /([\\{}()|.?*+\-\^$\[\]])/g, '\\$1' );
+			} )
+		};
+	},
+	afterEach: function () {
+		window.mediaWiki.RegExp = null;
+	}
+} );
 
 QUnit.test( 'MediaWiki API gateway is called with correct arguments', function ( assert ) {
 	var spy = this.sandbox.spy(),
@@ -135,35 +147,25 @@ QUnit.test( 'MediaWiki API gateway is correctly converting the page data to a mo
 		page = gateway.extractPageFromResponse( MEDIAWIKI_API_RESPONSE );
 
 	assert.deepEqual(
-		gateway.convertPageToModel( page ),
-		MEDIAWIKI_API_RESPONSE_PREVIEW_MODEL
-	);
-} );
-
-QUnit.test( 'banana', function ( assert ) {
-	var gateway = createMediaWikiApiGateway(),
-		page = gateway.extractPageFromResponse( MEDIAWIKI_API_RESPONSE );
-
-	assert.deepEqual(
-		gateway.convertPageToModel( page ),
+		gateway.convertPageToModel( gateway.formatPlainTextExtract( page ) ),
 		MEDIAWIKI_API_RESPONSE_PREVIEW_MODEL
 	);
 } );
 
 QUnit.test( 'MediaWiki API gateway handles the API failure', function ( assert ) {
-	var deferred = $.Deferred(),
+	var p,
+		deferred = $.Deferred(),
 		api = {
 			get: this.sandbox.stub().returns( deferred.promise() )
 		},
-		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS ),
-		done = assert.async( 1 );
+		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS );
 
-	gateway.getPageSummary( 'Test Title' ).fail( function () {
+	p = gateway.getPageSummary( 'Test Title' ).catch( function () {
 		assert.ok( true );
-		done();
 	} );
 
 	deferred.reject();
+	return p;
 } );
 
 QUnit.test( 'MediaWiki API gateway returns the correct data ', function ( assert ) {
@@ -172,12 +174,10 @@ QUnit.test( 'MediaWiki API gateway returns the correct data ', function ( assert
 				$.Deferred().resolve( MEDIAWIKI_API_RESPONSE ).promise()
 			)
 		},
-		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS ),
-		done = assert.async( 1 );
+		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS );
 
-	gateway.getPageSummary( 'Test Title' ).done( function ( result ) {
+	return gateway.getPageSummary( 'Test Title' ).then( function ( result ) {
 		assert.deepEqual( result, MEDIAWIKI_API_RESPONSE_PREVIEW_MODEL );
-		done();
 	} );
 } );
 
@@ -211,12 +211,9 @@ QUnit.test( 'MediaWiki API gateway handles missing pages ', function ( assert ) 
 				$.Deferred().resolve( response ).promise()
 			)
 		},
-		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS ),
-		done = assert.async( 1 );
+		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS );
 
-	gateway.getPageSummary( 'Test Title' ).done( function ( result ) {
+	return gateway.getPageSummary( 'Test Title' ).then( function ( result ) {
 		assert.deepEqual( result, model );
-
-		done();
 	} );
 } );

@@ -31,7 +31,7 @@ abstract class Validator {
 	 * @param bool $print
 	 */
 	public function printDebugCheckConfig( $print = true ) {
-		$this->printDebugCheckConfig = (bool) $print;
+		$this->printDebugCheckConfig = (bool)$print;
 	}
 
 	/**
@@ -41,7 +41,7 @@ abstract class Validator {
 	 * @return bool
 	 */
 	protected function checkConfig( $actual, array $required, $indent = null ) {
-		foreach( $required as $key => $value ) {
+		foreach ( $required as $key => $value ) {
 			$this->debugCheckConfig( "\n$indent$key: " );
 			if ( !array_key_exists( $key, $actual ) ) {
 				$this->debugCheckConfig( "not found..." );
@@ -90,7 +90,7 @@ abstract class Validator {
 	private function normalizeConfigValue( $value ) {
 		if ( $value === true ) {
 			return 'true';
-		} else if ( $value === false ) {
+		} elseif ( $value === false ) {
 			return 'false';
 		}
 		return $value;

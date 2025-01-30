@@ -1,19 +1,42 @@
-// Public and private cache lifetime (5 minutes)
-var CACHE_LIFETIME = 300,
-	createModel = require( '../preview/model' ).createModel;
+/**
+ * @module gateway/mediawiki
+ */
 
 /**
- * MediaWiki API gateway factory
+ * @interface MediaWikiGateway
+ * @extends Gateway
+ *
+ * @global
+ */
+
+import { createModel } from '../preview/model';
+import * as formatter from '../formatter';
+
+// Public and private cache lifetime (5 minutes)
+//
+// FIXME: Move this to src/constants.js.
+var CACHE_LIFETIME = 300,
+	$ = jQuery;
+
+/**
+ * Creates an instance of the MediaWiki API gateway.
  *
  * @param {mw.Api} api
- * @param {mw.ext.constants} config
- * @returns {ext.popups.Gateway}
+ * @param {Object} config Configuration that affects the major behavior of the
+ *  gateway.
+ * @param {Number} config.THUMBNAIL_SIZE The length of the major dimension of
+ *  the thumbnail.
+ * @param {Number} config.EXTRACT_LENGTH The maximum length, in characters,
+ *  of the extract.
+ * @returns {MediaWikiGateway}
  */
-function createMediaWikiApiGateway( api, config ) {
+export default function createMediaWikiApiGateway( api, config ) {
 
 	/**
-	 * Fetch page data from the API
+	 * Fetches page data from the API.
 	 *
+	 * @function
+	 * @name MediaWikiGateway#fetch
 	 * @param {String} title
 	 * @return {jQuery.Promise}
 	 */
@@ -46,15 +69,10 @@ function createMediaWikiApiGateway( api, config ) {
 		} );
 	}
 
-	/**
-	 * Get the page summary from the api and transform the data
-	 *
-	 * @param {String} title
-	 * @returns {jQuery.Promise<ext.popups.PreviewModel>}
-	 */
 	function getPageSummary( title ) {
 		return fetch( title )
 			.then( extractPageFromResponse )
+			.then( formatPlainTextExtract )
 			.then( convertPageToModel );
 	}
 
@@ -62,16 +80,19 @@ function createMediaWikiApiGateway( api, config ) {
 		fetch: fetch,
 		extractPageFromResponse: extractPageFromResponse,
 		convertPageToModel: convertPageToModel,
-		getPageSummary: getPageSummary
+		getPageSummary: getPageSummary,
+		formatPlainTextExtract: formatPlainTextExtract
 	};
 }
 
 /**
- * Extract page data from the MediaWiki API response
+ * Extracts page data from the API response.
  *
- * @param {Object} data API response data
- * @throws {Error} Throw an error if page data cannot be extracted,
- * i.e. if the response is empty,
+ * @function
+ * @name MediaWikiGateway#extractPageFromResponse
+ * @param {Object} data The response
+ * @throws {Error} If the response is empty or doesn't contain data about the
+ *  page
  * @returns {Object}
  */
 function extractPageFromResponse( data ) {
@@ -87,10 +108,26 @@ function extractPageFromResponse( data ) {
 }
 
 /**
- * Transform the MediaWiki API response to a preview model
+ * Make plain text nicer by applying formatter.
  *
+ * @function
+ * @name MediaWikiGateway#formatPlainTextExtract
+ * @param {Object} data The response
+ * @returns {Object}
+ */
+function formatPlainTextExtract( data ) {
+	var result = $.extend( {}, data );
+	result.extract = formatter.formatPlainTextExtract( data.extract, data.title );
+	return result;
+}
+
+/**
+ * Converts the API response to a preview model.
+ *
+ * @function
+ * @name MediaWikiGateway#convertPageToModel
  * @param {Object} page
- * @returns {ext.popups.PreviewModel}
+ * @returns {PreviewModel}
  */
 function convertPageToModel( page ) {
 	return createModel(
@@ -102,5 +139,3 @@ function convertPageToModel( page ) {
 		page.thumbnail
 	);
 }
-
-module.exports = createMediaWikiApiGateway;

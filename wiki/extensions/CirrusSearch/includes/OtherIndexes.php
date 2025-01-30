@@ -34,7 +34,7 @@ class OtherIndexes extends Updater {
 	 * @param array $flags
 	 * @param string $localSite
 	 */
-	public function __construct( Connection $connection, SearchConfig $config, array $flags, $localSite) {
+	public function __construct( Connection $connection, SearchConfig $config, array $flags, $localSite ) {
 		parent::__construct( $connection, $config, $flags );
 		$this->localSite = $localSite;
 	}
@@ -60,7 +60,7 @@ class OtherIndexes extends Updater {
 		global $wgCirrusSearchExtraIndexes;
 		$extraIndexes = [];
 		if ( $wgCirrusSearchExtraIndexes ) {
-			foreach( $wgCirrusSearchExtraIndexes as $namespace => $indexes ) {
+			foreach ( $wgCirrusSearchExtraIndexes as $namespace => $indexes ) {
 				if ( in_array( $namespace, $namespaces ) ) {
 					$extraIndexes = array_merge( $extraIndexes, $indexes );
 				}
@@ -81,14 +81,13 @@ class OtherIndexes extends Updater {
 			return;
 		}
 
-
 		$updates = [];
 
 		// Build multisearch to find ids to update
 		$findIdsMultiSearch = new MultiSearch( $this->connection->getClient() );
 		$findIdsClosures = [];
 		foreach ( $titles as $title ) {
-			foreach ( OtherIndexes::getExternalIndexes( $title ) as $otherIndex ) {
+			foreach ( self::getExternalIndexes( $title ) as $otherIndex ) {
 				if ( $otherIndex === null ) {
 					continue;
 				}
@@ -104,7 +103,7 @@ class OtherIndexes extends Updater {
 				$query->setSize( 1 );
 
 				$findIdsMultiSearch->addSearch( $type->createSearch( $query ) );
-				$findIdsClosures[] = function( $docId ) use
+				$findIdsClosures[] = function ( $docId ) use
 						( $otherIndex, &$updates, $title ) {
 					$updates[$otherIndex][] = [
 						'docId' => $docId,
@@ -165,7 +164,7 @@ class OtherIndexes extends Updater {
 	 * @param string $reason
 	 */
 	private function logFailure( array $titles, $reason = '' ) {
-		$articleIDs = array_map( function( Title $title ) {
+		$articleIDs = array_map( function ( Title $title ) {
 			return $title->getArticleID();
 		}, $titles );
 		if ( $reason ) {

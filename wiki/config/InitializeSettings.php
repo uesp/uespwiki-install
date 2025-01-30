@@ -21,7 +21,7 @@ $uespIsBackup1 = false;
 if (php_sapi_name() == "cli" && gethostname() == "backup1.uesp.net") 
 {
 	$uespIsBackup1 = true;
-	fwrite(STDERR, "\tAuto-detected UESP backup1 wiki!\n");	
+	if (defined('STDERR')) fwrite(STDERR, "\tAuto-detected UESP backup1 wiki!\n");	
 }
 
 # Mobile sites
@@ -166,7 +166,7 @@ if (php_sapi_name() == "cli") {
 		$lang = $uespArgs["uesplang"];
 		if ($lang == null || $lang == "") $lang = "en";
 		
-		fwrite(STDERR, "\tUsing custom UESP language code '$lang'!\n");
+		if (defined('STDERR')) fwrite(STDERR, "\tUsing custom UESP language code '$lang'!\n");
 		
 		$wgLanguageCode = $lang;
 		
@@ -183,12 +183,12 @@ if (php_sapi_name() == "cli") {
 		$wgServer = "https://dev" . $wgLanguageCode . ".uesp.net";
 		if ($wgLanguageCode == "en") $wgServer = "https://dev.uesp.net"; 
 		$uespIsDev = true;
-		fwrite(STDERR, "\tForcing UESP dev wiki!\n");
+		if (defined('STDERR')) fwrite(STDERR, "\tForcing UESP dev wiki!\n");
 	}
 	
 	if ($uespArgs["uespbackup"])
 	{
 		$uespIsBackup1 = true;
-		fwrite(STDERR, "\tForcing UESP backup1 wiki!\n");
+		if (defined('STDERR')) fwrite(STDERR, "\tForcing UESP backup1 wiki!\n");
 	}
 }

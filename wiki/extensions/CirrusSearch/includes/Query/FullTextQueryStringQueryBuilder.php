@@ -6,6 +6,7 @@ use CirrusSearch\OtherIndexes;
 use CirrusSearch\SearchConfig;
 use CirrusSearch\Searcher;
 use CirrusSearch\Search\SearchContext;
+use CirrusSearch\Extra\Query\TokenCountRouter;
 use MediaWiki\Logger\LoggerFactory;
 
 /**
@@ -29,6 +30,11 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	private $queryStringQueryString = '';
 
 	/**
+	 * @var bool
+	 */
+	private $useTokenCountRouter;
+
+	/**
 	 * @param SearchConfig $config
 	 * @param KeywordFeature[] $features
 	 * @param array[] $settings currently ignored
@@ -36,6 +42,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	public function __construct( SearchConfig $config, array $features, array $settings = [] ) {
 		$this->config = $config;
 		$this->features = $features;
+		$this->useTokenCountRouter = $this->config->getElement( 'CirrusSearchWikimediaExtraPlugin', 'token_count_router' ) === true;
 	}
 
 	/**
@@ -43,7 +50,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	 *
 	 * @param SearchContext $searchContext
 	 * @param string $term term to search
-	 * @param boolean $showSuggestion should this search suggest alternative
+	 * @param bool $showSuggestion should this search suggest alternative
 	 * searches that might be better?
 	 */
 	public function build( SearchContext $searchContext, $term, $showSuggestion ) {
@@ -65,9 +72,9 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 		// Those phrases can optionally be followed by ~ then a number (this is
 		// the phrase slop). That can optionally be followed by a ~ (this
 		// matches stemmed words in phrases). The following all match:
-		//   "a", "a boat", "a\"boat", "a boat"~, "a boat"~9,
-		//   "a boat"~9~, -"a boat", -"a boat"~9~
-		$slop = $this->config->get('CirrusSearchPhraseSlop');
+		// "a", "a boat", "a\"boat", "a boat"~, "a boat"~9,
+		// "a boat"~9~, -"a boat", -"a boat"~9~
+		$slop = $this->config->get( 'CirrusSearchPhraseSlop' );
 		$matchQuotesRegex = '(?<![\]])(?<negate>-|!)?(?<main>"((?:[^"]|(?<=\\\)")+)"(?<slop>~\d+)?)(?<fuzzy>~)?';
 		$query = self::replacePartsOfQuery(
 			$term,
@@ -77,12 +84,14 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 				$main = $searchContext->escaper()->fixupQueryStringPart( $matches[ 'main' ][ 0 ] );
 
 				if ( !$negate && !isset( $matches[ 'fuzzy' ] ) && !isset( $matches[ 'slop' ] ) &&
-						 preg_match( '/^"([^"*]+)[*]"/', $main, $matches ) ) {
-					$phraseMatch = new \Elastica\Query\MatchPhrasePrefix( );
+					preg_match( '/^"([^"*]+)[*]"/', $main, $matches )
+				) {
+					$phraseMatch = new \Elastica\Query\MatchPhrasePrefix();
 					$phraseMatch->setFieldQuery( "all.plain", $matches[1] );
 					$searchContext->addNonTextQuery( $phraseMatch );
+					$searchContext->addSyntaxUsed( 'phrase_match_prefix' );
 
-					$phraseHighlightMatch = new \Elastica\Query\QueryString( );
+					$phraseHighlightMatch = new \Elastica\Query\QueryString();
 					$phraseHighlightMatch->setQuery( $matches[1] . '*' );
 					$phraseHighlightMatch->setFields( [ 'all.plain' ] );
 					$searchContext->addNonTextHighlightQuery( $phraseHighlightMatch );
@@ -146,13 +155,19 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 		list( $this->queryStringQueryString, $fuzzyQuery ) =
 			$searchContext->escaper()->fixupWholeQueryString( implode( ' ', $escapedQuery ) );
 		$searchContext->setFuzzyQuery( $fuzzyQuery );
+		$searchContext->setCleanedSearchTerm( $this->queryStringQueryString );
 
 		if ( $this->queryStringQueryString === '' ) {
+			$searchContext->addSyntaxUsed( 'filter_only' );
 			return;
 		}
 
 		// Note that no escaping is required for near_match's match query.
 		$nearMatchQuery = implode( ' ', $nearMatchQuery );
+		// If the near match is made only of spaces disable it.
+		if ( preg_match( '/^\s+$/', $nearMatchQuery ) === 1 ) {
+			$nearMatchQuery = '';
+		}
 
 		$queryStringRegex =
 			'(' .
@@ -203,16 +218,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 			$nonAllFields = $fields;
 		}
 
-		// Only do a phrase match rescore if the query doesn't include any quotes and has a space.
-		// Queries without spaces are either single term or have a phrase query generated.
-		// Queries with the quote already contain a phrase query and we can't build phrase queries
-		// out of phrase queries at this point.
-		if ( $this->config->get( 'CirrusSearchPhraseRescoreBoost' ) > 0.0 &&
-				$this->config->get( 'CirrusSearchPhraseRescoreWindowSize' ) &&
-				!$searchContext->isSpecialKeywordUsed() &&
-				strpos( $this->queryStringQueryString, '"' ) === false &&
-				strpos( $this->queryStringQueryString, ' ' ) !== false ) {
-
+		if ( $this->isPhraseRescoreNeeded( $searchContext ) ) {
 			$rescoreFields = $fields;
 			if ( !$this->config->get( 'CirrusSearchAllFieldsForRescore' ) ) {
 				$rescoreFields = $nonAllFields;
@@ -333,8 +339,8 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 			];
 		}
 		if ( !empty( $suggestSettings['collate'] ) ) {
-			$collateFields = ['title.plain', 'redirect.title.plain'];
-			if ( $this->config->get( 'CirrusSearchPhraseSuggestUseText' )  ) {
+			$collateFields = [ 'title.plain', 'redirect.title.plain' ];
+			if ( $this->config->get( 'CirrusSearchPhraseSuggestUseText' ) ) {
 				$collateFields[] = 'text.plain';
 			}
 			$settings['phrase']['collate'] = [
@@ -351,7 +357,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 				],
 			];
 		}
-		if( isset( $suggestSettings['smoothing_model'] ) ) {
+		if ( isset( $suggestSettings['smoothing_model'] ) ) {
 			$settings['phrase']['smoothing'] = $suggestSettings['smoothing_model'];
 		}
 
@@ -408,7 +414,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 		$query->setAutoGeneratePhraseQueries( true );
 		$query->setPhraseSlop( $phraseSlop );
 		$query->setDefaultOperator( 'AND' );
-		$query->setAllowLeadingWildcard( (bool) $this->config->get( 'CirrusSearchAllowLeadingWildcard' ) );
+		$query->setAllowLeadingWildcard( (bool)$this->config->get( 'CirrusSearchAllowLeadingWildcard' ) );
 		$query->setFuzzyPrefixLength( 2 );
 		$query->setRewrite( $this->getMultiTermRewriteMethod() );
 		$states = $this->config->get( 'CirrusSearchQueryStringMaxDeterminizedStates' );
@@ -557,7 +563,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	 * query (['escaped'=>'stuff','nonAll'=>'stuff']). If nonAll is not set
 	 * the escaped query will be used.
 	 *
-	 * Piees of $queryPart that do not match the provided $regex are tagged
+	 * Pieces of $queryPart that do not match the provided $regex are tagged
 	 * as 'raw' and may see further parsing. $callable receives pieces of
 	 * the string that match the regex and must return either a raw or escaped
 	 * query piece.
@@ -620,6 +626,64 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	 * @return \Elastica\Query\AbstractQuery
 	 */
 	protected function buildPhraseRescoreQuery( SearchContext $context, array $fields, $queryText, $slop ) {
-		return $this->buildQueryString( $fields, '"' . $queryText . '"', $slop );
+		return $this->maybeWrapWithTokenCountRouter(
+			$queryText,
+			$this->buildQueryString( $fields, '"' . $queryText . '"', $slop )
+		);
+	}
+
+	/**
+	 * Determines if a phrase rescore is needed
+	 * @param SearchContext $searchContext
+	 * @return bool true if we can a phrase rescore
+	 */
+	protected function isPhraseRescoreNeeded( SearchContext $searchContext ) {
+		// Only do a phrase match rescore if the query doesn't include
+		// any quotes and has a space or the token count router is
+		// active.
+		// Queries without spaces are either single term or have a
+		// phrase query generated.
+		// Queries with the quote already contain a phrase query and we
+		// can't build phrase queries out of phrase queries at this
+		// point.
+		if ( $this->config->get( 'CirrusSearchPhraseRescoreBoost' ) > 0.0 &&
+			$this->config->get( 'CirrusSearchPhraseRescoreWindowSize' ) &&
+			!$searchContext->isSpecialKeywordUsed() &&
+			strpos( $this->queryStringQueryString, '"' ) === false &&
+			( $this->useTokenCountRouter || strpos( $this->queryStringQueryString, ' ' ) !== false )
+		) {
+			return true;
+		}
+		return false;
+	}
+
+	protected function maybeWrapWithTokenCountRouter( $queryText, \Elastica\Query\AbstractQuery $query ) {
+		if ( $this->useTokenCountRouter ) {
+			$tokCount = new TokenCountRouter(
+				// text
+				$queryText,
+				// fallack
+				new \CirrusSearch\Elastica\MatchNone(),
+				// field
+				null,
+				// analyzer
+				'text_search'
+			);
+			$maxTokens = $this->config->get( 'CirrusSearchMaxPhraseTokens' );
+			if ( $maxTokens ) {
+				$tokCount->addCondition(
+					TokenCountRouter::GT,
+					$maxTokens,
+					new \CirrusSearch\Elastica\MatchNone()
+				);
+			}
+			$tokCount->addCondition(
+				TokenCountRouter::GT,
+				1,
+				$query
+			);
+			return $tokCount;
+		}
+		return $query;
 	}
 }

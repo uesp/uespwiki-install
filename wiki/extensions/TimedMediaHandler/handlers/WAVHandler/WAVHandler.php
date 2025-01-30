@@ -47,7 +47,7 @@ class WAVHandler extends ID3Handler {
 		}
 
 		if ( isset( $metadata['audio'] ) && $metadata['audio']['dataformat'] == 'wav' ) {
-			$streamTypes[] =  'WAV';
+			$streamTypes[] = 'WAV';
 		}
 
 		return $streamTypes;
@@ -82,7 +82,6 @@ class WAVHandler extends ID3Handler {
 			$wgLang->formatTimePeriod( $this->getLength( $file ) ),
 			$wgLang->formatBitrate( $this->getBitRate( $file ) )
 		)->text();
-
 	}
 
 }

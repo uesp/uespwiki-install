@@ -7,7 +7,6 @@ use Elastica;
 use Elastica\Index;
 use Elastica\JSON;
 use Elastica\Query;
-use MWElasticUtils;
 
 /**
  * Dump an index to stdout
@@ -29,11 +28,11 @@ use MWElasticUtils;
  */
 
 $IP = getenv( 'MW_INSTALL_PATH' );
-if( $IP === false ) {
+if ( $IP === false ) {
 	$IP = __DIR__ . '/../../..';
 }
-require_once( "$IP/maintenance/Maintenance.php" );
-require_once( __DIR__ . '/../includes/Maintenance/Maintenance.php' );
+require_once "$IP/maintenance/Maintenance.php";
+require_once __DIR__ . '/../includes/Maintenance/Maintenance.php';
 
 /**
  * Dump an index from elasticsearch.
@@ -89,7 +88,7 @@ class DumpIndex extends Maintenance {
 			" - Import chunks of 2000 documents :" .
 			"\n\tcat dump | split -l 4000 --filter 'curl -s http://elastic:9200/{indexName}/_bulk --data-binary @- > /dev/null'\n" .
 			" - Import 3 chunks of 2000 documents in parallel :" .
-			"\n\tcat dump | parallel --pipe -L 2 -N 2000 -j3 'curl -s http://elastic:9200/{indexName}/_bulk --data-binary @- > /dev/null'");
+			"\n\tcat dump | parallel --pipe -L 2 -N 2000 -j3 'curl -s http://elastic:9200/{indexName}/_bulk --data-binary @- > /dev/null'" );
 		$this->addOption( 'indexType', 'Index to dump. Either content or general.', true, true );
 		$this->addOption( 'baseName', 'What basename to use, ' .
 			'defaults to wiki id.', false, true );
@@ -119,7 +118,7 @@ class DumpIndex extends Maintenance {
 			$filter = new Elastica\Query\QueryString( $this->getOption( 'filter' ) );
 		}
 
-		$limit = (int) $this->getOption( 'limit', 0 );
+		$limit = (int)$this->getOption( 'limit', 0 );
 
 		$query = new Query();
 		$query->setStoredFields( [ '_id', '_type', '_source' ] );
@@ -146,7 +145,7 @@ class DumpIndex extends Maintenance {
 
 		$this->logToStderr = true;
 
-		foreach( $scroll as $results ) {
+		foreach ( $scroll as $results ) {
 			if ( $totalDocsInIndex === -1 ) {
 				$totalDocsInIndex = $results->getTotalHits();
 				$totalDocsToDump = $limit > 0 ? $limit : $totalDocsInIndex;
@@ -223,7 +222,7 @@ class DumpIndex extends Maintenance {
 		}
 		if ( $this->logToStderr ) {
 			// We must log to stderr
-			fwrite ( STDERR, $message );
+			fwrite( STDERR, $message );
 		} else {
 			parent::output( $message );
 		}
@@ -239,7 +238,7 @@ class DumpIndex extends Maintenance {
 		if ( $docsDumped <= 0 ) {
 			return;
 		}
-		$pctDone = (int) ( ( $docsDumped / $limit ) * 100 );
+		$pctDone = (int)( ( $docsDumped / $limit ) * 100 );
 		if ( $this->lastProgressPrinted == $pctDone ) {
 			return;
 		}

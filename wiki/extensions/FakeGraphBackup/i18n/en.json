@@ -1,8 +1,0 @@
-{
-	"@metadata": {
-		"authors": []
-	},
-	"fakegraph-desc": "Hides &lt;graph> calls and adds them to a category.",
-	"graph-disabled-category": "Pages with disabled graphs",
-	"graph-disabled-category-desc": "The page includes a <code><nowiki><graph></nowiki></code> tag, which is currently not available ([[phab:T334940|T334940]])."
-}

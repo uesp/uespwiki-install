@@ -1,6 +1,6 @@
-var counts = require( '../../../src/counts' ),
-	createModel = require( '../../../src/preview/model' ).createModel,
-	eventLogging = require( '../../../src/reducers/eventLogging' );
+import * as counts from '../../../src/counts';
+import { createModel } from '../../../src/preview/model';
+import eventLogging from '../../../src/reducers/eventLogging';
 
 QUnit.module( 'ext.popups/reducers#eventLogging', {
 	beforeEach: function () {
@@ -96,7 +96,8 @@ QUnit.test( 'EVENT_LOGGED', function ( assert ) {
 	};
 
 	action = {
-		type: 'EVENT_LOGGED'
+		type: 'EVENT_LOGGED',
+		event: {}
 	};
 
 	assert.deepEqual(
@@ -106,6 +107,28 @@ QUnit.test( 'EVENT_LOGGED', function ( assert ) {
 		},
 		'It dequeues any event queued for logging.'
 	);
+
+	// ---
+
+	state = {
+		interaction: { token: 'asdf' },
+		event: { linkInteractionToken: 'asdf' }
+	};
+
+	action = {
+		type: 'EVENT_LOGGED',
+		event: state.event
+	};
+
+	assert.deepEqual(
+		eventLogging( state, action ),
+		{
+			event: undefined,
+			interaction: undefined
+		},
+		'It destroys current interaction if an event for it was logged.'
+	);
+
 } );
 
 QUnit.test( 'PREVIEW_SHOW', function ( assert ) {
@@ -164,6 +187,8 @@ QUnit.test( 'LINK_DWELL starts an interaction', function ( assert ) {
 	action = {
 		type: 'LINK_DWELL',
 		el: this.link,
+		title: 'Foo',
+		namespaceID: 1,
 		token: '0987654321',
 		timestamp: Date.now()
 	};
@@ -173,6 +198,8 @@ QUnit.test( 'LINK_DWELL starts an interaction', function ( assert ) {
 		{
 			interaction: {
 				link: action.el,
+				title: 'Foo',
+				namespaceID: 1,
 				token: action.token,
 				started: action.timestamp,
 
@@ -195,6 +222,8 @@ QUnit.test( 'LINK_DWELL doesn\'t start a new interaction under certain condition
 	action = {
 		type: 'LINK_DWELL',
 		el: this.link,
+		title: 'Foo',
+		namespaceID: 1,
 		token: '0987654321',
 		timestamp: now
 	};
@@ -210,6 +239,8 @@ QUnit.test( 'LINK_DWELL doesn\'t start a new interaction under certain condition
 		state.interaction,
 		{
 			link: action.el,
+			title: 'Foo',
+			namespaceID: 1,
 			token: '0987654321',
 			started: now,
 
@@ -230,6 +261,8 @@ QUnit.test(
 		state = eventLogging( undefined, {
 			type: 'LINK_DWELL',
 			el: this.link,
+			title: 'Foo',
+			namespaceID: 1,
 			token: token,
 			timestamp: now
 		} );
@@ -242,6 +275,8 @@ QUnit.test(
 		state = eventLogging( state, {
 			type: 'LINK_DWELL',
 			el: $( '<a>' ),
+			title: 'Bar',
+			namespaceID: 1,
 			token: '1234567890',
 			timestamp: now + 500
 		} );
@@ -249,6 +284,8 @@ QUnit.test(
 		assert.deepEqual(
 			state.event,
 			{
+				pageTitleHover: 'Foo',
+				namespaceIdHover: 1,
 				linkInteractionToken: '0987654321',
 				totalInteractionTime: 250, // 250 - 0
 				action: 'dwelledButAbandoned'
@@ -260,6 +297,8 @@ QUnit.test(
 		state = eventLogging( undefined, {
 			type: 'LINK_DWELL',
 			el: this.link,
+			title: 'Foo',
+			namespaceID: 1,
 			token: token,
 			timestamp: now
 		} );
@@ -272,6 +311,8 @@ QUnit.test(
 		state = eventLogging( state, {
 			type: 'LINK_DWELL',
 			el: $( '<a>' ),
+			title: 'Bar',
+			namespaceID: 1,
 			token: 'banana',
 			timestamp: now + 500
 		} );
@@ -297,6 +338,8 @@ QUnit.test( 'LINK_CLICK should enqueue an "opened" event', function ( assert ) {
 	expectedState = state = eventLogging( state, {
 		type: 'LINK_DWELL',
 		el: this.link,
+		title: 'Foo',
+		namespaceID: 1,
 		token: token,
 		timestamp: now
 	} );
@@ -311,6 +354,8 @@ QUnit.test( 'LINK_CLICK should enqueue an "opened" event', function ( assert ) {
 		state.event,
 		{
 			action: 'opened',
+			pageTitleHover: 'Foo',
+			namespaceIdHover: 1,
 			linkInteractionToken: token,
 			totalInteractionTime: 250
 		},
@@ -338,6 +383,8 @@ QUnit.test( 'PREVIEW_SHOW should update the perceived wait time of the interacti
 	state = eventLogging( state, {
 		type: 'LINK_DWELL',
 		el: this.link,
+		title: 'Foo',
+		namespaceID: 1,
 		token: token,
 		timestamp: now
 	} );
@@ -350,6 +397,8 @@ QUnit.test( 'PREVIEW_SHOW should update the perceived wait time of the interacti
 
 	assert.deepEqual( state.interaction, {
 		link: this.link,
+		title: 'Foo',
+		namespaceID: 1,
 		token: token,
 		started: now,
 
@@ -357,6 +406,53 @@ QUnit.test( 'PREVIEW_SHOW should update the perceived wait time of the interacti
 
 		timeToPreviewShow: 500
 	} );
+} );
+
+QUnit.test( 'LINK_CLICK should include perceivedWait if the preview has been shown', function ( assert ) {
+	var token = '0987654321',
+		state,
+		now = Date.now();
+
+	state = {
+		interaction: undefined
+	};
+
+	state = eventLogging( state, {
+		type: 'LINK_DWELL',
+		el: this.link,
+		title: 'Foo',
+		namespaceID: 1,
+		token: token,
+		timestamp: now
+	} );
+
+	state = eventLogging( state, {
+		type: 'PREVIEW_SHOW',
+		token: token,
+		timestamp: now + 750
+	} );
+
+	state = eventLogging( state, {
+		type: 'LINK_CLICK',
+		el: this.link,
+		timestamp: now + 1050
+	} );
+
+	assert.deepEqual(
+		state.event,
+		{
+			action: 'opened',
+			pageTitleHover: 'Foo',
+			namespaceIdHover: 1,
+			linkInteractionToken: token,
+			totalInteractionTime: 1050,
+
+			// N.B. that the FETCH_* actions have been skipped.
+			previewType: undefined,
+			perceivedWait: 750
+		},
+		'The prevewType and perceivedWait properties are set if the preview has been shown.'
+	);
 } );
 
 QUnit.test( 'FETCH_COMPLETE', function ( assert ) {
@@ -442,7 +538,10 @@ QUnit.test( 'ABANDON_END', function ( assert ) {
 	action = {
 		type: 'LINK_DWELL',
 		el: this.link,
-		token: '1234567890'
+		title: 'Foo',
+		namespaceID: 1,
+		token: '1234567890',
+		timestamp: Date.now()
 	};
 
 	state = eventLogging( state, action );
@@ -485,9 +584,39 @@ QUnit.test( 'PREVIEW_DWELL', function ( assert ) {
 } );
 
 QUnit.test( 'SETTINGS_SHOW should enqueue a "tapped settings cog" event', function ( assert ) {
-	var state = {
-		interaction: {}
-	};
+	var initialState = {
+			interaction: {}
+		},
+		state,
+		token = '0123456789';
+
+	state = eventLogging( initialState, {
+		type: 'SETTINGS_SHOW'
+	} );
+
+	// Note well that this is a valid event. The "tapped settings cog" event is
+	// also logged as a result of clicking the footer link.
+	assert.deepEqual(
+		state.event,
+		{
+			action: 'tapped settings cog',
+			linkInteractionToken: undefined,
+			namespaceIdHover: undefined,
+			pageTitleHover: undefined
+		},
+		'It shouldn\'t fail if there\'s no interaction.'
+	);
+
+	// ---
+
+	state = eventLogging( initialState, {
+		type: 'LINK_DWELL',
+		el: this.link,
+		title: 'Foo',
+		namespaceID: 1,
+		token: token,
+		timestamp: Date.now()
+	} );
 
 	state = eventLogging( state, {
 		type: 'SETTINGS_SHOW'
@@ -496,8 +625,54 @@ QUnit.test( 'SETTINGS_SHOW should enqueue a "tapped settings cog" event', functi
 	assert.deepEqual(
 		state.event,
 		{
-			action: 'tapped settings cog'
-		}
+			action: 'tapped settings cog',
+			linkInteractionToken: token,
+			namespaceIdHover: 1,
+			pageTitleHover: 'Foo'
+		},
+		'It should include the interaction information if there\'s an interaction.'
+	);
+} );
+
+QUnit.test( 'SETTINGS_CHANGE should enqueue disabled event', function ( assert ) {
+	var state = eventLogging( undefined, {
+		type: 'SETTINGS_CHANGE',
+		wasEnabled: false,
+		enabled: false
+	} );
+
+	assert.equal(
+		state.event,
+		undefined,
+		'It shouldn\'t enqueue a "disabled" event when there is no change'
+	);
+
+	state = eventLogging( state, {
+		type: 'SETTINGS_CHANGE',
+		wasEnabled: true,
+		enabled: false
+	} );
+
+	assert.deepEqual(
+		state.event,
+		{
+			action: 'disabled',
+			popupEnabled: false
+		},
+		'It should enqueue a "disabled" event when the previews has been disabled'
+	);
+
+	delete state.event;
+	state = eventLogging( state, {
+		type: 'SETTINGS_CHANGE',
+		wasEnabled: false,
+		enabled: true
+	} );
+
+	assert.equal(
+		state.event,
+		undefined,
+		'It shouldn\'t enqueue a "disabled" event when page previews has been enabled'
 	);
 } );
 
@@ -510,6 +685,8 @@ QUnit.test( 'ABANDON_END should enqueue an event', function ( assert ) {
 	dwelledState = eventLogging( undefined, {
 		type: 'LINK_DWELL',
 		el: this.link,
+		title: 'Foo',
+		namespaceID: 1,
 		token: token,
 		timestamp: now
 	} );
@@ -528,6 +705,8 @@ QUnit.test( 'ABANDON_END should enqueue an event', function ( assert ) {
 	assert.deepEqual(
 		state.event,
 		{
+			pageTitleHover: 'Foo',
+			namespaceIdHover: 1,
 			linkInteractionToken: token,
 			totalInteractionTime: 500,
 			action: 'dwelledButAbandoned'
@@ -563,12 +742,16 @@ QUnit.test( 'ABANDON_END should enqueue an event', function ( assert ) {
 	assert.deepEqual(
 		state.event,
 		{
+			pageTitleHover: 'Foo',
+			namespaceIdHover: 1,
 			linkInteractionToken: token,
 			totalInteractionTime: 850,
 			action: 'dismissed',
 
 			// N.B. that the FETCH_* actions have been skipped.
-			previewType: undefined
+			previewType: undefined,
+
+			perceivedWait: 700
 		},
 		'It should enqueue a "dismissed" event when the preview has been shown.'
 	);
@@ -583,6 +766,8 @@ QUnit.test( 'ABANDON_END doesn\'t enqueue an event under certain conditions', fu
 	dwelledState = eventLogging( undefined, {
 		type: 'LINK_DWELL',
 		el: this.link,
+		title: 'Foo',
+		namespaceID: 1,
 		token: token,
 		timestamp: now
 	} );
@@ -619,7 +804,8 @@ QUnit.test( 'ABANDON_END doesn\'t enqueue an event under certain conditions', fu
 	} );
 
 	state = eventLogging( state, {
-		type: 'EVENT_LOGGED'
+		type: 'EVENT_LOGGED',
+		event: {}
 	} );
 
 	state = eventLogging( state, {

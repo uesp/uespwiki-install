@@ -1,10 +1,13 @@
-var actionTypes = require( './../actionTypes' ),
-	nextState = require( './nextState' ),
-	counts = require( './../counts' );
+/**
+ * @module reducers/eventLogging
+ */
+
+import actionTypes from '../actionTypes';
+import nextState from './nextState';
+import * as counts from '../counts';
 
 /**
- * Initialize the data that's shared between all
- * [Popups](https://meta.wikimedia.org/wiki/Schema:Popups) events.
+ * Initialize the data that's shared between all events.
  *
  * @param {Object} bootAction
  * @return {Object}
@@ -30,22 +33,47 @@ function getBaseData( bootAction ) {
 }
 
 /**
- * Creates an event that, when mixed into the base data (see `getBaseData`),
- * represents the user abandoning a link or preview.
+ * Takes data specific to the action and adds the following properties:
+ *
+ * * `linkInteractionToken`;
+ * * `pageTitleHover` and `namespaceIdHover`; and
+ * * `previewType` and `perceivedWait`, if a preview has been shown.
+ *
+ * @param {Object} interaction
+ * @param {Object} actionData Data specific to the action, e.g. see
+ *  {@link module:reducers/eventLogging~createClosingEvent `createClosingEvent`}
+ * @return {Object}
+ */
+function createEvent( interaction, actionData ) {
+	actionData.linkInteractionToken = interaction.token;
+	actionData.pageTitleHover = interaction.title;
+	actionData.namespaceIdHover = interaction.namespaceID;
+
+	// Has the preview been shown?
+	if ( interaction.timeToPreviewShow !== undefined ) {
+		actionData.previewType = interaction.previewType;
+		actionData.perceivedWait = interaction.timeToPreviewShow;
+	}
+
+	return actionData;
+}
+
+/**
+ * Creates an event that, when mixed into the base data (see
+ * {@link module:reducers/eventLogging~getBaseData `getBaseData`}), represents
+ * the user abandoning a link or preview.
  *
  * Since the event should be logged when the user has either abandoned a link or
  * dwelled on a different link, we refer to these events as "closing" events as
  * the link interaction has finished and a new one will be created later.
  *
- * If the link interaction is finalized, i.e. if an event has already been
- * logged for the link interaction, then no closing event is created.
+ * If the link interaction is finalized, then no closing event is created.
  *
  * @param {Object} interaction
  * @return {Object|undefined}
  */
 function createClosingEvent( interaction ) {
-	var result = {
-		linkInteractionToken: interaction.token,
+	var actionData = {
 		totalInteractionTime: Math.round( interaction.finished - interaction.started )
 	};
 
@@ -56,55 +84,44 @@ function createClosingEvent( interaction ) {
 	// Has the preview been shown? If so, then, in the context of the
 	// instrumentation, then the preview has been dismissed by the user
 	// rather than the user has abandoned the link.
-	if ( interaction.timeToPreviewShow !== undefined ) {
-		result.action = 'dismissed';
-		result.previewType = interaction.previewType;
-	} else {
-		result.action = 'dwelledButAbandoned';
-	}
+	actionData.action = interaction.timeToPreviewShow ? 'dismissed' : 'dwelledButAbandoned';
 
-	return result;
+	return createEvent( interaction, actionData );
 }
 
 /**
- * Reducer for actions that may result in an event being logged with the
- * Popups schema via Event Logging.
+ * Reducer for actions that may result in an event being logged with [the
+ * Popups schema][0] via EventLogging.
  *
- * TODO: For obvious reasons, this reducer and the associated change listener
- * are tightly bound to the Popups schema. This reducer must be
- * renamed/moved if we introduce additional instrumentation.
- *
- * The complexity of this reducer reflects the complexity of the
- * [Popups](https://meta.wikimedia.org/wiki/Schema:Popups) instrumentation. This
- * complexity is further increased by requiring that actions are conditionally
- * reduced rather than conditionally dispatched in order to handle two delays
- * introduced by the system in order to provide a consistent UX.
+ * The complexity of this reducer reflects the complexity of [the schema][0],
+ * which is compounded by the introduction of two delays introduced by the
+ * system to provide reasonable performance and a consistent UX.
  *
  * The reducer must:
  *
- * * Accumulate the state required to log
- *   [Popups](https://meta.wikimedia.org/wiki/Schema:Popups) events. This state
- *   is referred to as "the interaction state" or "the interaction";
- * * Handle only logging only one event per link interaction;
- * * Defend against delayed actions being dispatched and, as a direct
- *   consequence;
+ * * Accumulate the state required to log events. This state is
+ *   referred to as "the interaction state" or "the interaction";
+ * * Enforce the invariant that one event is logged per interaction;
+ * * Defend against delayed actions being dispatched; and, as a direct
+ *   consequence
  * * Handle transitioning from one interaction to another at the same time.
  *
  * Furthermore, we distinguish between "finalizing" and "closing" the current
- * interaction state. Since only one
- * [Popups](https://meta.wikimedia.org/wiki/Schema:Popups) event should be
- * logged per link interaction, we say that the interaction state is
- * //finalized// when an event has been logged and is //closed// when a new
- * interaction state should be created, e.g. the interaction state is only
- * finalized when the user clicks a link or a preview.
+ * interaction state. Since only one event should be logged per link
+ * interaction, we say that the interaction state is *finalized* when an event
+ * has been logged and is *closed* when a new interaction should be created.
+ * In practice, the interaction state is only finalized when the user clicks a
+ * link or a preview.
+ *
+ * [0]: https://meta.wikimedia.org/wiki/Schema:Popups
  *
  * @param {Object} state
  * @param {Object} action
  * @return {Object} The state resulting from reducing the action with the
  *  current state
  */
-module.exports = function ( state, action ) {
-	var nextCount,
+export default function eventLogging( state, action ) {
+	var nextCount, newState,
 		actionTypesWithTokens = [
 			actionTypes.FETCH_COMPLETE,
 			actionTypes.ABANDON_END,
@@ -129,6 +146,22 @@ module.exports = function ( state, action ) {
 		return state;
 	}
 
+	// If there is no interaction ongoing, ignore all actions except for:
+	// * Application initialization
+	// * New link dwells (which start a new interaction)
+	// * Clearing queued events
+	//
+	// For example, after ctrl+clicking a link or preview, any other actions
+	// until the new interaction should be ignored.
+	if (
+		!state.interaction &&
+		action.type !== actionTypes.BOOT &&
+		action.type !== actionTypes.LINK_DWELL &&
+		action.type !== actionTypes.EVENT_LOGGED &&
+		action.type !== actionTypes.SETTINGS_CHANGE
+	) {
+		return state;
+	}
 	switch ( action.type ) {
 		case actionTypes.BOOT:
 			return nextState( state, {
@@ -140,9 +173,22 @@ module.exports = function ( state, action ) {
 			} );
 
 		case actionTypes.EVENT_LOGGED:
-			return nextState( state, {
+			newState = nextState( state, {
 				event: undefined
 			} );
+
+			// If an event was logged with an interaction token, and it is still
+			// the current interaction, finish the interaction since logging is
+			// the exit point of the state machine and an interaction should never
+			// be logged twice.
+			if (
+				action.event.linkInteractionToken &&
+				state.interaction &&
+				( action.event.linkInteractionToken === state.interaction.token )
+			) {
+				newState.interaction = undefined;
+			}
+			return newState;
 
 		case actionTypes.FETCH_COMPLETE:
 			return nextState( state, {
@@ -160,7 +206,7 @@ module.exports = function ( state, action ) {
 					previewCountBucket: counts.getPreviewCountBucket( nextCount )
 				} ),
 				interaction: nextState( state.interaction, {
-					timeToPreviewShow: action.timestamp - state.interaction.started
+					timeToPreviewShow: Math.round( action.timestamp - state.interaction.started )
 				} )
 			} );
 
@@ -181,6 +227,8 @@ module.exports = function ( state, action ) {
 				// this and the preview reducer.
 				interaction: {
 					link: action.el,
+					title: action.title,
+					namespaceID: action.namespaceID,
 					token: action.token,
 					started: action.timestamp,
 
@@ -204,11 +252,10 @@ module.exports = function ( state, action ) {
 				interaction: nextState( state.interaction, {
 					finalized: true
 				} ),
-				event: {
+				event: createEvent( state.interaction, {
 					action: 'opened',
-					linkInteractionToken: state.interaction.token,
 					totalInteractionTime: Math.round( action.timestamp - state.interaction.started )
-				}
+				} )
 			} );
 
 		case actionTypes.ABANDON_START:
@@ -232,12 +279,23 @@ module.exports = function ( state, action ) {
 
 		case actionTypes.SETTINGS_SHOW:
 			return nextState( state, {
-				event: {
+				event: createEvent( state.interaction, {
 					action: 'tapped settings cog'
-				}
+				} )
 			} );
 
+		case actionTypes.SETTINGS_CHANGE:
+			if ( action.wasEnabled && !action.enabled ) {
+				return nextState( state, {
+					event: {
+						action: 'disabled',
+						popupEnabled: false
+					}
+				} );
+			} else {
+				return state;
+			}
 		default:
 			return state;
 	}
-};
+}

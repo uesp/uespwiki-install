@@ -113,7 +113,7 @@ class OggHandlerTMH extends TimedMediaHandler {
 				// $value will be an array if the file has
 				// a multiple tags with the same name. Otherwise it
 				// is a string.
-				foreach ( (array) $rawValue as $value ) {
+				foreach ( (array)$rawValue as $value ) {
 					$trimmedValue = trim( $value );
 					if ( $trimmedValue === '' ) {
 						continue;
@@ -144,7 +144,7 @@ class OggHandlerTMH extends TimedMediaHandler {
 	 *
 	 * @param $file File
 	 * @param $path string
-	 * @param $metadata bool
+	 * @param $metadata bool|string|array
 	 * @return array|bool
 	 */
 	function getImageSize( $file, $path, $metadata = false ) {
@@ -153,7 +153,11 @@ class OggHandlerTMH extends TimedMediaHandler {
 		if ( $metadata === false ) {
 			$metadata = $file->getMetadata();
 		}
-		$metadata = $this->unpackMetadata( $metadata );
+
+		if ( is_string( $metadata ) ) {
+			$metadata = $this->unpackMetadata( $metadata );
+		}
+
 		if ( isset( $metadata['error'] ) || !isset( $metadata['streams'] ) ) {
 			return false;
 		}
@@ -176,15 +180,17 @@ class OggHandlerTMH extends TimedMediaHandler {
 	}
 
 	/**
-	 * @param $metadata
+	 * @param string $metadata
+	 * @param bool $unserialize
 	 * @return bool|mixed
 	 */
-	function unpackMetadata( $metadata ) {
-		wfSuppressWarnings();
-		$unser = unserialize( $metadata );
-		wfRestoreWarnings();
-		if ( isset( $unser['version'] ) && $unser['version'] == self::METADATA_VERSION ) {
-			return $unser;
+	function unpackMetadata( $metadata, $unserialize = true ) {
+		if ( $unserialize ) {
+			$metadata = MediaWiki\quietCall( 'unserialize', $metadata );
+		}
+
+		if ( isset( $metadata['version'] ) && $metadata['version'] == self::METADATA_VERSION ) {
+			return $metadata;
 		} else {
 			return false;
 		}
@@ -201,7 +207,7 @@ class OggHandlerTMH extends TimedMediaHandler {
 	 * @param $file File
 	 */
 	function getWebType( $file ) {
-		$baseType =  ( $file->getWidth() == 0 && $file->getHeight() == 0 )? 'audio' : 'video';
+		$baseType = ( $file->getWidth() == 0 && $file->getHeight() == 0 ) ? 'audio' : 'video';
 		$baseType .= '/ogg';
 		$streamTypes = $this->getStreamTypes( $file );
 		if ( !$streamTypes ) {
@@ -254,15 +260,20 @@ class OggHandlerTMH extends TimedMediaHandler {
 
 	/**
 	* Get useful response headers for GET/HEAD requests for a file with the given metadata
-	* @param $metadata mixed Result this handlers getMetadata() for a file
+	* @param $metadata Array Contains this handler's unserialized getMetadata() for a file
 	* @return Array
+	* @since 1.30
 	*/
-	public function getStreamHeaders( $metadata ) {
-		$metadata = $this->unpackMetadata( $metadata );
+	public function getContentHeaders( $metadata ) {
+		$packedMetadata = $metadata;
+		$result = [];
+		$metadata = $this->unpackMetadata( $metadata, false );
+
 		if ( $metadata && !isset( $metadata['error'] ) && isset( $metadata['length'] ) ) {
-			return [ 'X-Content-Duration' => floatval( $metadata[ 'length' ] ) ];
+			$result = [ 'X-Content-Duration' => floatval( $metadata[ 'length' ] ) ];
 		}
-		return [];
+
+		return $result;
 	}
 
 	/**
@@ -276,7 +287,7 @@ class OggHandlerTMH extends TimedMediaHandler {
 		} else {
 			// Return the first found theora stream framerate:
 			foreach ( $metadata['streams'] as $stream ) {
-				if ( $stream['type'] == 'Theora' ){
+				if ( $stream['type'] == 'Theora' ) {
 					return $stream['header']['FRN'] / $stream['header']['FRD'];
 				}
 			}

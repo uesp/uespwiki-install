@@ -20,6 +20,7 @@ $UESP_EXT_IGNORE = 4;		// Don't do anything
 $UESP_EXTENSION_INFO = [
 	"AbuseFilter" => $UESP_EXT_UPGRADE,
 	"AntiSpoof" => $UESP_EXT_UPGRADE,
+	"AudioButton" => $UESP_EXT_OTHER,
 	"CharInsert" => $UESP_EXT_UPGRADE,
 	"CheckUser" => $UESP_EXT_UPGRADE,
 	"CirrusSearch" => $UESP_EXT_UPGRADE,
@@ -54,6 +55,7 @@ $UESP_EXTENSION_INFO = [
 	"MobileFrontend" => $UESP_EXT_UPGRADE,
 	"MwEmbedSupport" => $UESP_EXT_OTHER,
 	"NativeSvgHandler" => $UESP_EXT_NONE,		// Doesn't have versions available before 1.35
+	"NSInfo" => $UESP_EXT_NONE,
 	"Nuke" => $UESP_EXT_DEFAULT,
 	"PageImages" => $UESP_EXT_UPGRADE,
 	"PageSpeedLog" => $UESP_EXT_NONE,
@@ -78,6 +80,7 @@ $UESP_EXTENSION_INFO = [
 	"TimedMediaHandler" => $UESP_EXT_UPGRADE,
 	"TitleBlacklist" => $UESP_EXT_DEFAULT,
 	"TorBlock" => $UESP_EXT_UPGRADE,
+	"UespBreadCrumb" => $UESP_EXT_NONE,
 	"UespCustomCode" => $UESP_EXT_NONE,
 	"UespCustomNew" => $UESP_EXT_NONE,
 	"UespEsoData" => $UESP_EXT_NONE,
@@ -94,20 +97,15 @@ $UESP_EXTENSION_INFO = [
 	"WikiTextLoggedInOut" => $UESP_EXT_UPGRADE,
 		
 	"FakeGraph" => $UESP_EXT_IGNORE,
-	"ParserHelperBackup" => $UESP_EXT_IGNORE,
-	"FakeGraphBackup" => $UESP_EXT_IGNORE,
-	"MetaTemplateBackup" => $UESP_EXT_IGNORE,
-	"RivenBackup" => $UESP_EXT_IGNORE,
 ];
 
 if ($UESP_UPGRADING_MW == 1) return;
 
-wfLoadExtension( 'ParserHelper' ); // Needs to be before both MetaTemplate and Riven.
-
-require_once( "$IP/extensions/AbuseFilter/AbuseFilter.php" );
+wfLoadExtension( 'AbuseFilter' );
 $wgAbuseFilterEmergencyDisableThreshold['default'] = 0.5;
 
-require_once( "$IP/extensions/AntiSpoof/AntiSpoof.php" );
+wfLoadExtension( 'AntiSpoof' );
+wfLoadExtension( 'AudioButton' );
 wfLoadExtension( "CharInsert" );
 wfLoadExtension( "CheckUser" );
 wfLoadExtension( "Cite" );
@@ -137,22 +135,25 @@ $wgCaptchaQuestions[] = array (
 // ------------------
 $wgCaptchaTriggers['addurl'] = false;
 
+wfLoadExtension( 'CSS' );
 require_once( "$IP/extensions/DailyEdits/DailyEdits.php" );
 $wgDailyEditsGraphFile = "//content3.uesp.net/w/extensions/UespCustomCode/files/dailyedits.png";
 
 require_once( "$IP/extensions/DeleteBatch/DeleteBatch.php" );
 wfLoadExtension( "Disambiguator" );
-require_once( "$IP/extensions/DismissableSiteNotice/DismissableSiteNotice.php" );
-require_once( "$IP/extensions/Editcount/Editcount.php" );
+wfLoadExtension( 'DismissableSiteNotice' );
+wfLoadExtension( 'Editcount' );
 wfLoadExtension( "Gadgets" );
 wfLoadExtension( "ImageMap" );
 wfLoadExtension( "InputBox" );
 require_once( "$IP/extensions/JobQueue/JobQueue.php" );
-require_once( "$IP/extensions/LabeledSectionTransclusion/LabeledSectionTransclusion.php" );
+wfLoadExtension( 'LabeledSectionTransclusion' );
 require_once( "$IP/extensions/MediaFunctions/MediaFunctions.php" );
-wfLoadExtension( "MetaTemplate" );
 
-require_once( "$IP/extensions/MobileFrontend/MobileFrontend.php" );
+wfLoadExtension( 'MobileFrontend' );
+$wgMFRemovableClasses['base'] = array_diff($wgMFRemovableClasses['base'], ['.navbox']);
+wfLoadSkin( 'MinervaNeue' );
+$wgMFDefaultSkinClass = 'SkinMinervaNeue';
 $wgMobileFrontendLogo = $wgScriptPath . '/extensions/MobileFrontend/stylesheets/images/uesp-mobile-logo.png';
 $wgMFAutodetectMobileView = true;
 $wgMFCollapseSectionsByDefault = false;
@@ -162,7 +163,7 @@ wfLoadExtension( "ParserFunctions" );
 $wgPFEnableStringFunctions = true;
 $wgPFStringLengthLimit = 30000;
 
-require_once( "$IP/extensions/Patroller/Patroller.php" );
+wfLoadExtension( 'Patroller' );
 
 // Very old extension never updated...do we even use it?
 //require_once( "$IP/extensions/ProtectSection/ProtectSection.php" );
@@ -170,17 +171,19 @@ require_once( "$IP/extensions/Patroller/Patroller.php" );
 
 require_once( "$IP/extensions/RegexFunctions/RegexFunctions.php" );
 wfLoadExtension( "Renameuser" );
-wfLoadExtension( 'Riven' );
 wfLoadExtension( "SpamBlacklist" );
 wfLoadExtension( 'TemplateStyles' );
+$wgTemplateStylesAllowedUrls['image'] = ["<^(https:)?//images\\.uesp\\.net/>"];
 wfLoadExtension( "TitleBlacklist" );
 
-require_once( "$IP/extensions/TorBlock/TorBlock.php" );
+wfLoadExtension( 'TorBlock' );
+$wgTorOnionooCA = false; // Current certificate isn't validating correctly, though it hasn't changed in 11 years.
 $wgGroupPermissions['user']['torunblocked'] = false;
 
-require_once( "$IP/extensions/UespCustomCode/SiteCustomCode.php" );
+wfLoadExtension( 'UespCustomCode' );
+// $egRestrictBlockLength = 6 * 3600;
 require_once( "$IP/extensions/UespMap/UespMap.php" );
-require_once( "$IP/extensions/UsersEditCount/UsersEditCount.php" );
+wfLoadExtension( 'UsersEditCount' );
 wfLoadExtension ( "WikiTextLoggedInOut" );
 wfLoadSkin( "UespMonoBook" );
 wfLoadSkin( "UespVector" );
@@ -198,14 +201,14 @@ $wgFFmpegLocation = '/home/uesp/ffmpeg/ffmpeg';
 
 require_once( "$IP/extensions/UespLegendsCards/UespLegendsCards.php" );
 
-require_once( "$IP/extensions/JsonConfig/JsonConfig.php" );
-wfLoadExtension("Graph");
+wfLoadExtension( 'JsonConfig' );
+wfLoadExtension("FakeGraph");
 $wgEnableGraphParserTag = true;
 
 require_once( "$IP/extensions/RecentPopularPages/RecentPopularPages.php");
 require_once( "$IP/extensions/Tabs/Tabs.php" );
 
-require_once( "$IP/extensions/UploadWizard/UploadWizard.php" );
+wfLoadExtension( 'UploadWizard' );
 
 $wgMessagesDirs['UploadWizard'] = array(
 		"$IP/extensions/UploadWizard/i18n",
@@ -213,6 +216,7 @@ $wgMessagesDirs['UploadWizard'] = array(
 ); 
 $wgUploadWizardConfig['uwLanguages'] = array( 'en' => 'English' );
 $wgUploadWizardConfig['enableCategoryCheck'] = false;
+$wgUploadWizardConfig['maxUploads'] = 1000;
 $wgUploadWizardConfig['minAuthorLength'] = 0;
 $wgUploadWizardConfig['minSourceLength'] = 0;
 $wgUploadWizardConfig['minDescriptionLength'] = 0;
@@ -390,8 +394,7 @@ $wgDefaultUserOptions['usebetatoolbar-cgd'] = 0;
 $wgDefaultUserOptions['wikieditor-preview'] = 0;
 $wgDefaultUserOptions['wikieditor-publish'] = 0;
 
-//wfLoadExtension( 'Scribunto' );
-require_once("$IP/extensions/Scribunto/Scribunto.php");
+wfLoadExtension( 'Scribunto' );
 $wgScribuntoDefaultEngine = 'luastandalone';
 
 wfLoadExtension( "PageSpeedLog" );
@@ -401,6 +404,7 @@ wfLoadExtension( "UespPatreon" );
 $wgSharedTables[] = 'patreon_user';	//Should be in extension but is not working
 wfLoadExtension( "SyntaxHighlight_GeSHi" );
 wfLoadExtension( "UespShortLinks" );
+wfLoadExtension( 'WikiAppApi');
 
 require_once( "$IP/extensions/NativeSvgHandler/NativeSvgHandler.php" );
 $wgNativeSvgHandlerEnableLinks = true;
@@ -410,7 +414,7 @@ wfLoadExtension( "UespEsoData" );
 
 wfLoadExtension( "EmbedVideo" );
 
-require_once "$IP/extensions/PageImages/PageImages.php";
+wfLoadExtension( 'PageImages' );
 $wgPageImagesNamespaces = [NS_MAIN, 102, 104, 106, 108,
 		110, 112, 114, 116, 118,
 		120, 122, 124, 126, 128, 
@@ -423,3 +427,9 @@ $wgPageImagesNamespaces = [NS_MAIN, 102, 104, 106, 108,
 wfLoadExtension( "TextExtracts" );
 wfLoadExtension( "Popups" );
 $wgPopupsReferencePreviewsBetaFeature = false;
+
+wfLoadExtension( 'ParserHelper' );
+wfLoadExtension( 'MetaTemplate' ); // Dependent on ParserHelper
+wfLoadExtension( 'NSInfo' ); // Dependent on ParserHelper
+wfLoadExtension( 'Riven' ); // Dependent on ParserHelper
+wfLoadExtension( 'UespBreadCrumb' ); // Dependent on ParserHelper

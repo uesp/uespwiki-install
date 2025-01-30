@@ -1,21 +1,45 @@
+/**
+ * @module gateway/rest
+ */
+
+import { createModel, createNullModel } from '../preview/model';
+
 var RESTBASE_ENDPOINT = '/api/rest_v1/page/summary/',
-	RESTBASE_PROFILE = 'https://www.mediawiki.org/wiki/Specs/Summary/1.0.0',
-	createModel = require( '../preview/model' ).createModel,
+	RESTBASE_PROFILE = 'https://www.mediawiki.org/wiki/Specs/Summary/1.2.0',
 	mw = window.mediaWiki,
 	$ = jQuery;
+/**
+ * @interface RESTBaseGateway
+ * @extends Gateway
+ *
+ * @global
+ */
 
 /**
- * RESTBase gateway factory
+ * Creates an instance of the RESTBase gateway.
  *
- * @param {Function} ajax function from jQuery for example
- * @param {ext.popups.constants} config set of configuration values
- * @returns {ext.popups.Gateway}
+ * This gateway differs from the {@link MediaWikiGateway MediaWiki gateway} in
+ * that it fetches page data from [the RESTBase page summary endpoint][0].
+ *
+ * [0]: https://en.wikipedia.org/api/rest_v1/#!/Page_content/get_page_summary_title
+ *
+ * @param {Function} ajax A function with the same signature as `jQuery.ajax`
+ * @param {Object} config Configuration that affects the major behavior of the
+ *  gateway.
+ * @param {Number} config.THUMBNAIL_SIZE The length of the major dimension of
+ *  the thumbnail.
+ * @param {Function} extractParser A function that takes response and returns parsed extract
+ * @returns {RESTBaseGateway}
  */
-function createRESTBaseGateway( ajax, config ) {
+export default function createRESTBaseGateway( ajax, config, extractParser ) {
 
 	/**
-	 * Fetch page data from the API
+	 * Fetches page data from [the RESTBase page summary endpoint][0].
 	 *
+	 * [0]: https://en.wikipedia.org/api/rest_v1/#!/Page_content/get_page_summary_title
+	 *
+	 * @function
+	 * @name MediaWikiGateway#fetch
 	 * @param {String} title
 	 * @return {jQuery.Promise}
 	 */
@@ -23,39 +47,26 @@ function createRESTBaseGateway( ajax, config ) {
 		return ajax( {
 			url: RESTBASE_ENDPOINT + encodeURIComponent( title ),
 			headers: {
-				Accept: 'application/json; charset=utf-8' +
+				Accept: 'application/json; charset=utf-8; ' +
 					'profile="' + RESTBASE_PROFILE + '"'
 			}
 		} );
 	}
 
-	/**
-	 * Get the page summary from the api and transform the data
-	 *
-	 * Do not treat 404 as a failure as we want to show a generic
-	 * preview for missing pages.
-	 *
-	 * @param {String} title
-	 * @returns {jQuery.Promise<ext.popups.PreviewModel>}
-	 */
 	function getPageSummary( title ) {
 		var result = $.Deferred();
 
 		fetch( title )
 			.then(
-				function( page ) {
+				function ( page ) {
 					result.resolve(
-						convertPageToModel( page, config.THUMBNAIL_SIZE ) );
+						convertPageToModel( page, config.THUMBNAIL_SIZE, extractParser ) );
 				},
 				function ( jqXHR ) {
 					if ( jqXHR.status === 404 ) {
+
 						result.resolve(
-							convertPageToModel( {
-								title: title,
-								lang: '',
-								dir: '',
-								extract: ''
-							}, 0 )
+							createNullModel( title )
 						);
 					} else {
 						result.reject();
@@ -85,7 +96,7 @@ function createRESTBaseGateway( ajax, config ) {
  *
  * @param {Object} thumbnail The thumbnail image
  * @param {Object} original The original image
- * @param {int} thumbSize The requested size
+ * @param {Number} thumbSize The requested size
  * @returns {Object}
  */
 function generateThumbnailData( thumbnail, original, thumbSize ) {
@@ -102,7 +113,7 @@ function generateThumbnailData( thumbnail, original, thumbSize ) {
 	// where the thumbnail's extension is .svg.png.
 	filename = lastPart.substr( lastPart.indexOf( 'px-' ) + 3 );
 
-		// Scale the thumbnail's largest dimension.
+	// Scale the thumbnail's largest dimension.
 	if ( thumbnail.width > thumbnail.height ) {
 		width = thumbSize;
 		height = Math.floor( ( thumbSize / thumbnail.width ) * thumbnail.height );
@@ -127,21 +138,22 @@ function generateThumbnailData( thumbnail, original, thumbSize ) {
 }
 
 /**
- * Transform the rest API response to a preview model
+ * Converts the API response to a preview model.
  *
+ * @function
+ * @name RESTBaseGateway#convertPageToModel
  * @param {Object} page
- * @param {int} thumbSize
- * @returns {ext.popups.PreviewModel}
+ * @param {Number} thumbSize
+ * @param {Function} extractParser
+ * @returns {PreviewModel}
  */
-function convertPageToModel( page, thumbSize ) {
+function convertPageToModel( page, thumbSize, extractParser ) {
 	return createModel(
 		page.title,
 		new mw.Title( page.title ).getUrl(),
 		page.lang,
 		page.dir,
-		page.extract,
+		extractParser( page ),
 		page.thumbnail ? generateThumbnailData( page.thumbnail, page.originalimage, thumbSize ) : undefined
 	);
 }
-
-module.exports = createRESTBaseGateway;

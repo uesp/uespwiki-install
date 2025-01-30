@@ -14,7 +14,7 @@
 	"popups-settings-title": "Sidförhandsvisning",
 	"popups-settings-description": "Detta verktyg låter dig förhandsgranska länkar till wikisidor och till referenser",
 	"popups-settings-option-simple": "Aktivera",
-	"popups-settings-option-simple-description": "Se den inledande meningen av en sida och visa en förhandsgranskningsbild. Denna rekommenderas för läsare.",
+	"popups-settings-option-simple-description": "Hämta snabbförhandsvisningar för ett ämne när en sida läses.",
 	"popups-settings-option-advanced": "Avancerad",
 	"popups-settings-option-advanced-description": "Se förhandsgranskningar av länkar och ge tillgång till menyer för redigeringsfunktionalitet. Detta används av många redigerare.",
 	"popups-settings-option-off": "Inaktivera",
@@ -26,6 +26,7 @@
 	"popups-preview-no-preview": "Ser ut som det inte finns en förhandsgranskning för denna sida",
 	"popups-preview-footer-read": "Läs",
 	"prefs-reading": "Läsningsinställningar",
+	"popups-prefs-optin-title": "Sidförhandsvisningar\n\n<em>Få snabbförhandsvisningar av ett ämne medan du läser en sida</em>",
 	"popups-prefs-optin-enabled-label": "Aktivera",
 	"popups-prefs-optin-disabled-label": "Inaktivera"
 }

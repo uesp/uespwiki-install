@@ -22,7 +22,7 @@ class CampaignContent extends JsonContent {
 	 * Checks user input JSON to make sure that it produces a valid campaign object
 	 *
 	 * @throws JsonSchemaException: If invalid.
-	 * @return bool: True if valid.
+	 * @return bool True if valid.
 	 */
 	function validate() {
 		$campaign = $this->getJsonData();
@@ -30,7 +30,7 @@ class CampaignContent extends JsonContent {
 			throw new JsonSchemaException( wfMessage( 'eventlogging-invalid-json' )->parse() );
 		}
 
-		$schema = include ( __DIR__ . '/CampaignSchema.php' );
+		$schema = include __DIR__ . '/CampaignSchema.php';
 
 		// Only validate fields we care about
 		$campaignFields = array_keys( $schema['properties'] );
@@ -50,7 +50,7 @@ class CampaignContent extends JsonContent {
 	}
 
 	/**
-	 * @return bool: Whether content is valid JSON Schema.
+	 * @return bool Whether content is valid JSON Schema.
 	 */
 	function isValid() {
 		try {
@@ -90,7 +90,6 @@ class CampaignContent extends JsonContent {
 	}
 
 	function generateHtml( $campaign ) {
-
 		$formatter = new CampaignPageFormatter( $campaign );
 
 		return $formatter->generateReadHtml();

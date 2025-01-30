@@ -1,0 +1,46 @@
+Version 0.4 updates:
+SiteSpecialLonelypages SQL query changed to work with SQL4
+SiteSearchMySQL bug fixed (quotes in "go" words do not cause SQL error), additional sanity checks on "go" words
+Parser::getDefaultSort changed to use SortableCorename
+add IsFileCacheable hook to try to fix problems with multi-page categories
+minor tweaks to functions in SiteCustomCode_body.php : allow some functions to be called with a parameter
+minor tweaks to SiteNamespace.php to allow namespace to be provided by a defined variable
+
+Version 0.5 updates:
+minor tweaks to google ad functions to allow them to be disabled from LocalSettings
+fix SiteNamespace.php errors (recognize mods again; use parser->getTitle instead of wgTitle; use better NS names)
+
+Version 0.6 updates:
+fix an error in SiteNamespace::getRelatedNamespaces that's making Tamriel Rebuilt articles top priority
+plus one tweak to getRelatedNamespaces in anticipation of future edits to sitenamespacelist
+
+Version 0.7 updates:
+make code more MediaWiki-compliant and efficient (in particular, move most functions inside classes)
+preliminary code updates in anticipation of future Mediawiki code changes (in particular, querypage)
+move all text into system messages for internationalization/easier customization
+add search options to user preferences
+add ranking to searches
+additional round of searching on 'go' to find matches for strings like 'oblivion artifact'
+add namespace to si_title
+fix bug in preg_replace of SearchUpdate
+add boolean option to searches
+add parser functions and hooks to process and display bread crumb trail
+fix bug in NS_FULL and MOD_NAME for sub-namespaces
+
+Version 0.8 updates
+All files and code changed to use generic 'Site' prefix
+Most MW.10 code removed
+
+Version 0.9
+Recent changes options: hide userspace edits, custom namespace selection
+Userspace patroller
+Searchindex changed to contain namespace, etc so searches don't have to tie up page table
+
+Note that for links from Recentchanges to my preferences to work properly, prefs.js needs to be modified
+For searching to work, some SQL changes need to be made.  I'll get the SQL added properly soon.
+
+Version 0.9.7
+Code updated according to http://www.mediawiki.org/wiki/Special:Code/MediaWiki/52503
+
+
+NOTE: Version tracking was moved to Github after this; individual change descriptions can be found there.

@@ -3,7 +3,9 @@
 		"authors": [
 			"زكريا",
 			"Yahya Sakhnini",
-			"Mr. Ibrahem"
+			"Mr. Ibrahem",
+			"McDutchie",
+			"Mido"
 		]
 	},
 	"scribunto-line": "في السطر $1",
@@ -11,7 +13,7 @@
 	"scribunto-parser-dialog-title": "خطأ في البرنامج النصي",
 	"scribunto-error-short": "خطأ في البرنامج النصي: $1",
 	"scribunto-error-long": "أخطاء البرنامج النصي:\n\n$1",
-	"scribunto-doc-page-name": "وحدة:$1/شرح",
+	"scribunto-doc-page-name": "Module:$1/شرح",
 	"scribunto-doc-page-does-not-exist": "''يمكن إنشاء صفحة توثيق الوحدة في [[$1]]''",
 	"scribunto-doc-page-header": "'''هذه صفحة توثيق ل[[$1]]'''",
 	"scribunto-console-clear": "إفراغ",
@@ -28,7 +30,7 @@
 	"scribunto-lua-in-main": "في الجزء الرئيسي",
 	"scribunto-lua-in-function-at": "في الوظيفة عند $1:$2",
 	"scribunto-lua-error-location": "خطأ لوا $1: $2.",
-	"scribunto-lua-error": "خطأ أخذ:$2",
+	"scribunto-lua-error": "خطأ لوا: $2.",
 	"scribunto-lua-notarrayreturn": "خطأ:أنتجت الوحدة $2 كقيمة، ومن المفترض أن تنتج جدول.",
 	"scribunto-luastandalone-proc-error": "خطأ لوا: لا يمكن إنشاء العملية.",
 	"scribunto-luastandalone-proc-error-msg": "خطأ لوا: لا يمكن إنشاء العملية: $2",

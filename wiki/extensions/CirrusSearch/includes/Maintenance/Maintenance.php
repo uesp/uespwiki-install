@@ -6,6 +6,7 @@ use CirrusSearch\Connection;
 use CirrusSearch\SearchConfig;
 use MediaWiki\MediaWikiServices;
 use CirrusSearch\UserTesting;
+use MediaWiki\Services\CannotReplaceActiveServiceException;
 
 /**
  * Cirrus helpful extensions to Maintenance.
@@ -92,13 +93,13 @@ abstract class Maintenance extends \Maintenance {
 	 * @return Connection
 	 */
 	public function getConnection( $cluster = null ) {
-		if( $cluster ) {
+		if ( $cluster ) {
 			if ( !$this->getSearchConfig() instanceof SearchConfig ) {
 				// We shouldn't ever get here ... but the makeConfig type signature returns the parent class of SearchConfig
 				// so just being extra careful...
 				throw new \RuntimeException( 'Expected instanceof CirrusSearch\SearchConfig, but received ' . get_class( $this->getSearchConfig() ) );
 			}
-			if (!$this->getSearchConfig()->getElement( 'CirrusSearchClusters', $cluster ) ) {
+			if ( !$this->getSearchConfig()->getElement( 'CirrusSearchClusters', $cluster ) ) {
 				$this->error( 'Unknown cluster.', 1 );
 			}
 			$connection = Connection::getPool( $this->getSearchConfig(), $cluster );
@@ -147,12 +148,12 @@ abstract class Maintenance extends \Maintenance {
 	 */
 	public function loadSpecialVars() {
 		parent::loadSpecialVars();
-		if ( Maintenance::$indent === null ) {
+		if ( self::$indent === null ) {
 			// First script gets no indentation
-			Maintenance::$indent = '';
+			self::$indent = '';
 		} else {
 			// Others get one tab beyond the last
-			Maintenance::$indent = Maintenance::$indent . "\t";
+			self::$indent = self::$indent . "\t";
 		}
 	}
 
@@ -161,7 +162,7 @@ abstract class Maintenance extends \Maintenance {
 	 * the next one gets the right indentation.
 	 */
 	public function done() {
-		Maintenance::$indent = substr( Maintenance::$indent, 1 );
+		self::$indent = substr( self::$indent, 1 );
 	}
 
 	/**
@@ -173,7 +174,7 @@ abstract class Maintenance extends \Maintenance {
 	}
 
 	public function outputIndented( $message ) {
-		$this->output( Maintenance::$indent . $message );
+		$this->output( self::$indent . $message );
 	}
 
 	/**
@@ -202,5 +203,15 @@ abstract class Maintenance extends \Maintenance {
 		// Don't skew the dashboards by logging these requests to
 		// the global request log.
 		$wgCirrusSearchLogElasticRequests = false;
+		// Disable statsd data collection.
+		try {
+			$services = \MediaWiki\MediaWikiServices::getInstance();
+			$services->redefineService( "StatsdDataFactory",
+				function ( MediaWikiServices $services ) {
+					return new \NullStatsdDataFactory();
+				} );
+		} catch ( CannotReplaceActiveServiceException $e ) {
+			// ignore it, failing to disable stats is tolerable
+		}
 	}
 }

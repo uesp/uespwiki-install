@@ -2,11 +2,13 @@
 	"@metadata": {
 		"authors": [
 			"Kandar",
-			"Uchup19"
+			"Uchup19",
+			"Dipusparaga"
 		]
 	},
 	"uploadwizard": "Purah ngunjalkeun",
 	"uploadwizard-desc": "Purah Ngunjalkeun, parabot pikeun ngunjal multimédia",
+	"tag-uploadwizard": "Purah ngunjalkeun",
 	"right-upwizcampaigns": "Setél kampanyeu purah ngunjalkeun",
 	"action-upwizcampaigns": "setél kampanyeu ngunjalkeun",
 	"group-upwizcampeditors": "Éditor kampanyeu purah ngunjalkeun",
@@ -47,5 +49,10 @@
 	"mwe-upwiz-failed": "Gagal.",
 	"mwe-upwiz-remove": "Hapus",
 	"mwe-upwiz-upload": "Unjal",
-	"mwe-upwiz-copy-metadata-button": "Téplak"
+	"mwe-upwiz-source-thirdparty-accept": "Heug",
+	"mwe-upwiz-copy-metadata-button": "Téplak",
+	"mwe-upwiz-thanks-intro": "Hatur nuhun tas ngunjal!",
+	"mwe-upwiz-ok": "Heug",
+	"mwe-upwiz-dialog-yes": "Nya",
+	"mwe-upwiz-errordialog-ok": "Heug"
 }

@@ -1,19 +1,24 @@
+/**
+ * @module wait
+ */
+
 var $ = jQuery;
 
 /**
  * Sugar around `window.setTimeout`.
  *
  * @example
- * function continueProcessing() {
- *   // ...
- * }
+ * import wait from './wait';
  *
- * wait( 150 ).then( continueProcessing );
+ * wait( 150 )
+ *   .then( function () {
+ *     // Continue processing...
+ *   } );
  *
  * @param {Number} delay The number of milliseconds to wait
  * @return {jQuery.Promise}
  */
-module.exports = function ( delay ) {
+export default function wait( delay ) {
 	var result = $.Deferred();
 
 	setTimeout( function () {
@@ -21,4 +26,4 @@ module.exports = function ( delay ) {
 	}, delay );
 
 	return result.promise();
-};
+}

@@ -11,7 +11,7 @@ class SpecialMobilePreferences extends SpecialPreferences {
 		'files',
 		'rc',
 	];
-	
+
 	/**
 	 * Builds the preferences form for the given section.
 	 *

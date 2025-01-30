@@ -70,6 +70,7 @@ class UespVectorTemplate extends VectorTemplate {
 									echo "\n<ul style=\"padding-left:0.75em;\">\n";
 								$isindent = true;
 								$val['text'] = trim(substr($val['text'],1));
+								$val['id'] = str_replace('.2A', '', $val['id']);
 							}
 							elseif ($isindent) {
 								$isindent = false;

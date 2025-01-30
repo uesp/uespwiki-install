@@ -230,6 +230,11 @@ class SpecialUploadWizard extends SpecialPage {
 			}
 		}
 
+		// add an 'uploadwizard' tag, but only if it'll be allowed
+		UploadWizardHooks::onListDefinedTags( $tags );
+		$status = ChangeTags::canAddTagsAccompanyingChange( $tags, $this->getUser() );
+		$config['CanAddTags'] = $status->isOK();
+
 		$bitmapHandler = new BitmapHandler();
 		$this->getOutput()->addJsConfigVars(
 			[
@@ -374,6 +379,5 @@ class UploadWizardSimpleForm extends UploadForm {
 	 * So, we make the addUploadJS a no-op.
 	 */
 	protected function addUploadJS() {
-
 	}
 }

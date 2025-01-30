@@ -1,6 +1,7 @@
-var createModel = require( '../../../src/preview/model' ).createModel,
-	createRESTBaseGateway = require( '../../../src/gateway/rest' ),
-	DEFAULT_CONSTANTS = {
+import { createModel } from '../../../src/preview/model';
+import createRESTBaseGateway from '../../../src/gateway/rest';
+
+var DEFAULT_CONSTANTS = {
 		THUMBNAIL_SIZE: 512
 	},
 	RESTBASE_RESPONSE = {
@@ -97,7 +98,7 @@ var createModel = require( '../../../src/preview/model' ).createModel,
 		'url/Barack Obama', // Generated in the stub below
 		'en',
 		'ltr',
-		'Barack Hussein Obama II born August 4, 1961) ...',
+		'!Barack Hussein Obama II born August 4, 1961) ...!',
 		{
 			source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/President_Barack_Obama.jpg/409px-President_Barack_Obama.jpg',
 			width: 409,
@@ -105,14 +106,18 @@ var createModel = require( '../../../src/preview/model' ).createModel,
 		}
 	);
 
+function provideParsedExtract( page ) {
+	return '!' + page.extract + '!';
+}
+
 QUnit.module( 'gateway/rest', {
 	beforeEach: function () {
-		mediaWiki.Title = function ( title ) {
+		window.mediaWiki.Title = function ( title ) {
 			this.getUrl = function () { return 'url/' + title; };
 		};
 	},
 	afterEach: function () {
-		mediaWiki.Title = null;
+		window.mediaWiki.Title = null;
 	}
 } );
 
@@ -122,21 +127,28 @@ QUnit.test( 'RESTBase gateway is called with correct arguments', function ( asse
 		expectedOptions = {
 			url: '/api/rest_v1/page/summary/' + encodeURIComponent( 'Test Title' ),
 			headers: {
-				Accept: 'application/json; charset=utf-8' +
-					'profile="https://www.mediawiki.org/wiki/Specs/Summary/1.0.0"'
+				Accept: 'application/json; charset=utf-8; ' +
+					'profile="https://www.mediawiki.org/wiki/Specs/Summary/1.2.0"'
 			}
 		};
 
 	gateway.fetch( 'Test Title' );
-
 	assert.deepEqual( getSpy.getCall( 0 ).args[ 0 ], expectedOptions, 'options' );
+} );
+
+QUnit.test( 'RESTBase provider uses extract parser', function ( assert ) {
+	var getSpy = this.sandbox.spy(),
+		gateway = createRESTBaseGateway();
+
+	gateway.convertPageToModel( RESTBASE_RESPONSE, 512, getSpy );
+	assert.deepEqual( getSpy.getCall( 0 ).args[ 0 ], RESTBASE_RESPONSE );
 } );
 
 QUnit.test( 'RESTBase gateway is correctly converting the page data to a model ', function ( assert ) {
 	var gateway = createRESTBaseGateway();
 
 	assert.deepEqual(
-		gateway.convertPageToModel( RESTBASE_RESPONSE, 512 ),
+		gateway.convertPageToModel( RESTBASE_RESPONSE, 512, provideParsedExtract ),
 		RESTBASE_RESPONSE_PREVIEW_MODEL
 	);
 } );
@@ -145,7 +157,7 @@ QUnit.test( 'RESTBase gateway doesn\'t stretch thumbnails', function ( assert ) 
 	var model,
 		gateway = createRESTBaseGateway();
 
-	model = gateway.convertPageToModel( RESTBASE_RESPONSE, 2000 );
+	model = gateway.convertPageToModel( RESTBASE_RESPONSE, 2000, provideParsedExtract );
 
 	assert.deepEqual(
 		model.thumbnail,
@@ -154,7 +166,7 @@ QUnit.test( 'RESTBase gateway doesn\'t stretch thumbnails', function ( assert ) 
 	);
 
 	// ---
-	model = gateway.convertPageToModel( RESTBASE_RESPONSE, RESTBASE_RESPONSE.originalimage.height );
+	model = gateway.convertPageToModel( RESTBASE_RESPONSE, RESTBASE_RESPONSE.originalimage.height, provideParsedExtract );
 
 	assert.deepEqual(
 		model.thumbnail,
@@ -163,7 +175,7 @@ QUnit.test( 'RESTBase gateway doesn\'t stretch thumbnails', function ( assert ) 
 	);
 
 	// ---
-	model = gateway.convertPageToModel( RESTBASE_RESPONSE_WITH_SMALL_IMAGE, 320 );
+	model = gateway.convertPageToModel( RESTBASE_RESPONSE_WITH_SMALL_IMAGE, 320, provideParsedExtract );
 
 	assert.deepEqual(
 		model.thumbnail,
@@ -172,7 +184,7 @@ QUnit.test( 'RESTBase gateway doesn\'t stretch thumbnails', function ( assert ) 
 	);
 
 	// ---
-	model = gateway.convertPageToModel( RESTBASE_RESPONSE_WITH_LANDSCAPE_IMAGE, 640 );
+	model = gateway.convertPageToModel( RESTBASE_RESPONSE_WITH_LANDSCAPE_IMAGE, 640, provideParsedExtract );
 
 	assert.deepEqual(
 		model.thumbnail,
@@ -194,7 +206,7 @@ QUnit.test( 'RESTBase gateway handles awkwardly thumbnails', function ( assert )
 	response.thumbnail = Object.assign( {}, RESTBASE_RESPONSE.thumbnail );
 	response.thumbnail.source = 'http://foo.bar/baz/Qux-320px-Quux.png/800px-Qux-320px-Quux.png';
 
-	model = gateway.convertPageToModel( response, 500 );
+	model = gateway.convertPageToModel( response, 500, provideParsedExtract );
 
 	assert.deepEqual(
 		model.thumbnail.source,
@@ -207,7 +219,7 @@ QUnit.test( 'RESTBase gateway stretches SVGs', function ( assert ) {
 	var model,
 		gateway = createRESTBaseGateway();
 
-	model = gateway.convertPageToModel( SVG_RESTBASE_RESPONSE, 2000 );
+	model = gateway.convertPageToModel( SVG_RESTBASE_RESPONSE, 2000, provideParsedExtract );
 
 	assert.equal(
 		model.thumbnail.source,
@@ -219,12 +231,10 @@ QUnit.test( 'RESTBase gateway stretches SVGs', function ( assert ) {
 QUnit.test( 'RESTBase gateway handles the API failure', function ( assert ) {
 	var deferred = $.Deferred(),
 		api = this.sandbox.stub().returns( deferred.reject( { status: 500 } ).promise() ),
-		gateway = createRESTBaseGateway( api ),
-		done = assert.async( 1 );
+		gateway = createRESTBaseGateway( api );
 
-	gateway.getPageSummary( 'Test Title' ).fail( function () {
+	return gateway.getPageSummary( 'Test Title' ).catch( function () {
 		assert.ok( true );
-		done();
 	} );
 
 } );
@@ -232,12 +242,10 @@ QUnit.test( 'RESTBase gateway handles the API failure', function ( assert ) {
 QUnit.test( 'RESTBase gateway does not treat a 404 as a failure', function ( assert ) {
 	var deferred = $.Deferred(),
 		api = this.sandbox.stub().returns( deferred.reject( { status: 404 } ).promise() ),
-		gateway = createRESTBaseGateway( api ),
-		done = assert.async( 1 );
+		gateway = createRESTBaseGateway( api, { THUMBNAIL_SIZE: 200 }, provideParsedExtract );
 
-	gateway.getPageSummary( 'Test Title' ).done( function () {
+	return gateway.getPageSummary( 'Test Title' ).then( function () {
 		assert.ok( true );
-		done();
 	} );
 } );
 
@@ -245,19 +253,17 @@ QUnit.test( 'RESTBase gateway returns the correct data ', function ( assert ) {
 	var api = this.sandbox.stub().returns(
 			$.Deferred().resolve( RESTBASE_RESPONSE ).promise()
 		),
-		gateway = createRESTBaseGateway( api, DEFAULT_CONSTANTS ),
-		done = assert.async( 1 );
+		gateway = createRESTBaseGateway( api, DEFAULT_CONSTANTS, provideParsedExtract );
 
-	gateway.getPageSummary( 'Test Title' ).done( function ( result ) {
+	return gateway.getPageSummary( 'Test Title' ).then( function ( result ) {
 		assert.deepEqual( result, RESTBASE_RESPONSE_PREVIEW_MODEL );
-		done();
 	} );
 } );
 
 QUnit.test( 'RESTBase gateway handles missing images ', function ( assert ) {
 	var model,
 		gateway = createRESTBaseGateway();
-	model = gateway.convertPageToModel( RESTBASE_RESPONSE_WITHOUT_IMAGE, 300 );
+	model = gateway.convertPageToModel( RESTBASE_RESPONSE_WITHOUT_IMAGE, 300, provideParsedExtract );
 
 	assert.equal(
 		model.originalimage,
@@ -277,12 +283,9 @@ QUnit.test( 'RESTBase gateway handles missing pages ', function ( assert ) {
 		api = this.sandbox.stub().returns(
 			$.Deferred().reject( response ).promise()
 		),
-		gateway = createRESTBaseGateway( api, DEFAULT_CONSTANTS ),
-		done = assert.async( 1 );
+		gateway = createRESTBaseGateway( api, DEFAULT_CONSTANTS, provideParsedExtract );
 
-	gateway.getPageSummary( 'Missing Page' ).fail( function () {
+	return gateway.getPageSummary( 'Missing Page' ).catch( function () {
 		assert.ok( true );
-
-		done();
 	} );
 } );

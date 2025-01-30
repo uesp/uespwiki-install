@@ -110,7 +110,7 @@ class Util {
 		return function () use ( $type, $isSuccess, $callback, $startPoolWork ) {
 			MediaWikiServices::getInstance()->getStatsdDataFactory()->timing(
 				self::getPoolStatsKey( $type, $isSuccess ),
-				intval( 1000 * (microtime( true ) - $startPoolWork) )
+				intval( 1000 * ( microtime( true ) - $startPoolWork ) )
 			);
 
 			return call_user_func_array( $callback, func_get_args() );
@@ -140,7 +140,6 @@ class Util {
 			// We don't want to even use the pool counter if there isn't a user.
 			// Note that anonymous users are still users, this is most likely
 			// maintenance scripts.
-			//
 			// @todo Maintenenace scripts and jobs should already override
 			// poolcounters as necessary, can this be removed?
 			return $workCallback();
@@ -148,7 +147,7 @@ class Util {
 
 		$key = "$type:$wgCirrusSearchPoolCounterKey";
 
-		$errorCallback = function( Status $status ) use ( $key, $busyErrorMsg ) {
+		$errorCallback = function ( Status $status ) use ( $key, $busyErrorMsg ) {
 			/** @suppress PhanDeprecatedFunction No good replacements for getErrorsArray */
 			$errors = $status->getErrorsArray();
 			$error = $errors[0][0];
@@ -182,7 +181,7 @@ class Util {
 	public static function parsePotentialPercent( $str ) {
 		$result = floatval( $str );
 		if ( strpos( $str, '%' ) === false ) {
-			return (float) $result;
+			return (float)$result;
 		}
 		return $result / 100;
 	}
@@ -207,7 +206,7 @@ class Util {
 	 *
 	 * @param string $string string to test
 	 * @param string $suffix the suffix
-	 * @return boolean true if $string ends with $suffix
+	 * @return bool true if $string ends with $suffix
 	 */
 	public static function endsWith( $string, $suffix ) {
 		$strlen = strlen( $string );
@@ -230,7 +229,7 @@ class Util {
 		if ( $val !== null ) {
 			if ( $val === 'yes' ) {
 				$dest = true;
-			} elseif( $val = 'no' ) {
+			} elseif ( $val === 'no' ) {
 				$dest = false;
 			}
 		}
@@ -251,9 +250,9 @@ class Util {
 		if ( $val !== null && is_numeric( $val ) ) {
 			if ( !isset( $limit ) ) {
 				$dest = $val;
-			} else if ( $upperLimit && $val <= $limit ) {
+			} elseif ( $upperLimit && $val <= $limit ) {
 				$dest = $val;
-			} else if ( !$upperLimit && $val >= $limit ) {
+			} elseif ( !$upperLimit && $val >= $limit ) {
 				$dest = $val;
 			}
 		}
@@ -313,7 +312,7 @@ class Util {
 				600,
 				function () {
 					$source = wfMessage( 'cirrussearch-boost-templates' )->inContentLanguage();
-					if( !$source->isDisabled() ) {
+					if ( !$source->isDisabled() ) {
 						$lines = Util::parseSettingsInMessage( $source->plain() );
 						// Now parse the templates
 						return Query\BoostTemplatesFeature::parseBoostTemplates( implode( ' ', $lines ) );
@@ -357,11 +356,11 @@ class Util {
 				$term = preg_replace( "/((?<!\\\\)\?|\s)+$/", '', $term );
 				$term = preg_replace( '/\\\\\?/', '?', $term );
 			} elseif ( $strippingLevel === 'break' ) {
-				//strip question marks at word boundaries
+				// strip question marks at word boundaries
 				$term = preg_replace( '/(?<!\\\\)(\?)+(\PL|$)/', '$2', $term );
 				$term = preg_replace( '/\\\\\?/', '?', $term );
 			} elseif ( $strippingLevel === 'all' ) {
-				//strip all unescaped question marks
+				// strip all unescaped question marks
 				$term = preg_replace( '/(?<!\\\\)(\?)+/', ' ', $term );
 				$term = preg_replace( '/\\\\\?/', '?', $term );
 			}
@@ -378,7 +377,7 @@ class Util {
 	 */
 	public static function getExecutionId() {
 		if ( self::$executionId === null ) {
-			self::$executionId = (string) mt_rand();
+			self::$executionId = (string)mt_rand();
 		}
 		return self::$executionId;
 	}
@@ -406,8 +405,8 @@ class Util {
 			$uuid = UIDGenerator::newUUIDv4();
 			// make it a little shorter by using straight base36
 			$hex = substr( $uuid, 0, 8 ) . substr( $uuid, 9, 4 ) .
-				   substr( $uuid, 14, 4 ) . substr( $uuid, 19, 4) .
-				   substr( $uuid, 24 );
+				substr( $uuid, 14, 4 ) . substr( $uuid, 19, 4 ) .
+				substr( $uuid, 24 );
 			$token = \Wikimedia\base_convert( $hex, 16, 36 );
 		}
 		return $token;
@@ -430,8 +429,8 @@ class Util {
 	/**
 	 * @return string The context the request is in. Either cli, api or web.
 	 */
-	static public function getExecutionContext() {
-		if ( php_sapi_name() === 'cli' ) {
+	public static function getExecutionContext() {
+		if ( PHP_SAPI === 'cli' ) {
 			return 'cli';
 		} elseif ( defined( 'MW_API' ) ) {
 			return 'api';
@@ -439,6 +438,5 @@ class Util {
 			return 'web';
 		}
 	}
-
 
 }
