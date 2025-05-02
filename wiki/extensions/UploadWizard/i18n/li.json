@@ -2,7 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Ooswesthoesbes",
-			"Matma Rex"
+			"Matma Rex",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Uploadwizzerd",
@@ -98,8 +99,6 @@
 	"mwe-upwiz-copy-location": "Kopieer plaats",
 	"mwe-upwiz-copy-other": "Kopieer anger gegaeves",
 	"mwe-upwiz-desc": "Besjrieving",
-	"mwe-upwiz-desc-add-n": "Veug besjrieving in 'n anger sjpraok toe",
-	"mwe-upwiz-desc-add-0": "Veug besjrieving toe",
 	"mwe-upwiz-title": "Naam",
 	"mwe-upwiz-date-created": "Aangemaak op",
 	"mwe-upwiz-location": "Locatie",
@@ -192,7 +191,6 @@
 	"mwe-upwiz-license-own-pd": "Aalle rèchte vriegegaeve via de licensie Creative Commons 0 (wie pebliek demein)",
 	"mwe-upwiz-license-pd-old-100": "Sjriever al mier es 100 jaor doed",
 	"mwe-upwiz-license-pd-old": "Sjriever al mier es 70 jaor doed",
-	"mwe-upwiz-license-pd-art": "Reproductie van e sjiljerie det zich in 't publiek domein bevindj",
 	"mwe-upwiz-license-pd-us": "Veur 't iers gepubliceerd inne VS veur 1923",
 	"mwe-upwiz-license-pd-usgov": "Origineel wirk vanne Amerikaanse fidderaole regering",
 	"mwe-upwiz-license-pd-usgov-nasa": "Origineel wirk vanne NASA",
@@ -203,7 +201,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Copyright, mer kin waere gebroek veur waatfer doel den ouch, ouch commercieel.",
 	"mwe-upwiz-license-attribution": "Kin waere gebroek veur alles, ouch commercieel, zolanke sjriever mer genömp weurt.",
 	"mwe-upwiz-license-gfdl": "GNU Free Documentation License",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, naamsvermelding vereis (GFDL, CC BY-SA-3.0).",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, naamsvermelding vereis (GFDL, CC BY-SA 3.0).",
 	"mwe-upwiz-license-cc-head": "De sjriever haet {{PLURAL:$1|dit wirk|dees wirke}} gepubliceerd ongere Creative Commons licensie",
 	"mwe-upwiz-license-cc-subhead": "Neet alle Creative Commons licensies zeen gesjik veur dees site. Zorg det de rechhöbbendje 'n gooj licensie haet.",
 	"mwe-upwiz-license-flickr-head": "De sjrieve rhaet {{PLURAL:$1|aafbeilding of video|aafbeildinge of video's}} op FlickR gepubliceerd mit 'n gesjik licensie",

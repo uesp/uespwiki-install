@@ -3,7 +3,7 @@ import linkTitle from '../../../src/changeListeners/linkTitle';
 // Since footerLink manipulates the DOM, this test is, by necessity, an
 // integration test.
 QUnit.module( 'ext.popups/changeListeners/footerLink @integration', {
-	beforeEach: function () {
+	beforeEach() {
 		this.$link = $( '<a>' )
 			.attr( 'title', 'Foo' );
 
@@ -39,13 +39,11 @@ QUnit.test( 'it shouldn\'t remove the title under certain conditions', function 
 } );
 
 QUnit.test( 'it should restore the title', function ( assert ) {
-	var nextState;
-
 	this.whenTheLinkIsDwelledUpon();
 
 	// Does the change listener guard against receiving many state tree updates
 	// with the same activeLink property?
-	nextState = $.extend( true, {}, this.state );
+	let nextState = $.extend( true, {}, this.state );
 
 	this.linkTitleChangeListener( this.state, nextState );
 
@@ -60,12 +58,11 @@ QUnit.test( 'it should restore the title', function ( assert ) {
 } );
 
 QUnit.test( 'it should restore the title when the user dwells on another link immediately', function ( assert ) {
-	var nextState,
-		$anotherLink = $( '<a title="Bar">' );
+	const $anotherLink = $( '<a title="Bar">' );
 
 	this.whenTheLinkIsDwelledUpon();
 
-	nextState = $.extend( true, {}, this.state, {
+	let nextState = $.extend( true, {}, this.state, {
 		preview: {
 			activeLink: $anotherLink
 		}

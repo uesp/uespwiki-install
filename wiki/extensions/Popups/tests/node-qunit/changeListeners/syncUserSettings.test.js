@@ -1,7 +1,7 @@
 import syncUserSettings from '../../../src/changeListeners/syncUserSettings';
 
 QUnit.module( 'ext.popups/changeListeners/syncUserSettings', {
-	beforeEach: function () {
+	beforeEach() {
 		this.userSettings = {
 			setPreviewCount: this.sandbox.spy(),
 			setIsEnabled: this.sandbox.spy()
@@ -14,12 +14,9 @@ QUnit.module( 'ext.popups/changeListeners/syncUserSettings', {
 QUnit.test(
 	'it shouldn\'t update the storage if the preview count hasn\'t changed',
 	function ( assert ) {
-		var state,
-			prevState;
-
 		assert.expect( 1 );
 
-		state = {
+		const state = {
 			eventLogging: {
 				previewCount: 222
 			}
@@ -29,7 +26,7 @@ QUnit.test(
 
 		// ---
 
-		prevState = $.extend( true, {}, state );
+		const prevState = $.extend( true, {}, state );
 
 		this.changeListener( prevState, state );
 
@@ -38,18 +35,15 @@ QUnit.test(
 );
 
 QUnit.test( 'it should update the storage if the previewCount has changed', function ( assert ) {
-	var prevState,
-		state;
-
 	assert.expect( 1 );
 
-	prevState = {
+	const prevState = {
 		eventLogging: {
 			previewCount: 222
 		}
 	};
 
-	state = $.extend( true, {}, prevState );
+	const state = $.extend( true, {}, prevState );
 	++state.eventLogging.previewCount;
 
 	this.changeListener( prevState, state );
@@ -60,12 +54,9 @@ QUnit.test( 'it should update the storage if the previewCount has changed', func
 QUnit.test(
 	'it shouldn\'t update the storage if the enabled state hasn\'t changed',
 	function ( assert ) {
-		var state,
-			prevState;
-
 		assert.expect( 1 );
 
-		state = {
+		const state = {
 			preview: {
 				enabled: true
 			}
@@ -75,7 +66,7 @@ QUnit.test(
 
 		// ---
 
-		prevState = $.extend( true, {}, state );
+		const prevState = $.extend( true, {}, state );
 
 		this.changeListener( prevState, state );
 
@@ -84,18 +75,15 @@ QUnit.test(
 );
 
 QUnit.test( 'it should update the storage if the enabled flag has changed', function ( assert ) {
-	var prevState,
-		state;
-
 	assert.expect( 1 );
 
-	prevState = {
+	const prevState = {
 		preview: {
 			enabled: true
 		}
 	};
 
-	state = $.extend( true, {}, prevState );
+	const state = $.extend( true, {}, prevState );
 	state.preview.enabled = false;
 
 	this.changeListener( prevState, state );

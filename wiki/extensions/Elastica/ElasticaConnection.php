@@ -18,10 +18,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  */
-
-require_once(__DIR__ . "/vendor/autoload.php");
-
-
 abstract class ElasticaConnection {
 	/**
 	 * @var \Elastica\Client

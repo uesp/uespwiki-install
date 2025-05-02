@@ -2,7 +2,13 @@
 
 namespace CirrusSearch\Search;
 
+use CirrusSearch\OtherIndexes;
+use CirrusSearch\Profile\SearchProfileService;
+use CirrusSearch\Search\Rescore\BoostFunctionBuilder;
+use CirrusSearch\Search\Rescore\RescoreBuilder;
 use CirrusSearch\SearchConfig;
+use CirrusSearch\WarningCollector;
+use Elastica\Aggregation\AbstractAggregation;
 use Elastica\Query\AbstractQuery;
 
 /**
@@ -28,7 +34,7 @@ use Elastica\Query\AbstractQuery;
  * The SearchContext stores the various states maintained
  * during the query building process.
  */
-class SearchContext {
+class SearchContext implements WarningCollector {
 	/**
 	 * @var SearchConfig
 	 */
@@ -40,20 +46,14 @@ class SearchContext {
 	private $namespaces;
 
 	/**
+	 * @var string
+	 */
+	private $profileContext = SearchProfileService::CONTEXT_DEFAULT;
+
+	/**
 	 * @var array|null list of boost templates extracted from the query string
 	 */
 	private $boostTemplatesFromQuery;
-
-	/**
-	 * @var array[] set of per-wiki template boosts from extra index handling
-	 */
-	private $extraIndexBoostTemplates = [];
-
-	/**
-	 * @deprecated use rescore profiles instead
-	 * @var bool do we need to boost links
-	 */
-	private $boostLinks = false;
 
 	/**
 	 * @var float portion of article's score which decays with time.  Defaults to 0 meaning don't decay the score
@@ -68,12 +68,12 @@ class SearchContext {
 	private $preferRecentHalfLife = 0;
 
 	/**
-	 * @var string rescore profile to use
+	 * @var string|array rescore profile to use
 	 */
 	private $rescoreProfile;
 
 	/**
-	 * @var FunctionScoreBuilder[] Extra scoring builders to use.
+	 * @var BoostFunctionBuilder[] Extra scoring builders to use.
 	 */
 	private $extraScoreBuilders = [];
 
@@ -99,11 +99,11 @@ class SearchContext {
 	private $notFilters = [];
 
 	/**
-	 * @var array[] $config List of configurations for highlighting the article
-	 *  source. Passed to ResultType::getHighlightingConfiguration to generate
-	 *  final highlighting configuration. Empty if source is ignored.
+	 * @var array[][] $config List of configurations for highlighting additional
+	 *  fields such as source_text. Passed to ResultType::getHighlightingConfiguration
+	 *  to generate final highlighting configuration.
 	 */
-	private $highlightSource = [];
+	private $extraHighlightFields = [];
 
 	/**
 	 * @var boolean is this a fuzzy query?
@@ -124,10 +124,9 @@ class SearchContext {
 	private $nonTextHighlightQueries = [];
 
 	/**
-	 * @var array Set of rescore configurations as used by elasticsearch. The query needs
-	 *  to be an Elastica query.
+	 * @var AbstractQuery|null phrase rescore query
 	 */
-	private $rescore = [];
+	private $phraseRescoreQuery;
 
 	/**
 	 * @var string[] array of prefixes that should be prepended to suggestions. Can be added
@@ -192,6 +191,8 @@ class SearchContext {
 		'more_like' => 100,
 		'near_match' => 10,
 		'prefix' => 2,
+		// Deep category searches
+		'deepcategory' => 20,
 	];
 
 	/**
@@ -209,6 +210,16 @@ class SearchContext {
 	 *  outside the defaults from config?
 	 */
 	private $isDirty = false;
+
+	/**
+	 * @var ResultsType Type of the result for the context.
+	 */
+	private $resultsType;
+
+	/**
+	 * @var AbstractAggregation[] Aggregations to perform
+	 */
+	private $aggs = [];
 
 	/**
 	 * @param SearchConfig $config
@@ -236,11 +247,6 @@ class SearchContext {
 	}
 
 	private function loadConfig() {
-		/** @suppress PhanDeprecatedProperty */
-		$this->boostLinks = $this->config->get( 'CirrusSearchBoostLinks' );
-		$this->rescoreProfile = $this->config->get( 'CirrusSearchRescoreProfile' );
-		$this->fulltextQueryBuilderProfile = $this->config->get( 'CirrusSearchFullTextQueryBuilderProfile' );
-
 		$decay = $this->config->get( 'CirrusSearchPreferRecentDefaultDecayPortion' );
 		if ( $decay > 0 ) {
 			$this->preferRecentDecayPortion = $decay;
@@ -293,6 +299,21 @@ class SearchContext {
 	}
 
 	/**
+	 * @return string
+	 */
+	public function getProfileContext() {
+		return $this->profileContext;
+	}
+
+	/**
+	 * @param string $profileContext
+	 */
+	public function setProfileContext( $profileContext ) {
+		$this->isDirty = $this->isDirty || $this->profileContext !== $profileContext;
+		$this->profileContext = $profileContext;
+	}
+
+	/**
 	 * Return the list of boosted templates specified in the user query (special syntax)
 	 * null if not used in the query or an empty array if there was a syntax error.
 	 * Initialized after special syntax extraction.
@@ -320,35 +341,15 @@ class SearchContext {
 	 *  within that wiki
 	 */
 	public function getExtraIndexBoostTemplates() {
-		return $this->extraIndexBoostTemplates;
-	}
+		$extraIndexBoostTemplates = [];
+		foreach ( $this->getExtraIndices() as $extraIndex ) {
+			$extraIndexBoosts = $this->config->getElement( 'CirrusSearchExtraIndexBoostTemplates', $extraIndex );
+			if ( isset( $extraIndexBoosts['wiki'], $extraIndexBoosts['boosts'] ) ) {
+				$extraIndexBoostTemplates[$extraIndexBoosts['wiki']] = $extraIndexBoosts['boosts'];
+			}
+		}
 
-	/**
-	 * @param string $wiki Index to boost templates within
-	 * @param float[] $extraIndexBoostTemplates Map from template name to weight to apply to that template
-	 */
-	public function addExtraIndexBoostTemplates( $wiki, array $extraIndexBoostTemplates ) {
-		$this->isDirty = true;
-		$this->extraIndexBoostTemplates[$wiki] = $extraIndexBoostTemplates;
-	}
-
-	/**
-	 * @deprecated use rescore profiles
-	 * @param bool $boostLinks Deactivate IncomingLinksFunctionScoreBuilder if present in the rescore profile
-	 */
-	public function setBoostLinks( $boostLinks ) {
-		$this->isDirty = true;
-		/** @suppress PhanDeprecatedProperty */
-		$this->boostLinks = $boostLinks;
-	}
-
-	/**
-	 * @deprecated use custom rescore profile
-	 * @return bool
-	 * @suppress PhanDeprecatedProperty
-	 */
-	public function isBoostLinks() {
-		return $this->boostLinks;
+		return $extraIndexBoostTemplates;
 	}
 
 	/**
@@ -371,7 +372,7 @@ class SearchContext {
 	}
 
 	/**
-	 * Parameter used by Search\PreferRecentFunctionScoreBuilder
+	 * Parameter used by Search\Rescore\PreferRecentFunctionScoreBuilder
 	 *
 	 * @return float the decay portion for prefer recent
 	 */
@@ -380,7 +381,7 @@ class SearchContext {
 	}
 
 	/**
-	 * Parameter used by Search\PreferRecentFunctionScoreBuilder
+	 * Parameter used by Search\Rescore\PreferRecentFunctionScoreBuilder
 	 *
 	 * @return float the half life for prefer recent
 	 */
@@ -389,14 +390,18 @@ class SearchContext {
 	}
 
 	/**
-	 * @return string the rescore profile to use
+	 * @return string|array the rescore profile to use
 	 */
 	public function getRescoreProfile() {
+		if ( $this->rescoreProfile === null ) {
+			$this->rescoreProfile = $this->config->getProfileService()
+				->getProfileName( SearchProfileService::RESCORE, $this->profileContext );
+		}
 		return $this->rescoreProfile;
 	}
 
 	/**
-	 * @param string $rescoreProfile the rescore profile to use
+	 * @param string|array $rescoreProfile the rescore profile to use
 	 */
 	public function setRescoreProfile( $rescoreProfile ) {
 		$this->isDirty = true;
@@ -420,7 +425,7 @@ class SearchContext {
 	}
 
 	/**
-	 * @var string|null $type type of syntax to check, null for any type
+	 * @param string|null $type type of syntax to check, null for any type
 	 * @return bool True when the query uses $type kind of syntax
 	 */
 	public function isSyntaxUsed( $type = null ) {
@@ -538,20 +543,21 @@ class SearchContext {
 	}
 
 	/**
+	 * @param string $field The field to add highlighting configuration for.
 	 * @param array $config Configuration for highlighting the article source. Passed
 	 *  to ResultType::getHighlightingConfiguration to generate final highlighting
 	 *  configuration.
 	 */
-	public function addHighlightSource( array $config ) {
+	public function addHighlightField( $field, array $config ) {
 		$this->isDirty = true;
-		$this->highlightSource[] = $config;
+		$this->extraHighlightFields[$field][] = $config;
 	}
 
 	/**
 	 * @param AbstractQuery $query Query that should be used for highlighting if different
 	 *  from the query used for selecting.
 	 */
-	public function setHighlightQuery( AbstractQuery $query ) {
+	public function setHighlightQuery( AbstractQuery $query = null ) {
 		$this->isDirty = true;
 		$this->highlightQuery = $query;
 	}
@@ -571,7 +577,7 @@ class SearchContext {
 	 * @return array|null Highlight portion of query to be sent to elasticsearch
 	 */
 	public function getHighlight( ResultsType $resultsType ) {
-		$highlight = $resultsType->getHighlightingConfiguration( $this->highlightSource );
+		$highlight = $resultsType->getHighlightingConfiguration( $this->extraHighlightFields );
 		if ( !$highlight ) {
 			return null;
 		}
@@ -612,54 +618,20 @@ class SearchContext {
 	}
 
 	/**
-	 * @return bool True if rescore queries are attached
-	 */
-	public function hasRescore() {
-		return count( $this->rescore ) > 0;
-	}
-
-	/**
 	 * rescore_query has to be in array form before we send it to Elasticsearch but it is way
 	 * easier to work with if we leave it in query form until now
 	 *
 	 * @return array[] Rescore configurations as used by elasticsearch.
 	 */
 	public function getRescore() {
+		$rescores = ( new RescoreBuilder( $this ) )->build();
 		$result = [];
-		foreach ( $this->rescore as $rescore ) {
+		foreach ( $rescores as $rescore ) {
 			$rescore['query']['rescore_query'] = $rescore['query']['rescore_query']->toArray();
 			$result[] = $rescore;
 		}
 
 		return $result;
-	}
-
-	/**
-	 * @param array[] $rescore Rescore configuration as used by elasticsearch. The query needs
-	 *  to be an Elastica query.
-	 */
-	public function addRescore( array $rescore ) {
-		$this->isDirty = true;
-		$this->rescore[] = $rescore;
-	}
-
-	/**
-	 * Remove all rescores from the query. Used when it is known that extra work scoring
-	 * results will not be useful or necessary. Only effective if done *after* all rescores
-	 * have been added.
-	 */
-	public function clearRescore() {
-		$this->isDirty = true;
-		$this->rescore = [];
-	}
-
-	/**
-	 * @param array[] $rescores A set of rescore configurations as used by elasticsearch. The
-	 *  query needs to be an Elastica query.
-	 */
-	public function mergeRescore( $rescores ) {
-		$this->isDirty = true;
-		$this->rescore = array_merge( $this->rescore, $rescores );
 	}
 
 	/**
@@ -697,7 +669,7 @@ class SearchContext {
 
 	/**
 	 * @return AbstractQuery The primary query to be sent to elasticsearch. Includes
-	 *  the main query, non text queries, and any additional filters.
+	 *  the main quedry, non text queries, and any additional filters.
 	 */
 	public function getQuery() {
 		if ( empty( $this->nonTextQueries ) ) {
@@ -711,8 +683,13 @@ class SearchContext {
 				$mainQuery->addMust( $nonTextQuery );
 			}
 		}
+		$filters = $this->filters;
+		if ( $this->getNamespaces() ) {
+			$filters[] = new \Elastica\Query\Terms( 'namespace', $this->getNamespaces() );
+		}
+
 		// Wrap $mainQuery in a filtered query if there are any filters
-		$unifiedFilter = Filters::unify( $this->filters, $this->notFilters );
+		$unifiedFilter = Filters::unify( $filters, $this->notFilters );
 		if ( $unifiedFilter !== null ) {
 			if ( ! ( $mainQuery instanceof \Elastica\Query\BoolQuery ) ) {
 				$bool = new \Elastica\Query\BoolQuery();
@@ -818,7 +795,7 @@ class SearchContext {
 	}
 
 	/**
-	 * @param string The search term with keywords removed
+	 * @param string $term The search term with keywords removed
 	 */
 	public function setCleanedSearchTerm( $term ) {
 		$this->isDirty = true;
@@ -833,7 +810,7 @@ class SearchContext {
 	}
 
 	/**
-	 * @return FunctionScoreBuilder[]
+	 * @return BoostFunctionBuilder[]
 	 */
 	public function getExtraScoreBuilders() {
 		return $this->extraScoreBuilders;
@@ -842,19 +819,24 @@ class SearchContext {
 	/**
 	 * Add custom scoring function to the context.
 	 * The rescore builder will pick it up.
-	 * @param FunctionScoreBuilder $rescore
+	 * @param BoostFunctionBuilder $rescore
 	 */
-	public function addCustomRescoreComponent( FunctionScoreBuilder $rescore ) {
+	public function addCustomRescoreComponent( BoostFunctionBuilder $rescore ) {
 		$this->isDirty = true;
 		$this->extraScoreBuilders[] = $rescore;
 	}
 
 	/**
 	 * @param string $message i18n message key
+	 * @param string|null $param1
+	 * @param string|null $param2
+	 * @param string|null $param3
 	 */
-	public function addWarning( $message /*, parameters... */ ) {
+	public function addWarning( $message, $param1 = null,  $param2 = null, $param3 = null ) {
 		$this->isDirty = true;
-		$this->warnings[] = func_get_args();
+		$this->warnings[] = array_filter( func_get_args(), function ( $v ) {
+			return $v !== null;
+		} );
 	}
 
 	/**
@@ -869,6 +851,10 @@ class SearchContext {
 	 * @return string the name of the fulltext query builder profile
 	 */
 	public function getFulltextQueryBuilderProfile() {
+		if ( $this->fulltextQueryBuilderProfile === null ) {
+			$this->fulltextQueryBuilderProfile = $this->config->getProfileService()
+				->getProfileName( SearchProfileService::FT_QUERY_BUILDER, $this->profileContext );
+		}
 		return $this->fulltextQueryBuilderProfile;
 	}
 
@@ -878,5 +864,65 @@ class SearchContext {
 	public function setFulltextQueryBuilderProfile( $profile ) {
 		$this->isDirty = true;
 		$this->fulltextQueryBuilderProfile = $profile;
+	}
+
+	/**
+	 * @param ResultsType $resultsType results type to return
+	 */
+	public function setResultsType( $resultsType ) {
+		$this->resultsType = $resultsType;
+	}
+
+	/**
+	 * @return ResultsType $resultsType results type to return
+	 */
+	public function getResultsType() {
+		if ( $this->resultsType === null ) {
+			return new FullTextResultsType( FullTextResultsType::HIGHLIGHT_ALL );
+		}
+		return $this->resultsType;
+	}
+
+	/**
+	 * Get the list of extra indices to query.
+	 * Generally needed to query externilized file index.
+	 * Must be called only once the list of namespaces has been set.
+	 *
+	 * @return string[]
+	 * @see OtherIndexes::getExtraIndexesForNamespaces()
+	 */
+	public function getExtraIndices() {
+		if ( $this->getLimitSearchToLocalWiki() || !$this->getNamespaces() ) {
+			return [];
+		}
+		return OtherIndexes::getExtraIndexesForNamespaces(
+			$this->getNamespaces()
+		);
+	}
+
+	/**
+	 * Get the phrase rescore query if available
+	 * @return AbstractQuery|null
+	 */
+	public function getPhraseRescoreQuery() {
+		return $this->phraseRescoreQuery;
+	}
+
+	/**
+	 * Set the phrase rescore query
+	 * @param AbstractQuery|null $phraseRescoreQuery
+	 */
+	public function setPhraseRescoreQuery( $phraseRescoreQuery ) {
+		$this->phraseRescoreQuery = $phraseRescoreQuery;
+		$this->isDirty = true;
+	}
+
+	public function addAggregation( AbstractAggregation $agg ) {
+		$this->aggs[] = $agg;
+		$this->isDirty = true;
+	}
+
+	public function getAggregations() {
+		return $this->aggs;
 	}
 }

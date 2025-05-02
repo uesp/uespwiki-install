@@ -13,7 +13,7 @@
  *
  * @since 1.2
  *
- * @licence GNU GPL v2+
+ * @license GPL-2.0-or-later
  * @author Yuvi Panda <yuvipanda@gmail.com>
  * @author Jeroen De Dauw < jeroendedauw@gmail.com >
  */
@@ -31,7 +31,7 @@ class UploadWizardCampaign {
 	 * The campaign configuration, after wikitext properties have been parsed.
 	 *
 	 * @since 1.2
-	 * @var array
+	 * @var array|null
 	 */
 	protected $parsedConfig = null;
 
@@ -49,7 +49,7 @@ class UploadWizardCampaign {
 	 * The Title representing the current campaign
 	 *
 	 * @since 1.4
-	 * @var Title
+	 * @var Title|null
 	 */
 	protected $title = null;
 
@@ -57,7 +57,7 @@ class UploadWizardCampaign {
 	 * The RequestContext to use for operations performed from this object
 	 *
 	 * @since 1.4
-	 * @var RequestContext
+	 * @var RequestContext|null
 	 */
 	protected $context = null;
 
@@ -132,10 +132,21 @@ class UploadWizardCampaign {
 		$data = $wgMemc->get( $key );
 		if ( $data === false ) {
 			wfDebug( __METHOD__ . ' cache miss for key ' . $key );
-			$dbr = wfGetDB( DB_SLAVE );
+			$dbr = wfGetDB( DB_REPLICA );
+
+			if ( class_exists( ActorMigration::class ) ) {
+				$actorQuery = ActorMigration::newMigration()->getJoin( 'img_user' );
+			} else {
+				$actorQuery = [
+					'tables' => [],
+					'fields' => [ 'img_user' => 'img_user' ],
+					'joins' => [],
+				];
+			}
+
 			$result = $dbr->select(
-				[ 'categorylinks', 'page', 'image' ],
-				[ 'count' => 'COUNT(DISTINCT img_user)' ],
+				[ 'categorylinks', 'page', 'image' ] + $actorQuery['tables'],
+				[ 'count' => 'COUNT(DISTINCT ' . $actorQuery['fields']['img_user'] . ')' ],
 				[ 'cl_to' => $this->getTrackingCategory()->getDBKey(), 'cl_type' => 'file' ],
 				__METHOD__,
 				[
@@ -144,7 +155,7 @@ class UploadWizardCampaign {
 				[
 					'page' => [ 'INNER JOIN', 'cl_from=page_id' ],
 					'image' => [ 'INNER JOIN', 'page_title=img_name' ]
-				]
+				] + $actorQuery['joins']
 			);
 
 			$data = $result->current()->count;
@@ -156,7 +167,7 @@ class UploadWizardCampaign {
 	}
 
 	public function getUploadedMedia( $limit = 24 ) {
-		$dbr = wfGetDB( DB_SLAVE );
+		$dbr = wfGetDB( DB_REPLICA );
 		$result = $dbr->select(
 			[ 'categorylinks', 'page' ],
 			[ 'cl_from', 'page_namespace', 'page_title' ],
@@ -207,8 +218,8 @@ class UploadWizardCampaign {
 	/**
 	 * Wrapper around OutputPage::parseInline
 	 *
-	 * @param $value String Wikitext to parse
-	 * @param $lang Language
+	 * @param string $value Wikitext to parse
+	 * @param Language $lang
 	 *
 	 * @since 1.3
 	 *
@@ -218,7 +229,9 @@ class UploadWizardCampaign {
 		global $wgParser;
 
 		$parserOptions = ParserOptions::newFromContext( $this->context );
-		$parserOptions->setEditSection( false );
+		if ( !defined( 'ParserOutput::SUPPORTS_STATELESS_TRANSFORMS' ) ) {
+			$parserOptions->setEditSection( false );
+		}
 		$parserOptions->setInterfaceMessage( true );
 		$parserOptions->setUserLang( $lang );
 		$parserOptions->setTargetLanguage( $lang );
@@ -226,7 +239,9 @@ class UploadWizardCampaign {
 
 		$output = $wgParser->parse( $value, $this->getTitle(),
 									$parserOptions );
-		$parsed = $output->getText();
+		$parsed = $output->getText( [
+			'enableSectionEditLinks' => false,
+		] );
 
 		// Strip out the surrounding <p> tags
 		$m = [];
@@ -242,8 +257,8 @@ class UploadWizardCampaign {
 	/**
 	 * Parses the values in an assoc array as wikitext
 	 *
-	 * @param $array Array
-	 * @param $forKeys Array: Array of keys whose values should be parsed
+	 * @param array $array
+	 * @param array $forKeys Array of keys whose values should be parsed
 	 *
 	 * @since 1.3
 	 *
@@ -274,6 +289,7 @@ class UploadWizardCampaign {
 	 *
 	 * @since 1.3
 	 *
+	 * @param Language|null $lang
 	 * @return array
 	 */
 	public function getParsedConfig( $lang = null ) {

@@ -7,7 +7,8 @@
 			"Geitost",
 			"Matma Rex",
 			"Macofe",
-			"Regemeitli"
+			"Regemeitli",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Assischtänt zum Uffelade",
@@ -107,8 +108,6 @@
 	"mwe-upwiz-copy-location": "Standort kopiere",
 	"mwe-upwiz-copy-other": "Anderi Informatione kopiere",
 	"mwe-upwiz-desc": "Bschryybig",
-	"mwe-upwiz-desc-add-n": "e Bschryybig in ere andere Sproch zuefiege",
-	"mwe-upwiz-desc-add-0": "e Bschryybig zuefiege",
 	"mwe-upwiz-title": "Titel",
 	"mwe-upwiz-date-created": "Aalegdatum",
 	"mwe-upwiz-location": "Ort",
@@ -203,7 +202,6 @@
 	"mwe-upwiz-license-own-pd": "Gmäss de ''Creative-Commons''-Lizänz «CC0 1.0 Universal» wird uff alli Rächt verzichtet (entspricht de Gmeinfrejheit).",
 	"mwe-upwiz-license-pd-old-100": "De Autor isch vor über 70 Joor gstorbe",
 	"mwe-upwiz-license-pd-old": "De Autor isch vor über 70 Joor gstorbe",
-	"mwe-upwiz-license-pd-art": "Originaltreji Widergab vun eme gmeinfreje Gmelde",
 	"mwe-upwiz-license-pd-us": "Zum erste Mool vor em Joor 1923 in de Vereinigte Staate vo Amerika veröffentlicht worde",
 	"mwe-upwiz-license-pd-usgov": "Eiges Werch vo de US-Bundesregierig",
 	"mwe-upwiz-license-pd-usgov-nasa": "Eiges Werch vo de NASA",
@@ -214,7 +212,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Urheberrächtlich gschützt, derf aber für alli – au kommerzielli – Zweck bruucht werde",
 	"mwe-upwiz-license-attribution": "Derf für jede - au kommerzielle - Zweck bruucht werden, wänn de Urheberrächtsinhaber richtig gnännt wird",
 	"mwe-upwiz-license-gfdl": "GNU-Lizänz fir freji Dokumäntation",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, Namensnännig erforderlich (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, Namensnännig erforderlich (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "De Urheberrächtsinhaber het {{PLURAL:$1|des Werch|die Wercher}} mit de richtige ''Creative-Commons''-Lizänz lizenziert.",
 	"mwe-upwiz-license-cc-subhead": "Nit alli ''Creative-Commons''-Lizänze sin für {{SITENAME}} geignet. Bitte due dich vergewissre, dass de Urheberrächtsinhaber eini vo dänne Lizänze bruucht het.",
 	"mwe-upwiz-license-flickr-head": "De Urheberrächtsinhaber het {{PLURAL:$1|syn Foti oder Video|syni Fotis oder Videos}} uff Flickr mit de richtige Lizönz veröffentlicht",

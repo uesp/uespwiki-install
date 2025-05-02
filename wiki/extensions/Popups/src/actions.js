@@ -4,8 +4,9 @@
 
 import types from './actionTypes';
 import wait from './wait';
+import { createNullModel, previewTypes } from './preview/model';
 
-var $ = jQuery,
+const $ = jQuery,
 	mw = window.mediaWiki,
 
 	// See the following for context around this value.
@@ -13,6 +14,11 @@ var $ = jQuery,
 	// * https://phabricator.wikimedia.org/T161284
 	// * https://phabricator.wikimedia.org/T70861#3129780
 	FETCH_START_DELAY = 150, // ms.
+
+	// The minimum time a preview must be open before we judge it
+	// has been seen.
+	// See https://phabricator.wikimedia.org/T184793
+	PREVIEW_SEEN_DURATION = 1000, // ms
 
 	// The delay after which a FETCH_COMPLETE action should be dispatched.
 	//
@@ -56,33 +62,36 @@ function timedAction( baseAction ) {
  * @param {Function} generateToken
  * @param {mw.Map} config The config of the MediaWiki client-side application,
  *  i.e. `mw.config`
- * @returns {Object}
+ * @param {String} url url
+ * @return {Object}
  */
 export function boot(
 	isEnabled,
 	user,
 	userSettings,
 	generateToken,
-	config
+	config,
+	url
 ) {
-	var editCount = config.get( 'wgUserEditCount' ),
+	const editCount = config.get( 'wgUserEditCount' ),
 		previewCount = userSettings.getPreviewCount();
 
 	return {
 		type: types.BOOT,
-		isEnabled: isEnabled,
+		isEnabled,
 		isNavPopupsEnabled: config.get( 'wgPopupsConflictsWithNavPopupGadget' ),
 		sessionToken: user.sessionId(),
 		pageToken: generateToken(),
 		page: {
+			url,
 			title: config.get( 'wgTitle' ),
-			namespaceID: config.get( 'wgNamespaceNumber' ),
+			namespaceId: config.get( 'wgNamespaceNumber' ),
 			id: config.get( 'wgArticleId' )
 		},
 		user: {
 			isAnon: user.isAnon(),
-			editCount: editCount,
-			previewCount: previewCount
+			editCount,
+			previewCount
 		}
 	};
 }
@@ -98,46 +107,72 @@ export function boot(
  * @return {Redux.Thunk}
  */
 export function fetch( gateway, title, el, token ) {
-	var titleText = title.getPrefixedDb(),
-		namespaceID = title.namespace;
+	const titleText = title.getPrefixedDb(),
+		namespaceId = title.namespace;
 
-	return function ( dispatch ) {
-		var request;
-
+	return ( dispatch ) => {
 		dispatch( timedAction( {
 			type: types.FETCH_START,
-			el: el,
+			el,
 			title: titleText,
-			namespaceID: namespaceID
+			namespaceId
 		} ) );
 
-		request = gateway.getPageSummary( titleText )
-			.then( function ( result ) {
+		const request = gateway.getPageSummary( titleText )
+			.then( ( result ) => {
 				dispatch( timedAction( {
 					type: types.FETCH_END,
-					el: el
+					el
 				} ) );
 
 				return result;
 			} )
-			// FIXME: Convert to Promises A/A+ when "T124742: Upgrade to jQuery 3" is
-			// fully rolled out by changing fail to catch, and re-throwing the error
-			// to keep the promise in a rejected state.
-			.fail( function () {
+			.catch( ( err ) => {
 				dispatch( {
 					type: types.FETCH_FAILED,
-					el: el
+					el
 				} );
+				// Keep the request promise in a rejected status since it failed.
+				throw err;
 			} );
 
-		return $.when( request, wait( FETCH_COMPLETE_TARGET_DELAY - FETCH_START_DELAY ) )
-			.then( function ( result ) {
-				dispatch( timedAction( {
+		return $.when(
+			request,
+			wait( FETCH_COMPLETE_TARGET_DELAY - FETCH_START_DELAY )
+		)
+			.then( ( result ) => {
+				dispatch( {
 					type: types.FETCH_COMPLETE,
-					el: el,
-					result: result,
-					token: token
-				} ) );
+					el,
+					result,
+					token
+				} );
+			} )
+			.catch( ( data, result ) => {
+				// All failures, except those due to being offline or network error,
+				// should present "There was an issue displaying this preview".
+				// e.g.:
+				// - Show (timeout): data="http" {xhr: {…}, textStatus: "timeout",
+				//   exception: "timeout"}
+				// - Show (bad MW request): data="unknown_action" {error: {…}}
+				// - Show (RB 4xx): data="http" {xhr: {…}, textStatus: "error",
+				//   exception: "Bad Request"}
+				// - Show (RB 5xx): data="http" {xhr: {…}, textStatus: "error",
+				//   exception: "Service Unavailable"}
+				// - Suppress (offline or network error): data="http"
+				//   result={xhr: {…}, textStatus: "error", exception: ""}
+				const networkError = result && result.xhr &&
+					result.xhr.readyState === 0 && result.textStatus === 'error' &&
+					result.exception === '';
+				if ( !networkError ) {
+					dispatch( {
+						// Both FETCH_FAILED and FETCH_END conclude with FETCH_COMPLETE.
+						type: types.FETCH_COMPLETE,
+						el,
+						result: createNullModel( titleText, title.getUrl() ),
+						token
+					} );
+				}
 			} );
 	};
 }
@@ -154,18 +189,18 @@ export function fetch( gateway, title, el, token ) {
  * @return {Redux.Thunk}
  */
 export function linkDwell( title, el, event, gateway, generateToken ) {
-	var token = generateToken(),
+	const token = generateToken(),
 		titleText = title.getPrefixedDb(),
-		namespaceID = title.namespace;
+		namespaceId = title.namespace;
 
-	return function ( dispatch, getState ) {
-		var action = timedAction( {
+	return ( dispatch, getState ) => {
+		const action = timedAction( {
 			type: types.LINK_DWELL,
-			el: el,
-			event: event,
-			token: token,
+			el,
+			event,
+			token,
 			title: titleText,
-			namespaceID: namespaceID
+			namespaceId
 		} );
 
 		// Has the new generated token been accepted?
@@ -176,15 +211,15 @@ export function linkDwell( title, el, event, gateway, generateToken ) {
 		dispatch( action );
 
 		if ( !isNewInteraction() ) {
-			return;
+			return $.Deferred().resolve().promise();
 		}
 
-		wait( FETCH_START_DELAY )
-			.then( function () {
-				var previewState = getState().preview;
+		return wait( FETCH_START_DELAY )
+			.then( () => {
+				const previewState = getState().preview;
 
 				if ( previewState.enabled && isNewInteraction() ) {
-					dispatch( fetch( gateway, title, el, token ) );
+					return dispatch( fetch( gateway, title, el, token ) );
 				}
 			} );
 	};
@@ -199,23 +234,23 @@ export function linkDwell( title, el, event, gateway, generateToken ) {
  * @return {Redux.Thunk}
  */
 export function abandon() {
-	return function ( dispatch, getState ) {
-		var token = getState().preview.activeToken;
+	return ( dispatch, getState ) => {
+		const token = getState().preview.activeToken;
 
 		if ( !token ) {
-			return;
+			return $.Deferred().resolve().promise();
 		}
 
 		dispatch( timedAction( {
 			type: types.ABANDON_START,
-			token: token
+			token
 		} ) );
 
-		wait( ABANDON_END_DELAY )
-			.then( function () {
+		return wait( ABANDON_END_DELAY )
+			.then( () => {
 				dispatch( {
 					type: types.ABANDON_END,
-					token: token
+					token
 				} );
 			} );
 	};
@@ -231,7 +266,7 @@ export function abandon() {
 export function linkClick( el ) {
 	return timedAction( {
 		type: types.LINK_CLICK,
-		el: el
+		el
 	} );
 }
 
@@ -256,10 +291,56 @@ export function previewDwell() {
  * @return {Object}
  */
 export function previewShow( token ) {
-	return timedAction( {
-		type: types.PREVIEW_SHOW,
-		token: token
-	} );
+	return ( dispatch, getState ) => {
+		dispatch(
+			timedAction( {
+				type: types.PREVIEW_SHOW,
+				token
+			} )
+		);
+
+		return wait( PREVIEW_SEEN_DURATION )
+			.then( () => {
+				const state = getState(),
+					preview = state.preview,
+					fetchResponse = preview && preview.fetchResponse,
+					currentToken = preview && preview.activeToken,
+					validType = fetchResponse && [
+						previewTypes.TYPE_PAGE,
+						previewTypes.TYPE_DISAMBIGUATION
+					].indexOf( fetchResponse.type ) > -1;
+
+				if (
+					// Check the pageview can still be associated with original event
+					currentToken && currentToken === token &&
+					// and the preview is still active and of type `page`
+					fetchResponse && validType
+				) {
+					dispatch( {
+						type: types.PREVIEW_SEEN,
+						title: fetchResponse.title,
+						pageId: fetchResponse.pageId,
+						// The existing version of summary endpoint does not
+						// provide namespace information, but new version
+						// will. Given we only show pageviews for main namespace
+						// this is hardcoded until the newer version is available.
+						namespace: 0
+					} );
+				}
+			} );
+	};
+}
+
+/**
+ * Represents the situation when a pageview has been logged
+ * (see previewShow and PREVIEW_SEEN action type)
+ *
+ * @return {Object}
+ */
+export function pageviewLogged() {
+	return {
+		type: types.PAGEVIEW_LOGGED
+	};
 }
 
 /**
@@ -301,11 +382,11 @@ export function hideSettings() {
  * @return {Redux.Thunk}
  */
 export function saveSettings( enabled ) {
-	return function ( dispatch, getState ) {
+	return ( dispatch, getState ) => {
 		dispatch( {
 			type: types.SETTINGS_CHANGE,
 			wasEnabled: getState().preview.enabled,
-			enabled: enabled
+			enabled
 		} );
 	};
 }
@@ -320,7 +401,7 @@ export function saveSettings( enabled ) {
 export function eventLogged( event ) {
 	return {
 		type: types.EVENT_LOGGED,
-		event: event
+		event
 	};
 }
 

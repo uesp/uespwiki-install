@@ -21,14 +21,6 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-require_once __DIR__ . "/profiles/SuggestProfiles.php";
-require_once __DIR__ . "/profiles/PhraseSuggesterProfiles.config.php";
-require_once __DIR__ . "/profiles/RescoreProfiles.config.php";
-require_once __DIR__ . "/profiles/SimilarityProfiles.php";
-require_once __DIR__ . "/profiles/SaneitizeProfiles.php";
-require_once __DIR__ . "/profiles/FullTextQueryBuilderProfiles.config.php";
-require_once __DIR__ . "/profiles/CrossProjectBlockScorerProfiles.config.php";
-
 $wgExtensionCredits['other'][] = [
 	'path'           => __FILE__,
 	'name'           => 'CirrusSearch',
@@ -36,7 +28,7 @@ $wgExtensionCredits['other'][] = [
 	'descriptionmsg' => 'cirrussearch-desc',
 	'url'            => 'https://www.mediawiki.org/wiki/Extension:CirrusSearch',
 	'version'        => '0.2',
-	'license-name'   => 'GPL-2.0+'
+	'license-name'   => 'GPL-2.0-or-later'
 ];
 
 /**
@@ -175,6 +167,12 @@ $wgCirrusSearchOptimizeIndexForExperimentalHighlighter = false;
  * This turns on noop-detection for updates and is compatible with
  * wikimedia-extra versions 1.3.1, 1.4.2, 1.5.0, and greater:
  * $wgCirrusSearchWikimediaExtraPlugin[ 'super_detect_noop' ] = true;
+ *
+ * As of elastic 5.5 native scripts have been deprecated the super_detect_noop is
+ * now available as a normal script with language "super_detect_noop".
+ * If you run elastic prior to 5.5.2 you must enable this option if using
+ * super_detect_noop.
+ * $wgCirrusSearchWikimediaExtraPlugin['super_detect_noop_enable_native'] = true;
  *
  * Controls the list of extra handlers to set when the noop script
  * is enabled.
@@ -391,53 +389,15 @@ $wgCirrusSearchMoreAccurateScoringMode = true;
 $wgCirrusSearchEnablePhraseSuggest = true;
 
 /**
- * NOTE: This settings is deprecated: update or create your own PhraseSuggester profile.
- * Maximum number of terms that we ask phrase suggest to correct.
- * See max_errors on http://www.elasticsearch.org/guide/reference/api/search/suggest/
- * $wgCirrusSearchPhraseSuggestMaxErrors = 2;
+ * List of additional phrase suggester profiles
+ * see profiles/PhraseSuggesterProfiles.config.php
  */
-
-/**
- * NOTE: This settings is deprecated: update or create your own PhraseSuggester profile.
- * Confidence level required to suggest new phrases.
- * See confidence on http://www.elasticsearch.org/guide/reference/api/search/suggest/
- * $wgCirrusSearchPhraseSuggestConfidence = 2.0;
- */
-
-/**
- * Set the hard limit for $wgCirrusSearchPhraseSuggestMaxErrors. This prevents customizing
- * this setting in a way that could hurt the system performances.
- */
-$wgCirrusSearchPhraseSuggestMaxErrorsHardLimit = 2;
-
-/**
- * Set the hard limit for $wgCirrusSearchPhraseMaxTermFreq. This prevents customizing
- * this setting in a way that could hurt the system performances.
- */
-$wgCirrusSearchPhraseSuggestMaxTermFreqHardLimit = 0.6;
-
-/**
- * List of allowed values for the suggest mode
- */
-$wgCirrusSearchPhraseSuggestAllowedMode = [ 'missing', 'popular', 'always' ];
-
-/**
- * List of allowed smoothing models
- */
-$wgCirrusSearchPhraseSuggestAllowedSmoothingModel = [ 'stupid_backoff', 'laplace', 'linear' ];
-
-/**
- * Set the hard limit for $wgCirrusSearchPhraseSuggestPrefixLength. This prevents customizing
- * this setting in a way that could hurt the system performances.
- * (This is the minimal value)
- */
-$wgCirrusSearchPhraseSuggestPrefixLengthHardLimit = 2;
+$wgCirrusSearchPhraseSuggestProfiles = [];
 
 /**
  * Set the Phrase suggester settings using the default profile.
- * see profiles/PhraseSuggesterProfiles.php
  */
-$wgCirrusSearchPhraseSuggestSettings = $wgCirrusSearchPhraseSuggestProfiles['default'];
+$wgCirrusSearchPhraseSuggestSettings = 'default';
 
 /**
  * Use a reverse field to build the did you mean suggestions.
@@ -487,9 +447,14 @@ $wgCirrusSearchUnlinkedArticlesToUpdate = 25;
 
 /**
  * Configure the similarity module
- * see profile/SimilarityProfiles.php for more details
+ * see profile/SimilarityProfiles.config.php for more details
  */
 $wgCirrusSearchSimilarityProfile = 'classic';
+
+/**
+ * Extra similarity profiles
+ */
+$wgCirrusSearchSimilarityProfiles = [];
 
 /**
  * Weight of fields.  Must be integers not decimals.  If $wgCirrusSearchAllFields['use']
@@ -698,6 +663,14 @@ $wgCirrusSearchClusterOverrides = [];
 $wgCirrusSearchMoreLikeThisTTL = 0;
 
 /**
+ * Fetch external wiki config from the cirrus dump api.
+ * Used by cross language and cross project searches.
+ * When set to false (default), crossproject configs are approximated
+ * crosslanguage configs are fetched from SiteConfiguration
+ */
+$wgCirrusSearchFetchConfigFromApi = false;
+
+/**
  * CirrusSearch interwiki searching
  * Keys are the interwiki prefix, values are the index to search
  * Results are cached.
@@ -718,6 +691,11 @@ $wgCirrusSearchInterwikiCacheTime = 7200;
  * - recall: based on total hits
  */
 $wgCirrusSearchCrossProjectOrder = 'static';
+
+/**
+ * Profiles to control ordering of blocks of CrossProject searchresults.
+ */
+$wgCirrusSearchCrossProjectBlockScorerProfiles = [];
 
 /**
  * The seconds Elasticsearch will wait to batch index changes before making
@@ -765,12 +743,6 @@ $wgCirrusSearchUpdateConflictRetryCount = 5;
  * Number of characters to include in article fragments.
  */
 $wgCirrusSearchFragmentSize = 150;
-
-/**
- * Whether to boost searches based on link counts. Default is true
- * which most wikis will want. Edge cases will want to turn this off.
- */
-$wgCirrusSearchBoostLinks = true;
 
 /**
  * Shard allocation settings. The include/exclude/require top level keys are
@@ -870,8 +842,13 @@ $wgCirrusSearchWriteBackoffExponent = 6;
 $wgCirrusSearchUserTesting = [];
 
 /**
+ * Additional completion profiles
+ */
+$wgCirrusSearchCompletionProfiles = [];
+
+/**
  * Profile for search as you type suggestion (completion suggestion)
- * (see profiles/SuggestProfiles.php for more details.)
+ * (see profiles/SuggestProfiles.config.php for more details.)
  */
 $wgCirrusSearchCompletionSettings = 'fuzzy';
 
@@ -923,7 +900,6 @@ $wgCirrusSearchCompletionDefaultScore = 'quality';
  * namespace. PrefixSearch will be used in all other cases.
  * Valid values, all unknown values map to 'no':
  *   yes  - Use completion suggester as the default
- *   beta - Allow users to enable completion suggester as a BetaFeature
  *   no   - Don't use completion suggester
  */
 $wgCirrusSearchUseCompletionSuggester = 'no';
@@ -1020,6 +996,25 @@ $wgCirrusSearchEnableCrossProjectSearch = false;
 $wgCirrusSearchCrossProjectSearchBlackList = [];
 
 /**
+ * List of interwiki prefixes to override.
+ * This is only useful when used with SiteMatrix.
+ * In some cases a specific wiki may want to override
+ * the convention used in SiteMatrix.
+ * e.g. on WMF infrastructure this is used to override
+ * the interwiki prefix 's' to 'src' on the swedish wikipedia.
+ *
+ * NOTE: overrides are applied before reading
+ * $wgCirrusSearchCrossProjectSearchBlackList and
+ * $wgCirrusSearchCrossProjectProfiles
+ *
+ * Example :
+ * $wgCirrusSearchInterwikiPrefixOverrides = [
+ *     's' => 'src',
+ * ];
+ */
+$wgCirrusSearchInterwikiPrefixOverrides = [];
+
+/**
  * Override various profiles to use for interwiki searching.
  * Example:
  * $wgCirrusSearchCrossProjectProfiles = [
@@ -1033,22 +1028,6 @@ $wgCirrusSearchCrossProjectSearchBlackList = [];
  * others.
  */
 $wgCirrusSearchCrossProjectProfiles = [];
-
-/**
- * When wgCirrusSearchEnableCrossProjectSearch is true
- * Setting wgCirrusSearchHideCrossProjectResults will
- * tell SpecialSearch to run normally without displaying
- * interwiki results.
- * Useful to report how many results we could have been
- * displayed (For analytics purpose).
- */
-$wgCirrusSearchHideCrossProjectResults = false;
-
-/**
- * Informs SpeciaSearch in core that we want
- * to use the new cross project result page
- */
-$wgCirrusSearchNewCrossProjectPage = false;
 
 /**
  * Enables the explore similar feature for search results
@@ -1073,14 +1052,24 @@ $wgCirrusSearchNumCrossProjectSearchResults = 5;
 $wgCirrusSearchInterwikiProv = false;
 
 /**
+ * Custom rescore profiles
+ */
+$wgCirrusSearchRescoreProfiles = [];
+
+/**
+ * Custom rescore function chains
+ */
+$wgCirrusSearchRescoreFunctionChains = [];
+
+/**
  * Set the full text rescore profile to default.
- * see profile/RescoreProfiles.php for more info
+ * see profile/RescoreProfiles.config.php for more info
  */
 $wgCirrusSearchRescoreProfile = 'classic';
 
 /**
  * Set the prefix search rescore profile to default.
- * see profile/RescoreProfiles.php for more info
+ * see profile/RescoreProfiles.config.php for more info
  */
 $wgCirrusSearchPrefixSearchRescoreProfile = 'classic';
 
@@ -1138,7 +1127,7 @@ $wgCirrusSearchMasterTimeout = '30s';
  * The process will scan and check discrepancies between mysql and
  * elasticsearch for all possible ids in the database.
  * Settings will be automatically chosen according to wiki size (see
- * profiles/SaneitizeProfiles.php)
+ * profiles/SaneitizeProfiles.config.php)
  * The script responsible for pushing sanitization jobs is saneitizeJobs.php.
  * It needs to be scheduled by cron, default settings provided are suited
  * for a bi-hourly schedule (--refresh-freq=7200).
@@ -1151,8 +1140,9 @@ $wgCirrusSearchSanityCheck = true;
  * The base name of indexes used on this wiki. This value must be
  * unique across all wiki's sharing an elasticsearch cluster unless
  * $wgCirrusSearchMultiWikiIndices is set to true.
+ * The value '__wikiid__' will be resolved at runtime to wfWikiId().
  */
-$wgCirrusSearchIndexBaseName = wfWikiID();
+$wgCirrusSearchIndexBaseName = '__wikiid__';
 
 /**
  * Treat question marks in simple queries as question marks, not
@@ -1174,6 +1164,12 @@ $wgCirrusSearchStripQuestionMarks = 'all';
  * FullText queries
  */
 $wgCirrusSearchFullTextQueryBuilderProfile = 'default';
+
+/**
+ * List of additional fulltext query builder profiles
+ * see profiles/FullTextQueryBuilderProfiles.config.php
+ */
+$wgCirrusSearchFullTextQueryBuilderProfiles = [];
 
 /**
  * Transitionary flag for converting between older style
@@ -1266,7 +1262,6 @@ $wgHooks[ 'ArticleDeleteComplete' ][] = 'CirrusSearch\Hooks::onArticleDeleteComp
 $wgHooks[ 'ArticleRevisionVisibilitySet' ][] = 'CirrusSearch\Hooks::onRevisionDelete';
 $wgHooks[ 'ArticleUndelete' ][] = 'CirrusSearch\Hooks::onArticleUndelete';
 $wgHooks[ 'BeforeInitialize' ][] = 'CirrusSearch\Hooks::onBeforeInitialize';
-$wgHooks[ 'GetBetaFeaturePreferences' ][] = 'CirrusSearch\Hooks::getBetaFeaturePreferences';
 $wgHooks[ 'GetPreferences' ][] = 'CirrusSearch\Hooks::onGetPreferences';
 $wgHooks[ 'LinksUpdateComplete' ][] = 'CirrusSearch\Hooks::onLinksUpdateCompleted';
 $wgHooks[ 'MediaWikiServices' ][] = 'CirrusSearch\Hooks::onMediaWikiServices';
@@ -1275,10 +1270,12 @@ $wgHooks[ 'ShowSearchHitTitle' ][] = 'CirrusSearch\Hooks::onShowSearchHitTitle';
 $wgHooks[ 'SoftwareInfo' ][] = 'CirrusSearch\Hooks::onSoftwareInfo';
 $wgHooks[ 'SpecialSearchResults' ][] = 'CirrusSearch\Hooks::onSpecialSearchResults';
 $wgHooks[ 'SpecialSearchResultsAppend' ][] = 'CirrusSearch\Hooks::onSpecialSearchResultsAppend';
+$wgHooks[ 'SpecialStatsAddExtra'][] = 'CirrusSearch\Hooks::onSpecialStatsAddExtra';
 $wgHooks[ 'TitleMove' ][] = 'CirrusSearch\Hooks::onTitleMove';
 $wgHooks[ 'TitleMoveComplete' ][] = 'CirrusSearch\Hooks::onTitleMoveComplete';
 $wgHooks[ 'UnitTestsList' ][] = 'CirrusSearch\Hooks::onUnitTestsList';
 $wgHooks[ 'UserGetDefaultOptions' ][] = 'CirrusSearch\Hooks::onUserGetDefaultOptions';
+$wgHooks[ 'PageContentInsertComplete' ][] = 'CirrusSearch\Hooks::onPageContentInsertComplete';
 
 /**
  * i18n
@@ -1309,6 +1306,7 @@ $wgActions[ 'cirrusdump' ] = 'CirrusSearch\Dump';
 $wgAPIModules['cirrus-config-dump'] = 'CirrusSearch\Api\ConfigDump';
 $wgAPIModules['cirrus-mapping-dump'] = 'CirrusSearch\Api\MappingDump';
 $wgAPIModules['cirrus-settings-dump'] = 'CirrusSearch\Api\SettingsDump';
+$wgAPIPropModules['cirrusdoc'] = 'CirrusSearch\Api\QueryCirrusDoc';
 
 /**
  * Configs
@@ -1422,9 +1420,31 @@ $wgCirrusSearchInterleaveConfig = null;
  */
 $wgCirrusSearchMaxPhraseTokens = null;
 
+/**
+ * URL of the endpoint to look for categories, for deepcat keyword.
+ */
+$wgCirrusSearchCategoryEndpoint = '';
+/**
+ * Max depth for deep category query.
+ */
+$wgCirrusSearchCategoryDepth = 5;
+/**
+ * Max result count for deep category query.
+ */
+$wgCirrusSearchCategoryMax = 256;
+
+/**
+ * Immediately index new pages, not waiting for LinksUpdate job to finish.
+ * This may be desireable if users want new pages to be searchable e.g by title
+ * faster than LinkUpdate jobs finish.
+ * Set to true to index all pages on wiki, or array of namespaces to index specific namespaces.
+ */
+$wgCirrusSearchInstantIndexNew = false;
 /*
  * Please update docs/settings.txt if you add new values!
  */
+
+$wgServiceWiringFiles[] = __DIR__ . '/includes/ServiceWiring.php';
 
 /**
  * Jenkins configuration required to get all the browser tests passing cleanly.

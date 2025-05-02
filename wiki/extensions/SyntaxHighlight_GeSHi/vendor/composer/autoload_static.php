@@ -4,27 +4,11 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit3629dbf975bb31dbb570466a8e82a676
+class ComposerStaticInit0477b72510acd6adaab835133442c4af
 {
-    public static $prefixLengthsPsr4 = array (
-        'S' => 
-        array (
-            'Symfony\\Component\\Process\\' => 26,
-        ),
-    );
-
-    public static $prefixDirsPsr4 = array (
-        'Symfony\\Component\\Process\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/symfony/process',
-        ),
-    );
-
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit3629dbf975bb31dbb570466a8e82a676::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit3629dbf975bb31dbb570466a8e82a676::$prefixDirsPsr4;
 
         }, null, ClassLoader::class);
     }

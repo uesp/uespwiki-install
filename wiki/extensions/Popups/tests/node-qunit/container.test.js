@@ -1,7 +1,7 @@
 import createContainer from '../../src/container';
 
 QUnit.module( 'container', {
-	beforeEach: function () {
+	beforeEach() {
 		this.container = createContainer();
 		this.factory = this.sandbox.stub();
 	}
@@ -14,8 +14,7 @@ QUnit.test( '#has', function ( assert ) {
 } );
 
 QUnit.test( '#get', function ( assert ) {
-	var service = {},
-		that = this;
+	const service = {};
 
 	this.factory.returns( service );
 
@@ -39,9 +38,7 @@ QUnit.test( '#get', function ( assert ) {
 	// ---
 
 	assert.throws(
-		function () {
-			that.container.get( 'bar' );
-		},
+		() => { this.container.get( 'bar' ); },
 		/The service "bar" hasn't been defined./
 	);
 } );

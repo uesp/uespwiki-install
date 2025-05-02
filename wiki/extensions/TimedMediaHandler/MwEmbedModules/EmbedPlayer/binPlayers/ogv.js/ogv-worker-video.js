@@ -42,13 +42,13 @@
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = __webpack_require__(1);
 
-/***/ },
+/***/ }),
 /* 1 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	var OGVWorkerSupport = __webpack_require__(2);
 
@@ -77,9 +77,9 @@
 
 	module.exports = proxy;
 
-/***/ },
+/***/ }),
 /* 2 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	var OGVLoader = __webpack_require__(3);
 
@@ -196,11 +196,13 @@
 				options = args[1];
 
 			OGVLoader.loadClass(className, function(classObj) {
-				self.target = new classObj(options);
-				callback();
-				while (pendingEvents.length) {
-					handleEvent(pendingEvents.shift());
-				}
+				classObj(options).then(function(target) {
+					self.target = target;
+					callback();
+					while (pendingEvents.length) {
+						handleEvent(pendingEvents.shift());
+					}
+				});
 			});
 		};
 
@@ -231,14 +233,15 @@
 	module.exports = OGVWorkerSupport;
 
 
-/***/ },
+/***/ }),
 /* 3 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
-	var OGVVersion = ("1.4.1-20170407171329-c48dd8c2");
+	var OGVVersion = ("1.5.7-20180219202209-808c5b29");
 
 	(function() {
 		var global = this;
+		var WebAssemblyCheck = __webpack_require__(4);
 
 		var scriptMap = {
 			OGVDemuxerOgg: 'ogv-demuxer-ogg.js',
@@ -274,11 +277,11 @@
 		};
 		var proxyInfo = {
 			audio: {
-				proxy: __webpack_require__(4),
+				proxy: __webpack_require__(5),
 				worker: 'ogv-worker-audio.js',
 			},
 			video: {
-				proxy: __webpack_require__(6),
+				proxy: __webpack_require__(7),
 				worker: 'ogv-worker-video.js'
 			}
 		}
@@ -334,24 +337,6 @@
 			}
 		}
 
-		function loadWebAssembly(src, callback) {
-			if (!src.match(/-wasm\.js/)) {
-				callback(null);
-			} else {
-				var wasmSrc = src.replace(/-wasm\.js/, '-wasm.wasm');
-				var xhr = new XMLHttpRequest();
-				xhr.responseType = 'arraybuffer';
-				xhr.onload = function() {
-					callback(xhr.response);
-				};
-				xhr.onerror = function() {
-					callback(null);
-				};
-				xhr.open('GET', wasmSrc);
-				xhr.send();
-			}
-		}
-
 		function defaultBase() {
 			if (typeof global.window === 'object') {
 
@@ -384,6 +369,10 @@
 		var OGVLoader = {
 			base: defaultBase(),
 
+			wasmSupported: function() {
+				return WebAssemblyCheck.wasmSupported();
+			},
+
 			loadClass: function(className, callback, options) {
 				options = options || {};
 				if (options.worker) {
@@ -391,27 +380,34 @@
 					return;
 				}
 				var url = urlForClass(className);
-				loadWebAssembly(url, function(wasmBinary) {
-					function wasmClassWrapper(options) {
-						options = options || {};
-						if (wasmBinary !== null) {
-							options.wasmBinary = wasmBinary;
+				function classWrapper(options) {
+					options = options || {};
+					options.locateFile = function(filename) {
+						// Allow secondary resources like the .wasm payload
+						// to be loaded by the emscripten code.
+						if (filename.slice(0, 5) === 'data:') {
+							// emscripten 1.37.25 loads memory initializers as data: URI
+							return filename;
+						} else {
+							return urlForScript(filename);
 						}
-						return new global[className](options);
-					}
-					if (typeof global[className] === 'function') {
-						// already loaded!
-						callback(wasmClassWrapper);
-					} else if (typeof global.window === 'object') {
-						loadWebScript(url, function() {
-							callback(wasmClassWrapper);
-						});
-					} else if (typeof global.importScripts === 'function') {
-						// worker has convenient sync importScripts
-						global.importScripts(url);
-						callback(wasmClassWrapper);
-					}
-				});
+					};
+					options.pthreadMainPrefixURL = OGVLoader.base + '/';
+					options.mainScriptUrlOrBlob = scriptMap[className];
+					return new global[className](options);
+				}
+				if (typeof global[className] === 'function') {
+					// already loaded!
+					callback(classWrapper);
+				} else if (typeof global.window === 'object') {
+					loadWebScript(url, function() {
+						callback(classWrapper);
+					});
+				} else if (typeof global.importScripts === 'function') {
+					// worker has convenient sync importScripts
+					global.importScripts(url);
+					callback(classWrapper);
+				}
 			},
 
 			workerProxy: function(className, callback) {
@@ -456,7 +452,9 @@
 							}
 							// Create the web worker
 							worker = new Worker(URL.createObjectURL(blob));
-							callback(construct);
+							callback(function(options) {
+								return Promise.resolve(new construct(options));
+							})
 						}
 					}
 
@@ -488,7 +486,9 @@
 				} else {
 					// Local URL; load it directly for simplicity.
 					worker = new Worker(workerUrl);
-					callback(construct);
+					callback(function(options) {
+						return Promise.resolve(new construct(options));
+					})
 				}
 			}
 		};
@@ -498,11 +498,75 @@
 	})();
 
 
-/***/ },
+/***/ }),
 /* 4 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-	var OGVProxyClass = __webpack_require__(5);
+	
+	function testSafariWebAssemblyBug() {
+	  /*
+	    Source of module at https://github.com/brion/min-wasm-fail
+	    (module
+	      (memory 1)
+	      (func $test (param $loc i32) (result i32)
+	        ;; Safari on iOS 11.2.5 returns 0 when asked to modify and read loc 4
+	        ;; via a parameter. If using an i32.const or a local for the location,
+	        ;; it works as expected.
+	        get_local $loc
+	        i32.const 1
+	        i32.store
+	        get_local $loc
+	        i32.load
+	      )
+	      (export "test" (func $test))
+	    )
+	  */
+	  var bin = new Uint8Array([0,97,115,109,1,0,0,0,1,6,1,96,1,127,1,127,3,2,1,0,5,3,1,0,1,7,8,1,4,116,101,115,116,0,0,10,16,1,14,0,32,0,65,1,54,2,0,32,0,40,2,0,11]);
+	  var mod = new WebAssembly.Module(bin);
+	  var inst = new WebAssembly.Instance(mod, {});
+
+	  // test storing to and loading from a non-zero location via a parameter.
+	  // Safari on iOS 11.2.5 returns 0 unexpectedly at non-zero locations
+	  return (inst.exports.test(4) !== 0);
+	}
+
+	var tested = false, testResult;
+
+	var WebAssemblyCheck = {
+	  /**
+	   * Check if WebAssembly appears to be present and working.
+	   * Tests for presence of the APIs, and runs a test for a known bug
+	   * in Safari/WebKit on iOS 11.2.2-11.2.5.
+	   *
+	   * @return boolean do we think wasm will work on this device?
+	   */
+	  wasmSupported: function() {
+	    if (!tested) {
+	      try {
+	        if (typeof WebAssembly === 'object') {
+	          testResult = testSafariWebAssemblyBug();
+	        } else {
+	          testResult = false;
+	        }
+	      } catch (e) {
+	        // Something else went wrong with compilation.
+	        console.log('Exception while testing WebAssembly', e);
+	        testResult = false;
+	      }
+	      tested = true;
+	    }
+	    return testResult;
+	  }
+	};
+
+	module.exports = WebAssemblyCheck;
+
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	var OGVProxyClass = __webpack_require__(6);
 
 	var OGVDecoderAudioProxy = OGVProxyClass({
 		loadedMetadata: false,
@@ -530,9 +594,9 @@
 	module.exports = OGVDecoderAudioProxy;
 
 
-/***/ },
-/* 5 */
-/***/ function(module, exports) {
+/***/ }),
+/* 6 */
+/***/ (function(module, exports) {
 
 	/**
 	 * Proxy object for web worker interface for codec classes.
@@ -665,11 +729,11 @@
 
 	module.exports = OGVProxyClass;
 
-/***/ },
-/* 6 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 7 */
+/***/ (function(module, exports, __webpack_require__) {
 
-	var OGVProxyClass = __webpack_require__(5);
+	var OGVProxyClass = __webpack_require__(6);
 
 	var OGVDecoderVideoProxy = OGVProxyClass({
 		loadedMetadata: false,
@@ -696,5 +760,5 @@
 
 	module.exports = OGVDecoderVideoProxy;
 
-/***/ }
+/***/ })
 /******/ ]);

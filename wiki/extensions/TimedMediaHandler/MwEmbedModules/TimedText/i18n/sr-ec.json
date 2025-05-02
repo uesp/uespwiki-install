@@ -2,11 +2,13 @@
 	"@metadata": {
 		"authors": [
 			"Rancher",
-			"Михајло Анђелковић"
+			"Михајло Анђелковић",
+			"BadDog",
+			"Obsuser"
 		]
 	},
 	"mwe-timedtext-back-btn": "Назад",
-	"mwe-timedtext-layout-off": "Сакриј сабтајтлове",
+	"mwe-timedtext-layout-off": "Сакриј субтитлове",
 	"mwe-timedtext-loading-text": "Учитава се текст ...",
 	"mwe-timedtext-key-language": "$1, $2",
 	"mwe-timedtext-textcat-cc": "Ознаке",

@@ -1,9 +1,11 @@
 {
 	"@metadata": {
 		"authors": [
-			"Milicevic01"
+			"Milicevic01",
+			"BadDog"
 		]
 	},
+	"graphsandbox": "Песак за графиконе",
 	"graph-tracking-category": "Странице са графиконима",
 	"graph-tracking-category-desc": "Странице које имају ознаку <code><nowiki><graph></nowiki></code>.",
 	"graph-broken-category": "Странице са поквареним графиконима",
@@ -16,8 +18,5 @@
 	"graph-ve-dialog-edit-page-data": "Подаци",
 	"graph-ve-dialog-edit-size-fieldset": "Величина",
 	"graph-ve-dialog-edit-size-table-unit": "Пиксели",
-	"graph-ve-dialog-edit-width": "Ширина",
-	"graph-switch-button": "Пусти",
-	"graph-loading": "Учитавам…",
-	"graph-loading-done": "Готово!"
+	"graph-ve-dialog-edit-width": "Ширина"
 }

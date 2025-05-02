@@ -4,6 +4,8 @@ namespace CirrusSearch;
 
 use Html;
 use HTMLFormField;
+use OOUIHTMLForm;
+use OOUI;
 
 /**
  * Completion Suggester preferences UI.
@@ -37,7 +39,7 @@ class HTMLCompletionProfileSettings extends HTMLFormField {
 	 */
 	public function getInputHTML( $value ) {
 		$html = Html::openElement( 'div' );
-		$html .= Html::element( 'legend',
+		$html .= Html::element( 'p',
 			[],
 			wfMessage( 'cirrussearch-pref-completion-profile-help' )
 		);
@@ -46,7 +48,7 @@ class HTMLCompletionProfileSettings extends HTMLFormField {
 			[],
 			wfMessage( 'cirrussearch-pref-completion-section-desc' )->text()
 		);
-		$html .= Html::rawElement( 'legend',
+		$html .= Html::rawElement( 'p',
 			[],
 			wfMessage( 'cirrussearch-pref-completion-section-legend' )->parse()
 		);
@@ -61,7 +63,7 @@ class HTMLCompletionProfileSettings extends HTMLFormField {
 			[],
 			wfMessage( 'cirrussearch-pref-completion-legacy-section-desc' )->text()
 		);
-		$html .= Html::rawElement( 'legend',
+		$html .= Html::rawElement( 'p',
 			[],
 			wfMessage( 'cirrussearch-pref-completion-legacy-section-legend' )->parse()
 		);
@@ -76,28 +78,46 @@ class HTMLCompletionProfileSettings extends HTMLFormField {
 	 * @return string html
 	 */
 	private function addCompSuggestOption( $prof, $value ) {
-		$html = Html::openElement( 'div' );
-		$html .= Html::openElement( 'div', [ 'style' => 'vertical-align:top; display:inline-block;' ] );
-		$radioId = $this->mID . "-$prof";
-		$radioAttrs = [
-			'id' => $radioId,
-		];
-		if ( $prof === $value ) {
-			$radioAttrs['checked'] = 'checked';
+		if ( $this->mParent instanceof OOUIHTMLForm ) {
+			return new OOUI\FieldLayout(
+				new OOUI\RadioInputWidget( [
+					'inputId' => $this->mID . "-$prof",
+					'name' => $this->mName,
+					'value' => $prof,
+					'selected' => $prof === $value,
+				] ),
+				[
+					'align' => 'inline',
+					'label' => new OOUI\HtmlSnippet(
+						Html::element( 'strong', [], wfMessage( "cirrussearch-completion-profile-$prof-pref-name" )->text() )
+							. '<br>' . wfMessage( "cirrussearch-completion-profile-$prof-pref-desc" )->escaped()
+					)
+				]
+			);
+		} else {
+			$html = Html::openElement( 'div' );
+			$html .= Html::openElement( 'div', [ 'style' => 'vertical-align:top; display:inline-block;' ] );
+			$radioId = $this->mID . "-$prof";
+			$radioAttrs = [
+				'id' => $radioId,
+			];
+			if ( $prof === $value ) {
+				$radioAttrs['checked'] = 'checked';
+			}
+			$html .= Html::input( $this->mName, $prof, 'radio', $radioAttrs );
+			$html .= Html::closeElement( 'div' );
+			$html .= Html::openElement( 'div', [ 'style' => 'display:inline-block; width: 90%' ] );
+			$html .= Html::element( 'label',
+				[ 'for' => $radioId, 'style' => 'font-weight: bold' ],
+				wfMessage( "cirrussearch-completion-profile-$prof-pref-name" )->text()
+			);
+			$html .= Html::element( 'div',
+				[],
+				wfMessage( "cirrussearch-completion-profile-$prof-pref-desc" )->text()
+			);
+			$html .= Html::closeElement( 'div' );
+			$html .= Html::closeElement( 'div' );
+			return $html;
 		}
-		$html .= Html::input( $this->mName, $prof, 'radio', $radioAttrs );
-		$html .= Html::closeElement( 'div' );
-		$html .= Html::openElement( 'div', [ 'style' => 'display:inline-block; width: 90%' ] );
-		$html .= Html::element( 'label',
-			[ 'for' => $radioId, 'style' => 'font-weight: bold' ],
-			wfMessage( "cirrussearch-completion-profile-$prof-pref-name" )->text()
-		);
-		$html .= Html::element( 'div',
-			[],
-			wfMessage( "cirrussearch-completion-profile-$prof-pref-desc" )->text()
-		);
-		$html .= Html::closeElement( 'div' );
-		$html .= Html::closeElement( 'div' );
-		return $html;
 	}
 }

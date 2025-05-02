@@ -41,12 +41,14 @@ require_once "$IP/maintenance/Maintenance.php";
 class MigrateCampaigns extends Maintenance {
 
 	/**
-	 * @var DatabaseBase
+	 * @var \Wikimedia\Rdbms\IDatabase
 	 */
 	private $dbr = null;
 
 	public function __construct() {
 		parent::__construct();
+
+		$this->requireExtension( 'Upload Wizard' );
 		$this->mDescription = "Migrate UploadCampaigns from database storage to pages";
 		$this->addOption( 'user', 'The user to perform the migration as', false, true, 'u' );
 	}
@@ -97,7 +99,7 @@ class MigrateCampaigns extends Maintenance {
 	];
 
 	/**
-	 * @param $id int|string
+	 * @param int|string $id
 	 * @return array
 	 */
 	private function getConfigFromDB( $id ) {
@@ -132,7 +134,7 @@ class MigrateCampaigns extends Maintenance {
 	}
 
 	/**
-	 * @param $string string
+	 * @param string $string
 	 * @return array
 	 */
 	private function explodeStringToArray( $string ) {
@@ -150,7 +152,7 @@ class MigrateCampaigns extends Maintenance {
 	}
 
 	/**
-	 * @param $array array
+	 * @param array $array
 	 * @return array
 	 */
 	private function trimArray( $array ) {
@@ -173,8 +175,8 @@ class MigrateCampaigns extends Maintenance {
 	/**
 	 * Ensure that the default license, if set, is the first
 	 *
-	 * @param $licenses array
-	 * @param $default string
+	 * @param array $licenses
+	 * @param string $default
 	 * @return array
 	 */
 	private function ensureDefaultLicense( $licenses, $default ) {
@@ -189,8 +191,8 @@ class MigrateCampaigns extends Maintenance {
 	}
 
 	/**
-	 * @param $campaign
-	 * @param $oldConfig array
+	 * @param object $campaign
+	 * @param array $oldConfig
 	 * @return array
 	 */
 	private function getConfigForJSON( $campaign, $oldConfig ) {

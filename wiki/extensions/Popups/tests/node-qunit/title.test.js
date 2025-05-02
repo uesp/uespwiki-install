@@ -3,21 +3,21 @@ import { getTitle, isValid } from '../../src/title';
 /* global Map */
 
 QUnit.module( 'title#getTitle', {
-	beforeEach: function () {
+	beforeEach() {
 		this.config = new Map();
 		this.config.set( 'wgArticlePath', '/wiki/$1' );
 
 		this.location = global.location = { hostname: 'en.wikipedia.org' };
 
 		window.mediaWiki.RegExp = {
-			escape: this.sandbox.spy( function ( str ) {
-				return str.replace( /([\\{}()|.?*+\-\^$\[\]])/g, '\\$1' );
+			escape: this.sandbox.spy( ( str ) => {
+				return str.replace( /([\\{}()|.?*+\-^$[\]])/g, '\\$1' );
 			} )
 		};
 
 		window.mediaWiki.Uri = this.sandbox.stub().throws( 'UNIMPLEMENTED' );
 	},
-	afterEach: function () {
+	afterEach() {
 		global.location = null;
 		window.mediaWiki.RegExp = null;
 		window.mediaWiki.Uri = null;
@@ -25,7 +25,7 @@ QUnit.module( 'title#getTitle', {
 } );
 
 QUnit.test( 'it should return the title of a url with a title query param', function ( assert ) {
-	var href = '/w/index.php?title=Foo';
+	const href = '/w/index.php?title=Foo';
 	window.mediaWiki.Uri.withArgs( href ).returns( {
 		host: this.location.hostname,
 		query: {
@@ -37,7 +37,7 @@ QUnit.test( 'it should return the title of a url with a title query param', func
 } );
 
 QUnit.test( 'it should return the title of a pretty url if it conforms wgArticlePath', function ( assert ) {
-	var href = '/wiki/Foo';
+	const href = '/wiki/Foo';
 	window.mediaWiki.Uri.withArgs( href ).returns( {
 		host: this.location.hostname,
 		path: href,
@@ -48,7 +48,7 @@ QUnit.test( 'it should return the title of a pretty url if it conforms wgArticle
 } );
 
 QUnit.test( 'it should return the title of a pretty url properly decoded', function ( assert ) {
-	var href = '/wiki/%E6%B8%AC%E8%A9%A6';
+	const href = '/wiki/%E6%B8%AC%E8%A9%A6';
 	window.mediaWiki.Uri.withArgs( href ).returns( {
 		host: this.location.hostname,
 		path: href,
@@ -59,7 +59,7 @@ QUnit.test( 'it should return the title of a pretty url properly decoded', funct
 } );
 
 QUnit.test( 'it should skip urls that mw.Uri cannot parse', function ( assert ) {
-	var href = 'javascript:void(0);'; // eslint-disable-line no-script-url
+	const href = 'javascript:void(0);'; // eslint-disable-line no-script-url
 	window.mediaWiki.Uri.withArgs( href ).throws(
 		new Error( 'Cannot parse' )
 	);
@@ -68,7 +68,7 @@ QUnit.test( 'it should skip urls that mw.Uri cannot parse', function ( assert ) 
 } );
 
 QUnit.test( 'it should skip urls that are external', function ( assert ) {
-	var href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+	const href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
 	window.mediaWiki.Uri.withArgs( href ).returns( {
 		host: 'www.youtube.com',
 		path: '/watch',
@@ -80,7 +80,7 @@ QUnit.test( 'it should skip urls that are external', function ( assert ) {
 
 QUnit.test( 'it should skip urls not on article path without one title query param', function ( assert ) {
 	// No params
-	var href = '/Foo';
+	let href = '/Foo';
 	window.mediaWiki.Uri.withArgs( href ).returns( {
 		host: this.location.hostname,
 		path: '/Foo',
@@ -101,41 +101,43 @@ QUnit.test( 'it should skip urls not on article path without one title query par
 } );
 
 QUnit.module( 'title#isValid', {
-	beforeEach: function () {
+	beforeEach() {
 		window.mediaWiki.Title = {
 			newFromText: this.sandbox.stub().throws( 'UNIMPLEMENTED' )
 		};
 	},
-	afterEach: function () {
+	afterEach() {
 		window.mediaWiki.Title = null;
 	}
 } );
 
-QUnit.test( 'it should return null if the title is empty', function ( assert ) {
+QUnit.test( 'it should return null if the title is empty', ( assert ) => {
 	assert.equal( isValid(), null, 'Doesn\'t accept null titles' );
 	assert.equal( isValid( '' ), null, 'Doesn\'t accept empty titles' );
 } );
 
-QUnit.test( 'it should return null if the title can\'t be parsed properly', function ( assert ) {
+QUnit.test( 'it should return null if the title can\'t be parsed properly', ( assert ) => {
 	window.mediaWiki.Title.newFromText.withArgs( 'title' ).returns( null );
 	assert.equal( isValid( 'title' ), null );
 } );
 
-QUnit.test( 'it should return null if the title can\'t be parsed properly', function ( assert ) {
+QUnit.test( 'it should return null if the title can\'t be parsed properly', ( assert ) => {
 	window.mediaWiki.Title.newFromText.withArgs( 'title' ).returns( null );
 	assert.equal( isValid( 'title' ), null );
-	assert.equal( window.mediaWiki.Title.newFromText.callCount, 1, 'mediaWiki.Title.newFromText called for parsing the title' );
+	assert.equal(
+		window.mediaWiki.Title.newFromText.callCount, 1,
+		'mediaWiki.Title.newFromText called for parsing the title' );
 } );
 
-QUnit.test( 'it should return null if the title is not from a content namespace', function ( assert ) {
+QUnit.test( 'it should return null if the title is not from a content namespace', ( assert ) => {
 	window.mediaWiki.Title.newFromText.withArgs( 'title' ).returns( {
 		namespace: 1
 	} );
 	assert.equal( isValid( 'title', [ 5 ] ), null );
 } );
 
-QUnit.test( 'it should return the title object if the title is from a content namespace', function ( assert ) {
-	var mwTitle = {
+QUnit.test( 'it should return the title object if the title is from a content namespace', ( assert ) => {
+	const mwTitle = {
 		namespace: 3
 	};
 	window.mediaWiki.Title.newFromText.withArgs( 'title' ).returns( mwTitle );

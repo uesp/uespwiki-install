@@ -42,7 +42,7 @@
 	uw.controller.Deed.prototype.moveNext = function () {
 		var
 			deedController = this,
-			valid, fields;
+			valid, fields, validityPromises;
 
 		if ( !this.deedChooser ) {
 			uw.controller.Step.prototype.moveNext.call( this );
@@ -52,20 +52,31 @@
 		valid = this.deedChooser.valid();
 		if ( valid ) {
 			fields = this.deedChooser.deed.getFields();
-
-			// Update any error/warning messages
-			fields.forEach( function ( fieldLayout ) {
-				fieldLayout.checkValidity();
+			validityPromises = fields.map( function ( fieldLayout ) {
+				// Update any error/warning messages
+				return fieldLayout.checkValidity( true );
 			} );
+			if ( validityPromises.length === 1 ) {
+				// validityPromises will hold all promises for all uploads;
+				// adding a bogus promise (no warnings & errors) to
+				// ensure $.when always resolves with an array of multiple
+				// results (if there's just 1, it would otherwise have just
+				// that one's arguments, instead of a multi-dimensional array
+				// of upload warnings & failures)
+				validityPromises.push( $.Deferred().resolve( [], [] ).promise() );
+			}
 
-			// TODO Handle warnings with a confirmation dialog
-			$.when.apply( $, fields.map( function ( fieldLayout ) {
-				return fieldLayout.fieldWidget.getErrors();
-			} ) ).done( function () {
+			$.when.apply( $, validityPromises ).then( function () {
+				// `arguments` will be an array of all fields, with their warnings & errors
+				// e.g. `[[something], []], [[], [something]]` for 2 fields, where the first one has
+				// a warning and the last one an error
+
+				// TODO Handle warnings with a confirmation dialog
+
 				var i;
 				for ( i = 0; i < arguments.length; i++ ) {
-					if ( arguments[ i ].length ) {
-						// One of the fields has errors
+					if ( arguments[ i ][ 1 ].length ) {
+						// One of the fields has errors; refuse to proceed!
 						return;
 					}
 				}
@@ -114,14 +125,12 @@
 			previousDeed = this.deedChooser.getSerialized();
 		}
 
-		this.deeds = mw.UploadWizard.getLicensingDeeds( this.uploads.length, this.config );
+		this.deeds = mw.UploadWizard.getLicensingDeeds( this.uploads, this.config );
 
 		// if we have multiple uploads, also give them the option to set
 		// licenses individually
 		if ( this.uploads.length > 1 && this.shouldShowIndividualDeed( this.config ) ) {
-			customDeed = $.extend( new mw.UploadWizardDeed(), {
-				name: 'custom'
-			} );
+			customDeed = new uw.deed.Custom( this.config );
 			this.deeds[ customDeed.name ] = customDeed;
 		}
 

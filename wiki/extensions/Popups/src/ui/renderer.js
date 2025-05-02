@@ -3,50 +3,40 @@
  */
 
 import wait from '../wait';
+import pokeyMaskSVG from './pokey-mask.svg';
+import { SIZES, createThumbnail } from './thumbnail';
+import { previewTypes } from '../preview/model';
+import { renderPreview } from './templates/preview/preview';
+import { renderPagePreview } from './templates/pagePreview/pagePreview';
 
-var mw = window.mediaWiki,
+const mw = window.mediaWiki,
 	$ = jQuery,
-	SIZES = {
-		portraitImage: {
-			h: 250, // Exact height
-			w: 203 // Max width
-		},
-		landscapeImage: {
-			h: 200, // Max height
-			w: 300 // Exact Width
-		},
-		landscapePopupWidth: 450,
-		portraitPopupWidth: 300,
-		pokeySize: 8 // Height of the pokey.
-	},
-	$window = $( window );
+	$window = $( window ),
+	landscapePopupWidth = 450,
+	portraitPopupWidth = 320,
+	pokeySize = 8; // Height of the pokey.;
 
 /**
- * Extracted from `mw.popups.createSVGMasks`.
+ * Extracted from `mw.popups.createSVGMasks`. This is just an SVG mask to point
+ * or "poke" at the link that's hovered over. The "pokey" appears to be cut out
+ * of the image itself:
+ *   _______     _______     link
+ *  |       |   |_/\____|    _/\____ <-- Pokey pointing at link
+ *  |       | +           = |       |
+ *  |_______|               |_______|
+ *  Background    Pokey     Page preview
+ *    image       mask      bubble w/ pokey
+ *
+ * SVG masks are used in place of CSS masks for browser support issues (see
+ * https://caniuse.com/#feat=css-masks).
+ *
  * @private
  * @param {Object} container DOM object to which pokey masks are appended
  */
 export function createPokeyMasks( container ) {
 	$( '<div>' )
 		.attr( 'id', 'mwe-popups-svg' )
-		.html(
-			'<svg width="0" height="0">' +
-				'<defs>' +
-					'<clippath id="mwe-popups-mask">' +
-						'<polygon points="0 8, 10 8, 18 0, 26 8, 1000 8, 1000 1000, 0 1000"/>' +
-					'</clippath>' +
-					'<clippath id="mwe-popups-mask-flip">' +
-						'<polygon points="0 8, 274 8, 282 0, 290 8, 1000 8, 1000 1000, 0 1000"/>' +
-					'</clippath>' +
-					'<clippath id="mwe-popups-landscape-mask">' +
-						'<polygon points="0 8, 174 8, 182 0, 190 8, 1000 8, 1000 1000, 0 1000"/>' +
-					'</clippath>' +
-					'<clippath id="mwe-popups-landscape-mask-flip">' +
-						'<polygon points="0 0, 1000 0, 1000 242, 190 242, 182 250, 174 242, 0 242"/>' +
-					'</clippath>' +
-				'</defs>' +
-			'</svg>'
-		)
+		.html( pokeyMaskSVG )
 		.appendTo( container );
 }
 
@@ -81,7 +71,7 @@ export function init() {
  * # The position of the mouse when the user dwells on the link with their
  *   mouse.
  * # The centermost point of the link when the user dwells on the link with
- *   their keboard or other assistive device.
+ *   their keyboard or other assistive device.
  *
  * Since the content of the preview doesn't change but its position might, we
  * distinguish between "rendering" - generating HTML from a MediaWiki API
@@ -92,7 +82,8 @@ export function init() {
  * @return {ext.popups.Preview}
  */
 export function render( model ) {
-	var preview = model.extract === undefined ? createEmptyPreview( model ) : createPreview( model );
+
+	const preview = createPreviewWithType( model );
 
 	return {
 
@@ -111,7 +102,7 @@ export function render( model ) {
 		 *  that resulted in showing the preview
 		 * @return {jQuery.Promise}
 		 */
-		show: function ( event, boundActions, token ) {
+		show( event, boundActions, token ) {
 			return show(
 				preview, event, $( event.target ), boundActions, token,
 				document.body
@@ -125,10 +116,27 @@ export function render( model ) {
 		 *
 		 * @return {jQuery.Promise}
 		 */
-		hide: function () {
+		hide() {
 			return hide( preview );
 		}
 	};
+}
+/**
+ * Creates an instance of a Preview based on
+ * the type property of the PreviewModel
+ *
+ * @param {ext.popups.PreviewModel} model
+ * @return {ext.popups.Preview}
+ */
+export function createPreviewWithType( model ) {
+	switch ( model.type ) {
+		case previewTypes.TYPE_PAGE:
+			return createPagePreview( model );
+		case previewTypes.TYPE_DISAMBIGUATION:
+			return createDisambiguationPreview( model );
+		default:
+			return createEmptyPreview( model );
+	}
 }
 
 /**
@@ -137,19 +145,12 @@ export function render( model ) {
  * @param {ext.popups.PreviewModel} model
  * @return {ext.popups.Preview}
  */
-export function createPreview( model ) {
-	var templateData,
-		thumbnail = createThumbnail( model.thumbnail ),
+export function createPagePreview( model ) {
+	const thumbnail = createThumbnail( model.thumbnail ),
 		hasThumbnail = thumbnail !== null,
-		extract = model.extract,
-		$el;
+		extract = model.extract;
 
-	templateData = $.extend( {}, model, {
-		hasThumbnail: hasThumbnail
-	} );
-
-	$el = mw.template.get( 'ext.popups', 'preview.mustache' )
-		.render( templateData );
+	const $el = $( $.parseHTML( renderPagePreview( model, hasThumbnail ) ) );
 
 	if ( hasThumbnail ) {
 		$el.find( '.mwe-popups-discreet' ).append( thumbnail.el );
@@ -160,8 +161,8 @@ export function createPreview( model ) {
 
 	return {
 		el: $el,
-		hasThumbnail: hasThumbnail,
-		thumbnail: thumbnail,
+		hasThumbnail,
+		thumbnail,
 		isTall: hasThumbnail && thumbnail.isTall
 	};
 }
@@ -178,16 +179,35 @@ export function createPreview( model ) {
  * @return {ext.popups.Preview}
  */
 export function createEmptyPreview( model ) {
-	var templateData,
-		$el;
+	const showTitle = false,
+		extractMsg = mw.msg( 'popups-preview-no-preview' ),
+		linkMsg = mw.msg( 'popups-preview-footer-read' );
 
-	templateData = $.extend( {}, model, {
-		extractMsg: mw.msg( 'popups-preview-no-preview' ),
-		readMsg: mw.msg( 'popups-preview-footer-read' )
-	} );
+	const $el = $(
+		$.parseHTML( renderPreview( model, showTitle, extractMsg, linkMsg ) )
+	);
 
-	$el = mw.template.get( 'ext.popups', 'preview-empty.mustache' )
-		.render( templateData );
+	return {
+		el: $el,
+		hasThumbnail: false,
+		isTall: false
+	};
+}
+
+/**
+ * Creates an instance of the disambiguation preview.
+ *
+ * @param {ext.popups.PreviewModel} model
+ * @return {ext.popups.Preview}
+ */
+export function createDisambiguationPreview( model ) {
+	const showTitle = true,
+		extractMsg = mw.msg( 'popups-preview-disambiguation' ),
+		linkMsg = mw.msg( 'popups-preview-disambiguation-link' );
+
+	const $el = $(
+		$.parseHTML( renderPreview( model, showTitle, extractMsg, linkMsg ) )
+	);
 
 	return {
 		el: $el,
@@ -202,7 +222,7 @@ export function createEmptyPreview( model ) {
  * Extracted from `mw.popups.render.openPopup`.
  *
  * TODO: From the perspective of the client, there's no need to distinguish
- * between renderering and showing a preview. Merge #render and Preview#show.
+ * between rendering and showing a preview. Merge #render and Preview#show.
  *
  * @param {ext.popups.Preview} preview
  * @param {Event} event
@@ -213,8 +233,10 @@ export function createEmptyPreview( model ) {
  * @return {jQuery.Promise} A promise that resolves when the promise has faded
  *  in
  */
-export function show( preview, event, $link, behavior, token, container ) {
-	var layout = createLayout(
+export function show( preview, event, $link, behavior,
+	token, container
+) {
+	const layout = createLayout(
 		preview.isTall,
 		{
 			pageX: event.pageX,
@@ -232,23 +254,23 @@ export function show( preview, event, $link, behavior, token, container ) {
 			width: $window.width(),
 			height: $window.height()
 		},
-		SIZES.pokeySize
+		pokeySize
 	);
 
 	preview.el.appendTo( container );
 
 	layoutPreview(
 		preview, layout, getClasses( preview, layout ),
-		SIZES.landscapeImage.h, SIZES.pokeySize
+		SIZES.landscapeImage.h, pokeySize
 	);
 
 	preview.el.show();
 
 	return wait( 200 )
-		.then( function () {
+		.then( () => {
 			bindBehavior( preview, behavior );
 		} )
-		.then( function () {
+		.then( () => {
 			behavior.previewShow( token );
 		} );
 }
@@ -260,13 +282,14 @@ export function show( preview, event, $link, behavior, token, container ) {
  * @param {ext.popups.PreviewBehavior} behavior
  */
 export function bindBehavior( preview, behavior ) {
-	preview.el.hover( behavior.previewDwell, behavior.previewAbandon );
+	preview.el.on( 'mouseenter', behavior.previewDwell )
+		.on( 'mouseleave', behavior.previewAbandon );
 
 	preview.el.click( behavior.click );
 
 	preview.el.find( '.mwe-popups-settings-icon' )
 		.attr( 'href', behavior.settingsUrl )
-		.click( function ( event ) {
+		.click( ( event ) => {
 			event.stopPropagation();
 
 			behavior.showSettings( event );
@@ -281,15 +304,12 @@ export function bindBehavior( preview, behavior ) {
  *  out
  */
 export function hide( preview ) {
-	var fadeInClass,
-		fadeOutClass;
-
 	// FIXME: This method clearly needs access to the layout of the preview.
-	fadeInClass = ( preview.el.hasClass( 'mwe-popups-fade-in-up' ) ) ?
+	const fadeInClass = ( preview.el.hasClass( 'mwe-popups-fade-in-up' ) ) ?
 		'mwe-popups-fade-in-up' :
 		'mwe-popups-fade-in-down';
 
-	fadeOutClass = ( fadeInClass === 'mwe-popups-fade-in-up' ) ?
+	const fadeOutClass = ( fadeInClass === 'mwe-popups-fade-in-up' ) ?
 		'mwe-popups-fade-out-down' :
 		'mwe-popups-fade-out-up';
 
@@ -297,139 +317,9 @@ export function hide( preview ) {
 		.removeClass( fadeInClass )
 		.addClass( fadeOutClass );
 
-	return wait( 150 ).then( function () {
+	return wait( 150 ).then( () => {
 		preview.el.remove();
 	} );
-}
-
-/**
- * @typedef {Object} ext.popups.Thumbnail
- * @property {Element} el
- * @property {Boolean} isTall Whether or not the thumbnail is portrait
- */
-
-/**
- * Creates a thumbnail from the representation of a thumbnail returned by the
- * PageImages MediaWiki API query module.
- *
- * If there's no thumbnail, the thumbnail is too small, or the thumbnail's URL
- * contains characters that could be used to perform an
- * [XSS attack via CSS](https://www.owasp.org/index.php/Testing_for_CSS_Injection_(OTG-CLIENT-005)),
- * then `null` is returned.
- *
- * Extracted from `mw.popups.renderer.article.createThumbnail`.
- *
- * @param {Object} rawThumbnail
- * @return {ext.popups.Thumbnail|null}
- */
-export function createThumbnail( rawThumbnail ) {
-	var tall, thumbWidth, thumbHeight,
-		x, y, width, height, clipPath,
-		devicePixelRatio = $.bracketedDevicePixelRatio();
-
-	if ( !rawThumbnail ) {
-		return null;
-	}
-
-	tall = rawThumbnail.width < rawThumbnail.height;
-	thumbWidth = rawThumbnail.width / devicePixelRatio;
-	thumbHeight = rawThumbnail.height / devicePixelRatio;
-
-	if (
-		// Image too small for landscape display
-		( !tall && thumbWidth < SIZES.landscapeImage.w ) ||
-		// Image too small for portrait display
-		( tall && thumbHeight < SIZES.portraitImage.h ) ||
-		// These characters in URL that could inject CSS and thus JS
-		(
-			rawThumbnail.source.indexOf( '\\' ) > -1 ||
-			rawThumbnail.source.indexOf( '\'' ) > -1 ||
-			rawThumbnail.source.indexOf( '\"' ) > -1
-		)
-	) {
-		return null;
-	}
-
-	if ( tall ) {
-		x = ( thumbWidth > SIZES.portraitImage.w ) ?
-			( ( thumbWidth - SIZES.portraitImage.w ) / -2 ) :
-			( SIZES.portraitImage.w - thumbWidth );
-		y = ( thumbHeight > SIZES.portraitImage.h ) ?
-			( ( thumbHeight - SIZES.portraitImage.h ) / -2 ) : 0;
-		width = SIZES.portraitImage.w;
-		height = SIZES.portraitImage.h;
-	} else {
-		x = 0;
-		y = ( thumbHeight > SIZES.landscapeImage.h ) ?
-			( ( thumbHeight - SIZES.landscapeImage.h ) / -2 ) : 0;
-		width = SIZES.landscapeImage.w + 3;
-		height = ( thumbHeight > SIZES.landscapeImage.h ) ?
-			SIZES.landscapeImage.h : thumbHeight;
-		clipPath = 'mwe-popups-mask';
-	}
-
-	return {
-		el: createThumbnailElement(
-			tall ? 'mwe-popups-is-tall' : 'mwe-popups-is-not-tall',
-			rawThumbnail.source,
-			x,
-			y,
-			thumbWidth,
-			thumbHeight,
-			width,
-			height,
-			clipPath
-		),
-		isTall: tall,
-		width: thumbWidth,
-		height: thumbHeight
-	};
-}
-
-/**
- * Creates the SVG image element that represents the thumbnail.
- *
- * This function is distinct from `createThumbnail` as it abstracts away some
- * browser issues that are uncovered when manipulating elements across
- * namespaces.
- *
- * @param {String} className
- * @param {String} url
- * @param {Number} x
- * @param {Number} y
- * @param {Number} thumbnailWidth
- * @param {Number} thumbnailHeight
- * @param {Number} width
- * @param {Number} height
- * @param {String} clipPath
- * @return {jQuery}
- */
-export function createThumbnailElement( className, url, x, y, thumbnailWidth, thumbnailHeight, width, height, clipPath ) {
-	var $thumbnailSVGImage, $thumbnail,
-		nsSvg = 'http://www.w3.org/2000/svg',
-		nsXlink = 'http://www.w3.org/1999/xlink';
-
-	$thumbnailSVGImage = $( document.createElementNS( nsSvg, 'image' ) );
-	$thumbnailSVGImage[ 0 ].setAttributeNS( nsXlink, 'href', url );
-	$thumbnailSVGImage
-		.addClass( className )
-		.attr( {
-			x: x,
-			y: y,
-			width: thumbnailWidth,
-			height: thumbnailHeight,
-			'clip-path': 'url(#' + clipPath + ')'
-		} );
-
-	$thumbnail = $( document.createElementNS( nsSvg, 'svg' ) )
-		.attr( {
-			xmlns: nsSvg,
-			width: width,
-			height: height
-		} )
-		.append( $thumbnailSVGImage );
-
-	return $thumbnail;
 }
 
 /**
@@ -446,13 +336,16 @@ export function createThumbnailElement( className, url, x, y, thumbnailWidth, th
  */
 
 /**
- * @param {isPreviewTall} isPreviewTall
- * @param {Object} eventData Data related to the event that triggered showing a popup
+ * @param {Boolean} isPreviewTall
+ * @param {Object} eventData Data related to the event that triggered showing
+ *  a popup
  * @param {number} eventData.pageX
  * @param {number} eventData.pageY
  * @param {number} eventData.clientY
- * @param {Object} linkData Data related to the link that’s used for showing a popup
- * @param {ClientRectList} linkData.clientRects list of rectangles defined by four edges
+ * @param {Object} linkData Data related to the link that’s used for showing
+ *  a popup
+ * @param {ClientRectList} linkData.clientRects list of rectangles defined by
+ *  four edges
  * @param {Object} linkData.offset
  * @param {number} linkData.width
  * @param {number} linkData.height
@@ -463,11 +356,13 @@ export function createThumbnailElement( className, url, x, y, thumbnailWidth, th
  * @param {number} pokeySize Space reserved for the pokey
  * @return {ext.popups.PreviewLayout}
  */
-export function createLayout( isPreviewTall, eventData, linkData, windowData, pokeySize ) {
-	var flippedX = false,
+export function createLayout(
+	isPreviewTall, eventData, linkData, windowData, pokeySize
+) {
+	let flippedX = false,
 		flippedY = false,
-		offsetTop = ( eventData.pageY ) ? // If it was a mouse event
-			// Position according to mouse
+		offsetTop = eventData.pageY ?
+			// If it was a mouse event, position according to mouse
 			// Since client rectangles are relative to the viewport,
 			// take scroll position into account.
 			getClosestYPosition(
@@ -477,19 +372,15 @@ export function createLayout( isPreviewTall, eventData, linkData, windowData, po
 			) + windowData.scrollTop + pokeySize :
 			// Position according to link position or size
 			linkData.offset.top + linkData.height + pokeySize,
-		clientTop = ( eventData.clientY ) ?
-			eventData.clientY :
-			offsetTop,
-		offsetLeft = ( eventData.pageX ) ?
-			eventData.pageX :
-			linkData.offset.left;
+		offsetLeft = eventData.pageX ? eventData.pageX : linkData.offset.left;
+	const clientTop = eventData.clientY ? eventData.clientY : offsetTop;
 
 	// X Flip
 	if ( offsetLeft > ( windowData.width / 2 ) ) {
 		offsetLeft += ( !eventData.pageX ) ? linkData.width : 0;
 		offsetLeft -= !isPreviewTall ?
-			SIZES.portraitPopupWidth :
-			SIZES.landscapePopupWidth;
+			portraitPopupWidth :
+			landscapePopupWidth;
 		flippedX = true;
 	}
 
@@ -525,8 +416,8 @@ export function createLayout( isPreviewTall, eventData, linkData, windowData, po
 			top: offsetTop,
 			left: offsetLeft
 		},
-		flippedX: flippedX,
-		flippedY: flippedY
+		flippedX,
+		flippedY
 	};
 }
 
@@ -539,7 +430,7 @@ export function createLayout( isPreviewTall, eventData, linkData, windowData, po
  * @return {String[]}
  */
 export function getClasses( preview, layout ) {
-	var classes = [];
+	const classes = [];
 
 	if ( layout.flippedY ) {
 		classes.push( 'mwe-popups-fade-in-down' );
@@ -549,13 +440,9 @@ export function getClasses( preview, layout ) {
 
 	if ( layout.flippedY && layout.flippedX ) {
 		classes.push( 'flipped_x_y' );
-	}
-
-	if ( layout.flippedY && !layout.flippedX ) {
+	} else if ( layout.flippedY ) {
 		classes.push( 'flipped_y' );
-	}
-
-	if ( layout.flippedX && !layout.flippedY ) {
+	} else if ( layout.flippedX ) {
 		classes.push( 'flipped_x' );
 	}
 
@@ -587,20 +474,25 @@ export function getClasses( preview, layout ) {
  * container, then pull the extract up to keep whitespace consistent across
  * previews.
  *
+ * Note: SVG clip-paths are supported everywhere but clip-paths as CSS
+ * properties are not. https://caniuse.com/#feat=css-clip-path
+ *
  * @param {ext.popups.Preview} preview
  * @param {ext.popups.PreviewLayout} layout
  * @param {string[]} classes class names used for layout out the preview
  * @param {number} predefinedLandscapeImageHeight landscape image height
  * @param {number} pokeySize
  */
-export function layoutPreview( preview, layout, classes, predefinedLandscapeImageHeight, pokeySize ) {
-	var popup = preview.el,
+export function layoutPreview(
+	preview, layout, classes, predefinedLandscapeImageHeight, pokeySize
+) {
+	const popup = preview.el,
 		isTall = preview.isTall,
 		hasThumbnail = preview.hasThumbnail,
 		thumbnail = preview.thumbnail,
 		flippedY = layout.flippedY,
-		flippedX = layout.flippedX,
-		offsetTop = layout.offset.top;
+		flippedX = layout.flippedX;
+	let offsetTop = layout.offset.top;
 
 	if (
 		!flippedY && !isTall && hasThumbnail &&
@@ -620,12 +512,12 @@ export function layoutPreview( preview, layout, classes, predefinedLandscapeImag
 
 	popup.css( {
 		top: offsetTop,
-		left: layout.offset.left + 'px'
+		left: `${ layout.offset.left }px`
 	} );
 
-	if ( flippedY && hasThumbnail ) {
+	if ( !flippedY && hasThumbnail && !isTall ) {
 		popup.find( 'image' )[ 0 ]
-			.removeAttribute( 'clip-path' );
+			.setAttribute( 'clip-path', 'url(#mwe-popups-mask)' );
 	}
 
 	if ( flippedY && flippedX && hasThumbnail && isTall ) {
@@ -639,6 +531,7 @@ export function layoutPreview( preview, layout, classes, predefinedLandscapeImag
 	}
 
 	if ( flippedX && !flippedY && hasThumbnail && isTall ) {
+		// todo: removing mwe-popups-no-image-tri should only occur in getClasses().
 		popup.removeClass( 'mwe-popups-no-image-tri' )
 			.find( 'image' )[ 0 ]
 			.setAttribute( 'clip-path', 'url(#mwe-popups-landscape-mask)' );
@@ -667,12 +560,10 @@ export function layoutPreview( preview, layout, classes, predefinedLandscapeImag
  * @return {Number}
  */
 export function getClosestYPosition( y, rects, isTop ) {
-	var result,
-		deltaY,
-		minY = null;
+	let minY = null, result;
 
-	$.each( rects, function ( i, rect ) {
-		deltaY = Math.abs( y - rect.top + y - rect.bottom );
+	Array.prototype.slice.call( rects ).forEach( rect => {
+		const deltaY = Math.abs( y - rect.top + y - rect.bottom );
 
 		if ( minY === null || minY > deltaY ) {
 			minY = deltaY;

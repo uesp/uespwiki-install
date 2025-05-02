@@ -2,7 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Juanpabl",
-			"Matma Rex"
+			"Matma Rex",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Asistent ta cargar fichers",
@@ -70,8 +71,6 @@
 	"mwe-upwiz-source-custom": "Dé información de copyright ta cada fichero individualment en a pachina siguient.",
 	"mwe-upwiz-more-options": "Adhibir categorías y mas información...",
 	"mwe-upwiz-desc": "Descripción",
-	"mwe-upwiz-desc-add-n": "Adhibir una descripción en unatro idioma",
-	"mwe-upwiz-desc-add-0": "Adhibir una descripción",
 	"mwe-upwiz-title": "Titol",
 	"mwe-upwiz-date-created": "Calendata de creyación",
 	"mwe-upwiz-location": "Ubicación",
@@ -161,7 +160,6 @@
 	"mwe-upwiz-license-own-pd": "Renuncia a totz os dreitos con a licencia Creative Commons zero (como baixo dominio publico)",
 	"mwe-upwiz-license-pd-old-100": "L'autor falleció fa mas de 100 anyos",
 	"mwe-upwiz-license-pd-old": "L'autor falleció fa mas de 70 anyos",
-	"mwe-upwiz-license-pd-art": "Reproducción fidedigna d'una pintura que ye en o dominio publico a causa d'a suya antiguidat",
 	"mwe-upwiz-license-pd-us": "Publicau por primer vegada en los Estaus Unius antes de 1923",
 	"mwe-upwiz-license-pd-usgov": "Obra orichinal d'o Gubierno Federal d'os EE.UU.",
 	"mwe-upwiz-license-pd-usgov-nasa": "Obra orichinal d'a NASA",
@@ -172,7 +170,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Con copyright, pero puede fer servir ta qualsiquier proposito, mesmo o comercial",
 	"mwe-upwiz-license-attribution": "Se puede fer servir ta qualsiquier proposito, mesmo o comercial, siempre que s'atribuiga a o titular d'o copyright apropiadament",
 	"mwe-upwiz-license-gfdl": "Licencia de documentación libre de GNU",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, atribución requiesta (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, atribución requiesta (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "O propietario d'os dreitos d'autor publicó {{PLURAL:$1|ista obra|istas obras}} con a licencia de Creative Commons correcta",
 	"mwe-upwiz-license-cc-subhead": "No todas as licencias Creative Commons son adequadas ta iste puesto. Asegure-se que o propietario d'os dreitos d'autor emplega una d'istas licencias.",
 	"mwe-upwiz-license-flickr-head": "O propietario d'os dreitos d'autor publicó {{PLURAL:$1|a suyas foto u video|as suyas fotos u videos}} en Flickr con a licencia correcta",

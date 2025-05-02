@@ -5,6 +5,7 @@ namespace CirrusSearch\Maintenance;
 use CirrusSearch\Connection;
 use CirrusSearch\Job\CheckerJob;
 
+use CirrusSearch\Profile\SearchProfileService;
 use JobQueueGroup;
 
 /**
@@ -95,7 +96,8 @@ class SaneitizeJobs extends Maintenance {
 		$this->minId = $row->min_id;
 		/** @suppress PhanUndeclaredProperty */
 		$this->maxId = $row->max_id;
-		$profiles = $this->getSearchConfig()->get( 'CirrusSearchSanitizationProfiles' );
+		$profiles = $this->getSearchConfig()->getProfileService()
+			->listExposedProfiles( SearchProfileService::SANEITIZER );
 		uasort( $profiles, function ( $a, $b ) {
 			return $a['max_wiki_size'] < $b['max_wiki_size'] ? -1 : 1;
 		} );
@@ -108,7 +110,7 @@ class SaneitizeJobs extends Maintenance {
 			}
 		}
 		if ( !$this->profileName ) {
-			$this->error( "No profile found for $wikiSize ids, please check sanitization profiles", 1 );
+			$this->fatalError( "No profile found for $wikiSize ids, please check sanitization profiles" );
 		}
 	}
 
@@ -117,7 +119,7 @@ class SaneitizeJobs extends Maintenance {
 		$this->initMetaStores();
 		$jobInfo = $this->getJobInfo( $jobName );
 		if ( $jobInfo === null ) {
-			$this->error( "Unknown job $jobName\n", 1 );
+			$this->fatalError( "Unknown job $jobName\n" );
 		}
 		foreach ( $this->metaStores as $cluster => $store ) {
 			$store->sanitizeType()->deleteDocument( $jobInfo );
@@ -139,13 +141,15 @@ class SaneitizeJobs extends Maintenance {
 		if ( $jobCluster != $scriptCluster ) {
 			$jobCluster = $jobCluster != null ? $jobCluster : "all writable clusters";
 			$scriptCluster = $scriptCluster != null ? $scriptCluster : "all writable clusters";
-			$this->error( "Job cluster mismatch, stored job is configured to work on $jobCluster " .
-				"but the script is configured to run on $scriptCluster.\n", 1 );
+			$this->fatalError( "Job cluster mismatch, stored job is configured to work on $jobCluster " .
+				"but the script is configured to run on $scriptCluster.\n" );
 		}
 	}
 
 	private function showJobDetail() {
-		$profile = $this->getSearchConfig()->getElement( 'CirrusSearchSanitizationProfiles', $this->profileName );
+		$profile = $this->getSearchConfig()
+			->getProfileService()
+			->loadProfileByName( SearchProfileService::SANEITIZER, $this->profileName );
 		$minLoopDuration = $profile['min_loop_duration'];
 		$maxJobs = $profile['max_checker_jobs'];
 		$maxUpdates = $profile['update_jobs_max_pressure'];
@@ -154,7 +158,7 @@ class SaneitizeJobs extends Maintenance {
 		$jobName = $this->getOption( 'job-name', 'default' );
 		$jobInfo = $this->getJobInfo( $jobName );
 		if ( $jobInfo === null ) {
-			$this->error( "Unknown job $jobName, push some jobs first.\n", 1 );
+			$this->fatalError( "Unknown job $jobName, push some jobs first.\n" );
 		}
 		$fmt = 'Y-m-d H:i:s';
 		$cluster = $jobInfo->get( 'sanitize_job_cluster' ) ?: 'All writable clusters';
@@ -226,19 +230,21 @@ EOD
 	private function pushJobs() {
 		$pushJobFreq = $this->getOption( 'refresh-freq', 2 * 3600 );
 		if ( !$this->getSearchConfig()->get( 'CirrusSearchSanityCheck' ) ) {
-			$this->error( "Sanity check disabled, abandonning...\n", 1 );
+			$this->fatalError( "Sanity check disabled, abandonning...\n" );
 		}
-		$profile = $this->getSearchConfig()->getElement( 'CirrusSearchSanitizationProfiles', $this->profileName );
+		$profile = $this->getSearchConfig()
+			->getProfileService()
+			->loadProfileByName( SearchProfileService::SANEITIZER, $this->profileName );
 		$chunkSize = $profile['jobs_chunk_size'];
 		$maxJobs = $profile['max_checker_jobs'];
 		if ( !$maxJobs || $maxJobs <= 0 ) {
-			$this->error( "max_checker_jobs invalid abandonning.\n", 1 );
+			$this->fatalError( "max_checker_jobs invalid abandonning.\n" );
 		}
 		$minLoopDuration = $profile['min_loop_duration'];
 
 		$pressure = $this->getPressure();
 		if ( $pressure >= $maxJobs ) {
-			$this->error( "Too many CheckerJob: $pressure in the queue, $maxJobs allowed.\n", 1 );
+			$this->fatalError( "Too many CheckerJob: $pressure in the queue, $maxJobs allowed.\n" );
 		}
 		$this->log( "$pressure checker job(s) in the queue.\n" );
 
@@ -307,8 +313,8 @@ EOD
 	}
 
 	/**
-	 * @param $lastLoop int|null last loop start time
-	 * @param $minLoopDuration int minimal duration of a loop
+	 * @param int|null $lastLoop last loop start time
+	 * @param int $minLoopDuration minimal duration of a loop
 	 * @return bool true if minLoopDuration is not reached false otherwize
 	 */
 	private function checkMinLoopDuration( $lastLoop, $minLoopDuration ) {
@@ -326,10 +332,10 @@ EOD
 		if ( $this->hasOption( 'cluster' ) ) {
 			$cluster = $this->getOption( 'cluster' );
 			if ( !$this->getSearchConfig()->clusterExists( $cluster ) ) {
-				$this->error( "Unknown cluster $cluster\n", 1 );
+				$this->fatalError( "Unknown cluster $cluster\n" );
 			}
 			if ( $this->getSearchConfig()->canWriteToCluster( $cluster ) ) {
-				$this->error( "$cluster is not writable\n", 1 );
+				$this->fatalError( "$cluster is not writable\n" );
 			}
 			$connections[$cluster] = Connection::getPool( $this->getSearchConfig(), $cluster );
 		} else {
@@ -337,17 +343,17 @@ EOD
 		}
 
 		if ( empty( $connections ) ) {
-			$this->error( "No writable cluster found.", 1 );
+			$this->fatalError( "No writable cluster found." );
 		}
 
 		$this->metaStores = [];
 		foreach ( $connections as $cluster => $connection ) {
 			if ( !MetaStoreIndex::cirrusReady( $connection ) ) {
-				$this->error( "No metastore found in cluster $cluster", 1 );
+				$this->fatalError( "No metastore found in cluster $cluster" );
 			}
 			$store = new MetaStoreIndex( $connection, $this );
 			if ( !$store->versionIsAtLeast( [ 0, 2 ] ) ) {
-				$this->error( 'Metastore version is too old, expected at least 0.2', 1 );
+				$this->fatalError( 'Metastore version is too old, expected at least 0.2' );
 			}
 			$this->metaStores[$cluster] = $store;
 		}
@@ -448,11 +454,20 @@ EOD
 
 	/**
 	 * @param string $msg The error to display
-	 * @param int $die If > 0, go ahead and die out using this int as the code
+	 * @param int $die deprecated do not use
 	 */
 	public function error( $msg, $die = 0 ) {
 		$date = new \DateTime();
-		parent::error( $date->format( 'Y-m-d H:i:s' ) . " " . $msg, $die );
+		parent::error( $date->format( 'Y-m-d H:i:s' ) . " " . $msg );
+	}
+
+	/**
+	 * @param string $msg The error to display
+	 * @param int $exitCode die out using this int as the code
+	 */
+	public function fatalError( $msg, $exitCode = 1 ) {
+		$date = new \DateTime();
+		parent::fatalError( $date->format( 'Y-m-d H:i:s' ) . " " . $msg, $exitCode );
 	}
 }
 

@@ -1,7 +1,7 @@
 import statsv from '../../../src/reducers/statsv';
 
 QUnit.module( 'ext.popups/reducers#eventLogging', {
-	beforeEach: function () {
+	beforeEach() {
 		this.initialState = statsv( undefined, {
 			type: '@@INIT'
 		} );
@@ -15,15 +15,13 @@ QUnit.test( '@@INIT', function ( assert ) {
 } );
 
 QUnit.test( 'FETCH_START', function ( assert ) {
-	var action, state;
-
 	assert.expect( 1 );
 
-	action = {
+	const action = {
 		type: 'FETCH_START',
 		timestamp: 123
 	};
-	state = statsv( this.initialState, action );
+	const state = statsv( this.initialState, action );
 
 	assert.deepEqual(
 		state,
@@ -33,18 +31,16 @@ QUnit.test( 'FETCH_START', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'FETCH_END', function ( assert ) {
-	var startedAt, endedAt, action, state;
-
+QUnit.test( 'FETCH_END', ( assert ) => {
 	assert.expect( 1 );
 
-	startedAt = 200;
-	endedAt = 500;
-	action = {
+	const startedAt = 200;
+	const endedAt = 500;
+	const action = {
 		type: 'FETCH_END',
 		timestamp: endedAt
 	};
-	state = statsv( { fetchStartedAt: startedAt }, action );
+	const state = statsv( { fetchStartedAt: startedAt }, action );
 
 	assert.deepEqual(
 		state,
@@ -56,15 +52,13 @@ QUnit.test( 'FETCH_END', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'FETCH_FAILED', function ( assert ) {
-	var action, state;
-
+QUnit.test( 'FETCH_FAILED', ( assert ) => {
 	assert.expect( 1 );
 
-	action = {
+	const action = {
 		type: 'FETCH_FAILED'
 	};
-	state = statsv( {}, action );
+	const state = statsv( {}, action );
 
 	assert.deepEqual(
 		state,
@@ -75,17 +69,15 @@ QUnit.test( 'FETCH_FAILED', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'LINK_DWELL', function ( assert ) {
-	var timestamp, action, state;
-
+QUnit.test( 'LINK_DWELL', ( assert ) => {
 	assert.expect( 1 );
 
-	timestamp = 100;
-	action = {
+	const timestamp = 100;
+	const action = {
 		type: 'LINK_DWELL',
-		timestamp: timestamp
+		timestamp
 	};
-	state = statsv( {}, action );
+	const state = statsv( {}, action );
 
 	assert.deepEqual(
 		state,
@@ -95,18 +87,16 @@ QUnit.test( 'LINK_DWELL', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'PREVIEW_SHOW', function ( assert ) {
-	var startedAt, endedAt, action, state;
-
+QUnit.test( 'PREVIEW_SHOW', ( assert ) => {
 	assert.expect( 1 );
 
-	startedAt = 100;
-	endedAt = 300;
-	action = {
+	const startedAt = 100;
+	const endedAt = 300;
+	const action = {
 		type: 'PREVIEW_SHOW',
 		timestamp: endedAt
 	};
-	state = statsv( { linkDwellStartedAt: startedAt }, action );
+	const state = statsv( { linkDwellStartedAt: startedAt }, action );
 
 	assert.deepEqual(
 		state,
@@ -118,15 +108,13 @@ QUnit.test( 'PREVIEW_SHOW', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'STATSV_LOGGED', function ( assert ) {
-	var action, state;
-
+QUnit.test( 'STATSV_LOGGED', ( assert ) => {
 	assert.expect( 1 );
 
-	action = {
+	const action = {
 		type: 'STATSV_LOGGED'
 	};
-	state = statsv( { data: 123 }, action );
+	const state = statsv( { data: 123 }, action );
 
 	assert.deepEqual(
 		state,

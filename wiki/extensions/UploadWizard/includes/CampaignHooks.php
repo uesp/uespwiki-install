@@ -17,6 +17,7 @@ class CampaignHooks {
 	 * @param string $contentModel
 	 * @param Title $title
 	 * @param bool &$ok
+	 * @return bool
 	 */
 	public static function onContentModelCanBeUsedOn( $contentModel, Title $title, &$ok ) {
 		$isCampaignModel = $contentModel === 'Campaign';
@@ -33,9 +34,23 @@ class CampaignHooks {
 	 *
 	 * Sets up appropriate entries in the uc_campaigns table for each Campaign
 	 * Acts everytime a page in the NS_CAMPAIGN namespace is saved
+	 *
+	 * @param WikiPage $wikiPage
+	 * @param User $user
+	 * @param Content $content
+	 * @param string $summary
+	 * @param bool $isMinor
+	 * @param bool $isWatch
+	 * @param string $section
+	 * @param int $flags
+	 * @param Revision $revision
+	 * @param Status $status
+	 * @param int $baseRevId
+	 *
+	 * @return bool
 	 */
 	public static function onPageContentSaveComplete(
-		$article, $user, $content, $summary, $isMinor, $isWatch,
+		WikiPage $wikiPage, $user, $content, $summary, $isMinor, $isWatch,
 		$section, $flags, $revision, $status, $baseRevId
 	) {
 		if ( !$content instanceof CampaignContent ) {
@@ -51,13 +66,13 @@ class CampaignHooks {
 		$success = $dbw->upsert(
 			'uw_campaigns',
 			array_merge( [
-				'campaign_name' => $article->getTitle()->getDBkey()
+				'campaign_name' => $wikiPage->getTitle()->getDBkey()
 			], $insertData ),
 			[ 'campaign_name' ],
 			$insertData
 		);
 
-		$campaign = new UploadWizardCampaign( $article->getTitle(), $content->getJsonData() );
+		$campaign = new UploadWizardCampaign( $wikiPage->getTitle(), $content->getJsonData() );
 		$dbw->onTransactionPreCommitOrIdle( function () use ( $campaign ) {
 			$campaign->invalidateCache();
 		} );
@@ -71,6 +86,8 @@ class CampaignHooks {
 	 * PageContentSaveComplete hook.
 	 *
 	 * This is usually run via the Job Queue mechanism.
+	 * @param LinksUpdate &$linksupdate
+	 * @return bool
 	 */
 	public static function onLinksUpdateComplete( LinksUpdate &$linksupdate ) {
 		if ( !$linksupdate->getTitle()->inNamespace( NS_CAMPAIGN ) ) {
@@ -84,6 +101,13 @@ class CampaignHooks {
 	}
 	/**
 	 * Deletes entries from uc_campaigns table when a Campaign is deleted
+	 * @param Article $article
+	 * @param User $user
+	 * @param string $reason
+	 * @param int $id
+	 * @param Content $content
+	 * @param ManualLogEntry $logEntry
+	 * @return bool
 	 */
 	public static function onArticleDeleteComplete(
 		$article, $user, $reason, $id, $content, $logEntry
@@ -105,6 +129,12 @@ class CampaignHooks {
 
 	/**
 	 * Update campaign names when the Campaign page moves
+	 * @param Title $oldTitle
+	 * @param Title $newTitle
+	 * @param User $user
+	 * @param int $pageid
+	 * @param int $redirid
+	 * @return bool
 	 */
 	public static function onTitleMoveComplete(
 		Title $oldTitle, Title $newTitle, $user, $pageid, $redirid
@@ -146,7 +176,7 @@ class CampaignHooks {
 	 * @param string $summary
 	 * @param User $user
 	 * @param bool $minoredit
-	 * @return True
+	 * @return true
 	 */
 	public static function onEditFilterMergedContent( $context, $content, $status, $summary,
 		$user, $minoredit

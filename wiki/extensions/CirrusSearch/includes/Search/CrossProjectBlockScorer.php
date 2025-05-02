@@ -2,8 +2,9 @@
 
 namespace CirrusSearch\Search;
 
-use CirrusSearch\Util;
+use CirrusSearch\Profile\SearchProfileService;
 use CirrusSearch\SearchConfig;
+use CirrusSearch\Util;
 
 /**
  * Score an interwiki block
@@ -23,8 +24,7 @@ abstract class CrossProjectBlockScorer {
 	/**
 	 * Reorder crossproject blocks using the $scorer
 	 * @param array $resultsets array of ResultSet or empty array if the search was disabled
-	 * @param $scorer CrossProjectBlockScorer scorer to use
-	 * @return array $resultsets reordered
+	 * @return array ResultSet reordered
 	 */
 	public function reorder( array $resultsets ) {
 		$sortKeys = [];
@@ -44,15 +44,13 @@ abstract class CrossProjectBlockScorer {
  * Factory that reads cirrus config and builds a CrossProjectBlockScorer
  */
 class CrossProjectBlockScorerFactory {
-	public static function load( SearchConfig $config ) {
-		$profileName = $config->get( 'CirrusSearchCrossProjectOrder' );
-		$profile = $config->getElement( 'CirrusSearchCrossProjectBlockScorerProfiles', $profileName );
-		if ( !$profile ) {
-			throw new \RuntimeException( 'Unknown CrossProjectBlockScorer profile : ' . $profileName );
-		}
-		if ( !isset( $profile['type'] ) ) {
-			throw new \RuntimeException( "Invalid CrossProjectBlockScorer profile $profileName, 'type' must be set" );
-		}
+	/**
+	 * @param SearchConfig $searchConfig
+	 * @return CrossProjectBlockScorer
+	 */
+	public static function load( SearchConfig $searchConfig ) {
+		$profile = $searchConfig->getProfileService()
+			->loadProfile( SearchProfileService::CROSS_PROJECT_BLOCK_SCORER );
 		return static::loadScorer( $profile['type'], isset( $profile['settings'] ) ? $profile['settings'] : [] );
 	}
 

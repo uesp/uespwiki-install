@@ -9,7 +9,7 @@
  * @ingroup Upload
  * @ingroup API
  *
- * @licence GNU GPL v2+
+ * @license GPL-2.0-or-later
  * @author Nischay Nahata <nischayn22@gmail.com>
  */
 class ApiFlickrBlacklist extends ApiBase {
@@ -48,7 +48,7 @@ class ApiFlickrBlacklist extends ApiBase {
 	}
 
 	/**
-	 * @see ApiBase::getExamplesMessages()
+	 * @inheritDoc
 	 */
 	protected function getExamplesMessages() {
 		return [

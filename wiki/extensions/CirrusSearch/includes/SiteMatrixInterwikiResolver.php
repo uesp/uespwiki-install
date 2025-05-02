@@ -2,30 +2,30 @@
 
 namespace CirrusSearch;
 
-use \ObjectCache;
-use \SiteMatrix;
+use ExtensionRegistry;
 use MediaWiki\MediaWikiServices;
+use ObjectCache;
 
 /**
  * InterwikiResolver suited for WMF context and uses SiteMatrix.
  */
-
 class SiteMatrixInterwikiResolver extends BaseInterwikiResolver {
+
 	const MATRIX_CACHE_TTL = 600;
 
-	private $config;
 	private $cache;
 
 	/**
 	 * @param SearchConfig $config
+	 * @param \MultiHttpClient $client http client to fetch cirrus config
 	 */
-	public function __construct( SearchConfig $config ) {
-		$this->config = $config;
+	public function __construct( SearchConfig $config, \MultiHttpClient $client = null ) {
+		parent::__construct( $config, $client );
 		$this->cache = ObjectCache::getLocalClusterInstance();
 		if ( $config->getWikiId() !== wfWikiID() ) {
 			throw new \RuntimeException( "This resolver cannot with an external wiki config. (config: " . $config->getWikiId() . ", global: " . wfWikiID() );
 		}
-		if ( !class_exists( SiteMatrix::class ) ) {
+		if ( !ExtensionRegistry::getInstance()->isLoaded( 'SiteMatrix' ) ) {
 			throw new \RuntimeException( "SiteMatrix is required" );
 		}
 		if ( !$this->config->has( 'SiteMatrixSites' ) ) {
@@ -34,20 +34,13 @@ class SiteMatrixInterwikiResolver extends BaseInterwikiResolver {
 	}
 
 	/**
-	 * @param $config SearchConfig
+	 * @param SearchConfig $config
 	 * @return bool true if this resolver can run with the specified config
 	 */
 	public static function accepts( SearchConfig $config ) {
-		if ( $config->getWikiId() !== wfWikiID() ) {
-			return false;
-		}
-		if ( !class_exists( SiteMatrix::class ) ) {
-			return false;
-		}
-		if ( !$config->has( 'SiteMatrixSites' ) ) {
-			return false;
-		}
-		return true;
+		return $config->getWikiId() === wfWikiID()
+			&& ExtensionRegistry::getInstance()->isLoaded( 'SiteMatrix' )
+			&& $config->has( 'SiteMatrixSites' );
 	}
 
 	protected function loadMatrix() {
@@ -76,6 +69,7 @@ class SiteMatrixInterwikiResolver extends BaseInterwikiResolver {
 			$wikiDBname = $this->config->get( 'DBname' );
 			list( , $myLang ) = $wgConf->siteFromDB( $wikiDBname );
 			$siteConf = $this->config->get( 'SiteMatrixSites' );
+			$prefixOverrides = $this->config->get( 'CirrusSearchInterwikiPrefixOverrides' );
 			$sisterProjects = [];
 			$crossLanguage = [];
 			$prefixesByWiki = [];
@@ -89,7 +83,7 @@ class SiteMatrixInterwikiResolver extends BaseInterwikiResolver {
 			foreach ( $matrix->getSites() as $site ) {
 				if ( $matrix->getDBName( $myLang, $site ) === $wikiDBname ) {
 					$myProject = $site;
-					continue;
+					break;
 				}
 			}
 
@@ -113,6 +107,10 @@ class SiteMatrixInterwikiResolver extends BaseInterwikiResolver {
 				}
 				$dbName = $matrix->getDBName( $myLang, $site );
 				$prefix = $siteConf[$site]['prefix'];
+
+				if ( isset( $prefixOverrides[$prefix] ) ) {
+					$prefix = $prefixOverrides[$prefix];
+				}
 
 				if ( !in_array( $prefix, $this->config->get( 'CirrusSearchCrossProjectSearchBlackList' ) ) ) {
 					$sisterProjects[$prefix] = $dbName;
@@ -181,4 +179,5 @@ class SiteMatrixInterwikiResolver extends BaseInterwikiResolver {
 			];
 		};
 	}
+
 }

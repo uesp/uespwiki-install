@@ -52,25 +52,29 @@ return /******/ (function(modules) { // webpackBootstrap
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	//
 	// -- ogv.js
 	// https://github.com/brion/ogv.js
-	// Copyright (c) 2013-2016 Brion Vibber
+	// Copyright (c) 2013-2017 Brion Vibber
 	//
 
 	var OGVCompat = __webpack_require__(1),
 		OGVLoader = __webpack_require__(3),
-		OGVMediaType = __webpack_require__(7),
-		OGVPlayer = __webpack_require__(8),
-		OGVVersion = ("1.4.1-20170407171329-c48dd8c2");
+		OGVMediaError = __webpack_require__(8),
+		OGVMediaType = __webpack_require__(10),
+		OGVPlayer = __webpack_require__(11),
+		OGVTimeRanges = __webpack_require__(36),
+		OGVVersion = ("1.5.7-20180219202209-808c5b29");
 
 	// Version 1.0's web-facing and test-facing interfaces
 	if (window) {
 		window.OGVCompat = OGVCompat;
 		window.OGVLoader = OGVLoader;
+		window.OGVMediaError = OGVMediaError; // exposed for testing, for now
 		window.OGVMediaType = OGVMediaType;
+		window.OGVTimeRanges = OGVTimeRanges; // exposed for testing, for now
 		window.OGVPlayer = OGVPlayer;
 		window.OGVVersion = OGVVersion;
 	}
@@ -84,9 +88,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 
-/***/ },
+/***/ }),
 /* 1 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	var BogoSlow = __webpack_require__(2);
 
@@ -159,9 +163,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = OGVCompat;
 
 
-/***/ },
+/***/ }),
 /* 2 */
-/***/ function(module, exports) {
+/***/ (function(module, exports) {
 
 	/**
 	 * A quick CPU/JS engine benchmark to guesstimate whether we're
@@ -283,14 +287,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = BogoSlow;
 
 
-/***/ },
+/***/ }),
 /* 3 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
-	var OGVVersion = ("1.4.1-20170407171329-c48dd8c2");
+	var OGVVersion = ("1.5.7-20180219202209-808c5b29");
 
 	(function() {
 		var global = this;
+		var WebAssemblyCheck = __webpack_require__(4);
 
 		var scriptMap = {
 			OGVDemuxerOgg: 'ogv-demuxer-ogg.js',
@@ -326,11 +331,11 @@ return /******/ (function(modules) { // webpackBootstrap
 		};
 		var proxyInfo = {
 			audio: {
-				proxy: __webpack_require__(4),
+				proxy: __webpack_require__(5),
 				worker: 'ogv-worker-audio.js',
 			},
 			video: {
-				proxy: __webpack_require__(6),
+				proxy: __webpack_require__(7),
 				worker: 'ogv-worker-video.js'
 			}
 		}
@@ -386,24 +391,6 @@ return /******/ (function(modules) { // webpackBootstrap
 			}
 		}
 
-		function loadWebAssembly(src, callback) {
-			if (!src.match(/-wasm\.js/)) {
-				callback(null);
-			} else {
-				var wasmSrc = src.replace(/-wasm\.js/, '-wasm.wasm');
-				var xhr = new XMLHttpRequest();
-				xhr.responseType = 'arraybuffer';
-				xhr.onload = function() {
-					callback(xhr.response);
-				};
-				xhr.onerror = function() {
-					callback(null);
-				};
-				xhr.open('GET', wasmSrc);
-				xhr.send();
-			}
-		}
-
 		function defaultBase() {
 			if (typeof global.window === 'object') {
 
@@ -436,6 +423,10 @@ return /******/ (function(modules) { // webpackBootstrap
 		var OGVLoader = {
 			base: defaultBase(),
 
+			wasmSupported: function() {
+				return WebAssemblyCheck.wasmSupported();
+			},
+
 			loadClass: function(className, callback, options) {
 				options = options || {};
 				if (options.worker) {
@@ -443,27 +434,34 @@ return /******/ (function(modules) { // webpackBootstrap
 					return;
 				}
 				var url = urlForClass(className);
-				loadWebAssembly(url, function(wasmBinary) {
-					function wasmClassWrapper(options) {
-						options = options || {};
-						if (wasmBinary !== null) {
-							options.wasmBinary = wasmBinary;
+				function classWrapper(options) {
+					options = options || {};
+					options.locateFile = function(filename) {
+						// Allow secondary resources like the .wasm payload
+						// to be loaded by the emscripten code.
+						if (filename.slice(0, 5) === 'data:') {
+							// emscripten 1.37.25 loads memory initializers as data: URI
+							return filename;
+						} else {
+							return urlForScript(filename);
 						}
-						return new global[className](options);
-					}
-					if (typeof global[className] === 'function') {
-						// already loaded!
-						callback(wasmClassWrapper);
-					} else if (typeof global.window === 'object') {
-						loadWebScript(url, function() {
-							callback(wasmClassWrapper);
-						});
-					} else if (typeof global.importScripts === 'function') {
-						// worker has convenient sync importScripts
-						global.importScripts(url);
-						callback(wasmClassWrapper);
-					}
-				});
+					};
+					options.pthreadMainPrefixURL = OGVLoader.base + '/';
+					options.mainScriptUrlOrBlob = scriptMap[className];
+					return new global[className](options);
+				}
+				if (typeof global[className] === 'function') {
+					// already loaded!
+					callback(classWrapper);
+				} else if (typeof global.window === 'object') {
+					loadWebScript(url, function() {
+						callback(classWrapper);
+					});
+				} else if (typeof global.importScripts === 'function') {
+					// worker has convenient sync importScripts
+					global.importScripts(url);
+					callback(classWrapper);
+				}
 			},
 
 			workerProxy: function(className, callback) {
@@ -508,7 +506,9 @@ return /******/ (function(modules) { // webpackBootstrap
 							}
 							// Create the web worker
 							worker = new Worker(URL.createObjectURL(blob));
-							callback(construct);
+							callback(function(options) {
+								return Promise.resolve(new construct(options));
+							})
 						}
 					}
 
@@ -540,7 +540,9 @@ return /******/ (function(modules) { // webpackBootstrap
 				} else {
 					// Local URL; load it directly for simplicity.
 					worker = new Worker(workerUrl);
-					callback(construct);
+					callback(function(options) {
+						return Promise.resolve(new construct(options));
+					})
 				}
 			}
 		};
@@ -550,11 +552,75 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 
 
-/***/ },
+/***/ }),
 /* 4 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-	var OGVProxyClass = __webpack_require__(5);
+	
+	function testSafariWebAssemblyBug() {
+	  /*
+	    Source of module at https://github.com/brion/min-wasm-fail
+	    (module
+	      (memory 1)
+	      (func $test (param $loc i32) (result i32)
+	        ;; Safari on iOS 11.2.5 returns 0 when asked to modify and read loc 4
+	        ;; via a parameter. If using an i32.const or a local for the location,
+	        ;; it works as expected.
+	        get_local $loc
+	        i32.const 1
+	        i32.store
+	        get_local $loc
+	        i32.load
+	      )
+	      (export "test" (func $test))
+	    )
+	  */
+	  var bin = new Uint8Array([0,97,115,109,1,0,0,0,1,6,1,96,1,127,1,127,3,2,1,0,5,3,1,0,1,7,8,1,4,116,101,115,116,0,0,10,16,1,14,0,32,0,65,1,54,2,0,32,0,40,2,0,11]);
+	  var mod = new WebAssembly.Module(bin);
+	  var inst = new WebAssembly.Instance(mod, {});
+
+	  // test storing to and loading from a non-zero location via a parameter.
+	  // Safari on iOS 11.2.5 returns 0 unexpectedly at non-zero locations
+	  return (inst.exports.test(4) !== 0);
+	}
+
+	var tested = false, testResult;
+
+	var WebAssemblyCheck = {
+	  /**
+	   * Check if WebAssembly appears to be present and working.
+	   * Tests for presence of the APIs, and runs a test for a known bug
+	   * in Safari/WebKit on iOS 11.2.2-11.2.5.
+	   *
+	   * @return boolean do we think wasm will work on this device?
+	   */
+	  wasmSupported: function() {
+	    if (!tested) {
+	      try {
+	        if (typeof WebAssembly === 'object') {
+	          testResult = testSafariWebAssemblyBug();
+	        } else {
+	          testResult = false;
+	        }
+	      } catch (e) {
+	        // Something else went wrong with compilation.
+	        console.log('Exception while testing WebAssembly', e);
+	        testResult = false;
+	      }
+	      tested = true;
+	    }
+	    return testResult;
+	  }
+	};
+
+	module.exports = WebAssemblyCheck;
+
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	var OGVProxyClass = __webpack_require__(6);
 
 	var OGVDecoderAudioProxy = OGVProxyClass({
 		loadedMetadata: false,
@@ -582,9 +648,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = OGVDecoderAudioProxy;
 
 
-/***/ },
-/* 5 */
-/***/ function(module, exports) {
+/***/ }),
+/* 6 */
+/***/ (function(module, exports) {
 
 	/**
 	 * Proxy object for web worker interface for codec classes.
@@ -717,11 +783,11 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = OGVProxyClass;
 
-/***/ },
-/* 6 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 7 */
+/***/ (function(module, exports, __webpack_require__) {
 
-	var OGVProxyClass = __webpack_require__(5);
+	var OGVProxyClass = __webpack_require__(6);
 
 	var OGVDecoderVideoProxy = OGVProxyClass({
 		loadedMetadata: false,
@@ -748,9 +814,51 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = OGVDecoderVideoProxy;
 
-/***/ },
-/* 7 */
-/***/ function(module, exports) {
+/***/ }),
+/* 8 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	var extend = __webpack_require__(9);
+
+	var OGVMediaErrorConstants = {
+		MEDIA_ERR_ABORTED: 1,
+		MEDIA_ERR_NETWORK: 2,
+		MEDIA_ERR_DECODE: 3,
+		MEDIA_ERR_SRC_NOT_SUPPORTED: 4
+	};
+
+	/**
+	 * Constructor for analogue of the MediaError class
+	 * returned by HTMLMediaElement.error property
+	 */
+	function OGVMediaError(code, message) {
+		this.code = code;
+		this.message = message;
+	};
+	extend(OGVMediaError, OGVMediaErrorConstants);
+	extend(OGVMediaError.prototype, OGVMediaErrorConstants);
+
+	module.exports = OGVMediaError;
+
+
+/***/ }),
+/* 9 */
+/***/ (function(module, exports) {
+
+	function extend(dest, src) {
+		for (prop in src) {
+			if (src.hasOwnProperty(prop)) {
+				dest[prop] = src[prop];
+			}
+		}
+	}
+
+	module.exports = extend;
+
+
+/***/ }),
+/* 10 */
+/***/ (function(module, exports) {
 
 	function OGVMediaType(contentType) {
 		contentType = '' + contentType;
@@ -797,85 +905,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = OGVMediaType;
 
 
-/***/ },
-/* 8 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 11 */
+/***/ (function(module, exports, __webpack_require__) {
 
-	__webpack_require__(9).polyfill();
+	// OGVPlayer.js
 
-	var YUVCanvas = __webpack_require__(12);
+	// External deps
+	__webpack_require__(12).polyfill();
+	var YUVCanvas = __webpack_require__(15),
+		StreamFile = __webpack_require__(22),
+		AudioFeeder = __webpack_require__(33),
+		dynamicaudio_swf = __webpack_require__(34);
 
-	// -- OGVLoader.js
-	var OGVLoader = __webpack_require__(3);
-
-	// -- StreamFile.js
-	var StreamFile = __webpack_require__(19);
-
-	// -- AudioFeeder.js
-	var AudioFeeder = __webpack_require__(30),
-		dynamicaudio_swf = __webpack_require__(31);
-
-	// -- Bisector.js
-	var Bisector = __webpack_require__(32);
-
-	// -- OGVMediaType.js
-	var OGVMediaType = __webpack_require__(7);
-
-	// -- OGVWrapperCodec.js
-	var OGVWrapperCodec = __webpack_require__(33);
-
-	// -- OGVDecoderAudioProxy.js
-	var OGVDecoderAudioProxy = __webpack_require__(4);
-
-	// -- OGVDecoderVideoProxy.js
-	var OGVDecoderVideoProxy = __webpack_require__(6);
-
-	/**
-	 * Constructor for an analogue of the TimeRanges class
-	 * returned by various HTMLMediaElement properties
-	 *
-	 * Pass an array of two-element arrays, each containing a start and end time.
-	 */
-	// FIXME: not use window scope if possible here
-	var OGVTimeRanges = window.OGVTimeRanges = function(ranges) {
-		Object.defineProperty(this, 'length', {
-			get: function getLength() {
-				return ranges.length;
-			}
-		});
-		this.start = function(i) {
-			return ranges[i][0];
-		};
-		this.end = function(i) {
-			return ranges[i][1];
-		};
-		return this;
-	};
-
-	var OGVMediaErrorConstants = {
-		MEDIA_ERR_ABORTED: 1,
-		MEDIA_ERR_NETWORK: 2,
-		MEDIA_ERR_DECODE: 3,
-		MEDIA_ERR_SRC_NOT_SUPPORTED: 4
-	};
-	function extend(dest, src) {
-		for (prop in src) {
-			if (src.hasOwnProperty(prop)) {
-				dest[prop] = src[prop];
-			}
-		}
-	}
-
-	/**
-	 * Constructor for analogue of the MediaError class
-	 * returned by HTMLMediaElement.error property
-	 */
-	var OGVMediaError = window.OGVMediaError = function(code, message) {
-		this.code = code;
-		this.message = message;
-	};
-	extend(OGVMediaError, OGVMediaErrorConstants);
-	extend(OGVMediaError.prototype, OGVMediaErrorConstants);
+	// Internal deps
+	var OGVLoader = __webpack_require__(3),
+		Bisector = __webpack_require__(35),
+		extend = __webpack_require__(9),
+		OGVMediaError = __webpack_require__(8)
+		OGVMediaType = __webpack_require__(10),
+		OGVTimeRanges = __webpack_require__(36),
+		OGVWrapperCodec = __webpack_require__(37),
+		OGVDecoderAudioProxy = __webpack_require__(5),
+		OGVDecoderVideoProxy = __webpack_require__(7);
 
 	/**
 	 * Player class -- instantiate one of these to get an 'ogvjs' HTML element
@@ -889,7 +941,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 *                     'delay-audio' (pre-1.3.2 behavior) stop audio when behind, then play all frames to catch up
 	 *                     'skip-frames' (default) to preserve audio, skipping frames until the next sync point (keyframe)
 	 */
-	var OGVPlayer = function(options) {
+	function OGVPlayer(options) {
 		options = options || {};
 
 		var instanceId = 'ogvjs' + (++OGVPlayer.instanceCount);
@@ -906,16 +958,25 @@ return /******/ (function(modules) { // webpackBootstrap
 			canvasOptions.webGL = 'required';
 		}
 
-		// Experimental options
-		var enableWebM = !!options.enableWebM;
-
 		// Running the codec in a worker thread equals happy times!
 		var enableWorker = !!window.Worker;
 		if (typeof options.worker !== 'undefined') {
 			enableWorker = !!options.worker;
 		}
+
+		// Use the WebAssembly build by default if available;
+		// it should load and compile faster than asm.js.
+		var enableWASM = OGVLoader.wasmSupported();
+		if (typeof options.wasm !== 'undefined') {
+			enableWASM = !!options.wasm;
+		}
+
+		// Experimental pthreads multithreading mode, if built.
 		var enableThreading = !!options.threading;
-		var enableWASM = !!options.wasm;
+		if (enableWASM) {
+			// No MT WASM yet.
+			enableThreading = false;
+		}
 
 		if (options.sync === undefined) {
 			options.sync = 'skip-frames';
@@ -964,7 +1025,9 @@ return /******/ (function(modules) { // webpackBootstrap
 		codecOptions.worker = enableWorker;
 		codecOptions.threading = enableThreading;
 		codecOptions.wasm = enableWASM;
-		if (typeof options.memoryLimit === 'number') {
+		if (typeof options.memoryLimit === 'number' && !enableWASM) {
+			// Optional memory limit override for asm.js build;
+			// can be useful for very large frame sizes.
 			codecOptions.memoryLimit = options.memoryLimit;
 		}
 
@@ -1008,7 +1071,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 				//console.log('+' + delta + 'ms ' + msg);
 				//then = now;
-				
+
 				if (!options.debugFilter || msg.match(options.debugFilter)) {
 					console.log('[' + (Math.round(delta * 10) / 10) + 'ms] ' + msg);
 				}
@@ -1168,8 +1231,6 @@ return /******/ (function(modules) { // webpackBootstrap
 		var currentSrc = '',
 			stream,
 			streamEnded = false,
-			seekCancel = {},
-			readCancel = {},
 			mediaError = null,
 			dataEnded = false,
 			byteLength = 0,
@@ -1312,7 +1373,7 @@ return /******/ (function(modules) { // webpackBootstrap
 				drawingTime: drawingTime - lastFrameDrawingTime,
 				bufferTime: bufferTime - lastFrameBufferTime,
 				proxyTime: proxyTime - lastFrameProxyTime,
-				
+
 				demuxerTime: 0,
 				videoTime: 0,
 				audioTime: 0,
@@ -1374,22 +1435,17 @@ return /******/ (function(modules) { // webpackBootstrap
 			FAST: "fast"
 		};
 
-		function Cancel(msg) {
-			Error.call(this, msg);
-		}
-		Cancel.prototype = Object.create(Error);
-
 		function seekStream(offset) {
 			if (stream.seeking) {
-				seekCancel.cancel(new Cancel('cancel for new seek'));
+				stream.abort();
 			}
 			if (stream.buffering) {
-				readCancel.cancel(new Cancel('cancel for new seek'));
+				stream.abort();
 			}
 			streamEnded = false;
 			dataEnded = false;
 			ended = false;
-			stream.seek(offset, seekCancel).then(function() {
+			stream.seek(offset).then(function() {
 				readBytesAndWait();
 			}).catch(onStreamError);
 		}
@@ -1431,12 +1487,16 @@ return /******/ (function(modules) { // webpackBootstrap
 				throw new Error('Cannot seek a non-seekable stream');
 			}
 
+			if (codec && !codec.seekable) {
+				throw new Error('Cannot seek in a non-seekable file');
+			}
+
 			function prepForSeek(callback) {
 				if (stream && stream.buffering) {
-					readCancel.cancel(new Cancel('cancel for new seek'));
+					stream.abort();
 				}
 				if (stream && stream.seeking) {
-					seekCancel.cancel(new Cancel('cancel for new seek'));
+					stream.abort();
 				}
 				// clear any queued input/seek-start
 				actionQueue.splice(0, actionQueue.length);
@@ -1775,7 +1835,7 @@ return /******/ (function(modules) { // webpackBootstrap
 				depth++;
 				doProcessingLoop();
 				depth--;
-				
+
 				if (needProcessing && isProcessing()) {
 					throw new Error('REENTRANCY FAIL: waiting on input or codec but asked to keep processing');
 				}
@@ -2027,7 +2087,7 @@ return /******/ (function(modules) { // webpackBootstrap
 								}
 								droppedAudio = audioState.dropped;
 								delayedAudio = audioState.delayed;
-								
+
 								readyForAudioDecode = audioFeeder.durationBuffered <=
 									audioFeeder.bufferThreshold * 2;
 
@@ -2198,7 +2258,7 @@ return /******/ (function(modules) { // webpackBootstrap
 								}
 								totalFrameTime += targetPerFrameTime;
 								totalFrameCount++;
-								
+
 								var nextFrameEndTimestamp = frameEndTimestamp = codec.frameTimestamp;
 								pendingFrame++;
 								pendingFrames.push({
@@ -2367,7 +2427,7 @@ return /******/ (function(modules) { // webpackBootstrap
 						}
 					}
 				}
-				
+
 				function doProcessPlayDemux() {
 					var wasFrameReady = codec.frameReady,
 						wasAudioReady = codec.audioReady;
@@ -2400,7 +2460,7 @@ return /******/ (function(modules) { // webpackBootstrap
 			} else if (state == State.ERROR) {
 
 				// Nothing to do.
-				console.log("Reached error state. Sorry bout that.");
+				//console.log("Reached error state. Sorry bout that.");
 
 			} else {
 
@@ -2424,7 +2484,7 @@ return /******/ (function(modules) { // webpackBootstrap
 			// keep i/o size small to reduce CPU impact of demuxing on slow machines
 			// @todo make buffer size larger when packets are larger?
 			var bufferSize = 32768;
-			stream.read(bufferSize, readCancel).then(function(data) {
+			stream.read(bufferSize).then(function(data) {
 				log('got input ' + [data.byteLength]);
 
 				if (data.byteLength) {
@@ -2450,7 +2510,7 @@ return /******/ (function(modules) { // webpackBootstrap
 		}
 
 		function onStreamError(err) {
-			if (err instanceof Cancel) {
+			if (err.name === 'AbortError') {
 				// do nothing
 				log('i/o promise canceled; ignoring');
 			} else {
@@ -2501,7 +2561,7 @@ return /******/ (function(modules) { // webpackBootstrap
 		var videoInfo,
 			audioInfo;
 
-		function startProcessingVideo() {
+		function startProcessingVideo(firstBuffer) {
 			if (started || codec) {
 				return;
 			}
@@ -2534,22 +2594,40 @@ return /******/ (function(modules) { // webpackBootstrap
 				}
 			};
 			codec.init(function() {
-				readBytesAndWait();
+				codec.receiveInput(firstBuffer, readBytesAndWait);
 			});
 		}
 
 		function loadCodec(callback) {
 			// @todo use the demuxer and codec interfaces directly
 
-			// @todo fix detection proper
-			if (enableWebM && currentSrc.match(/\.webm$/i)) {
-				codecOptions.type = 'video/webm';
-			} else {
-				codecOptions.type = 'video/ogg';
-			}
+			stream.read(1024).then(function(buf) {
+				var hdr = new Uint8Array(buf);
+				if (hdr.length > 4 &&
+					  hdr[0] == 'O'.charAt(0) &&
+					  hdr[1] == 'g'.charAt(0) &&
+					  hdr[2] == 'g'.charAt(0) &&
+					  hdr[3] == 'S'.charAt(0)
+				) {
+					// Ogg stream
+					codecOptions.type = 'video/ogg';
+				} else if (hdr.length > 4 &&
+					         hdr[0] == 0x1a &&
+					         hdr[1] == 0x45 &&
+								   hdr[2] == 0xdf &&
+								   hdr[3] == 0xa3
+				) {
+					// Matroska or WebM
+					codecOptions.type = 'video/webm';
+				} else {
+					// @todo handle unknown file types gracefully
+					codecOptions.type = 'video/ogg';
+				}
 
-			codecClass = OGVWrapperCodec;
-			callback();
+				codecClass = OGVWrapperCodec;
+				// Pass that first buffer in to the demuxer!
+				callback(buf);
+			});
 		}
 
 		/**
@@ -2611,11 +2689,9 @@ return /******/ (function(modules) { // webpackBootstrap
 		 */
 		self.canPlayType = function(contentType) {
 			var type = new OGVMediaType(contentType);
-			if (type.minor === 'ogg' &&
-				(type.major === 'audio' || type.major === 'video' || type.major === 'application')) {
+			function checkTypes(supported) {
 				if (type.codecs) {
-					var supported = ['vorbis', 'opus', 'theora'],
-						knownCodecs = 0,
+					var knownCodecs = 0,
 						unknownCodecs = 0;
 					type.codecs.forEach(function(codec) {
 						if (supported.indexOf(codec) >= 0) {
@@ -2634,8 +2710,14 @@ return /******/ (function(modules) { // webpackBootstrap
 				} else {
 					return 'maybe';
 				}
+			}
+			if (type.minor === 'ogg' &&
+				(type.major === 'audio' || type.major === 'video' || type.major === 'application')) {
+				return checkTypes(['vorbis', 'opus', 'theora']);
+			} else if (type.minor === 'webm' &&
+				(type.major === 'audio' || type.major === 'video')) {
+				return checkTypes(['vorbis', 'opus', 'vp8', 'vp9']);
 			} else {
-				// @todo when webm support is more complete, handle it
 				return '';
 			}
 		};
@@ -2766,445 +2848,465 @@ return /******/ (function(modules) { // webpackBootstrap
 			seek(+seekToTime, SeekMode.FAST);
 		};
 
-		/**
-		 * HTMLMediaElement src property
-		 */
-		Object.defineProperty(self, "src", {
-			get: function getSrc() {
-				return self.getAttribute('src') || '';
-			},
-			set: function setSrc(val) {
-				self.setAttribute('src', val);
-				loading = false; // just in case?
-				prepForLoad("interactive");
-			}
-		});
-
-		/**
-		 * HTMLMediaElement buffered property
-		 */
-		Object.defineProperty(self, "buffered", {
-			get: function getBuffered() {
-				var ranges;
-				if (stream && byteLength && duration) {
-					ranges = stream.getBufferedRanges().map(function(range) {
-						return range.map(function(offset) {
-							return (offset / stream.length) * duration;
-						});
-					});
-				} else {
-					ranges = [[0, 0]];
-				}
-				return new OGVTimeRanges(ranges);
-			}
-		});
-
-		/**
-		 * HTMLMediaElement seekable property
-		 */
-		Object.defineProperty(self, "seekable", {
-			get: function getSeekable() {
-				if (self.duration < Infinity && stream && stream.seekable && codec && codec.seekable) {
-					return new OGVTimeRanges([[0, duration]]);
-				} else {
-					return new OGVTimeRanges([]);
-				}
-			}
-		});
-
-		/**
-		 * HTMLMediaElement currentTime property
-		 */
-		Object.defineProperty(self, "currentTime", {
-			get: function getCurrentTime() {
-				if (state == State.SEEKING) {
-					return seekTargetTime;
-				} else {
-					if (codec) {
-						if (state == State.PLAYING && !paused) {
-							return getPlaybackTime();
-						} else {
-							return initialPlaybackOffset;
-						}
-					} else {
-						return initialSeekTime;
-					}
-				}
-			},
-			set: function setCurrentTime(val) {
-				seek(val, SeekMode.EXACT);
-			}
-		});
-
-		/**
-		 * HTMLMediaElement duration property
-		 */
-		Object.defineProperty(self, "duration", {
-			get: function getDuration() {
-				if (codec && codec.loadedMetadata) {
-					if (duration !== null) {
-						return duration;
-					} else {
-						return Infinity;
-					}
-				} else {
-					return NaN;
-				}
-			}
-		});
-
-		/**
-		 * HTMLMediaElement paused property
-		 */
-		Object.defineProperty(self, "paused", {
-			get: function getPaused() {
-				return paused;
-			}
-		});
-
-		/**
-		 * HTMLMediaElement ended property
-		 */
-		Object.defineProperty(self, "ended", {
-			get: function getEnded() {
-				return ended;
-			}
-		});
-
-		/**
-		 * HTMLMediaElement ended property
-		 */
-		Object.defineProperty(self, "seeking", {
-			get: function getSeeking() {
-				return (state == State.SEEKING);
-			}
-		});
-
-		/**
-		 * HTMLMediaElement muted property
-		 */
-		Object.defineProperty(self, "muted", {
-			get: function getMuted() {
-				return muted;
-			},
-			set: function setMuted(val) {
-				muted = val;
-				if (audioFeeder) {
-					audioFeeder.muted = muted;
-				} else if (started && !muted && codec && codec.hasAudio) {
-					log('unmuting: switching from timer to audio clock');
-					initAudioFeeder();
-					startPlayback(audioEndTimestamp);
-				}
-				fireEventAsync('volumechange');
-			}
-		});
-
-		Object.defineProperty(self, "poster", {
-			get: function getPoster() {
-				return poster;
-			},
-			set: function setPoster(val) {
-				poster = val;
-				if (!started) {
-					if (thumbnail) {
-						self.removeChild(thumbnail);
-					}
-					thumbnail = new Image();
-					thumbnail.src = poster;
-					thumbnail.className = 'ogvjs-poster';
-					thumbnail.style.position = 'absolute';
-					thumbnail.style.top = '0';
-					thumbnail.style.left = '0';
-					thumbnail.style.width = '100%';
-					thumbnail.style.height = '100%';
-					thumbnail.style.objectFit = 'contain';
-					thumbnail.style.visibility = 'hidden';
-					thumbnail.addEventListener('load', function() {
-						if (thumbnail === this) {
-							OGVPlayer.styleManager.appendRule('.' + instanceId, {
-								width: thumbnail.naturalWidth + 'px',
-								height: thumbnail.naturalHeight + 'px'
-							});
-							OGVPlayer.updatePositionOnResize();
-							thumbnail.style.visibility = 'visible';
-						}
-					});
-					self.appendChild(thumbnail);
-				}
-			}
-		});
-
-		// Video metadata properties...
-		Object.defineProperty(self, "videoWidth", {
-			get: function getVideoWidth() {
-				if (videoInfo) {
-					return videoInfo.displayWidth;
-				} else {
-					return 0;
-				}
-			}
-		});
-		Object.defineProperty(self, "videoHeight", {
-			get: function getVideoHeight() {
-				if (videoInfo) {
-					return videoInfo.displayHeight;
-				} else {
-					return 0;
-				}
-			}
-		});
-		Object.defineProperty(self, "ogvjsVideoFrameRate", {
-			get: function getOgvJsVideoFrameRate() {
-				if (videoInfo) {
-					if (videoInfo.fps == 0) {
-						return totalFrameCount / (totalFrameTime / 1000);
-					} else {
-						return videoInfo.fps;
-					}
-				} else {
-					return 0;
-				}
-			}
-		});
-
-		// Audio metadata properties...
-		Object.defineProperty(self, "ogvjsAudioChannels", {
-			get: function getOgvJsAudioChannels() {
-				if (audioInfo) {
-					return audioInfo.channels;
-				} else {
-					return 0;
-				}
-			}
-		});
-		Object.defineProperty(self, "ogvjsAudioSampleRate", {
-			get: function getOgvJsAudioChannels() {
-				if (audioInfo) {
-					return audioInfo.rate;
-				} else {
-					return 0;
-				}
-			}
-		});
-
 		// Display size...
 		var width = 0, height = 0;
-		/**
-		 * @property width
-		 * @todo reflect to the width attribute?
-		 */
-		Object.defineProperty(self, "width", {
-			get: function getWidth() {
-				return width;
-			},
-			set: function setWidth(val) {
-				width = parseInt(val, 10);
-				self.style.width = width + 'px';
-				OGVPlayer.updatePositionOnResize();
-			}
-		});
-
-		/**
-		 * @property height
-		 * @todo reflect to the height attribute?
-		 */
-		Object.defineProperty(self, "height", {
-			get: function getHeight() {
-				return height;
-			},
-			set: function setHeight(val) {
-				height = parseInt(val, 10);
-				self.style.height = height + 'px';
-				OGVPlayer.updatePositionOnResize();
-			}
-		});
-
-		/**
-		 * @property autoplay {boolean} stub prop
-		 * @todo reflect to the autoplay attribute?
-		 * @todo implement actual autoplay behavior
-		 */
-		Object.defineProperty(self, "autoplay", {
-			get: function getAutoplay() {
-				return false;
-			},
-			set: function setAutoplay(val) {
-				// ignore
-			}
-		});
-
-		/**
-		 * @property controls {boolean} stub prop
-		 * @todo reflect to the controls attribute?
-		 * @todo implement actual control behavior
-		 */
-		Object.defineProperty(self, "controls", {
-			get: function getControls() {
-				return false;
-			},
-			set: function setControls(val) {
-				// ignore
-			}
-		});
-
-		/**
-		 * @property loop {boolean} stub prop
-		 * @todo reflect to the controls attribute?
-		 * @todo implement actual loop behavior
-		 */
-		Object.defineProperty(self, "loop", {
-			get: function getLoop() {
-				return false;
-			},
-			set: function setLoop(val) {
-				// ignore
-			}
-		});
-
-		/**
-		 * @property crossOrigin {string|null} stub prop
-		 * @todo reflect to the crossorigin attribute?
-		 * @todo implement actual behavior
-		 */
-		Object.defineProperty(self, "crossOrigin", {
-			get: function getCrossOrigin() {
-				return null;
-			},
-			set: function setCrossOrigin(val) {
-				// ignore
-			}
-		});
-
-		/**
-		 * Returns the URL to the currently-playing resource.
-		 * @property currentSrc {string|null}
-		 */
-		Object.defineProperty(self, "currentSrc", {
-			get: function getCurrentSrc() {
-				// @todo return absolute URL per spec
-				return currentSrc;
-			}
-		});
-
-		Object.defineProperty(self, "defaultMuted", {
-			get: function getDefaultMuted() {
-				return false;
-			}
-		});
-
-		Object.defineProperty(self, "defaultPlaybackRate", {
-			get: function getDefaultPlaybackRate() {
-				return 1;
-			}
-		});
-
-		/**
-		 * @property error {string|null}
-		 * @todo implement
-		 */
-		Object.defineProperty(self, "error", {
-			get: function getError() {
-				if (state === State.ERROR) {
-					if (mediaError) {
-						return mediaError;
-					} else {
-						return new OGVMediaError("unknown error occurred in media procesing");
-					}
-				} else {
-					return null;
-				}
-			}
-		});
-		/**
-	 	 * @property preload {string}
-		 */
-		Object.defineProperty(self, "preload", {
-			get: function getPreload() {
-				return self.getAttribute('preload') || '';
-			},
-			set: function setPreload(val) {
-				self.setAttribute('preload', val);
-			}
-		});
-
-		/**
-		 * @property readyState {number}
-		 * @todo return more accurate info about availability of data
-		 */
-		Object.defineProperty(self, "readyState", {
-			get: function getReadyState() {
-				if (stream && codec && codec.loadedMetadata) {
-					// for now we don't really calc this stuff
-					// just pretend we have lots of data coming in already
-					return OGVPlayer.HAVE_ENOUGH_DATA;
-				} else {
-					return OGVPlayer.HAVE_NOTHING;
-				}
-			}
-		});
-
-		/**
-		 * @property networkState {number}
-		 * @todo implement
-		 */
-		Object.defineProperty(self, "networkState", {
-			get: function getNetworkState() {
-				if (stream) {
-					if (stream.waiting) {
-						return OGVPlayer.NETWORK_LOADING;
-					} else {
-						return OGVPlayer.NETWORK_IDLE;
-					}
-				} else {
-					if (self.readyState == OGVPlayer.HAVE_NOTHING) {
-						return OGVPlayer.NETWORK_EMPTY;
-					} else {
-						return OGVPlayer.NETWORK_NO_SOURCE;
-					}
-				}
-			}
-		});
-
-		/**
-		 * @property playbackRate {number}
-		 * @todo implement
-		 */
-		Object.defineProperty(self, "playbackRate", {
-			get: function getPlaybackRate() {
-				return 1;
-			},
-			set: function setPlaybackRate(val) {
-				// ignore
-			}
-		});
-
-		/**
-		 * @property played {OGVTimeRanges}
-		 * @todo implement correctly more or less
-		 */
-		Object.defineProperty(self, "played", {
-			get: function getPlayed() {
-				return new OGVTimeRanges([[0, self.currentTime]]);
-			}
-		});
-
 		var _volume = 1;
 
-		/**
-		 * @property volume {number}
-		 * @todo implement
-		 */
-		Object.defineProperty(self, "volume", {
-			get: function getVolume() {
-				return _volume;
-			},
-			set: function setVolume(val) {
-				_volume = +val;
-				if (audioFeeder) {
-					audioFeeder.volume = _volume;
+		Object.defineProperties(self, {
+			/**
+			 * HTMLMediaElement src property
+			 */
+			"src": {
+				get: function getSrc() {
+					return self.getAttribute('src') || '';
+				},
+				set: function setSrc(val) {
+					self.setAttribute('src', val);
+					loading = false; // just in case?
+					prepForLoad("interactive");
 				}
-				fireEventAsync('volumechange');
+			},
+
+			/**
+			 * HTMLMediaElement buffered property
+			 */
+			"buffered": {
+				get: function getBuffered() {
+					var ranges;
+					if (stream && byteLength && duration) {
+						ranges = stream.getBufferedRanges().map(function(range) {
+							return range.map(function(offset) {
+								return (offset / stream.length) * duration;
+							});
+						});
+					} else {
+						ranges = [[0, 0]];
+					}
+					return new OGVTimeRanges(ranges);
+				}
+			},
+
+			/**
+			 * HTMLMediaElement seekable property
+			 */
+			"seekable": {
+				get: function getSeekable() {
+					if (self.duration < Infinity && stream && stream.seekable && codec && codec.seekable) {
+						return new OGVTimeRanges([[0, duration]]);
+					} else {
+						return new OGVTimeRanges([]);
+					}
+				}
+			},
+
+			/**
+			 * HTMLMediaElement currentTime property
+			 */
+			"currentTime": {
+				get: function getCurrentTime() {
+					if (state == State.SEEKING) {
+						return seekTargetTime;
+					} else {
+						if (codec) {
+							if (state == State.PLAYING && !paused) {
+								return getPlaybackTime();
+							} else {
+								return initialPlaybackOffset;
+							}
+						} else {
+							return initialSeekTime;
+						}
+					}
+				},
+				set: function setCurrentTime(val) {
+					seek(val, SeekMode.EXACT);
+				}
+			},
+
+			/**
+			 * HTMLMediaElement duration property
+			 */
+			"duration": {
+				get: function getDuration() {
+					if (codec && codec.loadedMetadata) {
+						if (duration !== null) {
+							return duration;
+						} else {
+							return Infinity;
+						}
+					} else {
+						return NaN;
+					}
+				}
+			},
+
+			/**
+			 * HTMLMediaElement paused property
+			 */
+			"paused": {
+				get: function getPaused() {
+					return paused;
+				}
+			},
+
+			/**
+			 * HTMLMediaElement ended property
+			 */
+			"ended": {
+				get: function getEnded() {
+					return ended;
+				}
+			},
+
+			/**
+			 * HTMLMediaElement ended property
+			 */
+			"seeking": {
+				get: function getSeeking() {
+					return (state == State.SEEKING);
+				}
+			},
+
+			/**
+			 * HTMLMediaElement muted property
+			 */
+			"muted": {
+				get: function getMuted() {
+					return muted;
+				},
+				set: function setMuted(val) {
+					muted = val;
+					if (audioFeeder) {
+						audioFeeder.muted = muted;
+					} else if (started && !muted && codec && codec.hasAudio) {
+						log('unmuting: switching from timer to audio clock');
+						initAudioFeeder();
+						startPlayback(audioEndTimestamp);
+					}
+					fireEventAsync('volumechange');
+				}
+			},
+
+			/**
+			 * HTMLMediaElement poster property
+			 */
+			"poster": {
+				get: function getPoster() {
+					return poster;
+				},
+				set: function setPoster(val) {
+					poster = val;
+					if (!started) {
+						if (thumbnail) {
+							self.removeChild(thumbnail);
+						}
+						thumbnail = new Image();
+						thumbnail.src = poster;
+						thumbnail.className = 'ogvjs-poster';
+						thumbnail.style.position = 'absolute';
+						thumbnail.style.top = '0';
+						thumbnail.style.left = '0';
+						thumbnail.style.width = '100%';
+						thumbnail.style.height = '100%';
+						thumbnail.style.objectFit = 'contain';
+						thumbnail.style.visibility = 'hidden';
+						thumbnail.addEventListener('load', function() {
+							if (thumbnail === this) {
+								OGVPlayer.styleManager.appendRule('.' + instanceId, {
+									width: thumbnail.naturalWidth + 'px',
+									height: thumbnail.naturalHeight + 'px'
+								});
+								OGVPlayer.updatePositionOnResize();
+								thumbnail.style.visibility = 'visible';
+							}
+						});
+						self.appendChild(thumbnail);
+					}
+				}
+			},
+
+			/**
+			 * HTMLMediaElement video width property
+			 */
+			"videoWidth": {
+				get: function getVideoWidth() {
+					if (videoInfo) {
+						return videoInfo.displayWidth;
+					} else {
+						return 0;
+					}
+				}
+			},
+
+			/**
+			 * HTMLMediaElement video height property
+			 */
+			"videoHeight": {
+				get: function getVideoHeight() {
+					if (videoInfo) {
+						return videoInfo.displayHeight;
+					} else {
+						return 0;
+					}
+				}
+			},
+
+			/**
+			 * Custom video framerate property
+			 */
+			"ogvjsVideoFrameRate": {
+				get: function getOgvJsVideoFrameRate() {
+					if (videoInfo) {
+						if (videoInfo.fps == 0) {
+							return totalFrameCount / (totalFrameTime / 1000);
+						} else {
+							return videoInfo.fps;
+						}
+					} else {
+						return 0;
+					}
+				}
+			},
+
+			/**
+			 * Custom audio metadata property
+			 */
+			"ogvjsAudioChannels": {
+				get: function getOgvJsAudioChannels() {
+					if (audioInfo) {
+						return audioInfo.channels;
+					} else {
+						return 0;
+					}
+				}
+			},
+
+			/**
+			 * Custom audio metadata property
+			 */
+			"ogvjsAudioSampleRate": {
+				get: function getOgvJsAudioChannels() {
+					if (audioInfo) {
+						return audioInfo.rate;
+					} else {
+						return 0;
+					}
+				}
+			},
+
+			/**
+			 * @property width
+			 * @todo reflect to the width attribute?
+			 */
+			"width": {
+				get: function getWidth() {
+					return width;
+				},
+				set: function setWidth(val) {
+					width = parseInt(val, 10);
+					self.style.width = width + 'px';
+					OGVPlayer.updatePositionOnResize();
+				}
+			},
+
+			/**
+			 * @property height
+			 * @todo reflect to the height attribute?
+			 */
+			"height": {
+				get: function getHeight() {
+					return height;
+				},
+				set: function setHeight(val) {
+					height = parseInt(val, 10);
+					self.style.height = height + 'px';
+					OGVPlayer.updatePositionOnResize();
+				}
+			},
+
+			/**
+			 * @property autoplay {boolean} stub prop
+			 * @todo reflect to the autoplay attribute?
+			 * @todo implement actual autoplay behavior
+			 */
+			"autoplay": {
+				get: function getAutoplay() {
+					return false;
+				},
+				set: function setAutoplay(val) {
+					// ignore
+				}
+			},
+
+			/**
+			 * @property controls {boolean} stub prop
+			 * @todo reflect to the controls attribute?
+			 * @todo implement actual control behavior
+			 */
+			"controls": {
+				get: function getControls() {
+					return false;
+				},
+				set: function setControls(val) {
+					// ignore
+				}
+			},
+
+			/**
+			 * @property loop {boolean} stub prop
+			 * @todo reflect to the controls attribute?
+			 * @todo implement actual loop behavior
+			 */
+			"loop": {
+				get: function getLoop() {
+					return false;
+				},
+				set: function setLoop(val) {
+					// ignore
+				}
+			},
+
+			/**
+			 * @property crossOrigin {string|null} stub prop
+			 * @todo reflect to the crossorigin attribute?
+			 * @todo implement actual behavior
+			 */
+			"crossOrigin": {
+				get: function getCrossOrigin() {
+					return null;
+				},
+				set: function setCrossOrigin(val) {
+					// ignore
+				}
+			},
+
+			/**
+			 * Returns the URL to the currently-playing resource.
+			 * @property currentSrc {string|null}
+			 */
+			"currentSrc": {
+				get: function getCurrentSrc() {
+					// @todo return absolute URL per spec
+					return currentSrc;
+				}
+			},
+
+			"defaultMuted": {
+				get: function getDefaultMuted() {
+					return false;
+				}
+			},
+
+			"defaultPlaybackRate": {
+				get: function getDefaultPlaybackRate() {
+					return 1;
+				}
+			},
+
+			/**
+			 * @property error {OGVMediaError|null}
+			 */
+			"error": {
+				get: function getError() {
+					if (state === State.ERROR) {
+						if (mediaError) {
+							return mediaError;
+						} else {
+							return new OGVMediaError("unknown error occurred in media procesing");
+						}
+					} else {
+						return null;
+					}
+				}
+			},
+
+			/**
+		 	 * @property preload {string}
+			 */
+			"preload": {
+				get: function getPreload() {
+					return self.getAttribute('preload') || '';
+				},
+				set: function setPreload(val) {
+					self.setAttribute('preload', val);
+				}
+			},
+
+			/**
+			 * @property readyState {number}
+			 * @todo return more accurate info about availability of data
+			 */
+			"readyState": {
+				get: function getReadyState() {
+					if (stream && codec && codec.loadedMetadata) {
+						// for now we don't really calc this stuff
+						// just pretend we have lots of data coming in already
+						return OGVPlayer.HAVE_ENOUGH_DATA;
+					} else {
+						return OGVPlayer.HAVE_NOTHING;
+					}
+				}
+			},
+
+			/**
+			 * @property networkState {number}
+			 * @todo implement
+			 */
+			"networkState": {
+				get: function getNetworkState() {
+					if (stream) {
+						if (stream.waiting) {
+							return OGVPlayer.NETWORK_LOADING;
+						} else {
+							return OGVPlayer.NETWORK_IDLE;
+						}
+					} else {
+						if (self.readyState == OGVPlayer.HAVE_NOTHING) {
+							return OGVPlayer.NETWORK_EMPTY;
+						} else {
+							return OGVPlayer.NETWORK_NO_SOURCE;
+						}
+					}
+				}
+			},
+
+			/**
+			 * @property playbackRate {number}
+			 * @todo implement
+			 */
+			"playbackRate": {
+				get: function getPlaybackRate() {
+					return 1;
+				},
+				set: function setPlaybackRate(val) {
+					// ignore
+				}
+			},
+
+			/**
+			 * @property played {OGVTimeRanges}
+			 * @todo implement correctly more or less
+			 */
+			"played": {
+				get: function getPlayed() {
+					return new OGVTimeRanges([[0, self.currentTime]]);
+				}
+			},
+
+			/**
+			 * @property volume {number}
+			 */
+			"volume": {
+				get: function getVolume() {
+					return _volume;
+				},
+				set: function setVolume(val) {
+					_volume = +val;
+					if (audioFeeder) {
+						audioFeeder.volume = _volume;
+					}
+					fireEventAsync('volumechange');
+				}
 			}
 		});
 
@@ -3381,9 +3483,13 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	// IE 10/11 and Edge 12 don't support object-fit.
 	// Also just for fun, IE 10 doesn't support 'auto' sizing on canvas. o_O
-	OGVPlayer.supportsObjectFit = (typeof document.createElement('div').style.objectFit === 'string');
+	OGVPlayer.supportsObjectFit = (typeof document.createElement('canvas').style.objectFit === 'string');
 	if (OGVPlayer.supportsObjectFit && navigator.userAgent.match(/iPhone|iPad|iPod Touch/)) {
 		// Safari for iOS 8/9 supports it but positions our <canvas> incorrectly when using WebGL >:(
+		OGVPlayer.supportsObjectFit = false;
+	}
+	if (OGVPlayer.supportsObjectFit && navigator.userAgent.match(/Edge/)) {
+		// Edge 16 supports it but it doesn't actually work on <canvas>
 		OGVPlayer.supportsObjectFit = false;
 	}
 	if (OGVPlayer.supportsObjectFit) {
@@ -3446,46 +3552,49 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = OGVPlayer;
 
 
-/***/ },
-/* 9 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	var require;/* WEBPACK VAR INJECTION */(function(process, global) {/*!
 	 * @overview es6-promise - a tiny implementation of Promises/A+.
 	 * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors (Conversion to ES6 API by Jake Archibald)
 	 * @license   Licensed under MIT license
 	 *            See https://raw.githubusercontent.com/stefanpenner/es6-promise/master/LICENSE
-	 * @version   4.1.0
+	 * @version   v4.2.2+97478eb6
 	 */
 
 	(function (global, factory) {
-	     true ? module.exports = factory() :
-	    typeof define === 'function' && define.amd ? define(factory) :
-	    (global.ES6Promise = factory());
+		 true ? module.exports = factory() :
+		typeof define === 'function' && define.amd ? define(factory) :
+		(global.ES6Promise = factory());
 	}(this, (function () { 'use strict';
 
 	function objectOrFunction(x) {
-	  return typeof x === 'function' || typeof x === 'object' && x !== null;
+	  var type = typeof x;
+	  return x !== null && (type === 'object' || type === 'function');
 	}
 
 	function isFunction(x) {
 	  return typeof x === 'function';
 	}
 
-	var _isArray = undefined;
-	if (!Array.isArray) {
+
+
+	var _isArray = void 0;
+	if (Array.isArray) {
+	  _isArray = Array.isArray;
+	} else {
 	  _isArray = function (x) {
 	    return Object.prototype.toString.call(x) === '[object Array]';
 	  };
-	} else {
-	  _isArray = Array.isArray;
 	}
 
 	var isArray = _isArray;
 
 	var len = 0;
-	var vertxNext = undefined;
-	var customSchedulerFn = undefined;
+	var vertxNext = void 0;
+	var customSchedulerFn = void 0;
 
 	var asap = function asap(callback, arg) {
 	  queue[len] = callback;
@@ -3514,7 +3623,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var browserWindow = typeof window !== 'undefined' ? window : undefined;
 	var browserGlobal = browserWindow || {};
 	var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
-	var isNode = typeof self === 'undefined' && typeof process !== 'undefined' && ({}).toString.call(process) === '[object process]';
+	var isNode = typeof self === 'undefined' && typeof process !== 'undefined' && {}.toString.call(process) === '[object process]';
 
 	// test for web worker but not in IE10
 	var isWorker = typeof Uint8ClampedArray !== 'undefined' && typeof importScripts !== 'undefined' && typeof MessageChannel !== 'undefined';
@@ -3586,7 +3695,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	function attemptVertx() {
 	  try {
 	    var r = require;
-	    var vertx = __webpack_require__(11);
+	    var vertx = __webpack_require__(14);
 	    vertxNext = vertx.runOnLoop || vertx.runOnContext;
 	    return useVertxTimer();
 	  } catch (e) {
@@ -3594,7 +3703,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	}
 
-	var scheduleFlush = undefined;
+	var scheduleFlush = void 0;
 	// Decide what async method to use to triggering processing of queued callbacks:
 	if (isNode) {
 	  scheduleFlush = useNextTick();
@@ -3609,8 +3718,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 
 	function then(onFulfillment, onRejection) {
-	  var _arguments = arguments;
-
 	  var parent = this;
 
 	  var child = new this.constructor(noop);
@@ -3621,13 +3728,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  var _state = parent._state;
 
+
 	  if (_state) {
-	    (function () {
-	      var callback = _arguments[_state - 1];
-	      asap(function () {
-	        return invokeCallback(_state, child, callback, parent._result);
-	      });
-	    })();
+	    var callback = arguments[_state - 1];
+	    asap(function () {
+	      return invokeCallback(_state, child, callback, parent._result);
+	    });
 	  } else {
 	    subscribe(parent, child, onFulfillment, onRejection);
 	  }
@@ -3666,7 +3772,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  @return {Promise} a promise that will become fulfilled with the given
 	  `value`
 	*/
-	function resolve(object) {
+	function resolve$1(object) {
 	  /*jshint validthis:true */
 	  var Constructor = this;
 
@@ -3675,7 +3781,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 
 	  var promise = new Constructor(noop);
-	  _resolve(promise, object);
+	  resolve(promise, object);
 	  return promise;
 	}
 
@@ -3706,24 +3812,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	}
 
-	function tryThen(then, value, fulfillmentHandler, rejectionHandler) {
+	function tryThen(then$$1, value, fulfillmentHandler, rejectionHandler) {
 	  try {
-	    then.call(value, fulfillmentHandler, rejectionHandler);
+	    then$$1.call(value, fulfillmentHandler, rejectionHandler);
 	  } catch (e) {
 	    return e;
 	  }
 	}
 
-	function handleForeignThenable(promise, thenable, then) {
+	function handleForeignThenable(promise, thenable, then$$1) {
 	  asap(function (promise) {
 	    var sealed = false;
-	    var error = tryThen(then, thenable, function (value) {
+	    var error = tryThen(then$$1, thenable, function (value) {
 	      if (sealed) {
 	        return;
 	      }
 	      sealed = true;
 	      if (thenable !== value) {
-	        _resolve(promise, value);
+	        resolve(promise, value);
 	      } else {
 	        fulfill(promise, value);
 	      }
@@ -3733,12 +3839,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	      sealed = true;
 
-	      _reject(promise, reason);
+	      reject(promise, reason);
 	    }, 'Settle: ' + (promise._label || ' unknown promise'));
 
 	    if (!sealed && error) {
 	      sealed = true;
-	      _reject(promise, error);
+	      reject(promise, error);
 	    }
 	  }, promise);
 	}
@@ -3747,36 +3853,36 @@ return /******/ (function(modules) { // webpackBootstrap
 	  if (thenable._state === FULFILLED) {
 	    fulfill(promise, thenable._result);
 	  } else if (thenable._state === REJECTED) {
-	    _reject(promise, thenable._result);
+	    reject(promise, thenable._result);
 	  } else {
 	    subscribe(thenable, undefined, function (value) {
-	      return _resolve(promise, value);
+	      return resolve(promise, value);
 	    }, function (reason) {
-	      return _reject(promise, reason);
+	      return reject(promise, reason);
 	    });
 	  }
 	}
 
-	function handleMaybeThenable(promise, maybeThenable, then$$) {
-	  if (maybeThenable.constructor === promise.constructor && then$$ === then && maybeThenable.constructor.resolve === resolve) {
+	function handleMaybeThenable(promise, maybeThenable, then$$1) {
+	  if (maybeThenable.constructor === promise.constructor && then$$1 === then && maybeThenable.constructor.resolve === resolve$1) {
 	    handleOwnThenable(promise, maybeThenable);
 	  } else {
-	    if (then$$ === GET_THEN_ERROR) {
-	      _reject(promise, GET_THEN_ERROR.error);
+	    if (then$$1 === GET_THEN_ERROR) {
+	      reject(promise, GET_THEN_ERROR.error);
 	      GET_THEN_ERROR.error = null;
-	    } else if (then$$ === undefined) {
+	    } else if (then$$1 === undefined) {
 	      fulfill(promise, maybeThenable);
-	    } else if (isFunction(then$$)) {
-	      handleForeignThenable(promise, maybeThenable, then$$);
+	    } else if (isFunction(then$$1)) {
+	      handleForeignThenable(promise, maybeThenable, then$$1);
 	    } else {
 	      fulfill(promise, maybeThenable);
 	    }
 	  }
 	}
 
-	function _resolve(promise, value) {
+	function resolve(promise, value) {
 	  if (promise === value) {
-	    _reject(promise, selfFulfillment());
+	    reject(promise, selfFulfillment());
 	  } else if (objectOrFunction(value)) {
 	    handleMaybeThenable(promise, value, getThen(value));
 	  } else {
@@ -3805,7 +3911,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	}
 
-	function _reject(promise, reason) {
+	function reject(promise, reason) {
 	  if (promise._state !== PENDING) {
 	    return;
 	  }
@@ -3818,6 +3924,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	function subscribe(parent, child, onFulfillment, onRejection) {
 	  var _subscribers = parent._subscribers;
 	  var length = _subscribers.length;
+
 
 	  parent._onerror = null;
 
@@ -3838,8 +3945,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return;
 	  }
 
-	  var child = undefined,
-	      callback = undefined,
+	  var child = void 0,
+	      callback = void 0,
 	      detail = promise._result;
 
 	  for (var i = 0; i < subscribers.length; i += 3) {
@@ -3873,10 +3980,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function invokeCallback(settled, promise, callback, detail) {
 	  var hasCallback = isFunction(callback),
-	      value = undefined,
-	      error = undefined,
-	      succeeded = undefined,
-	      failed = undefined;
+	      value = void 0,
+	      error = void 0,
+	      succeeded = void 0,
+	      failed = void 0;
 
 	  if (hasCallback) {
 	    value = tryCatch(callback, detail);
@@ -3890,7 +3997,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    if (promise === value) {
-	      _reject(promise, cannotReturnOwn());
+	      reject(promise, cannotReturnOwn());
 	      return;
 	    }
 	  } else {
@@ -3901,25 +4008,25 @@ return /******/ (function(modules) { // webpackBootstrap
 	  if (promise._state !== PENDING) {
 	    // noop
 	  } else if (hasCallback && succeeded) {
-	      _resolve(promise, value);
-	    } else if (failed) {
-	      _reject(promise, error);
-	    } else if (settled === FULFILLED) {
-	      fulfill(promise, value);
-	    } else if (settled === REJECTED) {
-	      _reject(promise, value);
-	    }
+	    resolve(promise, value);
+	  } else if (failed) {
+	    reject(promise, error);
+	  } else if (settled === FULFILLED) {
+	    fulfill(promise, value);
+	  } else if (settled === REJECTED) {
+	    reject(promise, value);
+	  }
 	}
 
 	function initializePromise(promise, resolver) {
 	  try {
 	    resolver(function resolvePromise(value) {
-	      _resolve(promise, value);
+	      resolve(promise, value);
 	    }, function rejectPromise(reason) {
-	      _reject(promise, reason);
+	      reject(promise, reason);
 	    });
 	  } catch (e) {
-	    _reject(promise, e);
+	    reject(promise, e);
 	  }
 	}
 
@@ -3935,101 +4042,107 @@ return /******/ (function(modules) { // webpackBootstrap
 	  promise._subscribers = [];
 	}
 
-	function Enumerator(Constructor, input) {
-	  this._instanceConstructor = Constructor;
-	  this.promise = new Constructor(noop);
-
-	  if (!this.promise[PROMISE_ID]) {
-	    makePromise(this.promise);
-	  }
-
-	  if (isArray(input)) {
-	    this._input = input;
-	    this.length = input.length;
-	    this._remaining = input.length;
-
-	    this._result = new Array(this.length);
-
-	    if (this.length === 0) {
-	      fulfill(this.promise, this._result);
-	    } else {
-	      this.length = this.length || 0;
-	      this._enumerate();
-	      if (this._remaining === 0) {
-	        fulfill(this.promise, this._result);
-	      }
-	    }
-	  } else {
-	    _reject(this.promise, validationError());
-	  }
+	function validationError() {
+	  return new Error('Array Methods must be provided an Array');
 	}
 
 	function validationError() {
 	  return new Error('Array Methods must be provided an Array');
-	};
+	}
 
-	Enumerator.prototype._enumerate = function () {
-	  var length = this.length;
-	  var _input = this._input;
+	var Enumerator = function () {
+	  function Enumerator(Constructor, input) {
+	    this._instanceConstructor = Constructor;
+	    this.promise = new Constructor(noop);
 
-	  for (var i = 0; this._state === PENDING && i < length; i++) {
-	    this._eachEntry(_input[i], i);
+	    if (!this.promise[PROMISE_ID]) {
+	      makePromise(this.promise);
+	    }
+
+	    if (isArray(input)) {
+	      this.length = input.length;
+	      this._remaining = input.length;
+
+	      this._result = new Array(this.length);
+
+	      if (this.length === 0) {
+	        fulfill(this.promise, this._result);
+	      } else {
+	        this.length = this.length || 0;
+	        this._enumerate(input);
+	        if (this._remaining === 0) {
+	          fulfill(this.promise, this._result);
+	        }
+	      }
+	    } else {
+	      reject(this.promise, validationError());
+	    }
 	  }
-	};
 
-	Enumerator.prototype._eachEntry = function (entry, i) {
-	  var c = this._instanceConstructor;
-	  var resolve$$ = c.resolve;
+	  Enumerator.prototype._enumerate = function _enumerate(input) {
+	    for (var i = 0; this._state === PENDING && i < input.length; i++) {
+	      this._eachEntry(input[i], i);
+	    }
+	  };
 
-	  if (resolve$$ === resolve) {
-	    var _then = getThen(entry);
+	  Enumerator.prototype._eachEntry = function _eachEntry(entry, i) {
+	    var c = this._instanceConstructor;
+	    var resolve$$1 = c.resolve;
 
-	    if (_then === then && entry._state !== PENDING) {
-	      this._settledAt(entry._state, i, entry._result);
-	    } else if (typeof _then !== 'function') {
+
+	    if (resolve$$1 === resolve$1) {
+	      var _then = getThen(entry);
+
+	      if (_then === then && entry._state !== PENDING) {
+	        this._settledAt(entry._state, i, entry._result);
+	      } else if (typeof _then !== 'function') {
+	        this._remaining--;
+	        this._result[i] = entry;
+	      } else if (c === Promise$1) {
+	        var promise = new c(noop);
+	        handleMaybeThenable(promise, entry, _then);
+	        this._willSettleAt(promise, i);
+	      } else {
+	        this._willSettleAt(new c(function (resolve$$1) {
+	          return resolve$$1(entry);
+	        }), i);
+	      }
+	    } else {
+	      this._willSettleAt(resolve$$1(entry), i);
+	    }
+	  };
+
+	  Enumerator.prototype._settledAt = function _settledAt(state, i, value) {
+	    var promise = this.promise;
+
+
+	    if (promise._state === PENDING) {
 	      this._remaining--;
-	      this._result[i] = entry;
-	    } else if (c === Promise) {
-	      var promise = new c(noop);
-	      handleMaybeThenable(promise, entry, _then);
-	      this._willSettleAt(promise, i);
-	    } else {
-	      this._willSettleAt(new c(function (resolve$$) {
-	        return resolve$$(entry);
-	      }), i);
+
+	      if (state === REJECTED) {
+	        reject(promise, value);
+	      } else {
+	        this._result[i] = value;
+	      }
 	    }
-	  } else {
-	    this._willSettleAt(resolve$$(entry), i);
-	  }
-	};
 
-	Enumerator.prototype._settledAt = function (state, i, value) {
-	  var promise = this.promise;
-
-	  if (promise._state === PENDING) {
-	    this._remaining--;
-
-	    if (state === REJECTED) {
-	      _reject(promise, value);
-	    } else {
-	      this._result[i] = value;
+	    if (this._remaining === 0) {
+	      fulfill(promise, this._result);
 	    }
-	  }
+	  };
 
-	  if (this._remaining === 0) {
-	    fulfill(promise, this._result);
-	  }
-	};
+	  Enumerator.prototype._willSettleAt = function _willSettleAt(promise, i) {
+	    var enumerator = this;
 
-	Enumerator.prototype._willSettleAt = function (promise, i) {
-	  var enumerator = this;
+	    subscribe(promise, undefined, function (value) {
+	      return enumerator._settledAt(FULFILLED, i, value);
+	    }, function (reason) {
+	      return enumerator._settledAt(REJECTED, i, reason);
+	    });
+	  };
 
-	  subscribe(promise, undefined, function (value) {
-	    return enumerator._settledAt(FULFILLED, i, value);
-	  }, function (reason) {
-	    return enumerator._settledAt(REJECTED, i, reason);
-	  });
-	};
+	  return Enumerator;
+	}();
 
 	/**
 	  `Promise.all` accepts an array of promises, and returns a new promise which
@@ -4199,11 +4312,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  Useful for tooling.
 	  @return {Promise} a promise rejected with the given `reason`.
 	*/
-	function reject(reason) {
+	function reject$1(reason) {
 	  /*jshint validthis:true */
 	  var Constructor = this;
 	  var promise = new Constructor(noop);
-	  _reject(promise, reason);
+	  reject(promise, reason);
 	  return promise;
 	}
 
@@ -4314,261 +4427,283 @@ return /******/ (function(modules) { // webpackBootstrap
 	  ```
 
 	  @class Promise
-	  @param {function} resolver
+	  @param {Function} resolver
 	  Useful for tooling.
 	  @constructor
 	*/
-	function Promise(resolver) {
-	  this[PROMISE_ID] = nextId();
-	  this._result = this._state = undefined;
-	  this._subscribers = [];
 
-	  if (noop !== resolver) {
-	    typeof resolver !== 'function' && needsResolver();
-	    this instanceof Promise ? initializePromise(this, resolver) : needsNew();
+	var Promise$1 = function () {
+	  function Promise(resolver) {
+	    this[PROMISE_ID] = nextId();
+	    this._result = this._state = undefined;
+	    this._subscribers = [];
+
+	    if (noop !== resolver) {
+	      typeof resolver !== 'function' && needsResolver();
+	      this instanceof Promise ? initializePromise(this, resolver) : needsNew();
+	    }
 	  }
-	}
-
-	Promise.all = all;
-	Promise.race = race;
-	Promise.resolve = resolve;
-	Promise.reject = reject;
-	Promise._setScheduler = setScheduler;
-	Promise._setAsap = setAsap;
-	Promise._asap = asap;
-
-	Promise.prototype = {
-	  constructor: Promise,
 
 	  /**
-	    The primary way of interacting with a promise is through its `then` method,
-	    which registers callbacks to receive either a promise's eventual value or the
-	    reason why the promise cannot be fulfilled.
-	  
-	    ```js
-	    findUser().then(function(user){
-	      // user is available
-	    }, function(reason){
-	      // user is unavailable, and you are given the reason why
-	    });
-	    ```
-	  
-	    Chaining
-	    --------
-	  
-	    The return value of `then` is itself a promise.  This second, 'downstream'
-	    promise is resolved with the return value of the first promise's fulfillment
-	    or rejection handler, or rejected if the handler throws an exception.
-	  
-	    ```js
-	    findUser().then(function (user) {
-	      return user.name;
-	    }, function (reason) {
-	      return 'default name';
-	    }).then(function (userName) {
-	      // If `findUser` fulfilled, `userName` will be the user's name, otherwise it
-	      // will be `'default name'`
-	    });
-	  
-	    findUser().then(function (user) {
-	      throw new Error('Found user, but still unhappy');
-	    }, function (reason) {
-	      throw new Error('`findUser` rejected and we're unhappy');
-	    }).then(function (value) {
-	      // never reached
-	    }, function (reason) {
-	      // if `findUser` fulfilled, `reason` will be 'Found user, but still unhappy'.
-	      // If `findUser` rejected, `reason` will be '`findUser` rejected and we're unhappy'.
-	    });
-	    ```
-	    If the downstream promise does not specify a rejection handler, rejection reasons will be propagated further downstream.
-	  
-	    ```js
-	    findUser().then(function (user) {
-	      throw new PedagogicalException('Upstream error');
-	    }).then(function (value) {
-	      // never reached
-	    }).then(function (value) {
-	      // never reached
-	    }, function (reason) {
-	      // The `PedgagocialException` is propagated all the way down to here
-	    });
-	    ```
-	  
-	    Assimilation
-	    ------------
-	  
-	    Sometimes the value you want to propagate to a downstream promise can only be
-	    retrieved asynchronously. This can be achieved by returning a promise in the
-	    fulfillment or rejection handler. The downstream promise will then be pending
-	    until the returned promise is settled. This is called *assimilation*.
-	  
-	    ```js
-	    findUser().then(function (user) {
-	      return findCommentsByAuthor(user);
-	    }).then(function (comments) {
-	      // The user's comments are now available
-	    });
-	    ```
-	  
-	    If the assimliated promise rejects, then the downstream promise will also reject.
-	  
-	    ```js
-	    findUser().then(function (user) {
-	      return findCommentsByAuthor(user);
-	    }).then(function (comments) {
-	      // If `findCommentsByAuthor` fulfills, we'll have the value here
-	    }, function (reason) {
-	      // If `findCommentsByAuthor` rejects, we'll have the reason here
-	    });
-	    ```
-	  
-	    Simple Example
-	    --------------
-	  
-	    Synchronous Example
-	  
-	    ```javascript
-	    let result;
-	  
-	    try {
-	      result = findResult();
-	      // success
-	    } catch(reason) {
+	  The primary way of interacting with a promise is through its `then` method,
+	  which registers callbacks to receive either a promise's eventual value or the
+	  reason why the promise cannot be fulfilled.
+	   ```js
+	  findUser().then(function(user){
+	    // user is available
+	  }, function(reason){
+	    // user is unavailable, and you are given the reason why
+	  });
+	  ```
+	   Chaining
+	  --------
+	   The return value of `then` is itself a promise.  This second, 'downstream'
+	  promise is resolved with the return value of the first promise's fulfillment
+	  or rejection handler, or rejected if the handler throws an exception.
+	   ```js
+	  findUser().then(function (user) {
+	    return user.name;
+	  }, function (reason) {
+	    return 'default name';
+	  }).then(function (userName) {
+	    // If `findUser` fulfilled, `userName` will be the user's name, otherwise it
+	    // will be `'default name'`
+	  });
+	   findUser().then(function (user) {
+	    throw new Error('Found user, but still unhappy');
+	  }, function (reason) {
+	    throw new Error('`findUser` rejected and we're unhappy');
+	  }).then(function (value) {
+	    // never reached
+	  }, function (reason) {
+	    // if `findUser` fulfilled, `reason` will be 'Found user, but still unhappy'.
+	    // If `findUser` rejected, `reason` will be '`findUser` rejected and we're unhappy'.
+	  });
+	  ```
+	  If the downstream promise does not specify a rejection handler, rejection reasons will be propagated further downstream.
+	   ```js
+	  findUser().then(function (user) {
+	    throw new PedagogicalException('Upstream error');
+	  }).then(function (value) {
+	    // never reached
+	  }).then(function (value) {
+	    // never reached
+	  }, function (reason) {
+	    // The `PedgagocialException` is propagated all the way down to here
+	  });
+	  ```
+	   Assimilation
+	  ------------
+	   Sometimes the value you want to propagate to a downstream promise can only be
+	  retrieved asynchronously. This can be achieved by returning a promise in the
+	  fulfillment or rejection handler. The downstream promise will then be pending
+	  until the returned promise is settled. This is called *assimilation*.
+	   ```js
+	  findUser().then(function (user) {
+	    return findCommentsByAuthor(user);
+	  }).then(function (comments) {
+	    // The user's comments are now available
+	  });
+	  ```
+	   If the assimliated promise rejects, then the downstream promise will also reject.
+	   ```js
+	  findUser().then(function (user) {
+	    return findCommentsByAuthor(user);
+	  }).then(function (comments) {
+	    // If `findCommentsByAuthor` fulfills, we'll have the value here
+	  }, function (reason) {
+	    // If `findCommentsByAuthor` rejects, we'll have the reason here
+	  });
+	  ```
+	   Simple Example
+	  --------------
+	   Synchronous Example
+	   ```javascript
+	  let result;
+	   try {
+	    result = findResult();
+	    // success
+	  } catch(reason) {
+	    // failure
+	  }
+	  ```
+	   Errback Example
+	   ```js
+	  findResult(function(result, err){
+	    if (err) {
 	      // failure
-	    }
-	    ```
-	  
-	    Errback Example
-	  
-	    ```js
-	    findResult(function(result, err){
-	      if (err) {
-	        // failure
-	      } else {
-	        // success
-	      }
-	    });
-	    ```
-	  
-	    Promise Example;
-	  
-	    ```javascript
-	    findResult().then(function(result){
+	    } else {
 	      // success
-	    }, function(reason){
+	    }
+	  });
+	  ```
+	   Promise Example;
+	   ```javascript
+	  findResult().then(function(result){
+	    // success
+	  }, function(reason){
+	    // failure
+	  });
+	  ```
+	   Advanced Example
+	  --------------
+	   Synchronous Example
+	   ```javascript
+	  let author, books;
+	   try {
+	    author = findAuthor();
+	    books  = findBooksByAuthor(author);
+	    // success
+	  } catch(reason) {
+	    // failure
+	  }
+	  ```
+	   Errback Example
+	   ```js
+	   function foundBooks(books) {
+	   }
+	   function failure(reason) {
+	   }
+	   findAuthor(function(author, err){
+	    if (err) {
+	      failure(err);
 	      // failure
-	    });
-	    ```
-	  
-	    Advanced Example
-	    --------------
-	  
-	    Synchronous Example
-	  
-	    ```javascript
-	    let author, books;
-	  
-	    try {
-	      author = findAuthor();
-	      books  = findBooksByAuthor(author);
-	      // success
-	    } catch(reason) {
-	      // failure
-	    }
-	    ```
-	  
-	    Errback Example
-	  
-	    ```js
-	  
-	    function foundBooks(books) {
-	  
-	    }
-	  
-	    function failure(reason) {
-	  
-	    }
-	  
-	    findAuthor(function(author, err){
-	      if (err) {
-	        failure(err);
-	        // failure
-	      } else {
-	        try {
-	          findBoooksByAuthor(author, function(books, err) {
-	            if (err) {
-	              failure(err);
-	            } else {
-	              try {
-	                foundBooks(books);
-	              } catch(reason) {
-	                failure(reason);
-	              }
+	    } else {
+	      try {
+	        findBoooksByAuthor(author, function(books, err) {
+	          if (err) {
+	            failure(err);
+	          } else {
+	            try {
+	              foundBooks(books);
+	            } catch(reason) {
+	              failure(reason);
 	            }
-	          });
-	        } catch(error) {
-	          failure(err);
-	        }
-	        // success
+	          }
+	        });
+	      } catch(error) {
+	        failure(err);
 	      }
-	    });
-	    ```
-	  
-	    Promise Example;
-	  
-	    ```javascript
-	    findAuthor().
-	      then(findBooksByAuthor).
-	      then(function(books){
-	        // found books
-	    }).catch(function(reason){
-	      // something went wrong
-	    });
-	    ```
-	  
-	    @method then
-	    @param {Function} onFulfilled
-	    @param {Function} onRejected
-	    Useful for tooling.
-	    @return {Promise}
+	      // success
+	    }
+	  });
+	  ```
+	   Promise Example;
+	   ```javascript
+	  findAuthor().
+	    then(findBooksByAuthor).
+	    then(function(books){
+	      // found books
+	  }).catch(function(reason){
+	    // something went wrong
+	  });
+	  ```
+	   @method then
+	  @param {Function} onFulfilled
+	  @param {Function} onRejected
+	  Useful for tooling.
+	  @return {Promise}
 	  */
-	  then: then,
 
 	  /**
-	    `catch` is simply sugar for `then(undefined, onRejection)` which makes it the same
-	    as the catch block of a try/catch statement.
+	  `catch` is simply sugar for `then(undefined, onRejection)` which makes it the same
+	  as the catch block of a try/catch statement.
+	  ```js
+	  function findAuthor(){
+	  throw new Error('couldn't find that author');
+	  }
+	  // synchronous
+	  try {
+	  findAuthor();
+	  } catch(reason) {
+	  // something went wrong
+	  }
+	  // async with promises
+	  findAuthor().catch(function(reason){
+	  // something went wrong
+	  });
+	  ```
+	  @method catch
+	  @param {Function} onRejection
+	  Useful for tooling.
+	  @return {Promise}
+	  */
+
+
+	  Promise.prototype.catch = function _catch(onRejection) {
+	    return this.then(null, onRejection);
+	  };
+
+	  /**
+	    `finally` will be invoked regardless of the promise's fate just as native
+	    try/catch/finally behaves
+	  
+	    Synchronous example:
 	  
 	    ```js
-	    function findAuthor(){
-	      throw new Error('couldn't find that author');
+	    findAuthor() {
+	      if (Math.random() > 0.5) {
+	        throw new Error();
+	      }
+	      return new Author();
 	    }
 	  
-	    // synchronous
 	    try {
-	      findAuthor();
-	    } catch(reason) {
-	      // something went wrong
+	      return findAuthor(); // succeed or fail
+	    } catch(error) {
+	      return findOtherAuther();
+	    } finally {
+	      // always runs
+	      // doesn't affect the return value
 	    }
+	    ```
 	  
-	    // async with promises
+	    Asynchronous example:
+	  
+	    ```js
 	    findAuthor().catch(function(reason){
-	      // something went wrong
+	      return findOtherAuther();
+	    }).finally(function(){
+	      // author was either found, or not
 	    });
 	    ```
 	  
-	    @method catch
-	    @param {Function} onRejection
-	    Useful for tooling.
+	    @method finally
+	    @param {Function} callback
 	    @return {Promise}
 	  */
-	  'catch': function _catch(onRejection) {
-	    return this.then(null, onRejection);
-	  }
-	};
 
+
+	  Promise.prototype.finally = function _finally(callback) {
+	    var promise = this;
+	    var constructor = promise.constructor;
+
+	    return promise.then(function (value) {
+	      return constructor.resolve(callback()).then(function () {
+	        return value;
+	      });
+	    }, function (reason) {
+	      return constructor.resolve(callback()).then(function () {
+	        throw reason;
+	      });
+	    });
+	  };
+
+	  return Promise;
+	}();
+
+	Promise$1.prototype.then = then;
+	Promise$1.all = all;
+	Promise$1.race = race;
+	Promise$1.resolve = resolve$1;
+	Promise$1.reject = reject$1;
+	Promise$1._setScheduler = setScheduler;
+	Promise$1._setAsap = setAsap;
+	Promise$1._asap = asap;
+
+	/*global self*/
 	function polyfill() {
-	    var local = undefined;
+	    var local = void 0;
 
 	    if (typeof global !== 'undefined') {
 	        local = global;
@@ -4597,23 +4732,26 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	    }
 
-	    local.Promise = Promise;
+	    local.Promise = Promise$1;
 	}
 
 	// Strange compat..
-	Promise.polyfill = polyfill;
-	Promise.Promise = Promise;
+	Promise$1.polyfill = polyfill;
+	Promise$1.Promise = Promise$1;
 
-	return Promise;
+	return Promise$1;
 
 	})));
 
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(10), (function() { return this; }())))
 
-/***/ },
-/* 10 */
-/***/ function(module, exports) {
+
+
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(13), (function() { return this; }())))
+
+/***/ }),
+/* 13 */
+/***/ (function(module, exports) {
 
 	// shim for using process in browser
 	var process = module.exports = {};
@@ -4785,6 +4923,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	process.removeListener = noop;
 	process.removeAllListeners = noop;
 	process.emit = noop;
+	process.prependListener = noop;
+	process.prependOnceListener = noop;
+
+	process.listeners = function (name) { return [] }
 
 	process.binding = function (name) {
 	    throw new Error('process.binding is not supported');
@@ -4797,15 +4939,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	process.umask = function() { return 0; };
 
 
-/***/ },
-/* 11 */
-/***/ function(module, exports) {
+/***/ }),
+/* 14 */
+/***/ (function(module, exports) {
 
 	/* (ignored) */
 
-/***/ },
-/* 12 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 15 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	/*
 	Copyright (c) 2014-2016 Brion Vibber <brion@pobox.com>
@@ -4830,9 +4972,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	(function() {
 	  "use strict";
 
-	  var FrameSink = __webpack_require__(13),
-	    SoftwareFrameSink = __webpack_require__(14),
-	    WebGLFrameSink = __webpack_require__(17);
+	  var FrameSink = __webpack_require__(16),
+	    SoftwareFrameSink = __webpack_require__(17),
+	    WebGLFrameSink = __webpack_require__(20);
 
 	  /**
 	   * @typedef {Object} YUVCanvasOptions
@@ -4872,9 +5014,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 
 
-/***/ },
-/* 13 */
-/***/ function(module, exports) {
+/***/ }),
+/* 16 */
+/***/ (function(module, exports) {
 
 	(function() {
 	  "use strict";
@@ -4920,9 +5062,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 
 
-/***/ },
-/* 14 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 17 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	/*
 	Copyright (c) 2014-2016 Brion Vibber <brion@pobox.com>
@@ -4947,8 +5089,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	(function() {
 		"use strict";
 
-		var FrameSink = __webpack_require__(13),
-			YCbCr = __webpack_require__(15);
+		var FrameSink = __webpack_require__(16),
+			YCbCr = __webpack_require__(18);
 
 		/**
 		 * @param {HTMLCanvasElement} canvas - HTML canvas eledment to attach to
@@ -5040,9 +5182,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 
 
-/***/ },
-/* 15 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 18 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	/*
 	Copyright (c) 2014-2016 Brion Vibber <brion@pobox.com>
@@ -5067,7 +5209,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	(function() {
 		"use strict";
 
-		var depower = __webpack_require__(16);
+		var depower = __webpack_require__(19);
 
 		/**
 		 * Basic YCbCr->RGB conversion
@@ -5185,9 +5327,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 
 
-/***/ },
-/* 16 */
-/***/ function(module, exports) {
+/***/ }),
+/* 19 */
+/***/ (function(module, exports) {
 
 	/*
 	Copyright (c) 2014-2016 Brion Vibber <brion@pobox.com>
@@ -5241,9 +5383,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 
 
-/***/ },
-/* 17 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 20 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	/*
 	Copyright (c) 2014-2016 Brion Vibber <brion@pobox.com>
@@ -5268,8 +5410,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	(function() {
 		"use strict";
 
-		var FrameSink = __webpack_require__(13),
-			shaders = __webpack_require__(18);
+		var FrameSink = __webpack_require__(16),
+			shaders = __webpack_require__(21);
 
 		/**
 		 * Warning: canvas must not have been used for 2d drawing prior!
@@ -5311,10 +5453,8 @@ return /******/ (function(modules) { // webpackBootstrap
 			}
 
 
-			var vertexShader,
-				fragmentShader,
-				program,
-				buf,
+			var program,
+				unpackProgram,
 				err;
 
 			// In the world of GL there are no rectangles.
@@ -5333,53 +5473,184 @@ return /******/ (function(modules) { // webpackBootstrap
 			]);
 
 			var textures = {};
-			function attachTexture(name, register, index, width, height, data) {
-				var texture,
-					texWidth = WebGLFrameSink.stripe ? (width / 4) : width,
-					format = WebGLFrameSink.stripe ? gl.RGBA : gl.LUMINANCE,
-					filter = WebGLFrameSink.stripe ? gl.NEAREST : gl.LINEAR;
+			var framebuffers = {};
+			var stripes = {};
+			var buf, positionLocation, unpackPositionLocation;
+			var unpackTexturePositionBuffer, unpackTexturePositionLocation;
+			var stripeLocation, unpackTextureLocation;
+			var lumaPositionBuffer, lumaPositionLocation;
+			var chromaPositionBuffer, chromaPositionLocation;
 
-				if (textures[name]) {
-					// Reuse & update the existing texture
-					texture = textures[name];
-				} else {
-					textures[name] = texture = gl.createTexture();
-					checkError();
-
-					gl.uniform1i(gl.getUniformLocation(program, name), index);
-					checkError();
+			function createOrReuseTexture(name) {
+				if (!textures[name]) {
+					textures[name] = gl.createTexture();
 				}
-				gl.activeTexture(register);
-				checkError();
-				gl.bindTexture(gl.TEXTURE_2D, texture);
-				checkError();
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-				checkError();
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-				checkError();
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
-				checkError();
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
-				checkError();
-
-				gl.texImage2D(
-					gl.TEXTURE_2D,
-					0, // mip level
-					format, // internal format
-					texWidth,
-					height,
-					0, // border
-					format, // format
-					gl.UNSIGNED_BYTE, //type
-					data // data!
-				);
-				checkError();
-
-				return texture;
+				return textures[name];
 			}
 
-			function buildStripe(width, height) {
-				var len = width * height,
+			function uploadTexture(name, width, height, data) {
+				var texture = createOrReuseTexture(name);
+				gl.activeTexture(gl.TEXTURE0);
+
+				if (WebGLFrameSink.stripe) {
+					var uploadTemp = !textures[name + '_temp'];
+					var tempTexture = createOrReuseTexture(name + '_temp');
+					gl.bindTexture(gl.TEXTURE_2D, tempTexture);
+					if (uploadTemp) {
+						// new texture
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+						gl.texImage2D(
+							gl.TEXTURE_2D,
+							0, // mip level
+							gl.RGBA, // internal format
+							width / 4,
+							height,
+							0, // border
+							gl.RGBA, // format
+							gl.UNSIGNED_BYTE, // type
+							data // data!
+						);
+					} else {
+						// update texture
+						gl.texSubImage2D(
+							gl.TEXTURE_2D,
+							0, // mip level
+							0, // x offset
+							0, // y offset
+							width / 4,
+							height,
+							gl.RGBA, // format
+							gl.UNSIGNED_BYTE, // type
+							data // data!
+						);
+					}
+
+					var stripeTexture = textures[name + '_stripe'];
+					var uploadStripe = !stripeTexture;
+					if (uploadStripe) {
+						stripeTexture = createOrReuseTexture(name + '_stripe');
+					}
+					gl.bindTexture(gl.TEXTURE_2D, stripeTexture);
+					if (uploadStripe) {
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+						gl.texImage2D(
+							gl.TEXTURE_2D,
+							0, // mip level
+							gl.RGBA, // internal format
+							width,
+							1,
+							0, // border
+							gl.RGBA, // format
+							gl.UNSIGNED_BYTE, //type
+							buildStripe(width, 1) // data!
+						);
+					}
+
+				} else {
+					gl.bindTexture(gl.TEXTURE_2D, texture);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+					gl.texImage2D(
+						gl.TEXTURE_2D,
+						0, // mip level
+						gl.LUMINANCE, // internal format
+						width,
+						height,
+						0, // border
+						gl.LUMINANCE, // format
+						gl.UNSIGNED_BYTE, //type
+						data // data!
+					);
+				}
+			}
+
+			function unpackTexture(name, width, height) {
+				var texture = textures[name];
+
+				// Upload to a temporary RGBA texture, then unpack it.
+				// This is faster than CPU-side swizzling in ANGLE on Windows.
+				gl.useProgram(unpackProgram);
+
+				var fb = framebuffers[name];
+				if (!fb) {
+					// Create a framebuffer and an empty target size
+					gl.activeTexture(gl.TEXTURE0);
+					gl.bindTexture(gl.TEXTURE_2D, texture);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+					gl.texImage2D(
+						gl.TEXTURE_2D,
+						0, // mip level
+						gl.RGBA, // internal format
+						width,
+						height,
+						0, // border
+						gl.RGBA, // format
+						gl.UNSIGNED_BYTE, //type
+						null // data!
+					);
+
+					fb = framebuffers[name] = gl.createFramebuffer();
+				}
+
+				gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+
+				var tempTexture = textures[name + '_temp'];
+				gl.activeTexture(gl.TEXTURE1);
+				gl.bindTexture(gl.TEXTURE_2D, tempTexture);
+				gl.uniform1i(unpackTextureLocation, 1);
+
+				var stripeTexture = textures[name + '_stripe'];
+				gl.activeTexture(gl.TEXTURE2);
+				gl.bindTexture(gl.TEXTURE_2D, stripeTexture);
+				gl.uniform1i(stripeLocation, 2);
+
+				// Rectangle geometry
+				gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+				gl.enableVertexAttribArray(positionLocation);
+				gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+				// Set up the texture geometry...
+				gl.bindBuffer(gl.ARRAY_BUFFER, unpackTexturePositionBuffer);
+				gl.enableVertexAttribArray(unpackTexturePositionLocation);
+				gl.vertexAttribPointer(unpackTexturePositionLocation, 2, gl.FLOAT, false, 0, 0);
+
+				// Draw into the target texture...
+				gl.viewport(0, 0, width, height);
+
+				gl.drawArrays(gl.TRIANGLES, 0, rectangle.length / 2);
+
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+			}
+
+			function attachTexture(name, register, index) {
+				gl.activeTexture(register);
+				gl.bindTexture(gl.TEXTURE_2D, textures[name]);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+				gl.uniform1i(gl.getUniformLocation(program, name), index);
+			}
+
+			function buildStripe(width) {
+				if (stripes[width]) {
+					return stripes[width];
+				}
+				var len = width,
 					out = new Uint32Array(len);
 				for (var i = 0; i < len; i += 4) {
 					out[i    ] = 0x000000ff;
@@ -5387,23 +5658,16 @@ return /******/ (function(modules) { // webpackBootstrap
 					out[i + 2] = 0x00ff0000;
 					out[i + 3] = 0xff000000;
 				}
-				return new Uint8Array(out.buffer);
+				return stripes[width] = new Uint8Array(out.buffer);
 			}
 
-			function init(buffer) {
-				vertexShader = compileShader(gl.VERTEX_SHADER, shaders.vertex);
-				if (WebGLFrameSink.stripe) {
-					fragmentShader = compileShader(gl.FRAGMENT_SHADER, shaders.fragmentStripe);
-				} else {
-					fragmentShader = compileShader(gl.FRAGMENT_SHADER, shaders.fragment);
-				}
+			function initProgram(vertexShaderSource, fragmentShaderSource) {
+				var vertexShader = compileShader(gl.VERTEX_SHADER, vertexShaderSource);
+				var fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentShaderSource);
 
-				program = gl.createProgram();
+				var program = gl.createProgram();
 				gl.attachShader(program, vertexShader);
-				checkError();
-
 				gl.attachShader(program, fragmentShader);
-				checkError();
 
 				gl.linkProgram(program);
 				if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
@@ -5412,30 +5676,41 @@ return /******/ (function(modules) { // webpackBootstrap
 					throw new Error('GL program linking failed: ' + err);
 				}
 
-				gl.useProgram(program);
-				checkError();
+				return program;
+			}
 
+			function init() {
 				if (WebGLFrameSink.stripe) {
-					attachTexture(
-						'uStripeLuma',
-						gl.TEXTURE3,
-						3,
-						buffer.y.stride * 4,
-						buffer.format.height,
-						buildStripe(buffer.y.stride, buffer.format.height)
-					);
-					checkError();
+					unpackProgram = initProgram(shaders.vertexStripe, shaders.fragmentStripe);
+					unpackPositionLocation = gl.getAttribLocation(unpackProgram, 'aPosition');
 
-					attachTexture(
-						'uStripeChroma',
-						gl.TEXTURE4,
-						4,
-						buffer.u.stride * 4,
-						buffer.format.chromaHeight,
-						buildStripe(buffer.u.stride, buffer.format.chromaHeight)
-					);
-					checkError();
+					unpackTexturePositionBuffer = gl.createBuffer();
+					var textureRectangle = new Float32Array([
+						0, 0,
+						1, 0,
+						0, 1,
+						0, 1,
+						1, 0,
+						1, 1
+					]);
+					gl.bindBuffer(gl.ARRAY_BUFFER, unpackTexturePositionBuffer);
+					gl.bufferData(gl.ARRAY_BUFFER, textureRectangle, gl.STATIC_DRAW);
+
+					unpackTexturePositionLocation = gl.getAttribLocation(unpackProgram, 'aTexturePosition');
+					stripeLocation = gl.getUniformLocation(unpackProgram, 'uStripe');
+					unpackTextureLocation = gl.getUniformLocation(unpackProgram, 'uTexture');
 				}
+				program = initProgram(shaders.vertex, shaders.fragment);
+
+				buf = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+				gl.bufferData(gl.ARRAY_BUFFER, rectangle, gl.STATIC_DRAW);
+
+				positionLocation = gl.getAttribLocation(program, 'aPosition');
+				lumaPositionBuffer = gl.createBuffer();
+				lumaPositionLocation = gl.getAttribLocation(program, 'aLumaPosition');
+				chromaPositionBuffer = gl.createBuffer();
+				chromaPositionLocation = gl.getAttribLocation(program, 'aChromaPosition');
 			}
 
 			/**
@@ -5445,7 +5720,8 @@ return /******/ (function(modules) { // webpackBootstrap
 			self.drawFrame = function(buffer) {
 				var format = buffer.format;
 
-				if (canvas.width !== format.displayWidth || canvas.height !== format.displayHeight) {
+				var formatUpdate = (!program || canvas.width !== format.displayWidth || canvas.height !== format.displayHeight);
+				if (formatUpdate) {
 					// Keep the canvas at the right size...
 					canvas.width = format.displayWidth;
 					canvas.height = format.displayHeight;
@@ -5453,98 +5729,74 @@ return /******/ (function(modules) { // webpackBootstrap
 				}
 
 				if (!program) {
-					init(buffer);
+					init();
+				}
+
+				if (formatUpdate) {
+					var setupTexturePosition = function(buffer, location, texWidth) {
+						// Warning: assumes that the stride for Cb and Cr is the same size in output pixels
+						var textureX0 = format.cropLeft / texWidth;
+						var textureX1 = (format.cropLeft + format.cropWidth) / texWidth;
+						var textureY0 = (format.cropTop + format.cropHeight) / format.height;
+						var textureY1 = format.cropTop / format.height;
+						var textureRectangle = new Float32Array([
+							textureX0, textureY0,
+							textureX1, textureY0,
+							textureX0, textureY1,
+							textureX0, textureY1,
+							textureX1, textureY0,
+							textureX1, textureY1
+						]);
+
+						gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+						gl.bufferData(gl.ARRAY_BUFFER, textureRectangle, gl.STATIC_DRAW);
+					};
+					setupTexturePosition(
+						lumaPositionBuffer,
+						lumaPositionLocation,
+						buffer.y.stride);
+					setupTexturePosition(
+						chromaPositionBuffer,
+						chromaPositionLocation,
+						buffer.u.stride * format.width / format.chromaWidth);
+				}
+
+				// Create or update the textures...
+				uploadTexture('uTextureY', buffer.y.stride, format.height, buffer.y.bytes);
+				uploadTexture('uTextureCb', buffer.u.stride, format.chromaHeight, buffer.u.bytes);
+				uploadTexture('uTextureCr', buffer.v.stride, format.chromaHeight, buffer.v.bytes);
+
+				if (WebGLFrameSink.stripe) {
+					// Unpack the textures after upload to avoid blocking on GPU
+					unpackTexture('uTextureY', buffer.y.stride, format.height);
+					unpackTexture('uTextureCb', buffer.u.stride, format.chromaHeight);
+					unpackTexture('uTextureCr', buffer.v.stride, format.chromaHeight);
 				}
 
 				// Set up the rectangle and draw it
+				gl.useProgram(program);
+				gl.viewport(0, 0, canvas.width, canvas.height);
 
-				//
+				attachTexture('uTextureY', gl.TEXTURE0, 0);
+				attachTexture('uTextureCb', gl.TEXTURE1, 1);
+				attachTexture('uTextureCr', gl.TEXTURE2, 2);
+
 				// Set up geometry
-				//
-
-				buf = gl.createBuffer();
-				checkError();
-
 				gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-				checkError();
-
-				gl.bufferData(gl.ARRAY_BUFFER, rectangle, gl.STATIC_DRAW);
-				checkError();
-
-				var positionLocation = gl.getAttribLocation(program, 'aPosition');
-				checkError();
-
 				gl.enableVertexAttribArray(positionLocation);
-				checkError();
-
 				gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-				checkError();
-
 
 				// Set up the texture geometry...
-				function setupTexturePosition(varname, texWidth) {
-					// Warning: assumes that the stride for Cb and Cr is the same size in output pixels
-					var textureX0 = format.cropLeft / texWidth;
-					var textureX1 = (format.cropLeft + format.cropWidth) / texWidth;
-					var textureY0 = (format.cropTop + format.cropHeight) / format.height;
-					var textureY1 = format.cropTop / format.height;
-					var textureRectangle = new Float32Array([
-						textureX0, textureY0,
-						textureX1, textureY0,
-						textureX0, textureY1,
-						textureX0, textureY1,
-						textureX1, textureY0,
-						textureX1, textureY1
-					]);
+				gl.bindBuffer(gl.ARRAY_BUFFER, lumaPositionBuffer);
+				gl.enableVertexAttribArray(lumaPositionLocation);
+				gl.vertexAttribPointer(lumaPositionLocation, 2, gl.FLOAT, false, 0, 0);
 
-					var texturePositionBuffer = gl.createBuffer();
-					gl.bindBuffer(gl.ARRAY_BUFFER, texturePositionBuffer);
-					checkError();
-
-					gl.bufferData(gl.ARRAY_BUFFER, textureRectangle, gl.STATIC_DRAW);
-					checkError();
-
-					var texturePositionLocation = gl.getAttribLocation(program, varname);
-					checkError();
-
-					gl.enableVertexAttribArray(texturePositionLocation);
-					checkError();
-
-					gl.vertexAttribPointer(texturePositionLocation, 2, gl.FLOAT, false, 0, 0);
-					checkError();
-				}
-				setupTexturePosition('aLumaPosition', buffer.y.stride);
-				setupTexturePosition('aChromaPosition', buffer.u.stride * format.width / format.chromaWidth);
-
-				// Create the textures...
-				var textureY = attachTexture(
-					'uTextureY',
-					gl.TEXTURE0,
-					0,
-					buffer.y.stride,
-					format.height,
-					buffer.y.bytes
-				);
-				var textureCb = attachTexture(
-					'uTextureCb',
-					gl.TEXTURE1,
-					1,
-					buffer.u.stride,
-					format.chromaHeight,
-					buffer.u.bytes
-				);
-				var textureCr = attachTexture(
-					'uTextureCr',
-					gl.TEXTURE2,
-					2,
-					buffer.v.stride,
-					format.chromaHeight,
-					buffer.v.bytes
-				);
+				gl.bindBuffer(gl.ARRAY_BUFFER, chromaPositionBuffer);
+				gl.enableVertexAttribArray(chromaPositionLocation);
+				gl.vertexAttribPointer(chromaPositionLocation, 2, gl.FLOAT, false, 0, 0);
 
 				// Aaaaand draw stuff.
 				gl.drawArrays(gl.TRIANGLES, 0, rectangle.length / 2);
-				checkError();
 			};
 
 			self.clear = function() {
@@ -5581,6 +5833,13 @@ return /******/ (function(modules) { // webpackBootstrap
 			canvas.width = 1;
 			canvas.height = 1;
 			var options = {
+				// Turn off things we don't need
+				alpha: false,
+				depth: false,
+				stencil: false,
+				antialias: false,
+				preferLowPowerToHighPerformance: true
+
 				// Still dithering on whether to use this.
 				// Recommend avoiding it, as it's overly conservative
 				//failIfMajorPerformanceCaveat: true
@@ -5636,20 +5895,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 
 
-/***/ },
-/* 18 */
-/***/ function(module, exports) {
+/***/ }),
+/* 21 */
+/***/ (function(module, exports) {
 
 	module.exports = {
-	  vertex: "attribute vec2 aPosition;\nattribute vec2 aLumaPosition;\nattribute vec2 aChromaPosition;\nvarying vec2 vLumaPosition;\nvarying vec2 vChromaPosition;\nvoid main() {\n    gl_Position = vec4(aPosition, 0, 1);\n    vLumaPosition = aLumaPosition;\n    vChromaPosition = aChromaPosition;\n}\n",
-	  fragment: "// inspired by https://github.com/mbebenita/Broadway/blob/master/Player/canvas.js\n\nprecision mediump float;\nuniform sampler2D uTextureY;\nuniform sampler2D uTextureCb;\nuniform sampler2D uTextureCr;\nvarying vec2 vLumaPosition;\nvarying vec2 vChromaPosition;\nvoid main() {\n   // Y, Cb, and Cr planes are uploaded as LUMINANCE textures.\n   float fY = texture2D(uTextureY, vLumaPosition).x;\n   float fCb = texture2D(uTextureCb, vChromaPosition).x;\n   float fCr = texture2D(uTextureCr, vChromaPosition).x;\n\n   // Premultipy the Y...\n   float fYmul = fY * 1.1643828125;\n\n   // And convert that to RGB!\n   gl_FragColor = vec4(\n     fYmul + 1.59602734375 * fCr - 0.87078515625,\n     fYmul - 0.39176171875 * fCb - 0.81296875 * fCr + 0.52959375,\n     fYmul + 2.017234375   * fCb - 1.081390625,\n     1\n   );\n}\n",
-	  fragmentStripe: "// inspired by https://github.com/mbebenita/Broadway/blob/master/Player/canvas.js\n// extra 'stripe' texture fiddling to work around IE 11's poor performance on gl.LUMINANCE and gl.ALPHA textures\n\nprecision mediump float;\nuniform sampler2D uStripeLuma;\nuniform sampler2D uStripeChroma;\nuniform sampler2D uTextureY;\nuniform sampler2D uTextureCb;\nuniform sampler2D uTextureCr;\nvarying vec2 vLumaPosition;\nvarying vec2 vChromaPosition;\nvoid main() {\n   // Y, Cb, and Cr planes are mapped into a pseudo-RGBA texture\n   // so we can upload them without expanding the bytes on IE 11\n   // which doesn\\'t allow LUMINANCE or ALPHA textures.\n   // The stripe textures mark which channel to keep for each pixel.\n   vec4 vStripeLuma = texture2D(uStripeLuma, vLumaPosition);\n   vec4 vStripeChroma = texture2D(uStripeChroma, vChromaPosition);\n\n   // Each texture extraction will contain the relevant value in one\n   // channel only.\n   vec4 vY = texture2D(uTextureY, vLumaPosition) * vStripeLuma;\n   vec4 vCb = texture2D(uTextureCb, vChromaPosition) * vStripeChroma;\n   vec4 vCr = texture2D(uTextureCr, vChromaPosition) * vStripeChroma;\n\n   // Now assemble that into a YUV vector, and premultipy the Y...\n   vec3 YUV = vec3(\n     (vY.x  + vY.y  + vY.z  + vY.w) * 1.1643828125,\n     (vCb.x + vCb.y + vCb.z + vCb.w),\n     (vCr.x + vCr.y + vCr.z + vCr.w)\n   );\n   // And convert that to RGB!\n   gl_FragColor = vec4(\n     YUV.x + 1.59602734375 * YUV.z - 0.87078515625,\n     YUV.x - 0.39176171875 * YUV.y - 0.81296875 * YUV.z + 0.52959375,\n     YUV.x + 2.017234375   * YUV.y - 1.081390625,\n     1\n   );\n}\n"
+	  vertex: "precision lowp float;\n\nattribute vec2 aPosition;\nattribute vec2 aLumaPosition;\nattribute vec2 aChromaPosition;\nvarying vec2 vLumaPosition;\nvarying vec2 vChromaPosition;\nvoid main() {\n    gl_Position = vec4(aPosition, 0, 1);\n    vLumaPosition = aLumaPosition;\n    vChromaPosition = aChromaPosition;\n}\n",
+	  fragment: "// inspired by https://github.com/mbebenita/Broadway/blob/master/Player/canvas.js\n\nprecision lowp float;\n\nuniform sampler2D uTextureY;\nuniform sampler2D uTextureCb;\nuniform sampler2D uTextureCr;\nvarying vec2 vLumaPosition;\nvarying vec2 vChromaPosition;\nvoid main() {\n   // Y, Cb, and Cr planes are uploaded as LUMINANCE textures.\n   float fY = texture2D(uTextureY, vLumaPosition).x;\n   float fCb = texture2D(uTextureCb, vChromaPosition).x;\n   float fCr = texture2D(uTextureCr, vChromaPosition).x;\n\n   // Premultipy the Y...\n   float fYmul = fY * 1.1643828125;\n\n   // And convert that to RGB!\n   gl_FragColor = vec4(\n     fYmul + 1.59602734375 * fCr - 0.87078515625,\n     fYmul - 0.39176171875 * fCb - 0.81296875 * fCr + 0.52959375,\n     fYmul + 2.017234375   * fCb - 1.081390625,\n     1\n   );\n}\n",
+	  vertexStripe: "precision lowp float;\n\nattribute vec2 aPosition;\nattribute vec2 aTexturePosition;\nvarying vec2 vTexturePosition;\n\nvoid main() {\n    gl_Position = vec4(aPosition, 0, 1);\n    vTexturePosition = aTexturePosition;\n}\n",
+	  fragmentStripe: "// extra 'stripe' texture fiddling to work around IE 11's poor performance on gl.LUMINANCE and gl.ALPHA textures\n\nprecision lowp float;\n\nuniform sampler2D uStripe;\nuniform sampler2D uTexture;\nvarying vec2 vTexturePosition;\nvoid main() {\n   // Y, Cb, and Cr planes are mapped into a pseudo-RGBA texture\n   // so we can upload them without expanding the bytes on IE 11\n   // which doesn't allow LUMINANCE or ALPHA textures\n   // The stripe textures mark which channel to keep for each pixel.\n   // Each texture extraction will contain the relevant value in one\n   // channel only.\n\n   float fLuminance = dot(\n      texture2D(uStripe, vTexturePosition),\n      texture2D(uTexture, vTexturePosition)\n   );\n\n   gl_FragColor = vec4(fLuminance, fLuminance, fLuminance, 1);\n}\n"
 	};
 
 
-/***/ },
-/* 19 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 22 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 
@@ -5657,9 +5917,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-	var EventEmitter = __webpack_require__(20);
-	var CachePool = __webpack_require__(21);
-	var Backend = __webpack_require__(24);
+	var EventEmitter = __webpack_require__(23);
+	var CachePool = __webpack_require__(24);
+	var Backend = __webpack_require__(27);
 
 	/**
 	 * @typedef {Object} StreamFileOptions
@@ -5734,14 +5994,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * On success, loaded will become true, headers may be filled out,
 	   * and length may be available.
 	   *
-	   * @param {CancelToken?} cancelToken - optional cancellation token
 	   * @returns {Promise}
 	   */
 
 
 	  _createClass(StreamFile, [{
 	    key: 'load',
-	    value: function load(cancelToken) {
+	    value: function load() {
 	      var _this = this;
 
 	      return new Promise(function (resolve, reject) {
@@ -5752,7 +6011,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          throw new Error('cannot load when loaded');
 	        }
 	        _this.loading = true;
-	        _this._openBackend(cancelToken).then(function (backend) {
+	        _this._openBackend().then(function (backend) {
 	          // Save metadata from the first set...
 	          // Beware this._backend may be null already,
 	          // if the first segment was very short!
@@ -5763,7 +6022,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	          _this.loading = false;
 	          resolve();
 	        }).catch(function (err) {
-	          _this.loading = false;
+	          if (err.name !== 'AbortError') {
+	            _this.loading = false;
+	          }
 	          reject(err);
 	        });
 	      });
@@ -5778,13 +6039,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  }, {
 	    key: '_openBackend',
-	    value: function _openBackend(cancelToken) {
+	    value: function _openBackend() {
 	      var _this2 = this;
 
 	      return new Promise(function (resolve, reject) {
-	        if (cancelToken) {
-	          cancelToken.cancel = function (err) {};
-	        }
 	        if (_this2._backend) {
 	          resolve(_this2._backend);
 	        } else if (_this2.eof) {
@@ -5805,7 +6063,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	          }
 
 	          // Do we have space to write within that chunk?
-	          var writable = cache.bytesWritable(max);
+	          // Don't go beyond the end of the file, or it will confuse
+	          // some browsers (Safari with blob URLs).
+	          var writable = _this2._clampToLength(cache.writeOffset + cache.bytesWritable(max)) - cache.writeOffset;
+
 	          if (writable === 0) {
 	            // Nothing to read/write within the current readahead area.
 	            resolve(null);
@@ -5819,13 +6080,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	              });
 
 	              var oncomplete = null;
-	              if (cancelToken) {
-	                cancelToken.cancel = function (err) {
-	                  _this2._backend = null;
-	                  backend.abort();
-	                  reject(err);
-	                };
-	              }
 
 	              var checkOpen = function checkOpen() {
 	                if (backend !== _this2._backend) {
@@ -5862,9 +6116,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	              oncomplete = function oncomplete() {
 	                backend.off('open', checkOpen);
 	                backend.off('error', checkError);
-	                if (cancelToken) {
-	                  cancelToken.cancel = function () {};
-	                }
 	              };
 	              backend.on('open', checkOpen);
 	              backend.on('error', checkError);
@@ -5887,7 +6138,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  }, {
 	    key: '_readAhead',
-	    value: function _readAhead(cancelToken) {
+	    value: function _readAhead() {
 	      var _this3 = this;
 
 	      return new Promise(function (resolve, reject) {
@@ -5895,7 +6146,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          // do nothing
 	          resolve();
 	        } else {
-	          _this3._openBackend(cancelToken).then(function () {
+	          _this3._openBackend().then(function () {
 	            resolve();
 	          }).catch(function (err) {
 	            reject(err);
@@ -5909,13 +6160,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	     * After succesful completion, reads will continue at the new offset.
 	     * May fail due to network problems, invalid input, or bad state.
 	     * @param {number} offset - target byte offset from beginning of file
-	     * @param {CancelToken?} cancelToken - optional cancellation token
 	     * @returns {Promise} - resolved when ready to read at the new position
 	     */
 
 	  }, {
 	    key: 'seek',
-	    value: function seek(offset, cancelToken) {
+	    value: function seek(offset) {
 	      var _this4 = this;
 
 	      return new Promise(function (resolve, reject) {
@@ -5936,7 +6186,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          _this4._cache.seekWrite(offset);
 
 	          // Fire off a download if necessary.
-	          _this4._readAhead(cancelToken).then(resolve).catch(reject);
+	          _this4._readAhead().then(resolve).catch(reject);
 	        }
 	      });
 	    }
@@ -5953,11 +6203,11 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  }, {
 	    key: 'read',
-	    value: function read(nbytes, cancelToken) {
+	    value: function read(nbytes) {
 	      var _this5 = this;
 
-	      return this.buffer(nbytes, cancelToken).then(function () {
-	        return _this5.readSync(nbytes);
+	      return this.buffer(nbytes).then(function (available) {
+	        return _this5.readSync(available);
 	      });
 	    }
 
@@ -5974,28 +6224,50 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }, {
 	    key: 'readSync',
 	    value: function readSync(nbytes) {
+	      var available = this.bytesAvailable(nbytes);
+	      var dest = new Uint8Array(available);
+	      var actual = this.readBytes(dest);
+	      if (actual !== available) {
+	        throw new Error('failed to read expected data');
+	      }
+	      return dest.buffer;
+	    }
+
+	    /**
+	     * Read bytes into destination array until out of buffer or space,
+	     * and advance the read head.
+	     *
+	     * Returns immediately.
+	     *
+	     * @param {dest} Uint8Array - destination byte array
+	     * @returns {number} - count of actual bytes read
+	     */
+
+	  }, {
+	    key: 'readBytes',
+	    value: function readBytes(dest) {
 	      if (!this.loaded || this.buffering || this.seeking) {
 	        throw new Error('invalid state');
-	      } else if (nbytes !== (nbytes | 0) || nbytes < 0) {
+	      } else if (!(dest instanceof Uint8Array)) {
 	        throw new Error('invalid input');
 	      }
-	      var buffer = this._cache.read(nbytes);
+	      var nbytes = this._cache.readBytes(dest);
 
 	      // Trigger readahead if necessary.
 	      this._readAhead();
 
-	      return buffer;
+	      return nbytes;
 	    }
 
 	    /**
 	     * Wait until the given number of bytes are available to read, or end of file.
 	     * @param {number} nbytes - max bytes to wait for
-	     * @param {Object?} cancelToken - optional cancellation token
+	     * @returns {Promise} - resolved with available byte count when ready
 	     */
 
 	  }, {
 	    key: 'buffer',
-	    value: function buffer(nbytes, cancelToken) {
+	    value: function buffer(nbytes) {
 	      var _this6 = this;
 
 	      return new Promise(function (resolve, reject) {
@@ -6008,53 +6280,37 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var readable = end - _this6.offset;
 
 	        var canceled = false;
-	        if (cancelToken) {
-	          cancelToken.cancel = function (err) {};
-	        }
 
-	        if (_this6.bytesAvailable(readable) >= readable) {
+	        var available = _this6.bytesAvailable(readable);
+	        if (available >= readable) {
 	          // Requested data is immediately available.
-	          resolve();
+	          resolve(available);
 	        } else {
-	          (function () {
-	            _this6.buffering = true;
+	          _this6.buffering = true;
 
-	            var subCancelToken = {};
-	            if (cancelToken) {
-	              cancelToken.cancel = function (err) {
-	                canceled = true;
-	                subCancelToken.cancel(err);
-
+	          // If we don't already have a backend open, start downloading.
+	          _this6._openBackend().then(function (backend) {
+	            if (backend) {
+	              return backend.bufferToOffset(end).then(function () {
+	                // We might have to roll over to another download,
+	                // so loop back around!
 	                _this6.buffering = false;
-	                reject(err);
-	              };
+	                return _this6.buffer(nbytes);
+	              });
+	            } else {
+	              // No more data to read.
+	              return Promise.resolve(available);
 	            }
-	            // If we don't already have a backend open, start downloading.
-	            _this6._openBackend(subCancelToken).then(function (backend) {
-	              if (backend) {
-	                return backend.bufferToOffset(end, subCancelToken).then(function () {
-	                  // We might have to roll over to another download,
-	                  // so loop back around!
-	                  _this6.buffering = false;
-	                  return _this6.buffer(nbytes, subCancelToken);
-	                });
-	              } else {
-	                // No more data to read.
-	                return Promise.resolve();
-	              }
-	            }).then(function () {
+	          }).then(function (available) {
+	            _this6.buffering = false;
+	            resolve(available);
+	          }).catch(function (err) {
+	            if (err.name !== 'AbortError') {
+	              // was already set synchronously; avoid stomping on old promise
 	              _this6.buffering = false;
-	              if (cancelToken) {
-	                cancelToken.cancel = function (err) {};
-	              }
-	              resolve();
-	            }).catch(function (err) {
-	              if (!canceled) {
-	                _this6.buffering = false;
-	                reject(err);
-	              }
-	            });
-	          })();
+	            }
+	            reject(err);
+	          });
 	        }
 	      });
 	    }
@@ -6074,12 +6330,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    /**
-	     * Abort any currently running downloads.
+	     * Abort any currently running downloads and operations.
 	     */
 
 	  }, {
 	    key: 'abort',
 	    value: function abort() {
+	      // Clear state synchronously, so can immediately launch new i/o...
+	      if (this.loading) {
+	        this.loading = false;
+	      }
+	      if (this.buffering) {
+	        this.buffering = false;
+	      }
+	      if (this.seeking) {
+	        this.seeking = false;
+	      }
+
+	      // Abort any active backend request...
 	      if (this._backend) {
 	        this._backend.abort();
 	        this._backend = null;
@@ -6119,9 +6387,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = StreamFile;
 
 
-/***/ },
-/* 20 */
-/***/ function(module, exports) {
+/***/ }),
+/* 23 */
+/***/ (function(module, exports) {
 
 	"use strict";
 
@@ -6167,18 +6435,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = TinyEvents;
 
 
-/***/ },
-/* 21 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 24 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	module.exports = __webpack_require__(22);
+	module.exports = __webpack_require__(25);
 
 
-/***/ },
-/* 22 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 25 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 
@@ -6186,7 +6454,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-	var CacheItem = __webpack_require__(23);
+	var CacheItem = __webpack_require__(26);
 
 	/**
 	 * Seekable, readable, writable buffer cache to represent a file.
@@ -6321,15 +6589,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	     *
 	     * Returns immediately.
 	     *
-	     * @param {number} nbytes - max number of bytes to read
-	     * @returns {ArrayBuffer} - between 0 and nbytes of data, inclusive
+	     * @param {Uint8Array} dest - destination array to read to
+	     * @returns {number} - count of bytes actually read
 	     */
 
 	  }, {
-	    key: 'read',
-	    value: function read(nbytes) {
+	    key: 'readBytes',
+	    value: function readBytes(dest) {
+	      var nbytes = dest.byteLength;
 	      var len = this.bytesReadable(nbytes);
-	      var dest = new Uint8Array(len);
 	      var start = this.readOffset;
 	      var end = start + len;
 
@@ -6352,7 +6620,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return item.contains(readHead);
 	      });
 
-	      return dest.buffer;
+	      return len;
 	    }
 
 	    /**
@@ -6559,9 +6827,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = CachePool;
 
 
-/***/ },
-/* 23 */
-/***/ function(module, exports) {
+/***/ }),
+/* 26 */
+/***/ (function(module, exports) {
 
 	"use strict";
 
@@ -6707,15 +6975,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = CacheItem;
 
 
-/***/ },
-/* 24 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 27 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var MozChunkedBackend = __webpack_require__(25);
-	var MSStreamBackend = __webpack_require__(28);
-	var BinaryStringBackend = __webpack_require__(29);
+	var MozChunkedBackend = __webpack_require__(28);
+	var MSStreamBackend = __webpack_require__(31);
+	var BinaryStringBackend = __webpack_require__(32);
 
 	function autoselect() {
 	  if (MozChunkedBackend.supported()) {
@@ -6744,9 +7012,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = instantiate;
 
 
-/***/ },
-/* 25 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 28 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 
@@ -6760,7 +7028,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-	var DownloadBackend = __webpack_require__(26);
+	var DownloadBackend = __webpack_require__(29);
 
 	var type = 'moz-chunked-arraybuffer';
 
@@ -6804,9 +7072,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = MozChunkedBackend;
 
 
-/***/ },
-/* 26 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 29 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 
@@ -6820,7 +7088,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-	var Backend = __webpack_require__(27);
+	var Backend = __webpack_require__(30);
 
 	/**
 	 * Backend for progressive downloading.
@@ -6838,7 +7106,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  _createClass(DownloadBackend, [{
 	    key: 'bufferToOffset',
-	    value: function bufferToOffset(end, cancelToken) {
+	    value: function bufferToOffset(end) {
 	      var _this2 = this;
 
 	      return new Promise(function (resolve, reject) {
@@ -6847,13 +7115,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        } else {
 	          (function () {
 	            var oncomplete = null;
-	            if (cancelToken) {
-	              cancelToken.cancel = function (reason) {
-	                _this2.abort();
-	                oncomplete();
-	                reject(reason);
-	              };
-	            }
+	            _this2._onAbort = function (err) {
+	              oncomplete();
+	              reject(err);
+	            };
 
 	            var checkBuffer = function checkBuffer() {
 	              if (_this2.offset >= end && !_this2.eof) {
@@ -6875,6 +7140,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	              _this2.off('buffer', checkBuffer);
 	              _this2.off('done', checkDone);
 	              _this2.off('error', checkError);
+	              _this2._onAbort = null;
 	            };
 
 	            _this2.buffering = true;
@@ -6932,9 +7198,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = DownloadBackend;
 
 
-/***/ },
-/* 27 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 30 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 
@@ -6946,7 +7212,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-	var TinyEvents = __webpack_require__(20);
+	var TinyEvents = __webpack_require__(23);
 
 	/**
 	 * Extract the file's total length from the XHR returned headers.
@@ -7013,7 +7279,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	 */
 	function getXHRHeaders(xhr) {
 	  var headers = {};
-	  var headerLines = xhr.getAllResponseHeaders().split(/\n/);
+	  var headerLines = xhr.getAllResponseHeaders().split(/\r?\n/);
 	  headerLines.forEach(function (line) {
 	    var bits = line.split(/:\s*/, 2);
 	    if (bits.length > 1) {
@@ -7067,11 +7333,15 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  _createClass(Backend, [{
 	    key: 'load',
-	    value: function load(cancelToken) {
+	    value: function load() {
 	      var _this2 = this;
 
 	      return new Promise(function (resolve, reject) {
 	        var oncomplete = null;
+	        _this2._onAbort = function (err) {
+	          oncomplete();
+	          reject(err);
+	        };
 	        var checkOpen = function checkOpen() {
 	          // There doesn't seem to be a good match for readyState 2 on the XHR2 events model.
 	          if (_this2.xhr.readyState == 2) {
@@ -7095,7 +7365,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                _this2.emit('cachever');
 	                _this2.abort();
 	                oncomplete();
-	                _this2.load(cancelToken).then(resolve).catch(reject);
+	                _this2.load().then(resolve).catch(reject);
 	                return;
 	              }
 	              _this2.seekable = true;
@@ -7118,20 +7388,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	          oncomplete();
 	          resolve();
 	        };
-	        if (cancelToken) {
-	          cancelToken.cancel = function (reason) {
-	            _this2.abort();
-	            oncomplete();
-	            reject(reason);
-	          };
-	        }
 	        oncomplete = function oncomplete() {
 	          _this2.xhr.removeEventListener('readystatechange', checkOpen);
 	          _this2.xhr.removeEventListener('error', checkError);
 	          _this2.off('open', checkBackendOpen);
-	          if (cancelToken) {
-	            cancelToken.cancel = function () {};
-	          }
+	          _this2._onAbort = null;
 	        };
 
 	        _this2.initXHR();
@@ -7155,13 +7416,23 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  }, {
 	    key: 'bufferToOffset',
-	    value: function bufferToOffset(end, cancelToken) {
+	    value: function bufferToOffset(end) {
 	      return Promise.reject(new Error('abstract'));
 	    }
 	  }, {
 	    key: 'abort',
 	    value: function abort() {
 	      this.xhr.abort();
+
+	      if (this._onAbort) {
+	        var onAbort = this._onAbort;
+	        this._onAbort = null;
+
+	        var err = new Error('Aborted');
+	        err.name = 'AbortError';
+
+	        onAbort(err);
+	      }
 	    }
 
 	    // ---------------
@@ -7212,9 +7483,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = Backend;
 
 
-/***/ },
-/* 28 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 31 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 
@@ -7228,7 +7499,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-	var Backend = __webpack_require__(27);
+	var Backend = __webpack_require__(30);
 
 	var type = 'ms-stream';
 
@@ -7268,7 +7539,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	  }, {
 	    key: 'waitForStream',
-	    value: function waitForStream(cancelToken) {
+	    value: function waitForStream() {
 	      var _this3 = this;
 
 	      return new Promise(function (resolve, reject) {
@@ -7277,18 +7548,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	        } else {
 	          (function () {
 	            var oncomplete = null;
-	            if (cancelToken) {
-	              cancelToken.cancel = function (err) {
-	                oncomplete();
-	                reject(err);
-	              };
-	            }
+	            _this3._onAbort = function (err) {
+	              oncomplete();
+	              reject(err);
+	            };
 	            var checkStart = function checkStart() {
 	              resolve(_this3.stream);
 	            };
 	            oncomplete = function oncomplete() {
-	              cancelToken.cancel = function () {};
 	              _this3.off('open', checkStart);
+	              _this3._onAbort = null;
 	            };
 	            _this3.on('open', checkStart);
 	          })();
@@ -7303,10 +7572,10 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  }, {
 	    key: 'bufferToOffset',
-	    value: function bufferToOffset(end, cancelToken) {
+	    value: function bufferToOffset(end) {
 	      var _this4 = this;
 
-	      return this.waitForStream(cancelToken).then(function (stream) {
+	      return this.waitForStream().then(function (stream) {
 	        return new Promise(function (resolve, reject) {
 	          if (_this4.streamReader) {
 	            throw new Error('cannot trigger read when reading');
@@ -7335,15 +7604,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	              _this4.emit('error');
 	              reject(new Error('mystery error streaming'));
 	            };
-	            if (cancelToken) {
-	              cancelToken.cancel = function (reason) {
-	                _this4.streamReader.abort();
-	                _this4.streamReader = null;
-	                _this4.stream = null;
-	                _this4.emit('error');
-	                reject(reason);
-	              };
-	            }
+	            _this4._onAbort = function (err) {
+	              _this4.streamReader.abort();
+	              _this4.streamReader = null;
+	              _this4.stream = null;
+	              _this4.emit('error');
+	              reject(err);
+	            };
 	            _this4.streamReader.readAsArrayBuffer(stream, nbytes);
 	          }
 	        });
@@ -7382,9 +7649,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = MSStreamBackend;
 
 
-/***/ },
-/* 29 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 32 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	"use strict";
 
@@ -7398,7 +7665,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-	var DownloadBackend = __webpack_require__(26);
+	var DownloadBackend = __webpack_require__(29);
 
 	var BinaryStringBackend = function (_DownloadBackend) {
 	  _inherits(BinaryStringBackend, _DownloadBackend);
@@ -7449,9 +7716,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = BinaryStringBackend;
 
 
-/***/ },
-/* 30 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 33 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	(function webpackUniversalModuleDefinition(root, factory) {
 		if(true)
@@ -8808,30 +9075,28 @@ return /******/ (function(modules) { // webpackBootstrap
 		  }
 
 		  /**
-		   * Scaling and reordering of output for the Flash fallback.
+		   * Reordering of output for the Flash fallback.
 		   * Input data must be pre-resampled to the correct sample rate.
+		   * Mono input is doubled to stereo; more than 2 channels are dropped.
 		   *
 		   * @param {SampleBuffer} samples - input data as separate channels of 32-bit float
-		   * @returns {Int16Array} - interleaved stereo 16-bit signed integer output
+		   * @returns {Float32Array} - interleaved stereo 32-bit float output
 		   * @access private
 		   *
 		   * @todo handle input with higher channel counts better
-		   * @todo try sending floats to flash without losing precision?
 		   */
 		  FlashBackend.prototype._resampleFlash = function(samples) {
 		    var sampleincr = 1;
 		  	var samplecount = samples[0].length;
-		  	var newSamples = new Int16Array(samplecount * 2);
+		  	var newSamples = new Float32Array(samplecount * 2);
 		  	var chanLeft = samples[0];
 		  	var chanRight = this.channels > 1 ? samples[1] : chanLeft;
-		    var volume = this.muted ? 0 : this.volume;
-		  	var multiplier = volume * 16384; // smaller than 32768 to allow some headroom from those floats
 		  	for(var s = 0; s < samplecount; s++) {
 		  		var idx = (s * sampleincr) | 0;
 		  		var idx_out = s * 2;
-		  		// Use a smaller
-		  		newSamples[idx_out] = chanLeft[idx] * multiplier;
-		  		newSamples[idx_out + 1] = chanRight[idx] * multiplier;
+
+		  		newSamples[idx_out] = chanLeft[idx];
+		  		newSamples[idx_out + 1] = chanRight[idx];
 		  	}
 		  	return newSamples;
 		  };
@@ -8840,8 +9105,8 @@ return /******/ (function(modules) { // webpackBootstrap
 		           '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
 		  var hexBytes = [];
 		  for (var i = 0; i < 256; i++) {
-		    hexBytes[i] = hexDigits[(i & 0x0f)] +
-		            hexDigits[(i & 0xf0) >> 4];
+		    hexBytes[i] = hexDigits[(i & 0xf0) >> 4] +
+		                  hexDigits[(i & 0x0f)];
 		  }
 		  function hexString(buffer) {
 		    var samples = new Uint8Array(buffer);
@@ -8865,7 +9130,7 @@ return /******/ (function(modules) { // webpackBootstrap
 		      flashElement = this._flashaudio.flashElement;
 
 		    if (this._cachedFlashState) {
-		        this._cachedFlashState.samplesQueued += chunk.length / 8;
+		        this._cachedFlashState.samplesQueued += chunk.length / 16;
 		    }
 		    this._flashBuffer = '';
 		    this._flushTimeout = null;
@@ -8922,7 +9187,7 @@ return /******/ (function(modules) { // webpackBootstrap
 		        this._cachedFlashState = state;
 		        this._cachedFlashTime = now;
 		      }
-		      state.samplesQueued += this._flashBuffer.length / 8;
+		      state.samplesQueued += this._flashBuffer.length / 16;
 		      return state;
 		    } else {
 		      //console.log('getPlaybackState USED TOO EARLY');
@@ -9136,22 +9401,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	/* 5 */
 	/***/ function(module, exports, __webpack_require__) {
 
-		module.exports = __webpack_require__.p + "dynamicaudio.swf?version=0f98a83acdc72cf30968c16a018e1cf1";
+		module.exports = __webpack_require__.p + "dynamicaudio.swf?version=ec7d049d2ab54389eec08413c2b2e9c7";
 
 	/***/ }
 	/******/ ])
 	});
 	;
 
-/***/ },
-/* 31 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 34 */
+/***/ (function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "dynamicaudio.swf?version=0f98a83acdc72cf30968c16a018e1cf1";
+	module.exports = __webpack_require__.p + "dynamicaudio.swf?version=ec7d049d2ab54389eec08413c2b2e9c7";
 
-/***/ },
-/* 32 */
-/***/ function(module, exports) {
+/***/ }),
+/* 35 */
+/***/ (function(module, exports) {
 
 	/**
 	 * Give as your 'process' function something that will trigger an async
@@ -9198,9 +9463,37 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = Bisector;
 
 
-/***/ },
-/* 33 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 36 */
+/***/ (function(module, exports) {
+
+	/**
+	 * Constructor for an analogue of the TimeRanges class
+	 * returned by various HTMLMediaElement properties
+	 *
+	 * Pass an array of two-element arrays, each containing a start and end time.
+	 */
+	function OGVTimeRanges(ranges) {
+		Object.defineProperty(this, 'length', {
+			get: function getLength() {
+				return ranges.length;
+			}
+		});
+		this.start = function(i) {
+			return ranges[i][0];
+		};
+		this.end = function(i) {
+			return ranges[i][1];
+		};
+		return this;
+	};
+
+	module.exports = OGVTimeRanges;
+
+
+/***/ }),
+/* 37 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	/**
 	 * Proxy object for web worker interface for codec classes.
@@ -9216,7 +9509,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var OGVWrapperCodec = (function(options) {
 		options = options || {};
 		var self = this,
-			suffix = '?version=' + encodeURIComponent(("1.4.1-20170407171329-c48dd8c2")),
+			suffix = '?version=' + encodeURIComponent(("1.5.7-20180219202209-808c5b29")),
 			base = (typeof options.base === 'string') ? (options.base + '/') : '',
 			type = (typeof options.type === 'string') ? options.type : 'video/ogg',
 			processing = false,
@@ -9357,22 +9650,24 @@ return /******/ (function(modules) { // webpackBootstrap
 		// - public methods
 		self.init = function(callback) {
 			var demuxerClassName;
-			if (options.type === 'video/webm') {
+			if (options.type === 'video/webm' || options.type === 'audio/webm') {
 				demuxerClassName = options.wasm ? 'OGVDemuxerWebMW' : 'OGVDemuxerWebM';
 			} else {
 				demuxerClassName = options.wasm ? 'OGVDemuxerOggW' : 'OGVDemuxerOgg';
 			}
 			processing = true;
 			OGVLoader.loadClass(demuxerClassName, function(demuxerClass) {
-				demuxer = new demuxerClass();
-				demuxer.onseek = function(offset) {
-					if (self.onseek) {
-						self.onseek(offset);
-					}
-				};
-				demuxer.init(function() {
-					processing = false;
-					callback();
+				demuxerClass().then(function(demuxerModule) {
+					demuxer = demuxerModule;
+					demuxer.onseek = function(offset) {
+						if (self.onseek) {
+							self.onseek(offset);
+						}
+					};
+					demuxer.init(function() {
+						processing = false;
+						callback();
+					});
 				});
 			});
 		};
@@ -9409,11 +9704,13 @@ return /******/ (function(modules) { // webpackBootstrap
 					if (demuxer.audioFormat) {
 						audioOptions.audioFormat = demuxer.audioFormat;
 					}
-					audioDecoder = new audioCodecClass(audioOptions);
-					audioDecoder.init(function() {
-						loadedAudioMetadata = audioDecoder.loadedMetadata;
-						processing = false;
-						callback();
+					audioCodecClass(audioOptions).then(function(decoder) {
+						audioDecoder = decoder;
+						audioDecoder.init(function() {
+							loadedAudioMetadata = audioDecoder.loadedMetadata;
+							processing = false;
+							callback();
+						});
 					});
 				}, {
 					worker: options.worker
@@ -9440,11 +9737,13 @@ return /******/ (function(modules) { // webpackBootstrap
 					if (options.memoryLimit) {
 						videoOptions.memoryLimit = options.memoryLimit;
 					}
-					videoDecoder = new videoCodecClass(videoOptions);
-					videoDecoder.init(function() {
-						loadedVideoMetadata = videoDecoder.loadedMetadata;
-						processing = false;
-						callback();
+					videoCodecClass(videoOptions).then(function(decoder) {
+						videoDecoder = decoder;
+						videoDecoder.init(function() {
+							loadedVideoMetadata = videoDecoder.loadedMetadata;
+							processing = false;
+							callback();
+						});
 					});
 				}, {
 					worker: options.worker && !options.threading
@@ -9466,17 +9765,9 @@ return /******/ (function(modules) { // webpackBootstrap
 			processing = true;
 
 			var videoPacketCount = demuxer.videoPackets.length,
-				audioPacketCount = demuxer.audioPackets.length,
-				start = (window.performance ? performance.now() : Date.now());
+				audioPacketCount = demuxer.audioPackets.length;
 			function finish(result) {
 				processing = false;
-				var delta = (window.performance ? performance.now() : Date.now()) - start;
-				if (delta > 8) {
-					console.log('slow demux in ' + delta + ' ms; ' +
-						(demuxer.videoPackets.length - videoPacketCount) + ' +video packets, ' +
-						(demuxer.audioPackets.length - audioPacketCount) + ' +audio packets');
-				}
-				//console.log('demux returned ' + (result ? 'true' : 'false') + '; ' + demuxer.videoPackets.length + '; ' + demuxer.audioPackets.length);
 				callback(result);
 			}
 
@@ -9647,7 +9938,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	module.exports = OGVWrapperCodec;
 
 
-/***/ }
+/***/ })
 /******/ ])
 });
 ;

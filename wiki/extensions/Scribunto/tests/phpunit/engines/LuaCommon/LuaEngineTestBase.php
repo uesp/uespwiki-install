@@ -239,7 +239,12 @@ abstract class Scribunto_LuaEngineTestBase extends MediaWikiLangTestCase {
 		return $this->luaDataProvider;
 	}
 
-	/** @dataProvider provideLuaData */
+	/**
+	 * @dataProvider provideLuaData
+	 * @param string $key
+	 * @param string $testName
+	 * @param mixed $expected
+	 */
 	public function testLua( $key, $testName, $expected ) {
 		$this->luaTestName = static::$moduleName."[$key]: $testName";
 		if ( isset( $this->skipTests[$testName] ) ) {
@@ -261,7 +266,7 @@ abstract class Scribunto_LuaEngineTestBase extends MediaWikiLangTestCase {
 }
 
 // @codingStandardsIgnoreLine Squiz.Classes.ValidClassName.NotCamelCaps
-class Scribunto_LuaEngineTestSkip extends PHPUnit_Framework_TestCase {
+class Scribunto_LuaEngineTestSkip extends PHPUnit\Framework\TestCase {
 	private $className = '';
 	private $message = '';
 

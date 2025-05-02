@@ -21,7 +21,7 @@ class CampaignContent extends JsonContent {
 	/**
 	 * Checks user input JSON to make sure that it produces a valid campaign object
 	 *
-	 * @throws JsonSchemaException: If invalid.
+	 * @throws JsonSchemaException If invalid.
 	 * @return bool True if valid.
 	 */
 	function validate() {
@@ -62,10 +62,15 @@ class CampaignContent extends JsonContent {
 
 	/**
 	 * Override getParserOutput, since we require $title to generate our output
+	 * @param Title $title
+	 * @param int|null $revId
+	 * @param ParserOptions|null $options
+	 * @param bool $generateHtml
+	 * @return ParserOutput
 	 */
 	function getParserOutput( Title $title,
 		$revId = null,
-		ParserOptions $otpions = null, $generateHtml = true
+		ParserOptions $options = null, $generateHtml = true
 	) {
 		$po = new ParserOutput();
 		$campaign = new UploadWizardCampaign( $title, $this->getJsonData() );

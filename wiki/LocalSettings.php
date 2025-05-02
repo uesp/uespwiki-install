@@ -1,6 +1,10 @@
 <?php
 # WARNING: This file is publically viewable on the web. Do not put private data here.
 
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL ^ E_NOTICE);
+
 # Protect against web entry
 if ( !defined( 'MEDIAWIKI' ) ) 
 {
@@ -38,3 +42,5 @@ require './config/Mobile.php';
 # size of data collected.
 # require './config/Profiler.php';
 require './config/Debug.php';
+
+# $wgShowExceptionDetails = true;

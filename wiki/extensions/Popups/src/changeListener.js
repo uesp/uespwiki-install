@@ -28,10 +28,10 @@ export default function registerChangeListener( store, callback ) {
 	// Store#subscribe](http://redux.js.org/docs/api/Store.html#subscribe),
 	// which was written by Dan Abramov.
 
-	var state;
+	let state;
 
-	store.subscribe( function () {
-		var prevState = state;
+	store.subscribe( () => {
+		const prevState = state;
 
 		state = store.getState();
 

@@ -7,6 +7,9 @@
  * @ingroup SpecialPage
  */
 
+use Wikimedia\Rdbms\IResultWrapper;
+use Wikimedia\Rdbms\IDatabase;
+
 /**
  * Lists TimedText pages that don't have a corresponding video.
  *
@@ -23,6 +26,7 @@ class SpecialOrphanedTimedText extends PageQueryPage {
 
 	/**
 	 * This is alphabetical, so sort ascending.
+	 * @return bool
 	 */
 	public function sortDescending() {
 		return false;
@@ -33,6 +37,7 @@ class SpecialOrphanedTimedText extends PageQueryPage {
 	 *
 	 * This query is actually almost cheap given the current
 	 * number of things in TimedText namespace.
+	 * @return bool
 	 */
 	public function isExpensive() {
 		return true;
@@ -41,7 +46,7 @@ class SpecialOrphanedTimedText extends PageQueryPage {
 	/**
 	 * Main execution function
 	 *
-	 * @param $par String subpage
+	 * @param string $par subpage
 	 */
 	public function execute( $par ) {
 		global $wgEnableLocalTimedText;
@@ -56,7 +61,7 @@ class SpecialOrphanedTimedText extends PageQueryPage {
 			$this->getOutput()->addWikiMsg( 'orphanedtimedtext-unsupported' );
 			return;
 		}
-		return parent::execute( $par );
+		parent::execute( $par );
 	}
 
 	/**
@@ -86,7 +91,7 @@ class SpecialOrphanedTimedText extends PageQueryPage {
 	 * @return bool
 	 */
 	private function canExecuteQuery() {
-		$dbr = wfGetDB( DB_SLAVE );
+		$dbr = wfGetDB( DB_REPLICA );
 		return $dbr->getType() === 'mysql';
 	}
 
@@ -165,6 +170,7 @@ class SpecialOrphanedTimedText extends PageQueryPage {
 	 *
 	 * Given a title like "TimedText:Some bit here.webm.en.srt"
 	 * check to see if "File:Some bit here.webm" really exists (locally).
+	 * @param Title $title
 	 * @return bool True if we should cross out the line.
 	 */
 	protected function existenceCheck( Title $title ) {
@@ -205,8 +211,8 @@ class SpecialOrphanedTimedText extends PageQueryPage {
 	/**
 	 * Preprocess result to do existence checks all at once.
 	 *
-	 * @param $db Database
-	 * @param $res ResultWraper
+	 * @param IDatabase $db
+	 * @param IResultWrapper $res
 	 */
 	public function preprocessResults( $db, $res ) {
 		parent::preprocessResults( $db, $res );

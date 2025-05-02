@@ -3,6 +3,7 @@
 namespace CirrusSearch\Search;
 
 use CirrusSearch\Maintenance\MappingConfigBuilder;
+use CirrusSearch\Profile\SearchProfileService;
 use SearchIndexField;
 use CirrusSearch\SearchConfig;
 use SearchEngine;
@@ -25,11 +26,14 @@ class TextIndexField extends CirrusIndexField {
 	 *   COPY_TO_SUGGEST: Copy the contents of this field to the suggest field for "Did you mean".
 	 *   SPEED_UP_HIGHLIGHTING: Store extra data in the field to speed up highlighting.  This is important for long
 	 *     strings or fields with many values.
+	 *   SUPPORT_REGEX: If the wikimedia-extra plugin is available add a trigram
+	 *     index to speed up search.
 	 */
 	const ENABLE_NORMS = 0x1000000;
 	// FIXME: when exactly we want to disable norms for text fields?
 	const COPY_TO_SUGGEST = 0x2000000;
 	const SPEED_UP_HIGHLIGHTING = 0x4000000;
+	const SUPPORT_REGEX = 0x8000000;
 	const STRING_FIELD_MASK = 0xFFFFFF;
 
 	/**
@@ -49,10 +53,22 @@ class TextIndexField extends CirrusIndexField {
 	 */
 	protected $typeName = 'text';
 
+	/**
+	 * Are trigrams useful?
+	 * @var bool
+	 */
+	protected $allowTrigrams = false;
+
 	public function __construct( $name, $type, SearchConfig $config, $extra = [] ) {
 		parent::__construct( $name, $type, $config );
 
 		$this->extra = $extra;
+
+		if ( $config->getElement( 'CirrusSearchWikimediaExtraPlugin', 'regex' ) &&
+			in_array( 'build', $config->getElement( 'CirrusSearchWikimediaExtraPlugin', 'regex' ) )
+		) {
+			$this->allowTrigrams = true;
+		}
 	}
 
 	/**
@@ -130,6 +146,15 @@ class TextIndexField extends CirrusIndexField {
 			];
 		}
 
+		if ( $this->allowTrigrams && $this->checkFlag( self::SUPPORT_REGEX ) ) {
+			$extra[] = [
+				'norms' => false,
+				'type' => 'text',
+				'analyzer' => 'trigram',
+				'index_options' => 'docs',
+			];
+		}
+
 		// multi_field is dead in 1.0 so we do this which actually looks less gnarly.
 		$field += [
 			'analyzer' => 'text',
@@ -171,9 +196,9 @@ class TextIndexField extends CirrusIndexField {
 
 	/**
 	 * Adapt the field options according to the highlighter used
-	 * @var mixed[] &$field the mapping options being built
-	 * @var string[] $subFields list of subfields to configure
-	 * @var bool $rootField configure the root field (defaults to true)
+	 * @param mixed[] &$field the mapping options being built
+	 * @param string[] $subFields list of subfields to configure
+	 * @param bool $rootField configure the root field (defaults to true)
 	 */
 	protected function configureHighlighting( array &$field, array $subFields, $rootField = true ) {
 		if ( $this->mappingFlags & MappingConfigBuilder::OPTIMIZE_FOR_EXPERIMENTAL_HIGHLIGHTER ) {
@@ -216,10 +241,7 @@ class TextIndexField extends CirrusIndexField {
 	 * @return string
 	 */
 	public static function getSimilarity( SearchConfig $config, $field, $analyzer = null ) {
-		$similarity = $config->getElement(
-			'CirrusSearchSimilarityProfiles',
-			$config->get( 'CirrusSearchSimilarityProfile' )
-		);
+		$similarity = $config->getProfileService()->loadProfile( SearchProfileService::SIMILARITY );
 		$fieldSimilarity = null;
 		if ( isset( $similarity['fields'] ) ) {
 			if ( isset( $similarity['fields'][$field] ) ) {

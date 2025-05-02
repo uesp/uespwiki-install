@@ -14,7 +14,7 @@ class SpecialPatroller extends SpecialPage {
 	/**
 	 * Constructor
 	 *
-	 * @return	void
+	 * @return void
 	 */
 	public function __construct() {
 		parent::__construct( 'Patrol', 'patroller' );
@@ -27,9 +27,8 @@ class SpecialPatroller extends SpecialPage {
 	/**
 	 * Execution
 	 *
-	 * @access	public
-	 * @param	array	Parameters passed to the page
-	 * @return	void
+	 * @param array $par Parameters passed to the page
+	 * @return void
 	 */
 	public function execute( $par ) {
 		global $wgUser, $wgRequest, $wgOut;
@@ -116,9 +115,7 @@ class SpecialPatroller extends SpecialPage {
 	/**
 	 * Produce a stub recent changes listing for a single diff.
 	 *
-	 * @access	private
-	 * @param	class	Diff. to show the listing for
-	 * @return	void
+	 * @param RecentChange &$edit Diff. to show the listing for
 	 */
 	private function showDiffDetails( &$edit ) {
 		global $wgOut;
@@ -135,9 +132,7 @@ class SpecialPatroller extends SpecialPage {
 	/**
 	 * Output a trimmed down diff view corresponding to a particular change
 	 *
-	 * @access	private
-	 * @param	class	Recent change to produce a diff for
-	 * @return	void
+	 * @param RecentChange &$edit Recent change to produce a diff for
 	 */
 	private function showDiff( &$edit ) {
 		$diff = new DifferenceEngine(
@@ -151,9 +146,7 @@ class SpecialPatroller extends SpecialPage {
 	/**
 	 * Output a bunch of controls to let the user endorse, revert and skip changes
 	 *
-	 * @access	private
-	 * @param	class	RecentChange being dealt with
-	 * @return	void
+	 * @param RecentChange &$edit RecentChange being dealt with
 	 */
 	private function showControls( &$edit ) {
 		global $wgUser, $wgOut;
@@ -217,16 +210,15 @@ class SpecialPatroller extends SpecialPage {
 	 *   - hasn't been patrolled
 	 *   - isn't assigned to a user
 	 *
-	 * @access	private
-	 * @param	class	User to suppress edits for
-	 * @return	boolean	RecentChange
+	 * @param User &$user User to suppress edits for
+	 * @return false|RecentChange
 	 */
 	private function fetchChange( &$user ) {
-		$dbr = wfGetDB( DB_SLAVE );
+		$dbr = wfGetDB( DB_REPLICA );
 		$uid = $user->getId();
 		extract( $dbr->tableNames( 'recentchanges', 'patrollers', 'page' ) );
 		$res = $dbr->select(
-			[ $page, $recentchanges, $patrollers ],
+			[ $page, $recentchanges ],
 			'*',
 			[
 				'ptr_timestamp IS NULL',
@@ -240,7 +232,7 @@ class SpecialPatroller extends SpecialPage {
 			],
 			__METHOD__,
 			[
-				'LIMIT'	=> '1'
+				'LIMIT'	=> '0,1'
 			],
 			[
 				$patrollers => [
@@ -261,12 +253,11 @@ class SpecialPatroller extends SpecialPage {
 	/**
 	 * Fetch a particular recent change given the rc_id value
 	 *
-	 * @access	private
-	 * @param	integer	rc_id value of the row to fetch
-	 * @return	boolean	RecentChange
+	 * @param int $rcid rc_id value of the row to fetch
+	 * @return bool|RecentChange
 	 */
 	private function loadChange( $rcid ) {
-		$dbr = wfGetDB( DB_SLAVE );
+		$dbr = wfGetDB( DB_REPLICA );
 		$res = $dbr->select(
 			'recentchanges',
 			'*',
@@ -286,9 +277,8 @@ class SpecialPatroller extends SpecialPage {
 	 * Assign the patrolling of a particular change, so other users don't pull
 	 * it up, duplicating effort
 	 *
-	 * @access	private
-	 * @param	string	RecentChange item to assign
-	 * @return	boolean	If rows were changed
+	 * @param RecentChange &$edit RecentChange item to assign
+	 * @return bool If rows were changed
 	 */
 	private function assignChange( &$edit ) {
 		$dbw = wfGetDB( DB_MASTER );
@@ -307,9 +297,7 @@ class SpecialPatroller extends SpecialPage {
 	/**
 	 * Remove the assignment for a particular change, to let another user handle it
 	 *
-	 * @access	private
-	 * @param	integer	rc_id value
-	 * @return	void
+	 * @param int $rcid rc_id value
 	 *
 	 * @todo Use it or lose it
 	 */
@@ -328,9 +316,6 @@ class SpecialPatroller extends SpecialPage {
 	 * Prune old assignments from the table so edits aren't
 	 * hidden forever because a user wandered off, and to
 	 * keep the table size down as regards old assignments
-	 *
-	 * @access	private
-	 * @return	void
 	 */
 	private function pruneAssignments() {
 		$dbw = wfGetDB( DB_MASTER );
@@ -346,10 +331,9 @@ class SpecialPatroller extends SpecialPage {
 	/**
 	 * Revert a change, setting the page back to the "old" version
 	 *
-	 * @access	private
-	 * @param	class	RecentChange to revert
-	 * @param	string	Comment to use when reverting
-	 * @return	boolean	Change was reverted
+	 * @param RecentChange &$edit RecentChange to revert
+	 * @param string $comment Comment to use when reverting
+	 * @return bool Change was reverted
 	 */
 	private function revert( &$edit, $comment = '' ) {
 		global $wgUser;
@@ -391,8 +375,7 @@ class SpecialPatroller extends SpecialPage {
 	 * Make a nice little drop-down box containing all the pre-defined revert
 	 * reasons for simplified selection
 	 *
-	 * @access	private
-	 * @return	string	Reasons
+	 * @return string Reasons
 	 */
 	private function revertReasonsDropdown() {
 		$msg = wfMessage( 'patrol-reasons' )->inContentLanguage()->text();
@@ -425,9 +408,8 @@ class SpecialPatroller extends SpecialPage {
 	 * Determine which of the two "revert reason" form fields to use;
 	 * the pre-defined reasons, or the nice custom text box
 	 *
-	 * @access	private
-	 * @param	class	WebRequest object to test
-	 * @return	string	Revert reason
+	 * @param WebRequest &$request WebRequest object to test
+	 * @return string Revert reason
 	 */
 	private function revertReason( &$request ) {
 		$custom = $request->getText( 'wpPatrolRevertReason' );

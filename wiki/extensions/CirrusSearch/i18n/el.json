@@ -2,7 +2,9 @@
 	"@metadata": {
 		"authors": [
 			"Protnet",
-			"Twopix"
+			"Twopix",
+			"KATRINE1992",
+			"Nikosgranturismogt"
 		]
 	},
 	"cirrussearch-desc": "Elasticsearch- αναζήτηση για το MediaWiki",
@@ -18,15 +20,20 @@
 	"cirrussearch-pref-label": "Νέα αναζήτηση",
 	"cirrussearch-pref-desc": "Δοκιμάστε νέα μας αναζήτηση, η οποία υποστηρίζει μεγαλύτερο αριθμό γλωσσών, παρέχει πιο ενημερωμένα αποτελέσματα, και μπορεί ακόμη και να βρει κείμενο μέσα στα πρότυπα.",
 	"apihelp-cirrus-config-dump-description": "Εξαγωγή αρχείου ρυθμίσεων του CirrusSearch.",
+	"apihelp-cirrus-config-dump-summary": "Εξαγωγή αρχείου ρυθμίσεων του CirrusSearch.",
 	"apihelp-cirrus-config-dump-example": "Λάβετε ένα αρχείο ρυθμίσεων του CirrusSearch",
 	"apihelp-cirrus-mapping-dump-description": "Αρχέιο του CirrusSearch που αντιστοιχεί σ'αυτό το wiki",
+	"apihelp-cirrus-mapping-dump-summary": "Αρχείο του CirrusSearch που αντιστοιχεί σ'αυτό το βίκι.",
 	"apihelp-cirrus-mapping-dump-example": "Λάβετε αρχείο αντιστοίχισης του CirrusSearch για αυτό το wiki.",
 	"apihelp-cirrus-settings-dump-description": "Αρχείο ρυθμίσεων του CirrusSearch για αυτό το wiki.",
+	"apihelp-cirrus-settings-dump-summary": "Αρχείο ρυθμίσεων του CirrusSearch για αυτό το wiki.",
 	"apihelp-cirrus-settings-dump-example": "Λάβετε αρχέιο ρυθμήσεων του CirrusSearch για αυτό το wiki",
+	"apihelp-query+cirrusdoc-description": "Έγγραφο άρθρου Dump ενός CirrusSearch",
+	"apihelp-query+cirrusdoc-summary": "Έγγραφο άρθρου Dump ενός CirrusSearch",
+	"apihelp-query+cirrusdoc-example": "Συλλέξετε ένα άρθρο κενό ενός απλού CirrusSearch.",
 	"apierror-cirrus-requesttoolong": "Αναζήτηση με πρόθεμα ήταν μεγαλύτερο από το μέγιστο επιτρεπόμενο μήκος. ($1 > $2)",
 	"cirrussearch-give-feedback": "Πείτε μας τη γνώμη σας",
 	"cirrussearch-query-too-long": "Αναζήτηση με πρόθεμα ήταν μεγαλύτερο από το μέγιστο επιτρεπόμενο μήκος. ($1 > $2)",
-	"cirrussearch-completionsuggester-desc": "Νέος αλγόριθμος αναζήτησης καθώς πληκτρολογείτε. Μόλις ενεργοποιηθεί το πλαίσιο αναζήτησης στην επάνω δεξιά γωνία θα χρησιμοποιήσει την λειτουργία του Completion Suggester.",
 	"cirrussearch-completion-profile-classic": "Τυπικό πρόθεμα, μερικά σημεία στίξης και κάποια διακριτικά αφαιρέθηκαν.",
 	"cirrussearch-completion-profile-normal": "Μερικά σημεία στίξης, κάποια διακριτικά και stopwords αφαιρέθηκαν.",
 	"cirrussearch-completion-profile-normal-subphrases": "Μερικά σημεία στίξης, κάποια διακριτικά και stopwords αφαιρέθηκαν.Θα ταιριάζουν επίσης υποφράσεις (μπορεί να είναι υποφράσεις ή υποσελίδες ανάλογα με εσωτερική wiki διαμόρφωση).",
@@ -40,5 +47,12 @@
 	"cirrussearch-completion-profile-normal-subphrases-pref-desc": "Μη διόρθωση τυπογραφικού λάθος. Επιλύει κλείσιμο ανακατευθυνσεών. Τέριασμα υποφράσεις σε τίτλους.",
 	"cirrussearch-pref-completion-legacy-section-desc": "Αναζήτηση πρόθεματος",
 	"cirrussearch-completion-profile-classic-pref-name": "Κλασικό πρόθεμα αναζήτησης",
-	"cirrussearch-completion-profile-classic-pref-desc": "Μη διόρθωση τυπογραφικού λάθους. Ταιριάζει με την αρχή των τίτλων."
+	"cirrussearch-completion-profile-classic-pref-desc": "Μη διόρθωση τυπογραφικού λάθους. Ταιριάζει με την αρχή των τίτλων.",
+	"cirrussearch-explore-similar-related": "Σχετικά",
+	"cirrussearch-explore-similar-categories": "Κατηγορίες",
+	"cirrussearch-explore-similar-languages": "Γλώσσες",
+	"cirrussearch-explore-similar-related-none": "Δεν υπάρχουν διαθέσιμες σχετικές σελίδες",
+	"cirrussearch-explore-similar-categories-none": "Δεν υπάρχουν διαθέσιμες κατηγορίες",
+	"cirrussearch-explore-similar-languages-none": "Δεν είναι διαθέσιμο σε άλλες γλώσσες",
+	"cirrussearch-article-words": "Λέξεις σε όλες τις σελίδες περιεχομένου"
 }

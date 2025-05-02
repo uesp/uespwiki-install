@@ -3,15 +3,14 @@ import footerLink from '../../../src/changeListeners/footerLink';
 // Since footerLink manipulates the DOM, this test is, by necessity, an
 // integration test.
 QUnit.module( 'ext.popups/changeListeners/footerLink @integration', {
-	beforeEach: function () {
-		var boundActions = {};
+	beforeEach() {
+		const boundActions = {};
 
 		// Stub internal usage of mw.message
-		mediaWiki.message = function ( str ) {
-			return {
-				text: function () { return str; }
-			};
-		};
+		mediaWiki.message = ( str ) =>
+			( {
+				text() { return str; }
+			} );
 
 		boundActions.showSettings = this.showSettingsSpy = this.sandbox.spy();
 
@@ -37,19 +36,17 @@ QUnit.module( 'ext.popups/changeListeners/footerLink @integration', {
 			return this.$footer.find( 'li' );
 		};
 	},
-	afterEach: function () {
+	afterEach() {
 		this.$footer.remove();
 	}
 } );
 
 QUnit.test( 'it should append the link to the footer menu', function ( assert ) {
-	var $link;
-
 	assert.expect( 2 );
 
 	this.whenLinkPreviewsBoots();
 
-	$link = this.getLink();
+	const $link = this.getLink();
 
 	assert.strictEqual( $link.length, 1 );
 	assert.equal(
@@ -60,14 +57,11 @@ QUnit.test( 'it should append the link to the footer menu', function ( assert ) 
 } );
 
 QUnit.test( 'it should show and hide the link', function ( assert ) {
-	var $link,
-		prevState;
-
 	assert.expect( 2 );
 
 	this.whenLinkPreviewsBoots();
 
-	$link = this.getLink();
+	const $link = this.getLink();
 
 	assert.equal(
 		$link.css( 'display' ),
@@ -77,7 +71,7 @@ QUnit.test( 'it should show and hide the link', function ( assert ) {
 
 	// ---
 
-	prevState = $.extend( true, {}, this.state );
+	const prevState = $.extend( true, {}, this.state );
 	this.state.settings.shouldShowFooterLink = false;
 
 	this.footerLinkChangeListener( prevState, this.state );
@@ -90,13 +84,11 @@ QUnit.test( 'it should show and hide the link', function ( assert ) {
 } );
 
 QUnit.test( 'it should call the showSettings bound action creator', function ( assert ) {
-	var $link;
-
 	assert.expect( 1 );
 
 	this.whenLinkPreviewsBoots();
 
-	$link = this.getLink();
+	const $link = this.getLink();
 	$link.click();
 
 	assert.ok( this.showSettingsSpy.called );

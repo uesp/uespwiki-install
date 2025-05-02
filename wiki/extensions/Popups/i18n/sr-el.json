@@ -9,7 +9,6 @@
 	"popups-message": "Info kartice",
 	"popups-desc": "Prikazuje info kartice s kratkim sadržajem prelaskom miša preko veze prema stranici",
 	"popups-settings-title": "Pregled stranice",
-	"popups-settings-description": "Ovaj alat omogućava pregled viki veza i referenci.",
 	"popups-settings-option-simple": "Omogući",
 	"popups-settings-option-simple-description": "Brz pretpregled teme prilikom čitanja stranice.",
 	"popups-settings-option-off": "Onemogući",
@@ -18,6 +17,8 @@
 	"popups-settings-cancel": "Otkaži",
 	"popups-settings-help": "Info kartice možete ponovo uključiti koristeći vezu na dnu stranice.",
 	"popups-settings-enable": "Uključi info kartice",
+	"popups-preview-no-preview": "Izgleda da nema pretpregleda za ovu stranicu",
+	"popups-preview-footer-read": "Čitaj",
 	"prefs-reading": "Čitanje",
 	"popups-prefs-optin-title": "Pretpregledi stranica\n\n<em>Brz pretpregled teme prilikom čitanja stranice</em>",
 	"popups-prefs-conflicting-gadgets-info": "Određene spravice i druga prilagođavanja mogu da utiču na rad ove opcije. Ako naiđete na probleme, proverite svoje spravice i korisničke skripte."

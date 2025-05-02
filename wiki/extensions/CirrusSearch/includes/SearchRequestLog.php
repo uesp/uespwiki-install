@@ -50,7 +50,7 @@ class SearchRequestLog extends BaseRequestLog {
 		$this->lastResponse = $client->getLastResponse();
 	}
 
-	/*
+	/**
 	 * @param string[] $extra
 	 */
 	public function setCachedResult( array $extra ) {
@@ -172,6 +172,11 @@ class SearchRequestLog extends BaseRequestLog {
 		}
 		if ( isset( $responseData['suggest']['suggest'][0]['options'][0]['text'] ) ) {
 			$vars['suggestion'] = $responseData['suggest']['suggest'][0]['options'][0]['text'];
+		}
+
+		// in case of failures from Elastica
+		if ( isset( $responseData['message'] ) ) {
+			$vars['message'] = $responseData['message'];
 		}
 
 		return $vars;

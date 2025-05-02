@@ -7,10 +7,10 @@
 	],
 	"url": "https://www.mediawiki.org/wiki/Extension:Elastica",
 	"descriptionmsg": "elastica-desc",
-	"license-name": "GPL-2.0+",
+	"license-name": "GPL-2.0-or-later",
 	"type": "other",
 	"requires": {
-		"MediaWiki": ">= 1.27"
+		"MediaWiki": ">= 1.31"
 	},
 	"MessagesDirs": {
 		"Elastica": [
@@ -18,10 +18,12 @@
 		]
 	},
 	"AutoloadClasses": {
-		"ElasticaConnection": "ElasticaConnection.php",
-		"ElasticaHttpTransportCloser": "ElasticaConnection.php",
-		"MWElasticUtils": "ElasticaConnection.php"
+		"ElasticaHooks": "includes/ElasticaHooks.php",
+		"ElasticaConnection": "includes/ElasticaConnection.php",
+		"ElasticaHttpTransportCloser": "includes/ElasticaHttpTransportCloser.php",
+		"MWElasticUtils": "includes/MWElasticUtils.php"
 	},
+	"callback": "ElasticaHooks::checkInstalledCurl",
 	"load_composer_autoloader": true,
 	"manifest_version": 1
 }

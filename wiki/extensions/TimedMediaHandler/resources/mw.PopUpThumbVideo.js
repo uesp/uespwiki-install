@@ -7,7 +7,7 @@
 			var link, title,
 				parent = $( this ).parent();
 			if ( parent.attr( 'videopayload' ) ) {
-				$( this ).click( function ( /* event*/ ) {
+				$( this ).on( 'click', function ( /* event*/ ) {
 					var thisref = this;
 
 					mw.loader.using( 'mw.MwEmbedSupport', function () {
@@ -27,7 +27,7 @@
 								$( this ).find( 'video, audio' ).embedPlayer();
 							}
 						} )
-						.css( 'overflow', 'hidden' );
+							.css( 'overflow', 'hidden' );
 					} );
 					// don't follow file link
 					return false;

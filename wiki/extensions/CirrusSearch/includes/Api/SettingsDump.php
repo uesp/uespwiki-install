@@ -22,7 +22,9 @@ use CirrusSearch\SearchConfig;
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  */
-class SettingsDump extends ApiBase {
+class SettingsDump extends \ApiBase {
+	use ApiTrait;
+
 	public function execute() {
 		$conn = $this->getCirrusConnection();
 		$indexPrefix = $this->getSearchConfig()->get( SearchConfig::INDEX_BASE_NAME );
@@ -48,6 +50,7 @@ class SettingsDump extends ApiBase {
 
 	/**
 	 * @see ApiBase::getExamplesMessages
+	 * @return array
 	 */
 	protected function getExamplesMessages() {
 		return [

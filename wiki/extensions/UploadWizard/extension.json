@@ -16,10 +16,10 @@
 	],
 	"url": "https://www.mediawiki.org/wiki/Extension:UploadWizard",
 	"descriptionmsg": "uploadwizard-desc",
-	"license-name": "GPL-2.0+",
+	"license-name": "GPL-2.0-or-later",
 	"type": "other",
 	"requires": {
-		"MediaWiki": ">= 1.26.0"
+		"MediaWiki": ">= 1.27.0"
 	},
 	"DefaultUserOptions": {
 		"upwiz_deflicense": "default",
@@ -39,10 +39,14 @@
 			"upwizcampaigns": false
 		},
 		"sysop": {
-			"upwizcampaigns": true
+			"upwizcampaigns": true,
+			"mass-upload": true
 		},
 		"upwizcampeditors": {
 			"upwizcampaigns": true
+		},
+		"Image-reviewer": {
+			"mass-upload": true
 		}
 	},
 	"AddGroups": {
@@ -56,7 +60,8 @@
 		]
 	},
 	"AvailableRights": [
-		"upwizcampaigns"
+		"upwizcampaigns",
+		"mass-upload"
 	],
 	"ContentHandlers": {
 		"Campaign": "CampaignContentHandler"
@@ -93,7 +98,7 @@
 		"SpecialCampaigns": "includes/specials/SpecialCampaigns.php",
 		"ApiQueryAllCampaigns": "includes/ApiQueryAllCampaigns.php",
 		"ApiFlickrBlacklist": "includes/ApiFlickrBlacklist.php",
-		"UploadWizardSimpleForm": "includes/specials/SpecialUploadWizard.php"
+		"UploadWizardSimpleForm": "includes/specials/UploadWizardSimpleForm.php"
 	},
 	"ResourceModules": {
 		"ext.uploadWizard.formDataTransport": {
@@ -150,7 +155,6 @@
 		},
 		"ext.uploadWizard.uploadCampaign.list": {
 			"styles": "resources/ext.uploadWizard.uploadCampaign.list.css",
-			"position": "top",
 			"targets": [ "desktop", "mobile" ],
 			"group": "ext.uploadWizard"
 		},
@@ -205,6 +209,10 @@
 				"uw.controller.Thanks",
 				"uw.controller.Tutorial",
 				"uw.controller.Upload",
+				"uw.deed.OwnWork",
+				"uw.deed.ThirdParty",
+				"uw.deed.Custom",
+				"uw.deed.External",
 				"uw.units",
 				"oojs",
 				"oojs-ui",
@@ -227,8 +235,10 @@
 				"resources/details/uw.DateDetailsWidget.js",
 				"resources/details/uw.CategoriesDetailsWidget.js",
 				"resources/details/uw.DeedChooserDetailsWidget.js",
-				"resources/details/uw.DescriptionDetailsWidget.js",
-				"resources/details/uw.DescriptionsDetailsWidget.js",
+				"resources/details/uw.LanguageDropdownWidget.js",
+				"resources/details/uw.UlsWidget.js",
+				"resources/details/uw.SingleLanguageInputWidget.js",
+				"resources/details/uw.MultipleLanguageInputWidget.js",
 				"resources/details/uw.LocationDetailsWidget.js",
 				"resources/details/uw.OtherDetailsWidget.js",
 				"resources/details/uw.CampaignDetailsWidget.js",
@@ -240,9 +250,6 @@
 				"resources/mw.QuickTitleChecker.js",
 				"resources/mw.FlickrChecker.js",
 				"resources/mw.GroupProgressBar.js",
-				"resources/mw.UploadWizardDeed.js",
-				"resources/mw.UploadWizardDeedOwnWork.js",
-				"resources/mw.UploadWizardDeedThirdParty.js",
 				"resources/mw.UploadWizardDeedChooser.js",
 				"resources/mw.UploadWizardLicenseInput.js",
 				"resources/mw.UploadWizard.js",
@@ -254,8 +261,8 @@
 				"resources/uploadWizard.css",
 				"resources/uw.FieldLayout.less",
 				"resources/details/uw.DateDetailsWidget.less",
-				"resources/details/uw.DescriptionDetailsWidget.less",
-				"resources/details/uw.DescriptionsDetailsWidget.less",
+				"resources/details/uw.SingleLanguageInputWidget.less",
+				"resources/details/uw.MultipleLanguageInputWidget.less",
 				"resources/details/uw.LocationDetailsWidget.less"
 			],
 			"messages": [
@@ -298,10 +305,12 @@
 				"mwe-upwiz-stashed-upload",
 				"mwe-upwiz-getting-metadata",
 				"mwe-upwiz-submitting-details",
+				"mwe-upwiz-submitting-captions",
 				"mwe-upwiz-published",
 				"mwe-upwiz-failed",
 				"mwe-upwiz-remove",
 				"mwe-upwiz-remove-upload",
+				"mwe-upwiz-remove-caption",
 				"mwe-upwiz-remove-description",
 				"mwe-upwiz-deleted-duplicate-unknown-filename",
 				"mwe-upwiz-upload",
@@ -314,55 +323,15 @@
 				"mwe-upwiz-finished",
 				"mwe-upwiz-deeds-macro-prompt",
 				"mwe-upwiz-source-ownwork",
-				"mwe-upwiz-source-ownwork-assert-any-license",
-				"mwe-upwiz-source-ownwork-assert",
-				"mwe-upwiz-source-ownwork-assert-custom",
-				"mwe-upwiz-source-ownwork-assert-note",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-4.0",
-				"mwe-upwiz-source-ownwork-cc-by-sa-4.0-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-at",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-at-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-de",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-de-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-ee",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-ee-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-es",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-es-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-hr",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-hr-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-lu",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-lu-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-nl",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-nl-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-no",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-no-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-pl",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-pl-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-ro",
-				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-ro-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-4.0",
-				"mwe-upwiz-source-ownwork-cc-by-4.0-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-by-3.0",
-				"mwe-upwiz-source-ownwork-cc-by-3.0-explain",
-				"mwe-upwiz-source-ownwork-assert-cc-zero",
-				"mwe-upwiz-source-ownwork-cc-zero-explain",
-				"mwe-upwiz-source-ownwork-assert-generic",
-				"mwe-upwiz-source-ownwork-generic-explain",
 				"disclaimerpage",
 				"mwe-upwiz-source-permission",
 				"mwe-upwiz-source-thirdparty",
-				"mwe-upwiz-source-thirdparty-intro",
-				"mwe-upwiz-source-thirdparty-custom-multiple-intro",
-				"mwe-upwiz-source-thirdparty-cases",
-				"mwe-upwiz-source-thirdparty-accept",
 				"mwe-upwiz-source-custom",
 				"mwe-upwiz-more-options",
+				"mwe-upwiz-caption",
+				"mwe-upwiz-caption-add",
 				"mwe-upwiz-desc",
-				"mwe-upwiz-desc-placeholder",
-				"mwe-upwiz-desc-add-n",
-				"mwe-upwiz-desc-add-0",
+				"mwe-upwiz-desc-add",
 				"mwe-upwiz-title",
 				"mwe-upwiz-date-created",
 				"mwe-upwiz-select-date",
@@ -375,10 +344,8 @@
 				"mwe-upwiz-copyright-info",
 				"mwe-upwiz-objref-pick-image",
 				"mwe-upwiz-objref-notice-existing-image",
-				"mwe-upwiz-author",
 				"mwe-upwiz-autoconverted",
 				"mwe-upwiz-other",
-				"mwe-upwiz-source",
 				"mwe-upwiz-upload-error-bad-filename-extension",
 				"mwe-upwiz-upload-error-bad-filename-no-extension",
 				"mwe-upwiz-upload-error-duplicate-filename-error",
@@ -400,10 +367,8 @@
 				"mwe-upwiz-previous",
 				"mwe-upwiz-home",
 				"mwe-upwiz-upload-another",
-				"mwe-upwiz-tooltip-author",
-				"mwe-upwiz-tooltip-source",
-				"mwe-upwiz-tooltip-sign",
 				"mwe-upwiz-tooltip-title",
+				"mwe-upwiz-tooltip-caption",
 				"mwe-upwiz-tooltip-description",
 				"mwe-upwiz-tooltip-date",
 				"mwe-upwiz-tooltip-categories",
@@ -413,20 +378,16 @@
 				"mwe-upwiz-file-need-file",
 				"mwe-upwiz-deeds-need-deed",
 				"mwe-upwiz-deeds-need-license",
-				"mwe-upwiz-license-show-all",
-				"mwe-upwiz-license-show-recommended",
-				"mwe-upwiz-error-signature-blank",
 				"mwe-upwiz-error-latitude",
 				"mwe-upwiz-error-longitude",
 				"mwe-upwiz-error-altitude",
 				"mwe-upwiz-error-heading",
-				"mwe-upwiz-error-signature-too-long",
-				"mwe-upwiz-error-signature-too-short",
 				"mwe-upwiz-error-blank",
 				"mwe-upwiz-error-date-license-mismatch",
 				"mwe-upwiz-error-date-license-unlikely",
 				"mwe-upwiz-error-too-long",
 				"mwe-upwiz-error-too-short",
+				"mwe-upwiz-error-bad-captions",
 				"mwe-upwiz-error-bad-descriptions",
 				"mwe-upwiz-error-title-blacklisted",
 				"mwe-upwiz-error-title-senselessimagename",
@@ -439,6 +400,9 @@
 				"mwe-upwiz-error-license-wikitext-too-short",
 				"mwe-upwiz-error-license-wikitext-too-long",
 				"mwe-upwiz-error-license-wikitext-missing-template",
+				"mwe-upwiz-error-pageprops-missing-page",
+				"mwe-upwiz-error-pageprops-missing-prop",
+				"mwe-upwiz-error-submit-captions",
 				"mwe-upwiz-warning-categories-missing",
 				"mwe-upwiz-warning-postdate",
 				"mwe-upwiz-details-error-count",
@@ -468,7 +432,7 @@
 				"mwe-upwiz-license-pd-old-100",
 				"mwe-upwiz-license-pd-old-70-1923",
 				"mwe-upwiz-license-pd-old",
-				"mwe-upwiz-license-pd-art",
+				"mwe-upwiz-license-pd-art-70",
 				"mwe-upwiz-license-pd-us",
 				"mwe-upwiz-license-pd-usgov",
 				"mwe-upwiz-license-pd-usgov-nasa",
@@ -593,6 +557,7 @@
 				"mwe-upwiz-copied-metadata",
 				"mwe-upwiz-undid-metadata",
 				"mwe-upwiz-copy-title",
+				"mwe-upwiz-copy-caption",
 				"mwe-upwiz-copy-description",
 				"mwe-upwiz-copy-date",
 				"mwe-upwiz-copy-categories",
@@ -722,7 +687,9 @@
 			],
 			"messages": [
 				"mwe-upwiz-file-some-failed",
-				"mwe-upwiz-file-all-failed"
+				"mwe-upwiz-file-all-failed",
+				"mwe-upwiz-patent-weapon-policy",
+				"mwe-upwiz-patent-weapon-policy-link"
 			],
 			"targets": [ "desktop", "mobile" ],
 			"group": "ext.uploadWizard"
@@ -787,6 +754,169 @@
 				"mwe-upwiz-file-all-ok",
 				"mwe-upwiz-file-some-failed",
 				"mwe-upwiz-file-all-failed"
+			],
+			"targets": [ "desktop", "mobile" ],
+			"group": "ext.uploadWizard"
+		},
+		"uw.deed.base": {
+			"scripts": [
+				"resources/deed/uw.deed.base.js"
+			],
+			"dependencies": [
+				"uw.base"
+			],
+			"targets": [ "desktop", "mobile" ],
+			"group": "ext.uploadWizard"
+		},
+		"uw.deed.Abstract": {
+			"scripts": [
+				"resources/deed/uw.deed.Abstract.js"
+			],
+			"dependencies": [
+				"uw.deed.base"
+			],
+			"messages": [
+				"mwe-upwiz-patent-dialog-title-filename"
+			],
+			"targets": [ "desktop", "mobile" ],
+			"group": "ext.uploadWizard"
+		},
+		"uw.deed.OwnWork": {
+			"scripts": [
+				"resources/deed/uw.deed.OwnWork.js"
+			],
+			"dependencies": [
+				"oojs",
+				"uw.deed.Abstract",
+				"uw.deed.dialog.PatentDialog"
+			],
+			"messages": [
+				"mwe-upwiz-tooltip-sign",
+				"mwe-upwiz-source-ownwork-assert-any-license",
+				"mwe-upwiz-source-ownwork-assert",
+				"mwe-upwiz-source-ownwork-assert-custom",
+				"mwe-upwiz-source-ownwork-assert-note",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-4.0",
+				"mwe-upwiz-source-ownwork-cc-by-sa-4.0-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-at",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-at-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-de",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-de-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-ee",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-ee-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-es",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-es-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-hr",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-hr-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-lu",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-lu-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-nl",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-nl-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-no",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-no-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-pl",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-pl-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-sa-3.0-ro",
+				"mwe-upwiz-source-ownwork-cc-by-sa-3.0-ro-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-4.0",
+				"mwe-upwiz-source-ownwork-cc-by-4.0-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-by-3.0",
+				"mwe-upwiz-source-ownwork-cc-by-3.0-explain",
+				"mwe-upwiz-source-ownwork-assert-cc-zero",
+				"mwe-upwiz-source-ownwork-cc-zero-explain",
+				"mwe-upwiz-source-ownwork-assert-generic",
+				"mwe-upwiz-source-ownwork-generic-explain",
+				"mwe-upwiz-patent",
+				"mwe-upwiz-error-patent-disagree",
+				"mwe-upwiz-error-signature-blank",
+				"mwe-upwiz-error-signature-too-long",
+				"mwe-upwiz-error-signature-too-short",
+				"mwe-upwiz-license-show-all",
+				"mwe-upwiz-license-show-recommended"
+			],
+			"targets": [ "desktop", "mobile" ],
+			"group": "ext.uploadWizard"
+		},
+		"uw.deed.ThirdParty": {
+			"scripts": [
+				"resources/deed/uw.deed.ThirdParty.js"
+			],
+			"dependencies": [
+				"oojs",
+				"uw.deed.Abstract"
+			],
+			"messages": [
+				"mwe-upwiz-error-blank",
+				"mwe-upwiz-error-too-short",
+				"mwe-upwiz-error-too-long",
+				"mwe-upwiz-source",
+				"mwe-upwiz-author",
+				"mwe-upwiz-tooltip-author",
+				"mwe-upwiz-tooltip-source",
+				"mwe-upwiz-source-thirdparty-cases",
+				"mwe-upwiz-source-thirdparty-custom-multiple-intro",
+				"mwe-upwiz-source-thirdparty-intro",
+				"mwe-upwiz-source-thirdparty-accept"
+			],
+			"targets": [ "desktop", "mobile" ],
+			"group": "ext.uploadWizard"
+		},
+		"uw.deed.Custom": {
+			"scripts": [
+				"resources/deed/uw.deed.Custom.js"
+			],
+			"dependencies": [
+				"oojs",
+				"uw.deed.Abstract"
+			],
+			"targets": [ "desktop", "mobile" ],
+			"group": "ext.uploadWizard"
+		},
+		"uw.deed.External": {
+			"scripts": [
+				"resources/deed/uw.deed.External.js"
+			],
+			"dependencies": [
+				"oojs",
+				"uw.deed.Custom"
+			],
+			"targets": [ "desktop", "mobile" ],
+			"group": "ext.uploadWizard"
+		},
+		"uw.deed.dialog.base": {
+			"scripts": [
+				"resources/deed/dialog/uw.deed.dialog.base.js"
+			],
+			"dependencies": [
+				"uw.deed.base"
+			],
+			"targets": [ "desktop", "mobile" ],
+			"group": "ext.uploadWizard"
+		},
+		"uw.deed.dialog.PatentDialog": {
+			"scripts": [
+				"resources/deed/dialog/uw.deed.dialog.PatentDialog.js"
+			],
+			"dependencies": [
+				"mediawiki.language",
+				"oojs",
+				"oojs-ui-core",
+				"oojs-ui-windows",
+				"uw.deed.dialog.base"
+			],
+			"messages": [
+				"mwe-upwiz-patent-dialog-title",
+				"mwe-upwiz-patent-dialog-button-back",
+				"mwe-upwiz-patent-dialog-button-next",
+				"mwe-upwiz-patent-dialog-title-warranty",
+				"mwe-upwiz-patent-dialog-text-warranty",
+				"mwe-upwiz-patent-dialog-link-warranty",
+				"mwe-upwiz-patent-dialog-title-license",
+				"mwe-upwiz-patent-dialog-text-license",
+				"mwe-upwiz-patent-dialog-link-license",
+				"mwe-upwiz-patent-dialog-checkbox-label"
 			],
 			"targets": [ "desktop", "mobile" ],
 			"group": "ext.uploadWizard"

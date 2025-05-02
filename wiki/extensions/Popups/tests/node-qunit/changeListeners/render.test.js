@@ -2,23 +2,23 @@ import render from '../../../src/changeListeners/render';
 import * as RendererModule from '../../../src/ui/renderer';
 
 QUnit.module( 'ext.popups/changeListeners/render', {
-	beforeEach: function () {
+	beforeEach() {
 		this.preview = {
 			show: this.sandbox.stub().returns( $.Deferred().resolve() )
 		};
 
-		this.sandbox.stub( RendererModule, 'render', this.sandbox.stub().returns( this.preview ) );
+		this.sandbox.stub( RendererModule, 'render' ).callsFake(
+			this.sandbox.stub().returns( this.preview )
+		);
 	}
 } );
 
 QUnit.test(
 	'it should show the preview with the behavior',
 	function ( assert ) {
-		var previewBehavior = {},
-			changeListener,
-			state;
+		const previewBehavior = {};
 
-		state = {
+		const state = {
 			preview: {
 				shouldShow: true,
 				activeEvent: {},
@@ -26,7 +26,7 @@ QUnit.test(
 			}
 		};
 
-		changeListener = render( previewBehavior );
+		const changeListener = render( previewBehavior );
 		changeListener( undefined, state );
 
 		assert.ok( this.preview.show.calledWith(
@@ -37,18 +37,15 @@ QUnit.test(
 	}
 );
 
-QUnit.test( 'it should render the preview', function ( assert ) {
-	var state,
-		changeListener;
-
-	state = {
+QUnit.test( 'it should render the preview', ( assert ) => {
+	const state = {
 		preview: {
 			shouldShow: true,
 			fetchResponse: {}
 		}
 	};
 
-	changeListener = render( /* previewBehavior = undefined */ );
+	const changeListener = render( /* previewBehavior = undefined */ );
 	changeListener( undefined, state );
 
 	assert.ok(

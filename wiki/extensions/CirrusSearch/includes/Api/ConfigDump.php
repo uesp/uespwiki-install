@@ -2,6 +2,10 @@
 
 namespace CirrusSearch\Api;
 
+use ApiResult;
+use CirrusSearch\Profile\SearchProfileService;
+use CirrusSearch\SearchConfig;
+
 /**
  * Dumps CirrusSearch configuration for easy viewing.
  *
@@ -20,7 +24,9 @@ namespace CirrusSearch\Api;
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  */
-class ConfigDump extends ApiBase {
+class ConfigDump extends \ApiBase {
+	use ApiTrait;
+
 	public static $WHITE_LIST = [
 		'CirrusSearchServers',
 		'CirrusSearchConnectionAttempts',
@@ -29,6 +35,7 @@ class ConfigDump extends ApiBase {
 		'CirrusSearchOptimizeIndexForExperimentalHighlighter',
 		'CirrusSearchNamespaceMappings',
 		'CirrusSearchExtraIndexes',
+		'CirrusSearchFetchConfigFromApi',
 		'CirrusSearchUpdateShardTimeout',
 		'CirrusSearchClientSideUpdateTimeout',
 		'CirrusSearchSearchShardTimeout',
@@ -64,7 +71,6 @@ class ConfigDump extends ApiBase {
 		'CirrusSearchFragmentSize',
 		'CirrusSearchMainPageCacheWarmer',
 		'CirrusSearchCacheWarmers',
-		'CirrusSearchBoostLinks',
 		'CirrusSearchIndexAllocation',
 		'CirrusSearchFullTextQueryBuilderProfile',
 		'CirrusSearchRescoreProfile',
@@ -79,6 +85,12 @@ class ConfigDump extends ApiBase {
 		'CirrusSearchEnableArchive',
 		'CirrusSearchUseIcuFolding',
 		'CirrusSearchUseIcuTokenizer',
+		'CirrusSearchPhraseSuggestProfiles',
+		'CirrusSearchCrossProjectBlockScorerProfiles',
+		'CirrusSearchSimilarityProfiles',
+		'CirrusSearchRescoreFunctionChains',
+		'CirrusSearchCompletionProfiles',
+		'CirrusSearchCompletionSettings',
 		// All the config below was added when moving this data
 		// from CirrusSearch config to a static array in this class
 		'CirrusSearchDevelOptions',
@@ -123,6 +135,9 @@ class ConfigDump extends ApiBase {
 		'LanguageCode',
 		'ContentNamespaces',
 		'NamespacesToBeSearchedDefault',
+		'CirrusSearchCategoryDepth',
+		'CirrusSearchCategoryMax',
+		'CirrusSearchCategoryEndpoint',
 	];
 
 	public function execute() {
@@ -131,6 +146,34 @@ class ConfigDump extends ApiBase {
 			if ( $config->has( $key ) ) {
 				$this->getResult()->addValue( null, $key, $config->get( $key ) );
 			}
+		}
+		$this->addProfiles( $this->getResult() );
+	}
+
+	/**
+	 * Profile names and types
+	 * @var string[]
+	 */
+	private static $PROFILES = [
+		'CirrusSearchPhraseSuggestProfiles' => SearchProfileService::PHRASE_SUGGESTER,
+		'CirrusSearchCrossProjectBlockScorerProfiles' => SearchProfileService::CROSS_PROJECT_BLOCK_SCORER,
+		'CirrusSearchSimilarityProfiles' => SearchProfileService::SIMILARITY,
+		'CirrusSearchRescoreFunctionChains' => SearchProfileService::RESCORE_FUNCTION_CHAINS,
+		'CirrusSearchCompletionProfiles' => SearchProfileService::COMPLETION,
+		'CirrusSearchFullTextQueryBuilderProfiles' => SearchProfileService::FT_QUERY_BUILDER,
+		'CirrusSearchRescoreProfiles' => SearchProfileService::RESCORE,
+	];
+
+	/**
+	 * Add data from profiles
+	 * @param ApiResult $result
+	 */
+	private function addProfiles( ApiResult $result ) {
+		$config = new SearchConfig();
+		$profileService = $config->getProfileService();
+		foreach ( self::$PROFILES as $var => $profileType ) {
+			$data = $profileService->listExposedProfiles( $profileType );
+			$this->getResult()->addValue( null, $var, $data, ApiResult::OVERRIDE );
 		}
 	}
 
@@ -147,6 +190,7 @@ class ConfigDump extends ApiBase {
 
 	/**
 	 * @see ApiBase::getExamplesMessages
+	 * @return array
 	 */
 	protected function getExamplesMessages() {
 		return [

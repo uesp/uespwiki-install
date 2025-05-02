@@ -37,6 +37,7 @@ class Updater extends ElasticsearchIntermediary {
 	const SKIP_PARSE = 2;
 	const SKIP_LINKS = 4;
 	const FORCE_PARSE = 8;
+	const INSTANT_INDEX = 16;
 
 	/**
 	 * Full title text of pages updated in this process.  Used for deduplication
@@ -173,6 +174,9 @@ class Updater extends ElasticsearchIntermediary {
 	 *     index.  Indexing with any portion of the document skipped is dangerous because it
 	 *     can put half created pages in the index.  This is only a good idea during the first
 	 *     half of the two phase index build.
+	 *   INSTANT_INDEX Do quick index of initial data, without waiting. Do not retry the job
+	 *     if it failed. This is useful for fast-index updates which can later be picked up by
+	 *     main update if they fail.
 	 *
 	 * @param WikiPage[] $pages pages to update
 	 * @param int $flags Bit field containing instructions about how the document should be built
@@ -180,8 +184,6 @@ class Updater extends ElasticsearchIntermediary {
 	 * @return int Number of documents updated of -1 if there was an error
 	 */
 	public function updatePages( $pages, $flags ) {
-		global $wgCirrusSearchWikimediaExtraPlugin;
-
 		// Don't update the same page twice. We shouldn't, but meh
 		$pageIds = [];
 		$pages = array_filter( $pages, function ( WikiPage $page ) use ( &$pageIds ) {
@@ -191,41 +193,38 @@ class Updater extends ElasticsearchIntermediary {
 			}
 			return false;
 		} );
+		$isInstantIndex = ( $flags & self::INSTANT_INDEX ) !== 0;
 
 		$titles = $this->pagesToTitles( $pages );
-		Job\OtherIndex::queueIfRequired( $titles, $this->writeToClusterName );
+		if ( !$isInstantIndex ) {
+			Job\OtherIndex::queueIfRequired( $titles, $this->writeToClusterName );
+		}
 
-		$allData = array_fill_keys( $this->connection->getAllIndexTypes(), [] );
+		$allDocuments = array_fill_keys( $this->connection->getAllIndexTypes(), [] );
 		foreach ( $this->buildDocumentsForPages( $pages, $flags ) as $document ) {
 			$suffix = $this->connection->getIndexSuffixForNamespace( $document->get( 'namespace' ) );
-			if ( isset( $wgCirrusSearchWikimediaExtraPlugin[ 'super_detect_noop' ] ) &&
-					$wgCirrusSearchWikimediaExtraPlugin[ 'super_detect_noop' ] ) {
-				$document = $this->docToSuperDetectNoopScript( $document );
-			}
-			// TODO: Move hints reset at a later stage if they appear to be useful
-			// (e.g. in DataSender::sendData)
-			CirrusIndexField::resetHints( $document );
-			$allData[$suffix][] = $document;
+			$allDocuments[$suffix][] = $document;
 		}
 
 		$count = 0;
-		foreach ( $allData as $indexType => $data ) {
-			// Elasticsearch has a queue capacity of 50 so if $data contains 50 pages it could bump up against
+		foreach ( $allDocuments as $indexType => $documents ) {
+			// Elasticsearch has a queue capacity of 50 so if $documents contains 50 pages it could bump up against
 			// the max.  So we chunk it and do them sequentially.
-			foreach ( array_chunk( $data, 10 ) as $chunked ) {
-				$job = new Job\ElasticaWrite(
+			foreach ( array_chunk( $documents, 10 ) as $chunked ) {
+				$job = Job\ElasticaWrite::build(
 					reset( $titles ),
+					'sendData',
+					[ $indexType, $chunked ],
 					[
-						'method' => 'sendData',
-						'arguments' => [ $indexType, $chunked ],
 						'cluster' => $this->writeToClusterName,
+						'doNotRetry' => $isInstantIndex,
 					]
 				);
 				// This job type will insert itself into the job queue
 				// with a delay if writes to ES are currently unavailable
 				$job->run();
 			}
-			$count += count( $data );
+			$count += count( $documents );
 		}
 
 		return $count;
@@ -244,13 +243,11 @@ class Updater extends ElasticsearchIntermediary {
 	 */
 	public function deletePages( $titles, $docIds, $indexType = null, $elasticType = null ) {
 		Job\OtherIndex::queueIfRequired( $titles, $this->writeToClusterName );
-		$job = new Job\ElasticaWrite(
-			$titles ? reset( $titles ) : Title::makeTitle( 0, "" ),
-			[
-				'method' => 'sendDeletes',
-				'arguments' => [ $docIds, $indexType, $elasticType ],
-				'cluster' => $this->writeToClusterName,
-			]
+		$job = Job\ElasticaWrite::build(
+			$titles ? reset( $titles ) : Title::makeTitle( NS_SPECIAL, "Badtitle/" . Job\ElasticaWrite::class ),
+			'sendDeletes',
+			[ $docIds, $indexType, $elasticType ],
+			[ 'cluster' => $this->writeToClusterName ]
 		);
 		// This job type will insert itself into the job queue
 		// with a delay if writes to ES are currently paused
@@ -273,13 +270,11 @@ class Updater extends ElasticsearchIntermediary {
 		$docs = $this->buildArchiveDocuments( $archived );
 		$head = reset( $archived );
 		foreach ( array_chunk( $docs, 10 ) as $chunked ) {
-			$job = new Job\ElasticaWrite(
+			$job = Job\ElasticaWrite::build(
 				$head['title'],
-				[
-					'method' => 'sendData',
-					'arguments' => [ Connection::GENERAL_INDEX_TYPE, $chunked, Connection::ARCHIVE_TYPE_NAME ],
-					'cluster' => $this->writeToClusterName
-				]
+				'sendData',
+				[ Connection::GENERAL_INDEX_TYPE, $chunked, Connection::ARCHIVE_TYPE_NAME ],
+				[ 'cluster' => $this->writeToClusterName ]
 			);
 			$job->run();
 		}
@@ -397,37 +392,6 @@ class Updater extends ElasticsearchIntermediary {
 		MWHooks::run( 'CirrusSearchBuildDocumentFinishBatch', [ $pages ] );
 
 		return $documents;
-	}
-
-	/**
-	 * Converts a document into a call to super_detect_noop from the wikimedia-extra plugin.
-	 * @internal made public for testing purposes
-	 * @param \Elastica\Document $doc
-	 * @return \Elastica\Script\Script
-	 */
-	public function docToSuperDetectNoopScript( $doc ) {
-		$handlers = CirrusIndexField::getHint( $doc, CirrusIndexField::NOOP_HINT );
-		$params = $doc->getParams();
-		$params['source'] = $doc->getData();
-
-		if ( $handlers ) {
-			assert( is_array( $handlers ), "Noop hints must be an array" );
-			$params['handlers'] = $handlers;
-		} else {
-			$params['handlers'] = [];
-		}
-		$extraHandlers = $this->searchConfig->getElement( 'CirrusSearchWikimediaExtraPlugin', 'super_detect_noop_handlers' );
-		if ( is_array( $extraHandlers ) ) {
-			$params['handlers'] += $extraHandlers;
-		}
-
-		$script = new \Elastica\Script\Script( 'super_detect_noop', $params, 'native' );
-		if ( $doc->getDocAsUpsert() ) {
-			CirrusIndexField::resetHints( $doc );
-			$script->setUpsert( $doc );
-		}
-
-		return $script;
 	}
 
 	/**

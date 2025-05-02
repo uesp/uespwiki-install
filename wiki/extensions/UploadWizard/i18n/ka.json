@@ -8,7 +8,8 @@
 			"Tokoko",
 			"გიორგიმელა",
 			"MIKHEIL",
-			"Macofe"
+			"Macofe",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "ფაილთა ატვირთვის ასისტენტი",
@@ -125,9 +126,6 @@
 	"mwe-upwiz-copy-location": "მდებარეობის კოპირება",
 	"mwe-upwiz-copy-other": "სხვა ინფორმაციის კოპირება",
 	"mwe-upwiz-desc": "აღწერა",
-	"mwe-upwiz-desc-placeholder": "სურათის აღწერა",
-	"mwe-upwiz-desc-add-n": "დაამატე სხვაენოვანი აღწერა",
-	"mwe-upwiz-desc-add-0": "აღწერის დამატება",
 	"mwe-upwiz-title": "სათაური",
 	"mwe-upwiz-date-created": "შექმნის თარიღი",
 	"mwe-upwiz-select-date": "აირჩიეთ თარიღი",
@@ -238,7 +236,6 @@
 	"mwe-upwiz-license-own-pd": "ყველა უფლების უარყოფა Creative Commons Zero ლიცენზიის პირობების თანახმად (როგორც საზოგადოებრივი საკუთრება)",
 	"mwe-upwiz-license-pd-old-100": "ავტორი გარდაიცვალა 100-ზე მეტი წლის წინ",
 	"mwe-upwiz-license-pd-old": "ავტორი გარდაიცვალა 70-ზე მეტი წლის წინ",
-	"mwe-upwiz-license-pd-art": "სურათის ზუსტი რეპროდუქცია, განთავსებული საზოგადოებრივ საკუთრებაში",
 	"mwe-upwiz-license-pd-us": "პირველად გამოქვეყნდა აშშ-ში 1923 წლამდე",
 	"mwe-upwiz-license-pd-usgov": "აშშ-ის ფედერალური მთავრობის ორიგინალი ნამუშევარი",
 	"mwe-upwiz-license-pd-usgov-nasa": "NASA-ს ორიგინალი ნამუშევარი",
@@ -249,7 +246,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "დაცულია საავტორო უფლებით, მაგრამ შეიძლება მისი ნებისმიერი მიზნით გამოყენება, მათ შორის კომერციულით",
 	"mwe-upwiz-license-attribution": "გამოყენება შესაძლებელია ნებისმიერი მიზნით, მათ შორის კომერციულითაც, თუ სწორად არის მითითებული საავტორო უფლებების მფლობელი",
 	"mwe-upwiz-license-gfdl": "GNU-ლიცენზია თავისუფალი დოკუმენტაციისათვის",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, საჭიროებს ავტორის მითითებას (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, საჭიროებს ავტორის მითითებას (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "საავტორო უფლების მფლობელმა {{PLURAL:$1|ეს ნამუშევარი|ეს ნამუშევრები}} გამოაქვეყნა Creative Commons ლიცენზიით",
 	"mwe-upwiz-license-cc-subhead": "Creative Commons-ის ყველა ლიცენზია არ მიესადაგება ამ საიტს. დარწმუნდით, რომ საავტორო უფლებების მფლობელმა მიუთითა ამ ლიცენზიებიდან ერთ-ერთი.",
 	"mwe-upwiz-license-flickr-head": "საავტორო უფლების მფლობელმა {{PLURAL:$1|ეს ფოტო ან ვიდეო|ეს ფოტოები ან ვიდეოები}} გამოაქვეყნა Flickr-ზე ლიცენზიის უფლებით",

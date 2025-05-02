@@ -2,7 +2,10 @@
 
 namespace CirrusSearch;
 
+use CirrusSearch\Profile\SearchProfileService;
+use CirrusSearch\Profile\SearchProfileServiceFactory;
 use Config;
+use MediaWiki\MediaWikiServices;
 use RequestContext;
 
 /**
@@ -15,6 +18,9 @@ class SearchConfig implements \Config {
 	const INDEX_BASE_NAME = 'CirrusSearchIndexBaseName';
 	const PREFIX_IDS = 'CirrusSearchPrefixIds';
 	const CIRRUS_VAR_PREFIX = 'wgCirrus';
+
+	// Magic word to tell the SearchConfig to translate INDEX_BASE_NAME into wfWikiID()
+	const WIKI_ID_MAGIC_WORD = '__wikiid__';
 
 	/** @static string[] non cirrus vars to load when loading external wiki config */
 	private static $nonCirrusVars = [
@@ -54,6 +60,11 @@ class SearchConfig implements \Config {
 	private $availableClusters;
 
 	/**
+	 * @var SearchProfileService|null
+	 */
+	private $profileService;
+
+	/**
 	 * Create new search config for current or other wiki.
 	 * NOTE: if loading another wiki config the list of variables extracted
 	 * is:
@@ -76,6 +87,16 @@ class SearchConfig implements \Config {
 		}
 		$this->source = new \GlobalVarConfig();
 		$this->wikiId = wfWikiID();
+	}
+
+	/**
+	 * @return bool true if this config was built for this wiki.
+	 */
+	public function isLocalWiki() {
+		// FIXME: this test is somewhat obscure (very indirect to say the least)
+		// problem is that testing $this->wikiId === wfWikiId() would not work
+		// properly during unit tests.
+		return $this->source instanceof \GlobalVarConfig;
 	}
 
 	/**
@@ -120,7 +141,11 @@ class SearchConfig implements \Config {
 		if ( !$this->source->has( $this->prefix . $name ) ) {
 			return null;
 		}
-		return $this->source->get( $this->prefix . $name );
+		$value = $this->source->get( $this->prefix . $name );
+		if ( $name === self::INDEX_BASE_NAME && $value === self::WIKI_ID_MAGIC_WORD ) {
+			return $this->getWikiId();
+		}
+		return $value;
 	}
 
 	/**
@@ -203,7 +228,7 @@ class SearchConfig implements \Config {
 	/**
 	 * Get chain of elements from config array
 	 * @param string $configName
-	 * @param string ... list of path elements
+	 * @param string $path,... list of path elements
 	 * @return mixed Returns value or null if not present
 	 */
 	public function getElement( $configName ) {
@@ -317,5 +342,27 @@ class SearchConfig implements \Config {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Load the SearchProfileService suited for this SearchConfig.
+	 * The service is initialized thanks to SearchProfileServiceFactory
+	 * that will load CirrusSearch profiles and additional extension profiles
+	 *
+	 * <b>NOTE:</b> extension profiles are not loaded if this config is built
+	 * for a sister wiki.
+	 *
+	 * @return SearchProfileService
+	 * @see SearchProfileService
+	 * @see SearchProfileServiceFactory
+	 */
+	public function getProfileService() {
+		if ( $this->profileService === null ) {
+			/** @var SearchProfileServiceFactory $factory */
+			$factory = MediaWikiServices::getInstance()
+				->getService( SearchProfileServiceFactory::SERVICE_NAME );
+			$this->profileService = $factory->loadService( $this );
+		}
+		return $this->profileService;
 	}
 }

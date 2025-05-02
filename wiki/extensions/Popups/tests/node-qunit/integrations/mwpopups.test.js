@@ -7,7 +7,7 @@ import createMwPopups from '../../../src/integrations/mwpopups';
  */
 function mockStore( state ) {
 	return {
-		getState: function () {
+		getState() {
 			return state;
 		}
 	};
@@ -16,7 +16,7 @@ function mockStore( state ) {
 QUnit.module( 'ext.popups/integrations' );
 
 QUnit.test( '#isEnabled returns correct value when disabled', function ( assert ) {
-	var state = {
+	const state = {
 			preview: {
 				enabled: false
 			}
@@ -31,7 +31,7 @@ QUnit.test( '#isEnabled returns correct value when disabled', function ( assert 
 } );
 
 QUnit.test( '#isEnabled returns correct value when enabled', function ( assert ) {
-	var state = {
+	const state = {
 			preview: {
 				enabled: true
 			}

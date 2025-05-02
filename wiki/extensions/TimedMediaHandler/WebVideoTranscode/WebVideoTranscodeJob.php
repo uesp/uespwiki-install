@@ -37,7 +37,7 @@ class WebVideoTranscodeJob extends Job {
 
 	/**
 	 * Local function to debug output ( jobs don't have access to the maintenance output class )
-	 * @param $msg string
+	 * @param string $msg
 	 */
 	private function output( $msg ) {
 		print $msg . "\n";
@@ -93,8 +93,8 @@ class WebVideoTranscodeJob extends Job {
 
 	/**
 	 * Update the transcode table with failure time and error
-	 * @param $transcodeKey string
-	 * @param $error string
+	 * @param string $transcodeKey
+	 * @param string $error
 	 *
 	 */
 	private function setTranscodeError( $transcodeKey, $error ) {
@@ -119,7 +119,7 @@ class WebVideoTranscodeJob extends Job {
 	 * @return bool success
 	 */
 	public function run() {
-		global $wgVersion, $wgFFmpeg2theoraLocation;
+		global $wgVersion;
 		// get a local pointer to the file
 		$file = $this->getFile();
 
@@ -195,11 +195,8 @@ class WebVideoTranscodeJob extends Job {
 		// Check the codec see which encode method to call;
 		if ( isset( $options[ 'novideo' ] ) ) {
 			$status = $this->ffmpegEncode( $options );
-		} elseif ( $options['videoCodec'] == 'theora' && $wgFFmpeg2theoraLocation !== false ) {
-			$status = $this->ffmpeg2TheoraEncode( $options );
 		} elseif ( $options['videoCodec'] == 'vp8' || $options['videoCodec'] == 'vp9' ||
-			$options['videoCodec'] == 'h264' ||
-				( $options['videoCodec'] == 'theora' && $wgFFmpeg2theoraLocation === false )
+			$options['videoCodec'] == 'h264'
 		) {
 			// Check for twopass:
 			if ( isset( $options['twopass'] ) ) {
@@ -266,8 +263,8 @@ class WebVideoTranscodeJob extends Job {
 			}
 
 			// Avoid "server has gone away" errors as copying can be slow
-			wfGetLBFactory()->commitAll( __METHOD__ );
-			MediaWiki\MediaWikiServices::getInstance()->getDBLoadBalancerFactory()->closeAll();
+			$lbFactory->commitAll( __METHOD__ );
+			$lbFactory->closeAll();
 
 			// Copy derivative from the FS into storage at $finalDerivativeFilePath
 			$result = $file->getRepo()->quickImport(
@@ -355,9 +352,9 @@ class WebVideoTranscodeJob extends Job {
 	}
 
 	/**
-	 * Utility helper for ffmpeg and ffmpeg2theora mapping
-	 * @param $options array
-	 * @param $pass int
+	 * Utility helper for ffmpeg mapping
+	 * @param array $options
+	 * @param int $pass
 	 * @return bool|string
 	 */
 	function ffmpegEncode( $options, $pass=0 ) {
@@ -382,8 +379,6 @@ class WebVideoTranscodeJob extends Job {
 			$cmd .= $this->ffmpegAddWebmVideoOptions( $options, $pass );
 		} elseif ( $options['videoCodec'] == 'h264' ) {
 			$cmd .= $this->ffmpegAddH264VideoOptions( $options, $pass );
-		} elseif ( $options['videoCodec'] == 'theora' ) {
-			$cmd .= $this->ffmpegAddTheoraVideoOptions( $options, $pass );
 		}
 		// Add size options:
 		$cmd .= $this->ffmpegAddVideoSizeOptions( $options );
@@ -433,8 +428,8 @@ class WebVideoTranscodeJob extends Job {
 	/**
 	 * Adds ffmpeg shell options for h264
 	 *
-	 * @param $options
-	 * @param $pass
+	 * @param array $options
+	 * @param int $pass
 	 * @return string
 	 */
 	function ffmpegAddH264VideoOptions( $options, $pass ) {
@@ -446,15 +441,13 @@ class WebVideoTranscodeJob extends Job {
 			// Add the two vpre types:
 			switch ( $options['preset'] ) {
 				case 'ipod320':
-					// @codingStandardsIgnoreStart
+					// phpcs:ignore Generic.Files.LineLength.TooLong
 					$cmd .= " -profile:v baseline -preset slow -coder 0 -bf 0 -weightb 1 -level 13 -maxrate 768k -bufsize 3M";
-					// @codingStandardsIgnoreEnd
 				break;
 				case '720p':
 				case 'ipod640':
-					// @codingStandardsIgnoreStart
+					// phpcs:ignore Generic.Files.LineLength.TooLong
 					$cmd .= " -profile:v baseline -preset slow -coder 0 -bf 0 -refs 1 -weightb 1 -level 31 -maxrate 10M -bufsize 10M";
-					// @codingStandardsIgnoreEnd
 				break;
 				default:
 					// in the default case just pass along the preset to ffmpeg
@@ -511,17 +504,27 @@ class WebVideoTranscodeJob extends Job {
 	/**
 	 * Adds ffmpeg shell options for webm
 	 *
-	 * @param $options
-	 * @param $pass
+	 * @param array $options
+	 * @param int $pass
 	 * @return string
 	 */
 	function ffmpegAddWebmVideoOptions( $options, $pass ) {
-		global $wgFFmpegThreads;
+		global $wgFFmpegThreads, $wgFFmpegVP9RowMT;
 
 		// Get a local pointer to the file object
 		$file = $this->getFile();
 
 		$cmd = ' -threads ' . intval( $wgFFmpegThreads );
+		if ( $wgFFmpegVP9RowMT && $options['videoCodec'] === 'vp9' ) {
+			// Macroblock row multithreading allows using more CPU cores
+			// for VP9 encoding. This is not yet the default, and the option
+			// will fail on a version of ffmpeg that is too old or is built
+			// against a libvpx that is too old, so we have to enable it
+			// conditionally for now.
+			//
+			// Requires libvpx 1.7 and ffmpeg 3.3.
+			$cmd .= ' -row-mt 1';
+		}
 
 		// check for presets:
 		if ( isset( $options['preset'] ) ) {
@@ -534,15 +537,17 @@ class WebVideoTranscodeJob extends Job {
 			}
 		}
 
-		// Add the boiler plate vp8 ffmpeg command:
-		$cmd .= " -skip_threshold 0 -bufsize 6000k -rc_init_occupancy 4000";
-
 		// Check for video quality:
 		if ( isset( $options['videoQuality'] ) && $options['videoQuality'] >= 0 ) {
 			// Map 0-10 to 63-0, higher values worse quality
 			$quality = 63 - intval( intval( $options['videoQuality'] ) / 10 * 63 );
 			$cmd .= " -qmin " . wfEscapeShellArg( $quality );
 			$cmd .= " -qmax " . wfEscapeShellArg( $quality );
+		}
+		// libvpx-specific constant quality or constrained quality
+		// note the range is different between VP8 and VP9
+		if ( isset( $options['crf'] ) ) {
+			$cmd .= " -crf " . wfEscapeShellArg( $options['crf'] );
 		}
 
 		// Check for video bitrate:
@@ -562,14 +567,23 @@ class WebVideoTranscodeJob extends Job {
 				$cmd .= ' -slices ' . wfEscapeShellArg( $options['slices'] );
 			}
 		}
+		if ( isset( $options['altref'] ) ) {
+			$cmd .= ' -auto-alt-ref 1';
+			$cmd .= ' -lag-in-frames 25';
+		}
 
 		// Check for keyframeInterval
 		if ( isset( $options['keyframeInterval'] ) ) {
 			$cmd .= ' -g ' . wfEscapeShellArg( $options['keyframeInterval'] );
-			$cmd .= ' -keyint_min ' . wfEscapeShellArg( $options['keyframeInterval'] );
 		}
 		if ( isset( $options['deinterlace'] ) ) {
 			$cmd .= ' -deinterlace';
+		}
+		if ( $pass == 1 ) {
+			// Make first pass faster...
+			$cmd .= ' -speed 4';
+		} elseif ( isset( $options['speed'] ) ) {
+			$cmd .= ' -speed ' . wfEscapeShellArg( $options['speed'] );
 		}
 
 		// Output WebM
@@ -579,60 +593,8 @@ class WebVideoTranscodeJob extends Job {
 	}
 
 	/**
-	 * Adds ffmpeg/avconv shell options for ogg
-	 *
-	 * Used only when $wgFFmpeg2theoraLocation set to false.
-	 * Warning: does not create Ogg skeleton metadata track.
-	 *
-	 * @param $options
-	 * @param $pass
-	 * @return string
-	 */
-	function ffmpegAddTheoraVideoOptions( $options, $pass ) {
-		global $wgFFmpegThreads;
-
-		// Get a local pointer to the file object
-		$file = $this->getFile();
-
-		$cmd = ' -threads ' . intval( $wgFFmpegThreads );
-
-		// Check for video quality:
-		if ( isset( $options['videoQuality'] ) && $options['videoQuality'] >= 0 ) {
-			// Map 0-10 to 63-0, higher values worse quality
-			$quality = 63 - intval( intval( $options['videoQuality'] ) / 10 * 63 );
-			$cmd .= " -qmin " . wfEscapeShellArg( $quality );
-			$cmd .= " -qmax " . wfEscapeShellArg( $quality );
-		}
-
-		// Check for video bitrate:
-		if ( isset( $options['videoBitrate'] ) ) {
-			$cmd .= " -qmin 1 -qmax 51";
-			$cmd .= " -vb " . wfEscapeShellArg( $options['videoBitrate'] * 1000 );
-		}
-		// Set the codec:
-		$cmd .= " -vcodec theora";
-
-		// Check for keyframeInterval
-		if ( isset( $options['keyframeInterval'] ) ) {
-			$cmd .= ' -g ' . wfEscapeShellArg( $options['keyframeInterval'] );
-			$cmd .= ' -keyint_min ' . wfEscapeShellArg( $options['keyframeInterval'] );
-		}
-		if ( isset( $options['deinterlace'] ) ) {
-			$cmd .= ' -deinterlace';
-		}
-		if ( isset( $options['framerate'] ) ) {
-			$cmd .= ' -r ' . wfEscapeShellArg( $options['framerate'] );
-		}
-
-		// Output Ogg
-		$cmd .= " -f ogg";
-
-		return $cmd;
-	}
-
-	/**
-	 * @param $options array
-	 * @param $pass
+	 * @param array $options
+	 * @param int $pass
 	 * @return string
 	 */
 	function ffmpegAddAudioOptions( $options, $pass ) {
@@ -674,73 +636,12 @@ class WebVideoTranscodeJob extends Job {
 	}
 
 	/**
-	 * ffmpeg2Theora mapping is much simpler since it is the basis of the the firefogg API
-	 * @param $options array
-	 * @return bool|string
-	 */
-	function ffmpeg2TheoraEncode( $options ) {
-		global $wgFFmpeg2theoraLocation, $wgTranscodeBackgroundMemoryLimit;
-
-		if ( !is_file( $this->getSourceFilePath() ) ) {
-			return "source file is missing, " . $this->getSourceFilePath() . ". Encoding failed.";
-		}
-
-		// Set up the base command
-		$cmd = wfEscapeShellArg(
-			$wgFFmpeg2theoraLocation
-		) . ' ' . wfEscapeShellArg( $this->getSourceFilePath() );
-
-		$file = $this->getFile();
-
-		if ( isset( $options['maxSize'] ) ) {
-			list( $width, $height ) = WebVideoTranscode::getMaxSizeTransform( $file, $options['maxSize'] );
-			$options['width'] = $width;
-			$options['height'] = $height;
-			$options['aspect'] = $width . ':' . $height;
-			unset( $options['maxSize'] );
-		}
-
-		// Add in the encode settings
-		foreach ( $options as $key => $val ) {
-			if ( isset( self::$foggMap[$key] ) ) {
-				if ( is_array( self::$foggMap[$key] ) ) {
-					$cmd .= ' '. implode( ' ', self::$foggMap[$key] );
-				} elseif ( $val == 'true' || $val === true ) {
-					$cmd .= ' '. self::$foggMap[$key];
-				} elseif ( $val == 'false' || $val === false ) {
-					// ignore "false" flags
-				} else {
-					// normal get/set value
-					$cmd .= ' '. self::$foggMap[$key] . ' ' . wfEscapeShellArg( $val );
-				}
-			}
-		}
-
-		// Add the output target:
-		$outputFile = $this->getTargetEncodePath();
-		$cmd .= ' -o ' . wfEscapeShellArg( $outputFile );
-
-		$this->output( "Running cmd: \n\n" .$cmd . "\n" );
-
-		$retval = 0;
-		$shellOutput = $this->runShellExec( $cmd, $retval );
-
-		// ffmpeg2theora returns 0 status on some errors, so also check for file
-		if ( $retval != 0 || !is_file( $outputFile ) || filesize( $outputFile ) === 0 ) {
-			return $cmd .
-				"\n\nExitcode: $retval\nMemory: $wgTranscodeBackgroundMemoryLimit\n\n" .
-				$shellOutput;
-		}
-		return true;
-	}
-
-	/**
 	 * Runs the shell exec command.
 	 * if $wgEnableBackgroundTranscodeJobs is enabled will mannage a background transcode task
 	 * else it just directly passes off to wfShellExec
 	 *
-	 * @param $cmd String Command to be run
-	 * @param $retval String, refrence variable to return the exit code
+	 * @param string $cmd Command to be run
+	 * @param string &$retval reference variable to return the exit code
 	 * @return string
 	 */
 	public function runShellExec( $cmd, &$retval ) {
@@ -801,10 +702,10 @@ class WebVideoTranscodeJob extends Job {
 	}
 
 	/**
-	 * @param $cmd
-	 * @param $retval
-	 * @param $encodingLog
-	 * @param $retvalLog
+	 * @param string $cmd
+	 * @param string &$retval
+	 * @param string $encodingLog
+	 * @param string $retvalLog
 	 * @param string $caller The calling method
 	 */
 	public function runChildCmd( $cmd, &$retval, $encodingLog, $retvalLog, $caller ) {
@@ -841,10 +742,10 @@ class WebVideoTranscodeJob extends Job {
 	}
 
 	/**
-	 * @param $pid
-	 * @param $retval
-	 * @param $encodingLog
-	 * @param $retvalLog
+	 * @param int $pid
+	 * @param string &$retval
+	 * @param string $encodingLog
+	 * @param string $retvalLog
 	 * @return string
 	 */
 	public function monitorTranscode( $pid, &$retval, $encodingLog, $retvalLog ) {
@@ -937,7 +838,7 @@ class WebVideoTranscodeJob extends Job {
 
 	/**
 	 * check if proccess is running and not a zombie
-	 * @param $pid int
+	 * @param int $pid
 	 * @return bool
 	 */
 	public static function isProcessRunningKillZombie( $pid ) {
@@ -954,11 +855,11 @@ class WebVideoTranscodeJob extends Job {
 	}
 
 	/**
-	* Kill Application PID
-	*
-	* @param $pid int
-	* @return bool
-	*/
+	 * Kill Application PID
+	 *
+	 * @param int $pid
+	 * @return bool
+	 */
 	public static function killProcess( $pid ) {
 		exec( "kill -9 $pid" );
 		exec( "ps $pid", $processState );
@@ -967,51 +868,5 @@ class WebVideoTranscodeJob extends Job {
 		}
 		return true;
 	}
-
-	/**
-	 * Mapping between firefogg api and ffmpeg2theora command line
-	 *
-	 * This lets us share a common api between firefogg and WebVideoTranscode
-	 * also see: http://firefogg.org/dev/index.html
-	 */
-	public static $foggMap = [
-		// video
-		'width'			=> "--width",
-		'height'		=> "--height",
-		'maxSize'		=> "--max_size",
-		'noUpscaling'	=> "--no-upscaling",
-		'videoQuality' => "-v",
-		'videoBitrate'	=> "-V",
-		'twopass'		=> "--two-pass",
-		'optimize'		=> "--optimize",
-		'framerate'		=> "-F",
-		'aspect'		=> "--aspect",
-		'starttime'		=> "--starttime",
-		'endtime'		=> "--endtime",
-		'cropTop'		=> "--croptop",
-		'cropBottom'	=> "--cropbottom",
-		'cropLeft'		=> "--cropleft",
-		'cropRight'		=> "--cropright",
-		'keyframeInterval' => "--keyint",
-		'denoise'		=> [ "--pp", "de" ],
-		'deinterlace'	=> "--deinterlace",
-		'novideo'		=> [ "--novideo", "--no-skeleton" ],
-		'bufDelay'		=> "--buf-delay",
-		// audio
-		'audioQuality'	=> "-a",
-		'audioBitrate'	=> "-A",
-		'samplerate'	=> "-H",
-		'channels'		=> "-c",
-		'noaudio'		=> "--noaudio",
-		// metadata
-		'artist'		=> "--artist",
-		'title'			=> "--title",
-		'date'			=> "--date",
-		'location'		=> "--location",
-		'organization'	=> "--organization",
-		'copyright'		=> "--copyright",
-		'license'		=> "--license",
-		'contact'		=> "--contact"
-	];
 
 }

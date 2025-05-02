@@ -3,7 +3,8 @@
 		"authors": [
 			"Tgr",
 			"Csega",
-			"Tacsipacsi"
+			"Tacsipacsi",
+			"Bencemac"
 		]
 	},
 	"cirrussearch-desc": "Elasticsearch alapú MediaWiki kereső",
@@ -20,16 +21,14 @@
 	"cirrussearch-pref-desc": "Próbáld ki az új keresőt, ami több nyelvet támogat, hamarabb frissül, és a sablonok révén bekerülő szövegre is lehet keresni vele.",
 	"cirrussearch-give-feedback": "Visszajelzés",
 	"cirrussearch-query-too-long": "A keresőkifejezés hosszabb a megengedettnél ($1 > $2).",
-	"cirrussearch-completionsuggester-pref": "Automatikus kiegészítés",
-	"cirrussearch-completionsuggester-desc": "Új algoritmus a keresőkifejezés automatikus kiegészítésére. Ha engedélyezed, a jobb felső sarokban lévő keresőmező ezt fogja használni.",
 	"cirrussearch-completion-profile-strict": "Szigorú profil, egy pár írásjelet eltávolít, de az ékezeteket és hangsúlyjeleket meghagyja.",
 	"cirrussearch-completion-profile-classic": "Klasszikus előtag, néhány írásjelet és bizonyos ékezeteket eltávolít.",
 	"cirrussearch-completion-profile-normal": "Néhány írásjel, bizonyos ékezetek és szavak eltávolítása.",
 	"cirrussearch-completion-profile-normal-subphrases": "Néhány írásjel, bizonyos ékezetek és szavak eltávolítása. Alkifejezéseket is megtalál (lehetnek alkifejezések vagy allapok a wiki belső konfigurációjától függően).",
 	"cirrussearch-completion-profile-fuzzy": "A normálhoz hasonló, elírásjavítással (két elírásig).",
 	"cirrussearch-completion-profile-fuzzy-subphrases": "A normálhoz hasonló, elírásjavítással (két elírásig). Alkifejezéseket is megtalál (lehetnek alkifejezések vagy allapok a wiki belső konfigurációjától függően).",
-	"cirrussearch-qi-profile-classic": "A rangsor a bejövő hivatkozások számán, bizonyos sablonokon, a cikk nyelvén és újdonságán alapul (a sablonok/nyelv/újdonság nem biztos, hogy elérhető ezen a wikin).",
-	"cirrussearch-qi-profile-classic-noboostlinks": "A rangsor bizonyos sablonokon, a cikk nyelvén és újdonságán alapul, amennyiben elérhető ezen a wikin.",
+	"cirrussearch-qi-profile-classic": "A rangsor a bejövő hivatkozások számán, bizonyos sablonokon, a lap nyelvén és újdonságán alapul (a sablonok/nyelv/újdonság nem biztos, hogy elérhető ezen a wikin).",
+	"cirrussearch-qi-profile-classic-noboostlinks": "A rangsor bizonyos sablonokon, a lap nyelvén és újdonságán alapul, amennyiben elérhető ezen a wikin.",
 	"cirrussearch-qi-profile-empty": "A rangsor kizárólag lekérdezésfüggő funkciókon alapul (csak hibakereséshez).",
 	"cirrussearch-pref-completion-profile-help": "Az automatikus kiegészítés javaslatainak működését szabályozza.",
 	"prefs-completion": "Automatikus kiegészítés",
@@ -37,5 +36,7 @@
 	"cirrussearch-completion-profile-fuzzy-pref-desc": "Legfeljebb két elütést javít. Feloldja a közeli átirányításokat.",
 	"cirrussearch-completion-profile-strict-pref-name": "Szigorú mód (haladó)",
 	"cirrussearch-completion-profile-normal-pref-name": "Átirányítás mód (haladó)",
-	"cirrussearch-completion-profile-normal-pref-desc": "Nincs elütésjavítás. Feloldja a közeli átirányításokat."
+	"cirrussearch-completion-profile-normal-pref-desc": "Nincs elütésjavítás. Feloldja a közeli átirányításokat.",
+	"cirrussearch-regex-timed-out": "A reguláris kifejezést használó keresés túllépte az időkorlátot, csak részleges eredmények érhetők el. Próbáld meg egyszerűsíteni a reguláris kifejezésedet.",
+	"cirrussearch-article-words": "Szavak száma az összes tartalmi lapon"
 }

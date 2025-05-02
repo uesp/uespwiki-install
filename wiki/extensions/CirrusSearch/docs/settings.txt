@@ -171,6 +171,13 @@ wikimedia-extra versions 1.3.1, 1.4.2, 1.5.0, and greater:
 
     $wgCirrusSearchWikimediaExtraPlugin[ 'super_detect_noop' ] = true;
 
+As of elastic 5.5 native scripts have been deprecated the super_detect_noop is
+now available as a normal script with language "super_detect_noop".
+If you run elastic prior to 5.5.2 you must enable this option if using
+super_detect_noop.
+
+    $wgCirrusSearchWikimediaExtraPlugin['super_detect_noop_enable_native'] = true;
+
 Configure field specific handlers for the noop script.
 
     $wgCirrusSearchWikimediaExtraPlugin[ 'super_detect_noop_handlers' ] = [
@@ -425,52 +432,20 @@ Default:
 
 Should the phrase suggester (did you mean) be enabled?
 
-; $wgCirrusSearchPhraseSuggestMaxErrorsHardLimit
-
-Default:
-    $wgCirrusSearchPhraseSuggestMaxErrorsHardLimit = 2;
-
-Set the hard limit for $wgCirrusSearchPhraseSuggestMaxErrors. This prevents customizing
-this setting in a way that could hurt the system performances.
-
-; $wgCirrusSearchPhraseSuggestMaxTermFreqHardLimit
-
-Default:
-    $wgCirrusSearchPhraseSuggestMaxTermFreqHardLimit = 0.6;
-
-Set the hard limit for $wgCirrusSearchPhraseMaxTermFreq. This prevents customizing
-this setting in a way that could hurt the system performances.
-
-; $wgCirrusSearchPhraseSuggestAllowedMode
-
-Default:
-    $wgCirrusSearchPhraseSuggestAllowedMode = [ 'missing', 'popular', 'always' ];
-
-List of allowed values for the suggest mode.
-
-; $wgCirrusSearchPhraseSuggestAllowedSmoothingModel
-
-Default:
-    $wgCirrusSearchPhraseSuggestAllowedSmoothingModel = [ 'stupid_backoff', 'laplace', 'linear' ];
-
-List of allowed smoothing models.
-
-; $wgCirrusSearchPhraseSuggestPrefixLengthHardLimit
-
-Default:
-    $wgCirrusSearchPhraseSuggestPrefixLengthHardLimit = 2;
-
-Set the hard limit for $wgCirrusSearchPhraseSuggestPrefixLength. This prevents customizing
-this setting in a way that could hurt the system performances.
-(This is the minimal value)
-
 ; $wgCirrusSearchPhraseSuggestSettings
 
 Default:
-    $wgCirrusSearchPhraseSuggestSettings = $wgCirrusSearchPhraseSuggestProfiles['default'];
+    $wgCirrusSearchPhraseSuggestSettings = 'default';
 
 Set the Phrase suggester settings using the default profile.
-see profiles/PhraseSuggesterProfiles.php
+
+; $wgCirrusSearchPhraseSuggestProfiles
+
+Default:
+    $wgCirrusSearchPhraseSuggestProfiles = []
+
+Set additional phrase suggester profiles
+(see profiles/PhraseSuggesterProfiles.config.php)
 
 ; $wgCirrusSearchPhraseSuggestReverseField
 
@@ -809,6 +784,15 @@ Default:
 
 Show the notification about this wiki using CirrusSearch on the search page.
 
+; $wgCirrusSearchFetchConfigFromApi
+
+Default: $wgCirrusSearchFetchConfigFromApi = false;
+
+Fetch external wiki config from the cirrus dump api.
+Used by cross language and cross project searches.
+When set to false (default), crossproject configs are approximated
+crosslanguage configs are fetched from SiteConfiguration
+
 ; $wgCirrusSearchInterwikiSources
 
 Default:
@@ -905,14 +889,6 @@ Default:
     $wgCirrusSearchFragmentSize = 150;
 
 Number of characters to include in article fragments.
-
-; $wgCirrusSearchBoostLinks
-
-Default:
-    $wgCirrusSearchBoostLinks = true;
-
-Whether to boost searches based on link counts. Default is true
-which most wikis will want. Edge cases will want to turn this off.
 
 ; $wgCirrusSearchIndexAllocation
 
@@ -1075,7 +1051,6 @@ namespace. PrefixSearch will be used in all other cases.
 
 Valid values, all unknown values map to 'no':
 *  yes  - Use completion suggester as the default
-*  beta - Allow users to enable completion suggester as a BetaFeature
 *  no   - Don't use completion suggester
 
 ; $wgCirrusSearchCompletionSuggesterSubphrases
@@ -1193,6 +1168,27 @@ Example :
 
 In WMF context this would remove wikinews and wikiversity from the list of
 crossproject displayed in the sidebar
+
+; $wgCirrusSearchInterwikiPrefixOverrides
+
+Default:
+    $wgCirrusSearchInterwikiPrefixOverrides = [];
+
+List of interwiki prefixes to override. This is only useful when used with
+SiteMatrix. In some cases a specific wiki may want to override the convention used
+by SiteMatrix. E.g. on WMF infrastructure this is used to override the
+interwiki prefix 's' to 'src' on swedish wikipedia.
+
+NOTE: overrides are applied before reading $wgCirrusSearchCrossProjectSearchBlackList
+and $wgCirrusSearchCrossProjectProfiles.
+
+Example:
+    $wgCirrusSearchInterwikiPrefixOverrides = [
+        's' => 'src',
+    ]
+
+
+; $wgCirrusSearchCrossProjectProfiles
 
 Default:
     $wgCirrusSearchCrossProjectProfiles = [];
@@ -1315,11 +1311,12 @@ pushing new jobs even if it's still scheduled by cron.
 ; $wgCirrusSearchIndexBaseName
 
 Default:
-    $wgCirrusSearchIndexBaseName = wfWikiID();
+    $wgCirrusSearchIndexBaseName = '__wikiid__';
 
 The base name of indexes used on this wiki. This value must be
 unique across all wiki's sharing an elasticsearch cluster unless
 $wgCirrusSearchMultiWikiIndices is set to true.
+The value '__wikiid__' will be resolved at runtime to wfWikiId().
 
 ; $wgCirrusSearchStripQuestionMarks
 
@@ -1344,6 +1341,14 @@ Default:
     $wgCirrusSearchFullTextQueryBuilderProfile = 'default';
 
 Elasticsearch QueryBuilder to use when when building FullText queries.
+
+; $wgCirrusSearchFullTextQueryBuilderProfiles
+
+Default:
+    $wgCirrusSearchFullTextQueryBuilderProfiles = [];
+
+List of additional fulltext query builder profiles
+see profiles/FullTextQueryBuilderProfiles.config.php
 
 ; $wgCirrusSearchPrefixIds
 
@@ -1449,28 +1454,6 @@ Customize certain fields with a specific implementation.
 Useful to apply CirrusSearch specific config to fields
 controlled by MediaWiki core.
 
-=== Deprecated settings ===
-
-; $wgCirrusSearchPhraseSuggestMaxErrors
-
-Default:
-    $wgCirrusSearchPhraseSuggestMaxErrors = 2;
-
-NOTE: This setting is deprecated: update or create your own PhraseSuggester profile.
-
-Maximum number of terms that we ask phrase suggest to correct.
-See max_errors on http://www.elasticsearch.org/guide/reference/api/search/suggest/
-
-; $wgCirrusSearchPhraseSuggestConfidence
-
-Default:
-    $wgCirrusSearchPhraseSuggestConfidence = 2.0;
-
-NOTE: This setting is deprecated: update or create your own PhraseSuggester profile.
-
-Confidence level required to suggest new phrases.
-See confidence on http://www.elasticsearch.org/guide/reference/api/search/suggest/
-
 ; $wgCirrusSearchExtraIndexSettings
 
 Default:
@@ -1521,3 +1504,37 @@ Default:
 Maximum number of tokens in a phrase rescore query. Only activated
 when token_count_router is enabled in $wgCirrusSearchWikimediaExtraPlugin.
 Queries with more tokens than this skip the phrase rescore portion.
+
+; $wgCirrusSearchCategoryEndpoint
+
+Default:
+    $wgCirrusSearchCategoryEndpoint = '';
+
+SPARQL endpoint URL to use in deep category search feature.
+
+; $wgCirrusSearchCategoryDepth
+
+Default:
+    $wgCirrusSearchCategoryDepth = 5;
+
+Maximum tree depth to descend when using deep category queries.
+
+; $wgCirrusSearchCategoryMax
+
+Default:
+    $wgCirrusSearchCategoryMax = 256;
+
+Maximum overall category count for deep category query. Note that ElasticSearch
+has limit of 1024 boolean clauses by default, so this limit should be well under
+Elastic limits.
+
+; $wgCirrusSearchInstantIndexNew
+
+Default:
+    $wgCirrusSearchInstantIndexNew = false;
+
+Whether to try to index newly created article immediately. This is useful for wikis
+which use searches - e.g. completion search - a lot for main functionality, e.g. Wikidata,
+and thus want item to appear in the index as soon as possible, even at the cost of page data
+not being fully updated yet.
+Set to true to index all pages on wiki, or array of namespaces to index specific namespaces.

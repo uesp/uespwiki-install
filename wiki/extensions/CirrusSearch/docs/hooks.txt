@@ -11,6 +11,7 @@ really been settled.
 
 'CirrusSearchAnalysisConfig': Allows to hook into the configuration for analysis
  &$config - multi-dimensional configuration array for analysis of various languages and fields
+ $builder - AnalysisConfigBuilder object handling the building (since 1.31)
 
 'CirrusSearchMappingConfig': Allows configuration of the mapping of fields
  &$config - multi-dimensional configuration array that contains Elasticsearch document configuration.
@@ -45,3 +46,11 @@ really been settled.
    For other parameter examples, see RescoreProfiles.config.php
  $context - SearchContext object
  &$builder - object implementing the function. Should be placed in this variable if this extension has it.
+
+'CirrusSearchProfileService': Allows extensions to register search profile repositories
+$service - \CirrusSearch\Profile\SearchProfileService the profile service being built
+
+'CirrusSearchFulltextQueryBuilder': Allows to override fulltext query builder settings or query builder itself.
+NOTE: this hook is EXPERIMENTAL and it is possible that it will be changed or removed in future versions.
+ &$builder - FullTextQueryBuilder object, can be overriden by extensions
+ $context - SearchContext object

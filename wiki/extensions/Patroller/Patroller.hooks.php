@@ -14,9 +14,8 @@ class PatrollerHooks {
 	/**
 	 * Setup the database tables
 	 *
-	 * @access	public
-	 * @param	class	The updater
-	 * @return	void
+	 * @param DatabaseUpdater $updater The updater
+	 * @return void
 	 */
 	public static function onLoadExtensionSchemaUpdates( $updater ) {
 		$updater->addExtensionTable( 'patrollers', __DIR__ . '/sql/add-patrollers.sql' );

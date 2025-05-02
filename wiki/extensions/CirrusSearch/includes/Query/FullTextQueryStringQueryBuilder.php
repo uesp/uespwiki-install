@@ -2,7 +2,7 @@
 
 namespace CirrusSearch\Query;
 
-use CirrusSearch\OtherIndexes;
+use CirrusSearch\Profile\SearchProfileService;
 use CirrusSearch\SearchConfig;
 use CirrusSearch\Searcher;
 use CirrusSearch\Search\SearchContext;
@@ -224,19 +224,12 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 				$rescoreFields = $nonAllFields;
 			}
 
-			$searchContext->addRescore( [
-				'window_size' => $this->config->get( 'CirrusSearchPhraseRescoreWindowSize' ),
-				'query' => [
-					'rescore_query' => $this->buildPhraseRescoreQuery(
+			$searchContext->setPhraseRescoreQuery( $this->buildPhraseRescoreQuery(
 						$searchContext,
 						$rescoreFields,
 						$this->queryStringQueryString,
 						$this->config->getElement( 'CirrusSearchPhraseSlop', 'boost' )
-					),
-					'query_weight' => 1.0,
-					'rescore_query_weight' => $this->config->get( 'CirrusSearchPhraseRescoreBoost' ),
-				]
-			] );
+					) );
 		}
 
 		if ( $showSuggestion ) {
@@ -270,7 +263,6 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 			'query' => $this->queryStringQueryString,
 			'default_operator' => 'AND',
 		] ] ) );
-		$searchContext->clearRescore();
 
 		return true;
 	}
@@ -284,16 +276,8 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	 */
 	private function buildSuggestConfig( $field, $searchContext ) {
 		// check deprecated settings
-		$suggestSettings = $this->config->get( 'CirrusSearchPhraseSuggestSettings' );
-		$maxErrors = $this->config->get( 'CirrusSearchPhraseSuggestMaxErrors' );
-		if ( isset( $maxErrors ) ) {
-			$suggestSettings['max_errors'] = $maxErrors;
-		}
-		$confidence = $this->config->get( 'CirrusSearchPhraseSuggestMaxErrors' );
-		if ( isset( $confidence ) ) {
-			$suggestSettings['confidence'] = $confidence;
-		}
-
+		$suggestSettings = $this->config->getProfileService()
+			->loadProfile( SearchProfileService::PHRASE_SUGGESTER );
 		$settings = [
 			'phrase' => [
 				'field' => $field,
@@ -311,22 +295,16 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 					],
 				],
 				'highlight' => [
-					'pre_tag' => Searcher::SUGGESTION_HIGHLIGHT_PRE,
-					'post_tag' => Searcher::SUGGESTION_HIGHLIGHT_POST,
+					'pre_tag' => Searcher::HIGHLIGHT_PRE_MARKER,
+					'post_tag' => Searcher::HIGHLIGHT_POST_MARKER,
 				],
 			],
 		];
-		$extraIndexes = null;
-		if ( $searchContext->getNamespaces() ) {
-			$extraIndexes = OtherIndexes::getExtraIndexesForNamespaces(
-				$searchContext->getNamespaces()
-			);
-		}
 		// Add a second generator with the reverse field
 		// Only do this for local queries, we don't know if it's activated
 		// on other wikis.
-		if ( empty( $extraIndexes )
-			&& $this->config->getElement( 'CirrusSearchPhraseSuggestReverseField', 'use' )
+		if ( $this->config->getElement( 'CirrusSearchPhraseSuggestReverseField', 'use' )
+			&& empty( $searchContext->getExtraIndices() )
 		) {
 			$settings['phrase']['direct_generator'][] = [
 				'field' => $field . '.reverse',
@@ -403,8 +381,8 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	 * The query 'the query' and the fields all and all.plain will be like
 	 * (all:the OR all.plain:the) AND (all:query OR all.plain:query)
 	 *
-	 * @param string[] $fields the fields
-	 * @param string $queryString the query
+	 * @param string[] $fields
+	 * @param string $queryString
 	 * @param integer $phraseSlop phrase slop
 	 * @return \Elastica\Query\QueryString
 	 */
@@ -456,7 +434,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 			$fields = [];
 			$fields[] = "title.plain:$term^${titleWeight}";
 			$fields[] = "all.plain:$term";
-			$exact = join( ' OR ', $fields );
+			$exact = implode( ' OR ', $fields );
 			return "($exact)";
 		} else {
 			return self::switchSearchToExact( $context, $term, false );
@@ -475,7 +453,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 	 * @return string
 	 */
 	private static function switchSearchToExact( SearchContext $context, $term, $allFieldAllowed ) {
-		$exact = join( ' OR ', self::buildFullTextSearchFields( $context, 1, ".plain:$term", $allFieldAllowed ) );
+		$exact = implode( ' OR ', self::buildFullTextSearchFields( $context, 1, ".plain:$term", $allFieldAllowed ) );
 		return "($exact)";
 	}
 
@@ -634,7 +612,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 
 	/**
 	 * Determines if a phrase rescore is needed
-	 * @param SearchContext $searchContext
+	 * @param SearchContext $searchContext
 	 * @return bool true if we can a phrase rescore
 	 */
 	protected function isPhraseRescoreNeeded( SearchContext $searchContext ) {
@@ -646,9 +624,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 		// Queries with the quote already contain a phrase query and we
 		// can't build phrase queries out of phrase queries at this
 		// point.
-		if ( $this->config->get( 'CirrusSearchPhraseRescoreBoost' ) > 0.0 &&
-			$this->config->get( 'CirrusSearchPhraseRescoreWindowSize' ) &&
-			!$searchContext->isSpecialKeywordUsed() &&
+		if ( !$searchContext->isSpecialKeywordUsed() &&
 			strpos( $this->queryStringQueryString, '"' ) === false &&
 			( $this->useTokenCountRouter || strpos( $this->queryStringQueryString, ' ' ) !== false )
 		) {
@@ -663,7 +639,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 				// text
 				$queryText,
 				// fallack
-				new \CirrusSearch\Elastica\MatchNone(),
+				new \Elastica\Query\MatchNone(),
 				// field
 				null,
 				// analyzer
@@ -674,7 +650,7 @@ class FullTextQueryStringQueryBuilder implements FullTextQueryBuilder {
 				$tokCount->addCondition(
 					TokenCountRouter::GT,
 					$maxTokens,
-					new \CirrusSearch\Elastica\MatchNone()
+					new \Elastica\Query\MatchNone()
 				);
 			}
 			$tokCount->addCondition(

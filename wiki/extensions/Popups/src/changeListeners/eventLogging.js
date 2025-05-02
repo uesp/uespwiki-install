@@ -2,7 +2,7 @@
  * @module changeListeners/eventLogging
  */
 
-var $ = jQuery;
+const $ = jQuery;
 
 /**
  * Creates an instance of the event logging change listener.
@@ -14,18 +14,31 @@ var $ = jQuery;
  *
  * @param {Object} boundActions
  * @param {EventTracker} eventLoggingTracker
+ * @param {Function} getCurrentTimestamp
  * @return {ext.popups.ChangeListener}
  */
-export default function eventLogging( boundActions, eventLoggingTracker ) {
-	return function ( _, state ) {
-		var eventLogging = state.eventLogging,
-			event = eventLogging.event;
+export default function eventLogging(
+	boundActions, eventLoggingTracker, getCurrentTimestamp
+) {
+	return ( _, state ) => {
+		const eventLogging = state.eventLogging;
+		let event = eventLogging.event;
 
 		if ( !event ) {
 			return;
 		}
 
-		event = $.extend( true, {}, eventLogging.baseData, event );
+		// Per https://meta.wikimedia.org/wiki/Schema:Popups, the timestamp
+		// property should be the time at which the event is logged and not the
+		// time at which the interaction started.
+		//
+		// Rightly or wrongly, it's left as an exercise for the analyst to
+		// calculate the time at which the interaction started as part of their
+		// analyses, e.g. https://phabricator.wikimedia.org/T186016#4002923.
+		event = $.extend( true, {}, eventLogging.baseData, event, {
+			timestamp: getCurrentTimestamp()
+		} );
+
 		eventLoggingTracker( 'event.Popups', event );
 		// Dispatch the eventLogged action so that the state tree can be
 		// cleared/updated.

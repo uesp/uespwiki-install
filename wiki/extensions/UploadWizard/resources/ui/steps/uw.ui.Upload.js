@@ -46,7 +46,7 @@
 		this.addFile = new OO.ui.ButtonWidget( {
 			id: 'mwe-upwiz-add-file',
 			label: mw.message( 'mwe-upwiz-add-file-0-free' ).text(),
-			flags: [ 'constructive', 'primary' ]
+			flags: [ 'progressive', 'primary' ]
 		} );
 
 		this.$addFileContainer.append( this.addFile.$element );
@@ -62,7 +62,7 @@
 			this.addFlickrFile = new OO.ui.ButtonWidget( {
 				id: 'mwe-upwiz-add-flickr-file',
 				label: mw.message( 'mwe-upwiz-add-file-flickr' ).text(),
-				flags: 'constructive'
+				flags: 'progressive'
 			} ).on( 'click', function () {
 				upload.flickrInterfaceInit();
 				uw.eventFlowLogger.logEvent( 'flickr-upload-button-clicked' );
@@ -95,7 +95,7 @@
 			this.flickrSelectButton = new OO.ui.ButtonWidget( {
 				id: 'mwe-upwiz-select-flickr',
 				label: mw.message( 'mwe-upwiz-add-file-0-free' ).text(),
-				flags: [ 'constructive', 'primary' ]
+				flags: [ 'progressive', 'primary' ]
 			} );
 			this.$flickrSelectListContainer.append( this.flickrSelectButton.$element );
 
@@ -208,6 +208,14 @@
 			// We can't clear the value of a file input, so replace the whole
 			// thing with a new one
 			ui.setupFileInputCtrl( $element );
+		} );
+
+		$fileInputCtrl.on( 'focus', function () {
+			// In IE 11, focussing a file input (by clicking on it) displays a text cursor and scrolls
+			// the cursor into view (in this case, it scrolls the button, which has 'overflow: hidden').
+			// Since this messes with our custom styling (the file input has large dimensions and this
+			// causes the label to scroll out of view), scroll the button back to top. (T192131)
+			$element.prop( 'scrollTop', 0 );
 		} );
 	};
 

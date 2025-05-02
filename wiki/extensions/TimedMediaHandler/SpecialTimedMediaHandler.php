@@ -9,14 +9,13 @@
  */
 
 class SpecialTimedMediaHandler extends SpecialPage {
-	// @codingStandardsIgnoreStart
-	private $transcodeStates = array(
+	private $transcodeStates = [
+		// phpcs:ignore Generic.Files.LineLength.TooLong
 		'active' => 'transcode_time_startwork IS NOT NULL AND transcode_time_success IS NULL AND transcode_time_error IS NULL',
 		'failed' => 'transcode_time_startwork IS NOT NULL AND transcode_time_error IS NOT NULL',
 		'queued' => 'transcode_time_addjob IS NOT NULL AND transcode_time_startwork IS NULL',
 		'missing' => 'transcode_time_addjob IS NULL',
-	);
-	// @codingStandardsIgnoreEnd
+	];
 	private $formats = [
 		'ogg' => 'img_major_mime="application" AND img_minor_mime = "ogg"',
 		'webm' => 'img_major_mime="video" AND img_minor_mime = "webm"',
@@ -69,13 +68,12 @@ class SpecialTimedMediaHandler extends SpecialPage {
 
 	/**
 	 * @param OutputPage $out
-	 * @param $state
-	 * @param $states
+	 * @param string $state
+	 * @param array $states
 	 * @param bool $showTable
 	 */
 	private function renderState( $out, $state, $states, $showTable = true ) {
-		global $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet;
-		$allTranscodes = array_merge( $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet );
+		$allTranscodes = WebVideoTranscode::enabledTranscodes();
 		if ( $states[ $state ][ 'total' ] ) {
 			// Give grep a chance to find the usages:
 			// timedmedia-derivative-state-transcodes, timedmedia-derivative-state-active,
@@ -110,7 +108,7 @@ class SpecialTimedMediaHandler extends SpecialPage {
 		$memcKey = wfMemcKey( 'TimedMediaHandler', 'files', $state );
 		$files = $wgMemc->get( $memcKey );
 		if ( !$files ) {
-			$dbr = wfGetDB( DB_SLAVE );
+			$dbr = wfGetDB( DB_REPLICA );
 			$files = [];
 			$res = $dbr->select(
 				'transcode',
@@ -154,13 +152,13 @@ class SpecialTimedMediaHandler extends SpecialPage {
 	}
 
 	private function getStats() {
-		global $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet, $wgMemc;
-		$allTranscodes = array_merge( $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet );
+		global $wgMemc;
+		$allTranscodes = WebVideoTranscode::enabledTranscodes();
 
 		$memcKey = wfMemcKey( 'TimedMediaHandler', 'stats', '1' /* version */ );
 		$stats = $wgMemc->get( $memcKey );
 		if ( !$stats ) {
-			$dbr = wfGetDB( DB_SLAVE );
+			$dbr = wfGetDB( DB_REPLICA );
 			$stats = [];
 			$stats[ 'videos' ] = [ 'total' => 0 ];
 			foreach ( $this->formats as $format => $condition ) {
@@ -187,13 +185,13 @@ class SpecialTimedMediaHandler extends SpecialPage {
 	}
 
 	private function getStates() {
-		global $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet, $wgMemc;
-		$allTranscodes = array_merge( $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet );
+		global $wgMemc;
+		$allTranscodes = WebVideoTranscode::enabledTranscodes();
 
 		$memcKey = wfMemcKey( 'TimedMediaHandler', 'states' );
 		$states = $wgMemc->get( $memcKey );
 		if ( !$states ) {
-			$dbr = wfGetDB( DB_SLAVE );
+			$dbr = wfGetDB( DB_REPLICA );
 			$states = [];
 			$states[ 'transcodes' ] = [ 'total' => 0 ];
 			foreach ( $this->transcodeStates as $state => $condition ) {

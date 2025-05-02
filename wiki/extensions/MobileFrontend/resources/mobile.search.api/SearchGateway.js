@@ -1,5 +1,6 @@
-( function ( M, $ ) {
+( function ( M ) {
 	var Page = M.require( 'mobile.startup/Page' ),
+		util = M.require( 'mobile.startup/util' ),
 		extendSearchParams = M.require( 'mobile.search.util/extendSearchParams' );
 
 	/**
@@ -18,7 +19,7 @@
 		 * The namespace to search in.
 		 * @type {number}
 		 */
-		searchNamespace: '0|102|104|106|108|110|112|114|116|118|120|122|124|126|128|130|132|134|136|138|140|142|144|146|148|150|152|154|156|158|160|162|164|166|168|170|172|174|176|178|184',
+		searchNamespace: 0,
 
 		/**
 		 * Get the data used to do the search query api call.
@@ -68,8 +69,8 @@
 		 * @private
 		 */
 		_highlightSearchTerm: function ( label, term ) {
-			label = $( '<span>' ).text( label ).html();
-			term = $( '<span>' ).text( term ).html();
+			label = util.parseHTML( '<span>' ).text( label ).html();
+			term = util.parseHTML( '<span>' ).text( term ).html();
 
 			return label.replace( this._createSearchRegEx( term ), '<strong>$1</strong>' );
 		},
@@ -130,29 +131,26 @@
 		 * @return {jQuery.Deferred}
 		 */
 		search: function ( query ) {
-			var result = $.Deferred(),
-				request,
+			var xhr, request,
 				self = this;
 
 			if ( !this.isCached( query ) ) {
-				request = this.api.get( this.getApiData( query ) )
-					.done( function ( data ) {
+				xhr = this.api.get( this.getApiData( query ) );
+				request = xhr
+					.then( function ( data ) {
 						// resolve the Deferred object
-						result.resolve( {
+						return {
 							query: query,
 							results: self._processData( query, data )
-						} );
-					} )
-					.fail( function () {
+						};
+					}, function () {
 						// reset cached result, it maybe contains no value
 						self.searchCache[query] = undefined;
-						// reject
-						result.reject();
 					} );
 
 				// cache the result to prevent the execution of one search query twice in one session
-				this.searchCache[query] = result.promise( {
-					abort: request.abort
+				this.searchCache[query] = request.promise( {
+					abort: function () { xhr.abort(); }
 				} );
 			}
 
@@ -172,4 +170,4 @@
 
 	M.define( 'mobile.search.api/SearchGateway', SearchGateway );
 
-}( mw.mobileFrontend, jQuery ) );
+}( mw.mobileFrontend ) );

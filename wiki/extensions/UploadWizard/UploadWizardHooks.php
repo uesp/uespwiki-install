@@ -41,7 +41,7 @@ class UploadWizardHooks {
 	 * @since 1.2
 	 *
 	 * @param User $user
-	 * @param array $preferences
+	 * @param array &$preferences
 	 *
 	 * @return true
 	 */
@@ -56,6 +56,13 @@ class UploadWizardHooks {
 				'section' => 'uploads/upwiz-interface'
 			];
 		}
+
+		$preferences['upwiz_licensename'] = [
+			'type' => 'text',
+			'label-message' => 'mwe-upwiz-prefs-license-name',
+			'help-message' => 'mwe-upwiz-prefs-license-name-help',
+			'section' => 'uploads/upwiz-licensing'
+		];
 
 		if ( UploadWizardConfig::getSetting( 'enableLicensePreference' ) ) {
 			$licenseConfig = UploadWizardConfig::getSetting( 'licenses' );
@@ -134,6 +141,9 @@ class UploadWizardHooks {
 
 	/**
 	 * Hook to blacklist flickr images by intercepting upload from url
+	 * @param string $url
+	 * @param bool &$allowed
+	 * @return true
 	 */
 	public static function onIsUploadAllowedFromUrl( $url, &$allowed ) {
 		if ( $allowed ) {
@@ -150,9 +160,8 @@ class UploadWizardHooks {
 
 	/**
 	 * Get JavaScript test modules
-	 * @param array $testModules
-	 * @param ResourceLoader resourceLoader
-	 * @return bool
+	 * @param array &$testModules
+	 * @param ResourceLoader &$resourceLoader
 	 */
 	public static function onResourceLoaderTestModules(
 		array &$testModules,
@@ -220,7 +229,7 @@ class UploadWizardHooks {
 	 * Lists tags used by UploadWizard (via ListDefinedTags,
 	 * ListExplicitlyDefinedTags & ChangeTagsListActive hooks)
 	 *
-	 * @param array $tags
+	 * @param array &$tags
 	 * @return bool true
 	 */
 	public static function onListDefinedTags( &$tags ) {

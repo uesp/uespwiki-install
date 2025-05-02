@@ -1,4 +1,4 @@
-var $ = jQuery;
+const $ = jQuery;
 
 /**
  * Creates an instance of the link title change listener.
@@ -10,7 +10,7 @@ var $ = jQuery;
  * @return {ext.popups.ChangeListener}
  */
 export default function linkTitle() {
-	var title;
+	let title;
 
 	/**
 	 * Destroys the title attribute of the element, storing its value in local
@@ -19,7 +19,7 @@ export default function linkTitle() {
 	 * @param {Element} el
 	 */
 	function destroyTitleAttr( el ) {
-		var $el = $( el );
+		const $el = $( el );
 
 		// Has the user dwelled on a link? If we've already removed its title
 		// attribute, then NOOP.
@@ -43,8 +43,8 @@ export default function linkTitle() {
 		title = undefined;
 	}
 
-	return function ( prevState, state ) {
-		var hasPrevActiveLink = prevState && prevState.preview.activeLink;
+	return ( prevState, state ) => {
+		const hasPrevActiveLink = prevState && prevState.preview.activeLink;
 
 		if ( !state.preview.enabled ) {
 			return;

@@ -9,7 +9,8 @@
 			"Abanima",
 			"Maroen1990",
 			"محمد أحمد عبد الفتاح",
-			"Mido"
+			"Mido",
+			"Sonic N800"
 		]
 	},
 	"timedmediahandler-desc": "مداول للصوتيات والمرئيات والنصوص المؤقتة والذي لديه القدرة على دعم ملفات بصيغة WebM وOgg Theora وVorbis وsrt",
@@ -52,7 +53,7 @@
 	"timedmedia-not-ready": "غير جاهز",
 	"timedmedia-completed-on": "انتهت$1",
 	"timedmedia-error-on": "خطأ: $1",
-	"timedmedia-started-transcode": "بدأ منذ $1. $2",
+	"timedmedia-started-transcode": "بدأ قبل $1. $2",
 	"timedmedia-percent-done": "وصل لنسبة $1% انتهى",
 	"timedmedia-in-job-queue": "تمت الإضافة إلى طابور المهام منذ $1",
 	"timedmedia-unknown-target-size": "حجم هدف غير معروف، $1 مكود",
@@ -131,7 +132,7 @@
 	"timedmedia-wav-audios": "{{PLURAL:$1|ملف|ملفا|$1 ملفات|$1 ملف}} صوتي WAV",
 	"timedmedia-webm-audios": "{{PLURAL:$1|$1 ملف صوت WebM|$1 ملفات صوت WebM}}",
 	"beta-feature-timedmediahandler-description-videojs": "شاهد ملفات الفيديو في مشغل عصري وواجهة واضحة متوافقة أيضا مع الجوال.",
-	"right-transcode-reset": "إعادة الضبط فشلت أو الفيديوات المكودة بحيث تم إدخالها إلى job queue مجددا",
+	"right-transcode-reset": "إعادة ضبط الفيديوات الفاشلة أو المكودة ليتم إدخالها إلى طابور المهام مجدداً",
 	"right-transcode-status": "عرض [[Special:TimedMediaHandler|المعلومات حول نشاط التكويد الحالي]]",
 	"action-transcode-reset": "إعادة ضبط التحويلات",
 	"action-transcode-status": "عرض حالة التكويد الحالية",

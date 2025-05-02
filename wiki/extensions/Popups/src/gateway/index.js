@@ -3,7 +3,7 @@ import createMediaWikiApiGateway from './mediawiki';
 import createRESTBaseGateway from './rest';
 import * as formatters from './restFormatters';
 
-var mw = mediaWiki,
+const mw = mediaWiki,
 	$ = jQuery;
 
 // Note that this interface definition is in the global scope.
@@ -22,7 +22,7 @@ var mw = mediaWiki,
  * @function
  * @name Gateway#getPageSummary
  * @param {String} title The title of the page
- * @returns {jQuery.Promise<PreviewModel>}
+ * @return {jQuery.Promise<PreviewModel>}
  */
 
 /**
@@ -32,13 +32,20 @@ var mw = mediaWiki,
  * @return {Gateway}
  */
 export default function createGateway( config ) {
+	const restConfig = $.extend( {}, constants,
+		{
+			endpoint: config.get( 'wgPopupsRestGatewayEndpoint' )
+		}
+	);
 	switch ( config.get( 'wgPopupsGateway' ) ) {
 		case 'mwApiPlain':
 			return createMediaWikiApiGateway( new mw.Api(), constants );
 		case 'restbasePlain':
-			return createRESTBaseGateway( $.ajax, constants, formatters.parsePlainTextResponse );
+			return createRESTBaseGateway(
+				$.ajax, restConfig, formatters.parsePlainTextResponse );
 		case 'restbaseHTML':
-			return createRESTBaseGateway( $.ajax, constants, formatters.parseHTMLResponse );
+			return createRESTBaseGateway(
+				$.ajax, restConfig, formatters.parseHTMLResponse );
 		default:
 			throw new Error( 'Unknown gateway' );
 	}

@@ -2,7 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Purodha",
-			"Matma Rex"
+			"Matma Rex",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "et frünndlejje Projramm för et Huhlaade",
@@ -125,9 +126,6 @@
 	"mwe-upwiz-copy-location": "Plaz kopeere",
 	"mwe-upwiz-copy-other": "Ander Aanjabe kopeere",
 	"mwe-upwiz-desc": "Beschrevve als",
-	"mwe-upwiz-desc-placeholder": "Schrihv jädd övver dat Beld.",
-	"mwe-upwiz-desc-add-n": "{{int:mwe-upwiz-desc-add-0}} en en ander Schprohch",
-	"mwe-upwiz-desc-add-0": "Donn jät drövver schrieve",
 	"mwe-upwiz-title": "Tėttel",
 	"mwe-upwiz-date-created": "Jemaat aam",
 	"mwe-upwiz-select-date": "Söhg e Dattom uß",
@@ -239,7 +237,6 @@
 	"mwe-upwiz-license-own-pd": "Allmende (<i lang=\"en\">Public Domain</i>) — alle Rääschde fottjejovve noh de <i lang=\"en\">Creative Commons</i> ier Lizänz CC0",
 	"mwe-upwiz-license-pd-old-100": "Der Urhävver es zick mih wi 100 Johre duhd.",
 	"mwe-upwiz-license-pd-old": "Der Urhävver es allt zick mih wi 70 Johr duhd.",
-	"mwe-upwiz-license-pd-art": "E jomohld Beld es akeraat widderjejovve, wat jez en de Allmende es.",
 	"mwe-upwiz-license-pd-us": "Et eets en der USA öffentlesch jemaat un dat vör em Johr 1923",
 	"mwe-upwiz-license-pd-usgov": "Ojinaal Wärk vun de Rejierong vun de USA",
 	"mwe-upwiz-license-pd-usgov-nasa": "Ojinaal Wärk vun de NASA",
@@ -250,7 +247,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Häd e Urhävverrääsch, kann ävver för alles jebruch wääde, och jeschäfflesch",
 	"mwe-upwiz-license-attribution": "Kann för alles jebruch wääde, och jeschäfflesch, wann dä Urhävverrääschsbesezer op en paßende Aat jenannd es",
 	"mwe-upwiz-license-gfdl": "De <i lang=\"en\">GNU</i> ier Lizänz för frei Dokemäntazjuhne",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "<i lang=\"en\" xml:lang=\"en\" title=\"Kopieren freigestellt\">Copyleft</i>, der Name moß jenannt wääde (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "<i lang=\"en\" xml:lang=\"en\" title=\"Kopieren freigestellt\">Copyleft</i>, der Name moß jenannt wääde (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "Der Besezer vun Urhävverrääsch hät {{PLURAL:$1|dat Wärk|di Wärke|nix}} onger der reschtejje vun de <i lang=\"en\">Creative Commons</i> ier Lizänze en de Öffentleschkeit jebraat.",
 	"mwe-upwiz-license-cc-subhead": "Nit all de Lizänze von de <ilang=\"en\">Creative Commons</i> paße för heh. Dä Enhavver vum Urhävverrääsch moß ein dervun aanjebodde han.",
 	"mwe-upwiz-license-flickr-head": "Dä Enhavver vum Urhäverrääsch hät {{PLURAL:$1|dat Fotto udder dä Viddejo|di Fottos udder Viddejos|nix}} op <i lang=\"en\">Flickr</i> onger dä reeschtejje Lizänz öffentlesch jemaat.",

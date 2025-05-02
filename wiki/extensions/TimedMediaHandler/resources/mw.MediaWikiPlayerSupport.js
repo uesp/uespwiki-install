@@ -11,7 +11,7 @@
 	} );
 
 	// Add mediaWiki player support to target embedPlayer
-	$( mw ).bind( 'EmbedPlayerNewPlayer', function ( event, embedPlayer ) {
+	$( mw ).on( 'EmbedPlayerNewPlayer', function ( event, embedPlayer ) {
 		mw.addMediaWikiPlayerSupport( embedPlayer );
 	} );
 
@@ -81,9 +81,9 @@
 
 				// Add the media src
 				embedPlayer.mediaElement.tryAddSource(
-					$( '<source />' )
-					.attr( 'src', imageinfo.url )
-					.get( 0 )
+					$( '<source>' )
+						.attr( 'src', imageinfo.url )
+						.get( 0 )
 				);
 
 				// Set the duration
@@ -117,7 +117,7 @@
 				// Get the title string ( again a "Title" like js object could help out here. )
 				titleStr = embedPlayer.apiTitleKey.replace( /_/g, ' ' ),
 				// Setup the initial credits line:
-				$creditLine = $( '<div />' );
+				$creditLine = $( '<div>' );
 
 			// Add the title:
 			$creditLine.append(
@@ -125,11 +125,12 @@
 					mw.msg( 'mwe-embedplayer-credit-title',
 						// get the link
 						$( '<div>' ).append(
-							$( '<a/>' ).attr( {
-								href: articleUrl,
-								title: titleStr
-							} )
-							.text( titleStr )
+							$( '<a/>' )
+								.attr( {
+									href: articleUrl,
+									title: titleStr
+								} )
+								.text( titleStr )
 						)[ 0 ].innerHTML
 					)
 				)
@@ -156,7 +157,7 @@
 						$authorLink.attr( 'href', authUrl );
 					} );
 				}
-				$creditLine.append( $( '<br />' ),
+				$creditLine.append( $( '<br>' ),
 					mw.msg( 'mwe-embedplayer-credit-author', $authorText.html() )
 				);
 			}
@@ -169,7 +170,7 @@
 
 				// remove white space:
 				$date.find( 'br' ).remove();
-				$creditLine.append( $( '<br />' ),
+				$creditLine.append( $( '<br>' ),
 					mw.msg( 'mwe-embedplayer-credit-date', $date.html() )
 				);
 			}
@@ -250,7 +251,7 @@
 		} );
 
 		// Show credits on clip complete:
-		$( embedPlayer ).bind( 'onEndedDone', function ( event, id ) {
+		$( embedPlayer ).on( 'onEndedDone', function ( event, id ) {
 			var cb;
 			if ( embedPlayer.id !== id ) {
 				// possible event trigger error. ( skip )
@@ -268,15 +269,15 @@
 			cb.showMenuItem( 'credits' );
 		} );
 
-		$( embedPlayer ).bind( 'showInlineDownloadLink', function () {
+		$( embedPlayer ).on( 'showInlineDownloadLink', function () {
 			// Add recommend HTML5 player if we have non-native playback:
 			if ( embedPlayer.controlBuilder.checkNativeWarning() ) {
 				embedPlayer.controlBuilder.addWarningBinding(
 					'EmbedPlayer.ShowNativeWarning',
 					mw.msg( 'mwe-embedplayer-for_best_experience',
 						$( '<div>' ).append(
-							$( '<a />' ).attr( {
-								href: 'http://www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download',
+							$( '<a>' ).attr( {
+								href: 'https://www.mediawiki.org/wiki/Extension:TimedMediaHandler/Client_download',
 								target: '_new'
 							} )
 						)[ 0 ].innerHTML
@@ -286,7 +287,7 @@
 			}
 		} );
 
-		$( embedPlayer ).bind( 'TimedText_BuildCCMenu', function ( event, $menu, id ) {
+		$( embedPlayer ).on( 'TimedText_BuildCCMenu', function ( event, $menu, id ) {
 			var thisep,
 				pageTitle,
 				addTextPage,
@@ -305,9 +306,8 @@
 
 				pageTitle = 'TimedText:' +
 					decodeURIComponent( embedPlayer.apiTitleKey ).replace( /^File:|^Image:/, '' );
-				addTextPage = mw.getApiProviderURL( apiProvider )
-									.replace( 'api.php', 'index.php' ) +
-									'?title=' + encodeURIComponent( pageTitle );
+				addTextPage = mw.getApiProviderURL( apiProvider ).replace( 'api.php', 'index.php' ) +
+					'?title=' + encodeURIComponent( pageTitle );
 
 				$li = $.getLineItem( mw.msg( 'mwe-timedtext-upload-timed-text' ), 'script', function () {
 					window.location = addTextPage;
@@ -362,7 +362,7 @@
 			} );
 		} );
 
-		$( embedPlayer ).bind( 'getShareIframeSrc', function ( event, callback, id ) {
+		$( embedPlayer ).on( 'getShareIframeSrc', function ( event, callback, id ) {
 			var iframeUrl = false;
 			if ( id !== embedPlayer.id ) {
 				embedPlayer = $( '#' + id )[ 0 ];

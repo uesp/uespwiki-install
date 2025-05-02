@@ -15,6 +15,9 @@ module.exports = function ( grunt ) {
 
 	grunt.initConfig( {
 		eslint: {
+			options: {
+				cache: true
+			},
 			all: [
 				'*.js',
 				'{resources,docs,tests}/**/*.js',
@@ -40,7 +43,8 @@ module.exports = function ( grunt ) {
 		jsonlint: {
 			all: [
 				'**/*.json',
-				'!node_modules/**'
+				'!node_modules/**',
+				'!vendor/**'
 			]
 		}
 	} );

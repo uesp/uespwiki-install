@@ -2,8 +2,8 @@ import settings from '../../../src/reducers/settings';
 
 QUnit.module( 'reducers/settings' );
 
-QUnit.test( '@@INIT', function ( assert ) {
-	var state = settings( undefined, { type: '@@INIT' } );
+QUnit.test( '@@INIT', ( assert ) => {
+	const state = settings( undefined, { type: '@@INIT' } );
 
 	assert.deepEqual(
 		state,
@@ -15,8 +15,8 @@ QUnit.test( '@@INIT', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'BOOT', function ( assert ) {
-	var action = {
+QUnit.test( 'BOOT', ( assert ) => {
+	const action = {
 		type: 'BOOT',
 		isEnabled: false,
 		user: {
@@ -45,7 +45,7 @@ QUnit.test( 'BOOT', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'SETTINGS_SHOW', function ( assert ) {
+QUnit.test( 'SETTINGS_SHOW', ( assert ) => {
 	assert.expect( 1 );
 
 	assert.deepEqual(
@@ -58,7 +58,7 @@ QUnit.test( 'SETTINGS_SHOW', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'SETTINGS_HIDE', function ( assert ) {
+QUnit.test( 'SETTINGS_HIDE', ( assert ) => {
 	assert.expect( 1 );
 
 	assert.deepEqual(
@@ -71,12 +71,12 @@ QUnit.test( 'SETTINGS_HIDE', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'SETTINGS_CHANGE', function ( assert ) {
-	var action = function ( wasEnabled, enabled ) {
+QUnit.test( 'SETTINGS_CHANGE', ( assert ) => {
+	const action = ( wasEnabled, enabled ) => {
 		return {
 			type: 'SETTINGS_CHANGE',
-			wasEnabled: wasEnabled,
-			enabled: enabled
+			wasEnabled,
+			enabled
 		};
 	};
 

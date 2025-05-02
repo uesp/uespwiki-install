@@ -5,7 +5,6 @@ namespace CirrusSearch;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use PoolCounterWorkViaCallback;
-use RequestContext;
 use Status;
 use Title;
 use UIDGenerator;
@@ -205,7 +204,7 @@ class Util {
 	 * Test if $string ends with $suffix
 	 *
 	 * @param string $string string to test
-	 * @param string $suffix the suffix
+	 * @param string $suffix
 	 * @return bool true if $string ends with $suffix
 	 */
 	public static function endsWith( $string, $suffix ) {
@@ -227,11 +226,7 @@ class Util {
 	public static function overrideYesNo( &$dest, $request, $name ) {
 		$val = $request->getVal( $name );
 		if ( $val !== null ) {
-			if ( $val === 'yes' ) {
-				$dest = true;
-			} elseif ( $val === 'no' ) {
-				$dest = false;
-			}
+			$dest = wfStringToBool( $val );
 		}
 	}
 
@@ -348,9 +343,12 @@ class Util {
 	public static function stripQuestionMarks( $term, $strippingLevel ) {
 		// strip question marks
 		$more_punct = "[¿]";
-		if ( strpos( $term, 'insource:' ) === false &&
+		if ( strpos( $term, 'insource:/' ) === false &&
+			 strpos( $term, 'intitle:/' ) === false &&
 			preg_match( "/^([[:punct:]]|\s|$more_punct)+$/", $term ) === 0
 		) {
+			// FIXME: get rid of negative lookbehinds on (?<!\\\\)
+			// it may improperly transform \\? into \? instead of \\ and destroy properly escaped \
 			if ( $strippingLevel === 'final' ) {
 				// strip only query-final question marks that are not escaped
 				$term = preg_replace( "/((?<!\\\\)\?|\s)+$/", '', $term );
@@ -430,7 +428,7 @@ class Util {
 	 * @return string The context the request is in. Either cli, api or web.
 	 */
 	public static function getExecutionContext() {
-		if ( PHP_SAPI === 'cli' ) {
+		if ( PHP_SAPI === 'cli' || defined( 'MEDIAWIKI_JOB_RUNNER' ) ) {
 			return 'cli';
 		} elseif ( defined( 'MW_API' ) ) {
 			return 'api';

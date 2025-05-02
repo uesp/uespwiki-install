@@ -108,7 +108,9 @@ abstract class ElasticsearchIntermediary {
 	 */
 	public static function setResultPages( array $matches ) {
 		if ( self::$requestLogger === null ) {
-			throw new \RuntimeException( 'No search request was made' );
+			// This could happen if Cirrus is not the active engine,
+			// but the hook is still loaded. In this case, do nothing.
+			return;
 		} else {
 			self::$requestLogger->setResultPages( $matches );
 		}
@@ -173,6 +175,14 @@ abstract class ElasticsearchIntermediary {
 	}
 
 	public function multiFailure( \Elastica\Multi\ResultSet $multiResultSet ) {
+		$status = $multiResultSet->getResponse()->getStatus();
+		if ( $status < 200 || $status >= 300 ) {
+			// bad response from server. Should elastica be throwing an exception for this?
+			return $this->failure( new \Elastica\Exception\ResponseException(
+				$this->connection->getClient()->getLastRequest(),
+				$multiResultSet->getResponse()
+			) );
+		}
 		foreach ( $multiResultSet->getResultSets() as $resultSet ) {
 			if ( $resultSet->getResponse()->hasError() ) {
 				return $this->failure( new \Elastica\Exception\ResponseException(

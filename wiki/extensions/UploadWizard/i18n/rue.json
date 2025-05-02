@@ -2,7 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Gazeb",
-			"Matma Rex"
+			"Matma Rex",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Спроваджаня начітанём файлів",
@@ -98,8 +99,6 @@
 	"mwe-upwiz-copy-location": "Окопіровати локацію",
 	"mwe-upwiz-copy-other": "Окопіровати далшы інформації",
 	"mwe-upwiz-desc": "Попис",
-	"mwe-upwiz-desc-add-n": "Придати попис в іншім языку",
-	"mwe-upwiz-desc-add-0": "Придати попис",
 	"mwe-upwiz-title": "Назва",
 	"mwe-upwiz-date-created": "Датум створїня",
 	"mwe-upwiz-location": "Місце",
@@ -191,7 +190,6 @@
 	"mwe-upwiz-license-own-pd": "Зречіня ся вшыткых прав за помочі Creative Commons Zero (як вольный твор)",
 	"mwe-upwiz-license-pd-old-100": "Автор помер перед веце як 100 роками",
 	"mwe-upwiz-license-pd-old": "Автор помер перед веце як 70 роками",
-	"mwe-upwiz-license-pd-art": "Вірна репродукція малюнку, котрый є вольным твором",
 	"mwe-upwiz-license-pd-us": "Першыраз публіковане в США перед роком 1923",
 	"mwe-upwiz-license-pd-usgov": "Оріґінална робота влады США",
 	"mwe-upwiz-license-pd-usgov-nasa": "Оріґіналне дїло НАСА",
@@ -202,7 +200,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Хранене авторьскым правом, але може быти ужыте за хоцьякым цілём, і комерчно",
 	"mwe-upwiz-license-attribution": "Годен хосновати про хоцьякы цілї, в тім чіслї комерчных, покы є властник авторьскый прав рядно уведеный",
 	"mwe-upwiz-license-gfdl": "GNU Free Documentation License",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, выжадоване уведжіня автора (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, выжадоване уведжіня автора (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "Властник авторьскый прав публіковав {{PLURAL:$1|тото дїло|тоты дїла}} під хосновательнов ліценціов Creative Commons",
 	"mwe-upwiz-license-cc-subhead": "Не вшыткы Creative Commons ліценції суть добры про тот сайт. Упевните ся же властник прав хосновав дакотру з тых ліценцій.",
 	"mwe-upwiz-license-flickr-head": "Властник авторьскый прав публіковав {{PLURAL:$1|своє фото ці відео|свої фоткы ці відеа}} на Flickr-і під хосновательнов ліценціов",

@@ -7,7 +7,10 @@
 	"url": "https://www.mediawiki.org/wiki/Extension:JsonConfig",
 	"descriptionmsg": "jsonconfig-desc",
 	"type": "other",
-	"license-name": "GPL-2.0+",
+	"license-name": "GPL-2.0-or-later",
+	"requires": {
+		"MediaWiki": ">= 1.29.0"
+	},
 	"namespaces": [
 		{
 			"id": 482,
@@ -75,8 +78,7 @@
 				"JsonConfig.css",
 				"tabular-general.less",
 				"tabular-table.less"
-			],
-			"position": "top"
+			]
 		}
 	},
 	"ResourceFileModulePaths": {

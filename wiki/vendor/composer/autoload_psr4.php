@@ -6,12 +6,13 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
-    'WrappedString\\' => array($vendorDir . '/wikimedia/wrappedstring/src'),
+    'WrappedString\\' => array($vendorDir . '/wikimedia/wrappedstring/src/WrappedString'),
     'Wikimedia\\Purtle\\Tests\\' => array($vendorDir . '/wikimedia/purtle/tests/phpunit'),
     'Wikimedia\\Purtle\\' => array($vendorDir . '/wikimedia/purtle/src'),
     'Wikimedia\\Composer\\' => array($vendorDir . '/wikimedia/composer-merge-plugin/src'),
     'Wikimedia\\Assert\\Test\\' => array($vendorDir . '/wikimedia/assert/tests/phpunit'),
     'Wikimedia\\Assert\\' => array($vendorDir . '/wikimedia/assert/src'),
+    'Wikimedia\\' => array($vendorDir . '/wikimedia/object-factory/src', $vendorDir . '/wikimedia/wrappedstring/src/Wikimedia'),
     'RemexHtml\\' => array($vendorDir . '/wikimedia/remex-html/RemexHtml'),
     'Psr\\Log\\' => array($vendorDir . '/psr/log/Psr/Log'),
     'Composer\\Semver\\' => array($vendorDir . '/composer/semver/src'),

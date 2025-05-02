@@ -1,6 +1,12 @@
 import * as renderer from '../../../src/ui/renderer';
+import { createNullModel, previewTypes } from '../../../src/preview/model';
+import { createThumbnail } from '../../../src/ui/thumbnail';
 
-var $ = jQuery;
+const $ = jQuery,
+	MSG_NO_PREVIEW = 'There was an issue displaying this preview',
+	MSG_GO_TO_PAGE = 'Go to this page',
+	MSG_DISAMBIGUATION = 'This title relates to more than one page',
+	MSG_DISAMBIGUATION_LINK = 'View similar pages';
 
 /**
  * A utility function that creates a bare bones preview
@@ -10,15 +16,15 @@ var $ = jQuery;
  * @param {ext.popups.Thumbnail} [thumbnail]
  * @return {ext.popups.Preview}
  */
-function createPreview( isTall, hasThumbnail, thumbnail ) {
+function createPagePreview( isTall, hasThumbnail, thumbnail ) {
 	return {
 		el: $( '<div>' )
 			.append( hasThumbnail ? $( '<image>' ) : '' )
 			.append( $( '<a>', { 'class': 'mwe-popups-extract', text: 'extract' } ) )
 			.append( $( '<a>', { 'class': 'mwe-popups-settings-icon' } ) ),
-		isTall: isTall,
-		hasThumbnail: hasThumbnail,
-		thumbnail: thumbnail
+		isTall,
+		hasThumbnail,
+		thumbnail
 	};
 }
 
@@ -34,47 +40,33 @@ function createBehavior( sandbox ) {
 }
 
 QUnit.module( 'ext.popups#renderer', {
-	beforeEach: function () {
-		var self = this;
+	beforeEach() {
+		$.bracketedDevicePixelRatio = () => 1;
 
-		$.bracketedDevicePixelRatio = function () {
-			return 1;
-		};
-
-		window.mediaWiki.RegExp = {
-			escape: this.sandbox.spy( function ( str ) {
-				return str.replace( /([\\{}()|.?*+\-\^$\[\]])/g, '\\$1' );
-			} )
-		};
-
-		window.mediaWiki.msg = function ( key ) {
+		window.mediaWiki.msg = ( key ) => {
 			switch ( key ) {
 				case 'popups-preview-no-preview':
-					return 'Looks like there isn\'t a preview for this page';
+					return MSG_NO_PREVIEW;
 				case 'popups-preview-footer-read':
-					return 'Read';
+					return MSG_GO_TO_PAGE;
+				case 'popups-preview-disambiguation':
+					return MSG_DISAMBIGUATION;
+				case 'popups-preview-disambiguation-link':
+					return MSG_DISAMBIGUATION_LINK;
 			}
 		};
 
-		this.renderSpy = this.sandbox.spy();
-		window.mediaWiki.template = {
-			get: function () {
-				return {
-					render: self.renderSpy
-				};
-			}
-		};
+		window.mediaWiki.html = { escape: str => str };
 	},
-	afterEach: function () {
+	afterEach() {
 		$.bracketedDevicePixelRatio = null;
-		window.mediaWiki.RegExp = null;
 		window.mediaWiki.msg = null;
-		window.mediaWiki.template = null;
+		window.mediaWiki.html = null;
 	}
 } );
 
-QUnit.test( 'createPokeyMasks', function ( assert ) {
-	var $container = $( '<div>' ),
+QUnit.test( 'createPokeyMasks', ( assert ) => {
+	const $container = $( '<div>' ),
 		cases = [
 			[ 'clippath#mwe-popups-mask polygon', '0 8, 10 8, 18 0, 26 8, 1000 8, 1000 1000, 0 1000' ],
 			[ 'clippath#mwe-popups-mask-flip polygon', '0 8, 274 8, 282 0, 290 8, 1000 8, 1000 1000, 0 1000' ],
@@ -84,7 +76,7 @@ QUnit.test( 'createPokeyMasks', function ( assert ) {
 
 	renderer.createPokeyMasks( $container.get( 0 ) );
 
-	cases.forEach( function ( case_ ) {
+	cases.forEach( ( case_ ) => {
 		assert.equal(
 			$container.find( case_[ 0 ] ).attr( 'points' ),
 			case_[ 1 ]
@@ -92,38 +84,26 @@ QUnit.test( 'createPokeyMasks', function ( assert ) {
 	} );
 } );
 
-QUnit.test( 'createPreview', function ( assert ) {
-	var model = {
+QUnit.test( 'createPagePreview', ( assert ) => {
+	const model = {
 			title: 'Test',
 			url: 'https://en.wikipedia.org/wiki/Test',
 			languageCode: 'en',
 			languageDirection: 'ltr',
 			extract: 'This is a test page.',
+			type: previewTypes.TYPE_PAGE,
 			thumbnail: {
 				source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/President_Barack_Obama.jpg/409px-President_Barack_Obama.jpg',
 				width: 409,
 				height: 512
 			}
 		},
-		preview;
-
-	window.mediaWiki.template = {
-		get: function () {
-			return {
-				render: function () {
-					return $( '<div>', { 'class': 'mwe-popups-discreet' } )
-						.append( $( '<div>', { 'class': 'mwe-popups-extract' } ) );
-				}
-			};
-		}
-	};
-
-	preview = renderer.createPreview( model );
+		preview = renderer.createPreviewWithType( model );
 
 	assert.equal( preview.hasThumbnail, true, 'Preview has thumbnail.' );
 	assert.deepEqual(
-		preview.thumbnail,
-		renderer.createThumbnail( model.thumbnail ),
+		preview.thumbnail.el.html(),
+		createThumbnail( model.thumbnail ).el.html(),
 		'Preview thumbnail is the correct one.'
 	);
 	assert.equal(
@@ -138,20 +118,21 @@ QUnit.test( 'createPreview', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'createEmptyPreview', function ( assert ) {
-	var model = {
+QUnit.test( 'createEmptyPreview(model)', ( assert ) => {
+	const model = {
 			title: 'Test',
 			url: 'https://en.wikipedia.org/wiki/Test',
 			languageCode: 'en',
 			languageDirection: 'ltr',
 			extract: 'This is a test page.',
+			type: previewTypes.TYPE_GENERIC,
 			thumbnail: {
 				source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/President_Barack_Obama.jpg/409px-President_Barack_Obama.jpg',
 				width: 409,
 				height: 512
 			}
 		},
-		emptyPreview = renderer.createEmptyPreview( model );
+		emptyPreview = renderer.createPreviewWithType( model );
 
 	assert.equal(
 		emptyPreview.hasThumbnail,
@@ -165,33 +146,112 @@ QUnit.test( 'createEmptyPreview', function ( assert ) {
 		'Empty preview is never tall (even though the supplied thumbnail is tall).'
 	);
 
-	assert.ok( this.renderSpy.calledOnce, 'Template has been rendered.' );
+	assert.equal(
+		emptyPreview.el.find( '.mwe-popups-title' ).text().trim(),
+		'',
+		'Empty preview title is hidden.'
+	);
+	assert.equal(
+		emptyPreview.el.find( '.mwe-popups-extract' ).text().trim(),
+		MSG_NO_PREVIEW,
+		'Empty preview extract is correct.'
+	);
+	assert.equal(
+		emptyPreview.el.find( '.mwe-popups-read-link' ).text().trim(),
+		MSG_GO_TO_PAGE,
+		'Empty preview link text is correct.'
+	);
+} );
 
-	assert.deepEqual(
-		this.renderSpy.getCall( 0 ).args[ 0 ],
-		$.extend( {}, model, {
-			extractMsg: 'Looks like there isn\'t a preview for this page',
-			readMsg: 'Read'
-		} ),
-		'Template is called with the correct data.'
+QUnit.test( 'createEmptyPreview(null model)', ( assert ) => {
+	const model = createNullModel( 'Test', '/wiki/Test' ),
+		emptyPreview = renderer.createPreviewWithType( model );
+
+	assert.equal(
+		emptyPreview.hasThumbnail,
+		false,
+		'Null preview doesn\'t have a thumbnail.'
+	);
+
+	assert.equal(
+		emptyPreview.isTall,
+		false,
+		'Null preview is never tall.'
+	);
+
+	assert.equal(
+		emptyPreview.el.find( '.mwe-popups-title' ).text().trim(),
+		'',
+		'Empty preview title is hidden.'
+	);
+	assert.equal(
+		emptyPreview.el.find( '.mwe-popups-extract' ).text().trim(),
+		MSG_NO_PREVIEW,
+		'Empty preview extract is correct.'
+	);
+	assert.equal(
+		emptyPreview.el.find( '.mwe-popups-read-link' ).text().trim(),
+		MSG_GO_TO_PAGE,
+		'Empty preview link text is correct.'
+	);
+} );
+
+QUnit.test( 'createDisambiguationPreview(model)', ( assert ) => {
+	const model = {
+			title: 'Barack (disambiguation)',
+			url: 'url/Barack (disambiguation)',
+			languageCode: 'en',
+			languageDirection: 'ltr',
+			extract: 'Barack Hussein Obama II born August 4, 1961) ...',
+			type: previewTypes.TYPE_DISAMBIGUATION
+		},
+		preview = renderer.createPreviewWithType( model );
+
+	assert.equal(
+		preview.hasThumbnail,
+		false,
+		'Disambiguation preview doesn\'t have a thumbnail.'
+	);
+
+	assert.equal(
+		preview.isTall,
+		false,
+		'Disambiguation preview is never tall.'
+	);
+
+	assert.equal(
+		preview.el.find( '.mwe-popups-title' ).text().trim(),
+		'Barack (disambiguation)',
+		'Preview title is show.'
+	);
+	assert.equal(
+		preview.el.find( '.mwe-popups-extract' ).text().trim(),
+		MSG_DISAMBIGUATION,
+		'Preview extract is correct.'
+	);
+	assert.equal(
+		preview.el.find( '.mwe-popups-read-link' ).text().trim(),
+		MSG_DISAMBIGUATION_LINK,
+		'Preview link text is correct.'
 	);
 } );
 
 QUnit.test( 'bindBehavior - preview dwell', function ( assert ) {
-	var preview = createPreview(),
+	const preview = createPagePreview(),
 		behavior = createBehavior( this.sandbox );
 
 	renderer.bindBehavior( preview, behavior );
 	preview.el.mouseenter();
 
 	assert.ok( behavior.previewDwell.calledOnce, 'Preview dwell is called.' );
-	assert.notOk( behavior.previewAbandon.called, 'Preview abandon is NOT called.' );
+	assert.notOk(
+		behavior.previewAbandon.called, 'Preview abandon is NOT called.' );
 	assert.notOk( behavior.click.called, 'Click is NOT called.' );
 	assert.notOk( behavior.showSettings.called, 'Show settings is NOT called.' );
 } );
 
 QUnit.test( 'bindBehavior - preview abandon', function ( assert ) {
-	var preview = createPreview(),
+	const preview = createPagePreview(),
 		behavior = createBehavior( this.sandbox );
 
 	renderer.bindBehavior( preview, behavior );
@@ -204,33 +264,37 @@ QUnit.test( 'bindBehavior - preview abandon', function ( assert ) {
 } );
 
 QUnit.test( 'bindBehavior - preview click', function ( assert ) {
-	var preview = createPreview(),
+	const preview = createPagePreview(),
 		behavior = createBehavior( this.sandbox );
 
 	renderer.bindBehavior( preview, behavior );
 	preview.el.click();
 
 	assert.notOk( behavior.previewDwell.called, 'Preview dwell is NOT called.' );
-	assert.notOk( behavior.previewAbandon.called, 'Preview abandon is NOT called.' );
+	assert.notOk(
+		behavior.previewAbandon.called, 'Preview abandon is NOT called.' );
 	assert.ok( behavior.click.calledOnce, 'Click is called.' );
-	assert.notOk( behavior.showSettings.called, 'Settings link click is NOT called.' );
+	assert.notOk( behavior.showSettings.called,
+		'Settings link click is NOT called.' );
 } );
 
 QUnit.test( 'bindBehavior - settings link click', function ( assert ) {
-	var preview = createPreview(),
+	const preview = createPagePreview(),
 		behavior = createBehavior( this.sandbox );
 
 	renderer.bindBehavior( preview, behavior );
 	preview.el.find( '.mwe-popups-settings-icon' ).click();
 
 	assert.notOk( behavior.previewDwell.called, 'Preview dwell is NOT called.' );
-	assert.notOk( behavior.previewAbandon.called, 'Preview abandon is NOT called.' );
+	assert.notOk(
+		behavior.previewAbandon.called, 'Preview abandon is NOT called.' );
 	assert.notOk( behavior.click.called, 'Click is NOT called.' );
-	assert.ok( behavior.showSettings.calledOnce, 'Settings link click is called.' );
+	assert.ok(
+		behavior.showSettings.calledOnce, 'Settings link click is called.' );
 } );
 
 QUnit.test( 'bindBehavior - settings link URL', function ( assert ) {
-	var preview = createPreview(),
+	const preview = createPagePreview(),
 		behavior = createBehavior( this.sandbox );
 
 	renderer.bindBehavior( preview, behavior );
@@ -243,16 +307,16 @@ QUnit.test( 'bindBehavior - settings link URL', function ( assert ) {
 } );
 
 QUnit.test( 'show', function ( assert ) {
-	var preview = createPreview(),
+	const preview = createPagePreview(),
 		event = {
 			pageX: 252,
 			pageY: 1146,
 			clientY: 36
 		},
 		link = {
-			get: function () {
+			get() {
 				return {
-					getClientRects: function () {
+					getClientRects() {
 						return [ {
 							bottom: 37,
 							height: 13,
@@ -264,27 +328,26 @@ QUnit.test( 'show', function ( assert ) {
 					}
 				};
 			},
-			offset: function () {
+			offset() {
 				return {
 					top: 1134,
 					left: 201
 				};
 			},
-			width: function () {
+			width() {
 				return 156;
 			},
-			height: function () {
+			height() {
 				return 13;
 			}
 		},
 		behavior = createBehavior( this.sandbox ),
 		token = 'some-token',
-		$container = $( '<div>' ),
-		showPreview;
+		$container = $( '<div>' );
 
 	preview.el.show = this.sandbox.stub();
 
-	showPreview = renderer.show(
+	const showPreview = renderer.show(
 		preview, event, link, behavior, token, $container.get( 0 ) );
 
 	assert.notEqual(
@@ -297,7 +360,7 @@ QUnit.test( 'show', function ( assert ) {
 		'Preview has been shown.'
 	);
 
-	return showPreview.then( function () {
+	return showPreview.then( () => {
 		assert.ok(
 			behavior.previewShow.calledWith( token ),
 			'previewShow has been called with the correct token.'
@@ -305,8 +368,8 @@ QUnit.test( 'show', function ( assert ) {
 	} );
 } );
 
-QUnit.test( 'hide - fade out up', function ( assert ) {
-	var preview = {
+QUnit.test( 'hide - fade out up', ( assert ) => {
+	const preview = {
 			el: $( '<div>', { 'class': 'mwe-popups-fade-in-down' } ),
 			hasThumbnail: false,
 			thumbnail: null,
@@ -328,7 +391,7 @@ QUnit.test( 'hide - fade out up', function ( assert ) {
 		'',
 		'Preview is still in the container.'
 	);
-	return hidePreview.then( function () {
+	return hidePreview.then( () => {
 		assert.equal(
 			$container.html(),
 			'',
@@ -337,8 +400,8 @@ QUnit.test( 'hide - fade out up', function ( assert ) {
 	} );
 } );
 
-QUnit.test( 'hide - fade out down', function ( assert ) {
-	var preview = {
+QUnit.test( 'hide - fade out down', ( assert ) => {
+	const preview = {
 			el: $( '<div>', { 'class': 'mwe-popups-fade-in-up' } ),
 			hasThumbnail: false,
 			thumbnail: null,
@@ -360,7 +423,7 @@ QUnit.test( 'hide - fade out down', function ( assert ) {
 		'',
 		'Preview is still in the container.'
 	);
-	return hidePreview.then( function () {
+	return hidePreview.then( () => {
 		assert.equal(
 			$container.html(),
 			'',
@@ -369,262 +432,8 @@ QUnit.test( 'hide - fade out down', function ( assert ) {
 	} );
 } );
 
-QUnit.test( 'createThumbnail - tall image', function ( assert ) {
-	var devicePixelRatio = $.bracketedDevicePixelRatio(),
-		rawThumbnail = {
-			source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/President_Barack_Obama.jpg/409px-President_Barack_Obama.jpg',
-			width: 409,
-			height: 512
-		},
-		thumbnail = renderer.createThumbnail( rawThumbnail );
-
-	assert.equal(
-		thumbnail.isTall,
-		true,
-		'Thumbnail is tall.'
-	);
-	assert.equal(
-		thumbnail.width,
-		thumbnail.width / devicePixelRatio,
-		'Thumbnail width is correct.'
-	);
-	assert.equal(
-		thumbnail.height,
-		thumbnail.height / devicePixelRatio,
-		'Thumbnail height is correct.'
-	);
-} );
-
-QUnit.test( 'createThumbnail - tall image element', function ( assert ) {
-	var thumbnail,
-		cases = [
-			{
-				width: 200,
-				height: 300,
-				expectedX: 203 - 200,
-				expectedY: ( 300 - 250 ) / -2,
-				expectedSVGWidth: 203,
-				expectedSVGHeight: 250,
-				message: 'Width smaller than the predefined width (203).'
-			},
-			{
-				width: 250,
-				height: 300,
-				expectedX: ( 250 - 203 ) / -2,
-				expectedY: ( 300 - 250 ) / -2,
-				expectedSVGWidth: 203,
-				expectedSVGHeight: 250,
-				message: 'Width bigger than the predefined width (203).'
-			}
-		];
-
-	cases.forEach( function ( case_ ) {
-		thumbnail = renderer.createThumbnail( {
-			source: 'https://image.url',
-			width: case_.width,
-			height: case_.height
-		} );
-
-		assert.equal(
-			thumbnail.el.find( 'image' ).attr( 'x' ),
-			case_.expectedX,
-			'Image element x coordinate is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.find( 'image' ).attr( 'y' ),
-			case_.expectedY,
-			'Image element y coordinate is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.find( 'image' ).attr( 'width' ),
-			case_.width,
-			'Image element width is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.find( 'image' ).attr( 'height' ),
-			case_.height,
-			'Image element height is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.attr( 'width' ),
-			case_.expectedSVGWidth,
-			'Image SVG width is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.attr( 'height' ),
-			case_.expectedSVGHeight,
-			'Image SVG height is correct. ' + case_.message
-		);
-	} );
-} );
-
-QUnit.test( 'createThumbnail - landscape image', function ( assert ) {
-	var devicePixelRatio = $.bracketedDevicePixelRatio(),
-		rawThumbnail = {
-			source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/President_Barack_Obama.jpg/500px-President_Barack_Obama.jpg',
-			width: 500,
-			height: 400
-		},
-		thumbnail = renderer.createThumbnail( rawThumbnail );
-
-	assert.equal(
-		thumbnail.isTall,
-		false,
-		'Thumbnail is not tall.'
-	);
-	assert.equal(
-		thumbnail.width,
-		thumbnail.width / devicePixelRatio,
-		'Thumbnail width is correct.'
-	);
-	assert.equal(
-		thumbnail.height,
-		thumbnail.height / devicePixelRatio,
-		'Thumbnail height is correct.'
-	);
-} );
-
-QUnit.test( 'createThumbnail - landscape image element', function ( assert ) {
-	var thumbnail,
-		cases = [
-			{
-				width: 400,
-				height: 150,
-				expectedX: 0,
-				expectedY: 0,
-				expectedSVGWidth: 300 + 3,
-				expectedSVGHeight: 150,
-				message: 'Height smaller than the predefined height (200).'
-			},
-			{
-				width: 400,
-				height: 250,
-				expectedX: 0,
-				expectedY: ( 250 - 200 ) / -2,
-				expectedSVGWidth: 300 + 3,
-				expectedSVGHeight: 200,
-				message: 'Height bigger than the predefined height (200).'
-			}
-		];
-
-	cases.forEach( function ( case_ ) {
-		thumbnail = renderer.createThumbnail( {
-			source: 'https://image.url',
-			width: case_.width,
-			height: case_.height
-		} );
-
-		assert.equal(
-			thumbnail.el.find( 'image' ).attr( 'x' ),
-			case_.expectedX,
-			'Image x coordinate is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.find( 'image' ).attr( 'y' ),
-			case_.expectedY,
-			'Image y coordinate is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.find( 'image' ).attr( 'width' ),
-			case_.width,
-			'Image element width is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.find( 'image' ).attr( 'height' ),
-			case_.height,
-			'Image element height is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.attr( 'width' ),
-			case_.expectedSVGWidth,
-			'Image SVG width is correct. ' + case_.message
-		);
-		assert.equal(
-			thumbnail.el.attr( 'height' ),
-			case_.expectedSVGHeight,
-			'Image SVG height is correct. ' + case_.message
-		);
-	} );
-} );
-
-QUnit.test( 'createThumbnail - no raw thumbnail', function ( assert ) {
-	var thumbnail = renderer.createThumbnail( null );
-
-	assert.equal( thumbnail, null, 'No thumbnail.' );
-} );
-
-QUnit.test( 'createThumbnail - small wide image', function ( assert ) {
-	var rawThumbnail = {
-			source: 'https://landscape-image.jpg',
-			width: 299,
-			height: 298
-		},
-		thumbnail = renderer.createThumbnail( rawThumbnail );
-
-	assert.equal( thumbnail, null, 'No thumbnail.' );
-} );
-
-QUnit.test( 'createThumbnail - small tall image', function ( assert ) {
-	var rawThumbnail = {
-			source: 'https://tall-image.jpg',
-			width: 248,
-			height: 249
-		},
-		thumbnail = renderer.createThumbnail( rawThumbnail );
-
-	assert.equal( thumbnail, null, 'No thumbnail.' );
-} );
-
-QUnit.test( 'createThumbnail - insecure URL', function ( assert ) {
-	var cases = [
-			'https://tall-ima\\ge.jpg',
-			'https://tall-ima\'ge.jpg',
-			'https://tall-ima\"ge.jpg'
-		],
-		thumbnail;
-
-	cases.forEach( function ( case_ ) {
-		thumbnail = renderer.createThumbnail( {
-			source: case_,
-			width: 500,
-			height: 400
-		} );
-
-		assert.equal( thumbnail, null, 'No thumbnail.' );
-	} );
-} );
-
-QUnit.test( 'createThumbnailElement', function ( assert ) {
-	var className = 'thumb-class',
-		url = 'https://thumbnail.url',
-		x = 25,
-		y = 50,
-		thumbnailWidth = 200,
-		thumbnailHeight = 250,
-		width = 500,
-		height = 300,
-		clipPath = 'mwe-popups-mask',
-		$thumbnail = renderer.createThumbnailElement(
-			className, url, x, y, thumbnailWidth, thumbnailHeight,
-			width, height, clipPath );
-
-	assert.equal(
-		$thumbnail.html(),
-		'<image href="https://thumbnail.url" class="thumb-class" x="25" y="50" width="200" height="250" clip-path="url(#mwe-popups-mask)"></image>',
-		'Thumbnail HTML is correct.'
-	);
-	assert.equal(
-		$thumbnail.attr( 'xmlns' ),
-		'http://www.w3.org/2000/svg',
-		'SVG namespace is correct.'
-	);
-	assert.equal( $thumbnail.attr( 'height' ), height, 'SVG height is correct.' );
-	assert.equal( $thumbnail.attr( 'width' ), width, 'SVG width is correct.' );
-
-} );
-
-QUnit.test( '#createLayout - portrait preview, mouse event, link is on the top left of the page', function ( assert ) {
-	var isPreviewTall = false,
+QUnit.test( '#createLayout - portrait preview, mouse event, link is on the top left of the page', ( assert ) => {
+	const isPreviewTall = false,
 		eventData = {
 			pageX: 252,
 			pageY: 1146,
@@ -652,7 +461,8 @@ QUnit.test( '#createLayout - portrait preview, mouse event, link is on the top l
 			height: 827
 		},
 		pokeySize = 8,
-		layout = renderer.createLayout( isPreviewTall, eventData, linkData, windowData, pokeySize );
+		layout = renderer.createLayout(
+			isPreviewTall, eventData, linkData, windowData, pokeySize );
 
 	assert.deepEqual(
 		layout,
@@ -668,8 +478,8 @@ QUnit.test( '#createLayout - portrait preview, mouse event, link is on the top l
 	);
 } );
 
-QUnit.test( '#createLayout - tall preview, mouse event, link is on the bottom center of the page', function ( assert ) {
-	var isPreviewTall = true,
+QUnit.test( '#createLayout - tall preview, mouse event, link is on the bottom center of the page', ( assert ) => {
+	const isPreviewTall = true,
 		eventData = {
 			pageX: 176,
 			pageY: 1252,
@@ -697,7 +507,8 @@ QUnit.test( '#createLayout - tall preview, mouse event, link is on the bottom ce
 			height: 827
 		},
 		pokeySize = 8,
-		layout = renderer.createLayout( isPreviewTall, eventData, linkData, windowData, pokeySize );
+		layout = renderer.createLayout(
+			isPreviewTall, eventData, linkData, windowData, pokeySize );
 
 	assert.deepEqual(
 		layout,
@@ -713,8 +524,8 @@ QUnit.test( '#createLayout - tall preview, mouse event, link is on the bottom ce
 	);
 } );
 
-QUnit.test( '#createLayout - empty preview, keyboard event, link is on the center right of the page', function ( assert ) {
-	var isPreviewTall = false,
+QUnit.test( '#createLayout - empty preview, keyboard event, link is on the center right of the page', ( assert ) => {
+	const isPreviewTall = false,
 		eventData = {},
 		linkData = {
 			clientRects: [ {
@@ -738,14 +549,15 @@ QUnit.test( '#createLayout - empty preview, keyboard event, link is on the cente
 			height: 827
 		},
 		pokeySize = 8,
-		layout = renderer.createLayout( isPreviewTall, eventData, linkData, windowData, pokeySize );
+		layout = renderer.createLayout(
+			isPreviewTall, eventData, linkData, windowData, pokeySize );
 
 	assert.deepEqual(
 		layout,
 		{
 			offset: {
 				top: 1110,
-				left: 392
+				left: 372
 			},
 			flippedX: true,
 			flippedY: true
@@ -754,8 +566,8 @@ QUnit.test( '#createLayout - empty preview, keyboard event, link is on the cente
 	);
 } );
 
-QUnit.test( '#getClasses when no thumbnail is available', function ( assert ) {
-	var cases = [
+QUnit.test( '#getClasses when no thumbnail is available', ( assert ) => {
+	const cases = [
 		// [ previewOptions, layoutOptions, expected, message ]
 		[
 			{
@@ -824,7 +636,7 @@ QUnit.test( '#getClasses when no thumbnail is available', function ( assert ) {
 		]
 	];
 
-	cases.forEach( function ( case_ ) {
+	cases.forEach( ( case_ ) => {
 		assert.deepEqual(
 			renderer.getClasses( case_[ 0 ], case_[ 1 ] ),
 			case_[ 2 ],
@@ -832,8 +644,8 @@ QUnit.test( '#getClasses when no thumbnail is available', function ( assert ) {
 		);
 	} );
 } );
-QUnit.test( '#getClasses when a non-tall thumbnail is available', function ( assert ) {
-	var cases = [
+QUnit.test( '#getClasses when a non-tall thumbnail is available', ( assert ) => {
+	const cases = [
 		[
 			{
 				hasThumbnail: true,
@@ -901,7 +713,7 @@ QUnit.test( '#getClasses when a non-tall thumbnail is available', function ( ass
 		]
 	];
 
-	cases.forEach( function ( case_ ) {
+	cases.forEach( ( case_ ) => {
 		assert.deepEqual(
 			renderer.getClasses( case_[ 0 ], case_[ 1 ] ),
 			case_[ 2 ],
@@ -910,8 +722,8 @@ QUnit.test( '#getClasses when a non-tall thumbnail is available', function ( ass
 	} );
 } );
 
-QUnit.test( '#getClasses when a tall thumbnail is available', function ( assert ) {
-	var cases = [
+QUnit.test( '#getClasses when a tall thumbnail is available', ( assert ) => {
+	const cases = [
 		[
 			{
 				hasThumbnail: true,
@@ -979,7 +791,7 @@ QUnit.test( '#getClasses when a tall thumbnail is available', function ( assert 
 		]
 	];
 
-	cases.forEach( function ( case_ ) {
+	cases.forEach( ( case_ ) => {
 		assert.deepEqual(
 			renderer.getClasses( case_[ 0 ], case_[ 1 ] ),
 			case_[ 2 ],
@@ -988,8 +800,8 @@ QUnit.test( '#getClasses when a tall thumbnail is available', function ( assert 
 	} );
 } );
 
-QUnit.test( '#layoutPreview - no thumbnail', function ( assert ) {
-	var preview = createPreview( false, false, null ),
+QUnit.test( '#layoutPreview - no thumbnail', ( assert ) => {
+	const preview = createPagePreview( false, false, null ),
 		layout = {
 			flippedX: false,
 			flippedY: false,
@@ -1008,18 +820,18 @@ QUnit.test( '#layoutPreview - no thumbnail', function ( assert ) {
 	);
 	assert.equal(
 		preview.el.css( 'top' ),
-		layout.offset.top + 'px',
+		`${ layout.offset.top }px`,
 		'Top is correct.'
 	);
 	assert.equal(
 		preview.el.css( 'left' ),
-		layout.offset.left + 'px',
+		`${ layout.offset.left }px`,
 		'Left is correct.'
 	);
 } );
 
-QUnit.test( '#layoutPreview - tall preview, flipped X, has thumbnail', function ( assert ) {
-	var preview = createPreview( true, true, { height: 200 } ),
+QUnit.test( '#layoutPreview - tall preview, flipped X, has thumbnail', ( assert ) => {
+	const preview = createPagePreview( true, true, { height: 200 } ),
 		layout = {
 			flippedX: true,
 			flippedY: false,
@@ -1038,12 +850,12 @@ QUnit.test( '#layoutPreview - tall preview, flipped X, has thumbnail', function 
 	);
 	assert.equal(
 		preview.el.css( 'top' ),
-		layout.offset.top + 'px',
+		`${ layout.offset.top }px`,
 		'Top is correct.'
 	);
 	assert.equal(
 		preview.el.css( 'left' ),
-		layout.offset.left + 'px',
+		`${ layout.offset.left }px`,
 		'Left is correct.'
 	);
 	assert.notOk(
@@ -1057,8 +869,8 @@ QUnit.test( '#layoutPreview - tall preview, flipped X, has thumbnail', function 
 	);
 } );
 
-QUnit.test( '#layoutPreview - portrait preview, flipped X, has thumbnail, small height', function ( assert ) {
-	var preview = createPreview( false, true, { height: 199 } ),
+QUnit.test( '#layoutPreview - portrait preview, flipped X, has thumbnail, small height', ( assert ) => {
+	const preview = createPagePreview( false, true, { height: 199 } ),
 		layout = {
 			flippedX: true,
 			flippedY: false,
@@ -1077,17 +889,17 @@ QUnit.test( '#layoutPreview - portrait preview, flipped X, has thumbnail, small 
 	);
 	assert.equal(
 		preview.el.css( 'top' ),
-		layout.offset.top + 'px',
+		`${ layout.offset.top }px`,
 		'Top is correct.'
 	);
 	assert.equal(
 		preview.el.css( 'left' ),
-		layout.offset.left + 'px',
+		`${ layout.offset.left }px`,
 		'Left is correct.'
 	);
 	assert.equal(
 		preview.el.find( '.mwe-popups-extract' ).css( 'margin-top' ),
-		( 199 - 8 ) + 'px',  // thumb height - pokey size
+		`${ 199 - 8 }px`, // thumb height - pokey size
 		'Extract margin top has been set when preview height is smaller than the predefined landscape image height.'
 	);
 	assert.equal(
@@ -1097,8 +909,8 @@ QUnit.test( '#layoutPreview - portrait preview, flipped X, has thumbnail, small 
 	);
 } );
 
-QUnit.test( '#layoutPreview - portrait preview, flipped X, has thumbnail, big height', function ( assert ) {
-	var preview = createPreview( false, true, { height: 201 } ),
+QUnit.test( '#layoutPreview - portrait preview, flipped X, has thumbnail, big height', ( assert ) => {
+	const preview = createPagePreview( false, true, { height: 201 } ),
 		layout = {
 			flippedX: true,
 			flippedY: false,
@@ -1117,12 +929,12 @@ QUnit.test( '#layoutPreview - portrait preview, flipped X, has thumbnail, big he
 	);
 	assert.equal(
 		preview.el.css( 'top' ),
-		layout.offset.top + 'px',
+		`${ layout.offset.top }px`,
 		'Top is correct.'
 	);
 	assert.equal(
 		preview.el.css( 'left' ),
-		layout.offset.left + 'px',
+		`${ layout.offset.left }px`,
 		'Left is correct.'
 	);
 	assert.equal(
@@ -1137,8 +949,8 @@ QUnit.test( '#layoutPreview - portrait preview, flipped X, has thumbnail, big he
 	);
 } );
 
-QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped Y', function ( assert ) {
-	var preview = createPreview( true, true, { height: 200 } ),
+QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped Y', ( assert ) => {
+	const preview = createPagePreview( true, true, { height: 200 } ),
 		layout = {
 			flippedX: false,
 			flippedY: true,
@@ -1149,7 +961,7 @@ QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped Y', function 
 		},
 		classes = [ 'some-class', 'another-class' ];
 
-	preview.el.outerHeight = function () {
+	preview.el.outerHeight = () => {
 		return 20;
 	};
 
@@ -1161,12 +973,12 @@ QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped Y', function 
 	);
 	assert.equal(
 		preview.el.css( 'top' ),
-		( layout.offset.top - 20 ) + 'px',  // - outer height
+		`${ layout.offset.top - 20 }px`, // - outer height
 		'Top is correct.'
 	);
 	assert.equal(
 		preview.el.css( 'left' ),
-		layout.offset.left + 'px',
+		`${ layout.offset.left }px`,
 		'Left is correct.'
 	);
 	assert.notOk(
@@ -1175,8 +987,8 @@ QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped Y', function 
 	);
 } );
 
-QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped X and Y', function ( assert ) {
-	var preview = createPreview( true, true, { height: 200 } ),
+QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped X and Y', ( assert ) => {
+	const preview = createPagePreview( true, true, { height: 200 } ),
 		layout = {
 			flippedX: true,
 			flippedY: true,
@@ -1187,7 +999,7 @@ QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped X and Y', fun
 		},
 		classes = [ 'some-class', 'another-class' ];
 
-	preview.el.outerHeight = function () {
+	preview.el.outerHeight = () => {
 		return 20;
 	};
 
@@ -1199,12 +1011,12 @@ QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped X and Y', fun
 	);
 	assert.equal(
 		preview.el.css( 'top' ),
-		( layout.offset.top - 20 ) + 'px',  // - outer height
+		`${ layout.offset.top - 20 }px`, // - outer height
 		'Top is correct.'
 	);
 	assert.equal(
 		preview.el.css( 'left' ),
-		layout.offset.left + 'px',
+		`${ layout.offset.left }px`,
 		'Left is correct.'
 	);
 	assert.equal(
@@ -1214,8 +1026,8 @@ QUnit.test( '#layoutPreview - tall preview, has thumbnail, flipped X and Y', fun
 	);
 } );
 
-QUnit.test( '#layoutPreview - portrait preview, has thumbnail, flipped X and Y', function ( assert ) {
-	var preview = createPreview( false, true, { height: 200 } ),
+QUnit.test( '#layoutPreview - portrait preview, has thumbnail, flipped X and Y', ( assert ) => {
+	const preview = createPagePreview( false, true, { height: 200 } ),
 		layout = {
 			flippedX: true,
 			flippedY: true,
@@ -1226,7 +1038,7 @@ QUnit.test( '#layoutPreview - portrait preview, has thumbnail, flipped X and Y',
 		},
 		classes = [ 'some-class', 'another-class' ];
 
-	preview.el.outerHeight = function () {
+	preview.el.outerHeight = () => {
 		return 20;
 	};
 
@@ -1238,12 +1050,12 @@ QUnit.test( '#layoutPreview - portrait preview, has thumbnail, flipped X and Y',
 	);
 	assert.equal(
 		preview.el.css( 'top' ),
-		( layout.offset.top - 20 ) + 'px',  // - outer height
+		`${ layout.offset.top - 20 }px`, // - outer height
 		'Top is correct.'
 	);
 	assert.equal(
 		preview.el.css( 'left' ),
-		layout.offset.left + 'px',
+		`${ layout.offset.left }px`,
 		'Left is correct.'
 	);
 	assert.notOk(
@@ -1252,7 +1064,7 @@ QUnit.test( '#layoutPreview - portrait preview, has thumbnail, flipped X and Y',
 	);
 } );
 
-QUnit.test( 'getClosestYPosition', function ( assert ) {
+QUnit.test( 'getClosestYPosition', ( assert ) => {
 	assert.equal( renderer.getClosestYPosition( 100, [
 		{
 			top: 99,

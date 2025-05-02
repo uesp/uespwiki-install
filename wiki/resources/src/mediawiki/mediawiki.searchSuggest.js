@@ -2,6 +2,12 @@
  * Add search suggestions to the search form.
  */
 ( function ( mw, $ ) {
+	var searchNS = $.map( mw.config.get( 'wgFormattedNamespaces' ), function ( nsName, nsID ) {
+		if ( nsID >= 0 && mw.user.options.get( 'searchNs' + nsID ) ) {
+			// Cast string key to number
+			return Number( nsID );
+		}
+	} );
 	mw.searchSuggest = {
 		// queries the wiki and calls response with the result
 		request: function ( api, query, response, maxRows, namespace ) {
@@ -9,7 +15,7 @@
 				formatversion: 2,
 				action: 'opensearch',
 				search: query,
-				namespace: namespace || '0|102|104|106|108|110|112|114|116|118|120|122|124|126|128|130|132|134|136|138|140|142|144|146|148|150|152|154|156|158|160|162|164|166|168|170|172|174|176|178|184',
+				namespace: namespace || searchNS,
 				limit: maxRows,
 				suggest: true
 			} ).done( function ( data, jqXHR ) {

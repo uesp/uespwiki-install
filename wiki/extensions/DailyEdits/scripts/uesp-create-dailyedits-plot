@@ -1,7 +1,0 @@
-#!/bin/sh
-
-rm -f /tmp/dailyedits.dat
-
-mysql --defaults-extra-file=/home/backup/backup-cred.cnf -N -h backup1.uesp.net -e "SELECT COUNT( * ) , LEFT( rev_timestamp, 8 ) AS revdate FROM uesp_net_wiki5.revision GROUP BY revdate;" >  /tmp/dailyedits.dat
-
-gnuplot /home/dave/dailyedits-plot.cfg

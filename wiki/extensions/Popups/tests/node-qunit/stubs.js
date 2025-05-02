@@ -7,10 +7,10 @@
  */
 export function createStubUser( isAnon ) {
 	return {
-		isAnon: function () {
+		isAnon() {
 			return isAnon;
 		},
-		sessionId: function () {
+		sessionId() {
 			return '0123456789';
 		}
 	};
@@ -23,7 +23,7 @@ export function createStubUser( isAnon ) {
  * @return {mw.Map}
  */
 export function createStubMap() {
-	var m = new Map(); /* global Map */
+	const m = new Map(); /* global Map */
 	m.get = function ( key, fallback ) {
 		fallback = arguments.length > 1 ? fallback : null;
 		if ( typeof key === 'string' ) {
@@ -42,7 +42,7 @@ export function createStubMap() {
  */
 export function createStubExperiments( bucket ) {
 	return {
-		getBucket: function () {
+		getBucket() {
 			return bucket;
 		}
 	};
@@ -52,15 +52,18 @@ export function createStubExperiments( bucket ) {
  * Creates a **minimal** stub that can be used in place of an instance of
  * `mw.Title`.
  *
- * @param {Number} namespace
- * @param {String} prefixedDb, e.g. Foo, or File:Bar.jpg
- * @return {Object}
+ * @param {!Number} namespace
+ * @param {!String} prefixedDb, e.g. Foo, or File:Bar.jpg
+ * @return {!Object}
  */
 export function createStubTitle( namespace, prefixedDb ) {
 	return {
-		namespace: namespace,
-		getPrefixedDb: function () {
+		namespace,
+		getPrefixedDb() {
 			return prefixedDb;
+		},
+		getUrl() {
+			return `/wiki/${ prefixedDb }`;
 		}
 	};
 }

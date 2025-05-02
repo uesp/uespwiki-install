@@ -2,7 +2,7 @@
 * Javascript to support transcode table on image page
 */
 ( function ( mw, $, OO ) {
-	$( document ).ready( function () {
+	$( function () {
 		function errorPopup( event ) {
 			var tKey = $( event.target ).attr( 'data-transcodekey' ),
 				message = $( [
@@ -60,6 +60,6 @@
 			} );
 		}
 
-		$( '.mw-filepage-transcodereset a' ).click( errorPopup );
+		$( '.mw-filepage-transcodereset a' ).on( 'click', errorPopup );
 	} );
 }( mediaWiki, jQuery, OO ) );

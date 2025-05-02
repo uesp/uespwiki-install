@@ -1,13 +1,15 @@
 import preview from '../../../src/reducers/preview';
+import actionTypes from '../../../src/actionTypes';
+import { createNullModel } from '../../../src/preview/model';
 
 QUnit.module( 'ext.popups/reducers#preview', {
-	beforeEach: function () {
+	beforeEach() {
 		this.el = 'active link';
 	}
 } );
 
-QUnit.test( '@@INIT', function ( assert ) {
-	var state = preview( undefined, { type: '@@INIT' } );
+QUnit.test( '@@INIT', ( assert ) => {
+	const state = preview( undefined, { type: '@@INIT' } );
 
 	assert.expect( 1 );
 
@@ -24,8 +26,8 @@ QUnit.test( '@@INIT', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'BOOT', function ( assert ) {
-	var action = {
+QUnit.test( 'BOOT', ( assert ) => {
+	const action = {
 		type: 'BOOT',
 		isEnabled: true
 	};
@@ -41,8 +43,8 @@ QUnit.test( 'BOOT', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'SETTINGS_CHANGE', function ( assert ) {
-	var action = {
+QUnit.test( 'SETTINGS_CHANGE', ( assert ) => {
+	const action = {
 		type: 'SETTINGS_CHANGE',
 		enabled: true
 	};
@@ -59,7 +61,7 @@ QUnit.test( 'SETTINGS_CHANGE', function ( assert ) {
 } );
 
 QUnit.test( 'LINK_DWELL initializes the state for a new link', function ( assert ) {
-	var action = {
+	const action = {
 		type: 'LINK_DWELL',
 		el: this.el,
 		event: {},
@@ -80,7 +82,7 @@ QUnit.test( 'LINK_DWELL initializes the state for a new link', function ( assert
 } );
 
 QUnit.test( 'LINK_DWELL on an active link only updates dwell state', function ( assert ) {
-	var action = {
+	const action = {
 			type: 'LINK_DWELL',
 			el: this.el,
 			event: {},
@@ -101,15 +103,15 @@ QUnit.test( 'LINK_DWELL on an active link only updates dwell state', function ( 
 	);
 } );
 
-QUnit.test( 'ABANDON_END', function ( assert ) {
-	var action = {
-			type: 'ABANDON_END',
-			token: 'bananas'
-		},
-		state = {
-			activeToken: 'bananas',
-			isUserDwelling: false
-		};
+QUnit.test( 'ABANDON_END', ( assert ) => {
+	const action = {
+		type: 'ABANDON_END',
+		token: 'bananas'
+	};
+	let state = {
+		activeToken: 'bananas',
+		isUserDwelling: false
+	};
 
 	assert.deepEqual(
 		preview( state, action ),
@@ -151,15 +153,15 @@ QUnit.test( 'ABANDON_END', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'FETCH_COMPLETE', function ( assert ) {
-	var token = '1234567890',
-		state = {
+QUnit.test( 'FETCH_COMPLETE', ( assert ) => {
+	const token = '1234567890';
+	let state = {
 			activeToken: token,
 			isUserDwelling: true
 		},
 		action = {
 			type: 'FETCH_COMPLETE',
-			token: token,
+			token,
 			result: {}
 		};
 
@@ -182,7 +184,7 @@ QUnit.test( 'FETCH_COMPLETE', function ( assert ) {
 
 	state = preview( state, {
 		type: 'ABANDON_START',
-		token: token
+		token
 	} );
 
 	assert.deepEqual(
@@ -213,8 +215,51 @@ QUnit.test( 'FETCH_COMPLETE', function ( assert ) {
 
 } );
 
-QUnit.test( 'PREVIEW_DWELL', function ( assert ) {
-	var action = {
+QUnit.test( actionTypes.FETCH_FAILED, ( assert ) => {
+	const token = '1234567890',
+		state = {
+			activeToken: token,
+			isUserDwelling: true
+		};
+	let action = {
+		type: actionTypes.FETCH_FAILED,
+		token
+	};
+
+	assert.expect( 2 );
+
+	assert.deepEqual(
+		preview( state, action ),
+		{
+			activeToken: state.activeToken,
+			isUserDwelling: true
+		},
+		'It should not transition states.'
+	);
+
+	// ---
+
+	action = {
+		type: actionTypes.FETCH_COMPLETE,
+		token,
+		result: { title: createNullModel( 'Title', '/wiki/Title' ) }
+	};
+
+	assert.deepEqual(
+		preview( state, action ),
+		{
+			activeToken: state.activeToken,
+			isUserDwelling: true,
+
+			fetchResponse: action.result,
+			shouldShow: true
+		},
+		'It should store the result and signal that an error preview should be rendered.'
+	);
+} );
+
+QUnit.test( 'PREVIEW_DWELL', ( assert ) => {
+	const action = {
 		type: 'PREVIEW_DWELL'
 	};
 
@@ -229,8 +274,8 @@ QUnit.test( 'PREVIEW_DWELL', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'ABANDON_START', function ( assert ) {
-	var action = {
+QUnit.test( 'ABANDON_START', ( assert ) => {
+	const action = {
 		type: 'ABANDON_START'
 	};
 

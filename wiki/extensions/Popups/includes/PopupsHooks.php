@@ -24,7 +24,6 @@ use MediaWiki\MediaWikiServices;
 use User;
 use OutputPage;
 use Skin;
-use ResourceLoader;
 
 /**
  * Hooks definitions for Popups extension
@@ -134,8 +133,10 @@ class PopupsHooks {
 	public static function onResourceLoaderGetConfigVars( array &$vars ) {
 		$conf = MediaWikiServices::getInstance()->getService( 'Popups.Config' );
 		$vars['wgPopupsBetaFeature'] = $conf->get( 'PopupsBetaFeature' );
+		$vars['wgPopupsVirtualPageViews'] = $conf->get( 'PopupsVirtualPageViews' );
 		$vars['wgPopupsGateway'] = $conf->get( 'PopupsGateway' );
 		$vars['wgPopupsEventLogging'] = $conf->get( 'PopupsEventLogging' );
+		$vars['wgPopupsRestGatewayEndpoint'] = $conf->get( 'PopupsRestGatewayEndpoint' );
 		$vars['wgPopupsAnonsExperimentalGroupSize'] = $conf->get( 'PopupsAnonsExperimentalGroupSize' );
 		$vars['wgPopupsStatsvSamplingRate'] = $conf->get( 'PopupsStatsvSamplingRate' );
 	}

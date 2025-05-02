@@ -11,8 +11,8 @@
  * @return {ext.popups.ChangeListener}
  */
 export default function statsv( boundActions, track ) {
-	return function ( _, state ) {
-		var statsv = state.statsv;
+	return ( _, state ) => {
+		const statsv = state.statsv;
 
 		if ( statsv.action ) {
 			track( statsv.action, statsv.data );

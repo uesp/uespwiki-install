@@ -8,6 +8,7 @@ use ParserOptions;
 use TextExtracts\ExtractFormatter;
 
 /**
+ * @covers \TextExtracts\ExtractFormatter
  * @group TextExtracts
  */
 class ExtractFormatterTest extends MediaWikiTestCase {
@@ -16,10 +17,10 @@ class ExtractFormatterTest extends MediaWikiTestCase {
 	 */
 	public function testExtracts( $expected, $text, $plainText ) {
 		$po = new ParserOptions();
-		$po->setEditSection( true );
 		$config = MediaWikiServices::getInstance()->getConfigFactory()->makeConfig( 'textextracts' );
 		$fmt = new ExtractFormatter( $text, $plainText, $config );
-		$fmt->remove( '.metadata' ); // Will be added via $wgExtractsRemoveClasses on WMF
+		// .metadata class will be added via $wgExtractsRemoveClasses on WMF
+		$fmt->remove( '.metadata' );
 		$text = trim( $fmt->getText() );
 		$this->assertEquals( $expected, $text );
 	}
@@ -72,9 +73,9 @@ class ExtractFormatterTest extends MediaWikiTestCase {
 
 	/**
 	 * @dataProvider provideGetFirstSentences
-	 * @param $text
-	 * @param $sentences
-	 * @param $expected
+	 * @param string $text
+	 * @param string $sentences
+	 * @param string $expected
 	 */
 	public function testGetFirstSentences( $text, $sentences, $expected ) {
 		$this->assertEquals( $expected, ExtractFormatter::getFirstSentences( $text, $sentences ) );
@@ -167,9 +168,9 @@ class ExtractFormatterTest extends MediaWikiTestCase {
 
 	/**
 	 * @dataProvider provideGetFirstChars
-	 * @param $text
-	 * @param $chars
-	 * @param $expected
+	 * @param string $text
+	 * @param string $chars
+	 * @param string $expected
 	 */
 	public function testGetFirstChars( $text, $chars, $expected ) {
 		$this->assertEquals( $expected, ExtractFormatter::getFirstChars( $text, $chars ) );
@@ -191,7 +192,8 @@ class ExtractFormatterTest extends MediaWikiTestCase {
 			[ $text, 8, 'Lullzy lulz' ],
 			// HTML processing
 			[ $html, 1, 'foo' ],
-			[ $html, 4, 'foo<tag>' ], // let HTML sanitizer clean it up later
+			// let HTML sanitizer clean it up later
+			[ $html, 4, 'foo<tag>' ],
 			[ $html, 12, 'foo<tag>bar</tag>' ],
 			[ $html, 13, 'foo<tag>bar</tag>' ],
 			[ $html, 16, 'foo<tag>bar</tag>' ],

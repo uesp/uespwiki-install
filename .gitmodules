@@ -1,0 +1,70 @@
+[submodule "wiki/skins/UespMonoBook"]
+	path = wiki/skins/UespMonoBook
+	url = https://github.com/uesp/wikiuespmonobook.git
+[submodule "wiki/skins/UespVector"]
+	path = wiki/skins/UespVector
+	url = https://github.com/uesp/wikiuespvector.git
+[submodule "wiki/extensions/UespCustomCode"]
+	path = wiki/extensions/UespCustomCode
+	url = https://github.com/uesp/uesp-wikicustomcode.git
+[submodule "wiki/extensions/UsersEditCount"]
+	path = wiki/extensions/UsersEditCount
+	url = https://github.com/uesp/uesp-wiki-usereditcount.git
+[submodule "wiki/config"]
+	path = wiki/config
+	url = https://github.com/uesp/uesp-wikiconfig
+[submodule "wiki/extensions/UespPatreon"]
+	path = wiki/extensions/UespPatreon
+	url = https://github.com/uesp/uesp-wikipatreon
+[submodule "wiki/extensions/WikiAppApi"]
+	path = wiki/extensions/WikiAppApi
+	url = https://github.com/uesp/wikiappapi
+[submodule "wiki/extensions/EsoCharData"]
+	path = wiki/extensions/EsoCharData
+	url = https://github.com/uesp/uesp-wiki-esochardata
+[submodule "wiki/extensions/UespBreadCrumb"]
+	path = wiki/extensions/UespBreadCrumb
+	url = https://github.com/uesp/uesp-wikibreadcrumb
+[submodule "wiki/extensions/PageSpeedLog"]
+	path = wiki/extensions/PageSpeedLog
+	url = https://github.com/uesp/wiki-pagespeedlog
+[submodule "wiki/extensions/UespLegendsCards"]
+	path = wiki/extensions/UespLegendsCards
+	url = https://github.com/uesp/uesp-legendcards
+
+[submodule "wiki/extensions/UespEsoItemLink"]
+	path = wiki/extensions/UespEsoItemLink
+	url = https://github.com/uesp/uesp-wiki-esoitemlink
+[submodule "wiki/extensions/UespEsoSkills"]
+	path = wiki/extensions/UespEsoSkills
+	url = https://github.com/uesp/uesp-wiki-esoskills
+[submodule "wiki/extensions/UespGameMap"]
+	path = wiki/extensions/UespGameMap
+	url = https://github.com/uesp/uesp-wikigamemap
+[submodule "wiki/extensions/MetaTemplate"]
+	path = wiki/extensions/MetaTemplate
+	url = https://github.com/uesp/uesp-wikimetatemplate
+[submodule "wiki/extensions/DailyEdits"]
+	path = wiki/extensions/DailyEdits
+	url = https://github.com/uesp/uesp-wikidailyedits
+[submodule "wiki/extensions/UespShortLinks"]
+	path = wiki/extensions/UespShortLinks
+	url = https://github.com/uesp/uesp-wiki-shortlinks
+[submodule "wiki/extensions/ParserHelper"]
+	path = wiki/extensions/ParserHelper
+	url = https://github.com/uesp/ParserHelper
+[submodule "wiki/extensions/Riven"]
+	path = wiki/extensions/Riven
+	url = https://github.com/uesp/Riven
+[submodule "wiki/extensions/UespEsoData"]
+	path = wiki/extensions/UespEsoData
+	url = https://github.com/uesp/uesp-wikiesodata
+[submodule "wiki/extensions/RecentPopularPages"]
+	path = wiki/extensions/RecentPopularPages
+	url = https://github.com/uesp/uesp-wiki-popularpages
+[submodule "wiki/extensions/SearchLog"]
+	path = wiki/extensions/SearchLog
+	url = https://github.com/uesp/uesp-wiki-searchlog
+[submodule "wiki/extensions/JobQueue"]
+	path = wiki/extensions/JobQueue
+	url = https://github.com/uesp/uesp-wikijobqueue

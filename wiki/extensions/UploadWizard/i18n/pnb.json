@@ -2,7 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Khalid Mahmood",
-			"Matma Rex"
+			"Matma Rex",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "فائل چرھان والا",
@@ -63,8 +64,6 @@
 	"mwe-upwiz-source-custom": "اگلے صفے تے ہر فائل دی کاپی رائٹ جانکاری دیو۔",
 	"mwe-upwiz-more-options": "ہور گٹھیاں تے دساں۔۔",
 	"mwe-upwiz-desc": "مہاندرا",
-	"mwe-upwiz-desc-add-n": "مہاندرا کسے ہور بولی چ رلاؤ",
-	"mwe-upwiz-desc-add-0": "مہاندرا رلاؤ",
 	"mwe-upwiz-title": "سرخی",
 	"mwe-upwiz-date-created": "تریخ جدوں بنایا گیا",
 	"mwe-upwiz-location": "تھاں",
@@ -143,7 +142,6 @@
 	"mwe-upwiz-license-own-pd": "سارے حق ‍ لوکاں ل‏ی چھڈ دتے",
 	"mwe-upwiz-license-pd-old-100": "بنان والا 100 ورے پہلے مرگیا",
 	"mwe-upwiz-license-pd-old": "بنان والا 70 ورے پہلے مرگیا۔",
-	"mwe-upwiz-license-pd-art": "پینٹنگ نون کاپی کیتا گیا اے کیون جے اپنی عمر باجوں اے لوکاں کول اے۔",
 	"mwe-upwiz-license-pd-us": "پہلی واری امریکہ چ 1923 تون پہلے چھپی",
 	"mwe-upwiz-license-pd-usgov": "امریکی سرکار دا اصل کم",
 	"mwe-upwiz-license-pd-usgov-nasa": "ناسا دا کم",
@@ -154,7 +152,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "حق بچایا پر کسے وی کم لئی ورتیا جاسکدا اے کاروبار لئی وی",
 	"mwe-upwiz-license-attribution": "کسے وی کم ل‏ی ورتیا جاسکدا اے، کاروبار لی وی، اگر کاپی حف دسیا گیا اے۔",
 	"mwe-upwiz-license-gfdl": "گنو مفت ڈوکومنٹیشن لائیسنس",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "حق چھڈیا پر اتہ پتہ دینا جے (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "حق چھڈیا پر اتہ پتہ دینا جے (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "کاپی حق رکھن والے نیں چھاپیا {{PLURAL:$1|ایہ کم|ایہ کم}} کریٹو کامنز لائیسنس",
 	"mwe-upwiz-license-cc-subhead": "کریٹو کامنز دے سارے لائیسنس ایس سائیٹ لئی ٹھیک نئیں۔ اے ویکھ لو جے کاپی حق والے اینوں چوں کوئی لائیسنس ورتیا اے۔",
 	"mwe-upwiz-license-flickr-head": "کاپی حق رکھن والے  نے اپنیاں {{PLURAL:$1|مورتاں یا وڈیو}}  فلکر تے ٹھیک لائیسنس نال چھاپیاں نیں۔",

@@ -7,7 +7,7 @@
  * @ingroup Extensions
  * @author Yuri Astrakhan
  * @copyright © 2013 Yuri Astrakhan
- * @license GNU General Public Licence 2.0 or later
+ * @license GPL-2.0-or-later
  */
 
 $namespaceNames = [];
@@ -17,6 +17,13 @@ $namespaceNames['en'] = [
 	483 => 'Config_talk',
 	486 => 'Data',
 	487 => 'Data_talk',
+];
+
+$namespaceNames['es'] = [
+	482 => 'Configuración',
+	483 => 'Configuración_discusión',
+	486 => 'Datos',
+	487 => 'Datos_discusión',
 ];
 
 $namespaceNames['vi'] = [

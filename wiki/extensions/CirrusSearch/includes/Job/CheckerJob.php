@@ -3,6 +3,7 @@
 namespace CirrusSearch\Job;
 
 use ArrayObject;
+use CirrusSearch\Profile\SearchProfileService;
 use CirrusSearch\Searcher;
 use CirrusSearch\Sanity\Checker;
 use CirrusSearch\Sanity\QueueingRemediator;
@@ -45,7 +46,7 @@ class CheckerJob extends Job {
 	 * @return CheckerJob
 	 */
 	public static function build( $fromPageId, $toPageId, $delay, $profile, $cluster ) {
-		$job = new self( Title::makeTitle( 0, "" ), [
+		$job = new self( Title::makeTitle( NS_SPECIAL, "Badtitle/" . __CLASS__ ), [
 			'fromPageId' => $fromPageId,
 			'toPageId' => $toPageId,
 			'createdAt' => time(),
@@ -79,7 +80,9 @@ class CheckerJob extends Job {
 	 * @throws \MWException
 	 */
 	protected function doJob() {
-		$profile = $this->searchConfig->getElement( 'CirrusSearchSanitizationProfiles', $this->params['profile'] );
+		$profile = $this->searchConfig
+			->getProfileService()
+			->loadProfileByName( SearchProfileService::SANEITIZER, $this->params['profile'], false );
 		if ( !$profile ) {
 			LoggerFactory::getInstance( 'CirrusSearch' )->warning(
 				"Cannot run CheckerJob invalid profile {profile} provided, check CirrusSearchSanityCheck config.",
@@ -216,6 +219,7 @@ class CheckerJob extends Job {
 
 	/**
 	 * This job handles all its own retries internally.
+	 * @return bool
 	 */
 	public function allowRetries() {
 		return false;

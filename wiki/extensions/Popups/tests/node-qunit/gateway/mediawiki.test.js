@@ -1,7 +1,7 @@
 import { createModel } from '../../../src/preview/model';
 import createMediaWikiApiGateway from '../../../src/gateway/mediawiki';
 
-var DEFAULT_CONSTANTS = {
+const DEFAULT_CONSTANTS = {
 		THUMBNAIL_SIZE: 300,
 		EXTRACT_LENGTH: 525
 	},
@@ -10,7 +10,7 @@ var DEFAULT_CONSTANTS = {
 			pages: [
 				{
 					contentmodel: 'wikitext',
-					extract: 'Richard Paul "Rick" Astley (/\u02c8r\u026ak \u02c8\u00e6stli/; born 6 February 1966) is an English singer, songwriter, musician, and radio personality. His 1987 song, "Never Gonna Give You Up" was a No. 1 hit single in 25 countries. By the time of his retirement in 1993, Astley had sold approximately 40 million records worldwide.\nAstley made a comeback in 2007, becoming an Internet phenomenon when his video "Never Gonna Give You Up" became integral to the meme known as "rickrolling". Astley was voted "Best Act Ever" by Internet users at the...',
+					extract: 'Richard Paul "Rick" Astley is an English singer, songwriter, musician, and radio personality. His 1987 song, "Never Gonna Give You Up" was a No. 1 hit single in 25 countries. By the time of his retirement in 1993, Astley had sold approximately 40 million records worldwide.\nAstley made a comeback in 2007, becoming an Internet phenomenon when his video "Never Gonna Give You Up" became integral to the meme known as "rickrolling". Astley was voted "Best Act Ever" by Internet users at the',
 					lastrevid: 748725726,
 					length: 32132,
 					fullurl: 'https://en.wikipedia.org/wiki/Rick_Astley',
@@ -41,28 +41,30 @@ var DEFAULT_CONSTANTS = {
 		'en',
 		'ltr',
 		[ document.createTextNode( 'Richard Paul "Rick" Astley is an English singer, songwriter, musician, and radio personality. His 1987 song, "Never Gonna Give You Up" was a No. 1 hit single in 25 countries. By the time of his retirement in 1993, Astley had sold approximately 40 million records worldwide.\nAstley made a comeback in 2007, becoming an Internet phenomenon when his video "Never Gonna Give You Up" became integral to the meme known as "rickrolling". Astley was voted "Best Act Ever" by Internet users at the' ) ],
+		undefined,
 		{
 			height: 300,
 			source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Rick_Astley_-_Pepsifest_2009.jpg/200px-Rick_Astley_-_Pepsifest_2009.jpg',
 			width: 200
-		}
+		},
+		447541
 	);
 
 QUnit.module( 'ext.popups/gateway/mediawiki', {
-	beforeEach: function () {
+	beforeEach() {
 		window.mediaWiki.RegExp = {
-			escape: this.sandbox.spy( function ( str ) {
-				return str.replace( /([\\{}()|.?*+\-\^$\[\]])/g, '\\$1' );
-			} )
+			escape: this.sandbox.spy(
+				( str ) => str.replace( /([\\{}()|.?*+\-^$[\]])/g, '\\$1' )
+			)
 		};
 	},
-	afterEach: function () {
+	afterEach() {
 		window.mediaWiki.RegExp = null;
 	}
 } );
 
 QUnit.test( 'MediaWiki API gateway is called with correct arguments', function ( assert ) {
-	var spy = this.sandbox.spy(),
+	const spy = this.sandbox.spy(),
 		api = {
 			get: spy
 		},
@@ -98,7 +100,7 @@ QUnit.test( 'MediaWiki API gateway is called with correct arguments', function (
 } );
 
 QUnit.test( 'MediaWiki API gateway is correctly extracting the page data from the response ', function ( assert ) {
-	var api = {
+	const api = {
 			get: this.sandbox.stub()
 		},
 		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS ),
@@ -128,13 +130,13 @@ QUnit.test( 'MediaWiki API gateway is correctly extracting the page data from th
 
 	assert.expect( errorCases.length + successCases.length );
 
-	$.each( errorCases, function ( _, data ) {
-		assert.throws( function () {
+	errorCases.forEach( data => {
+		assert.throws( () => {
 			gateway.extractPageFromResponse( data );
 		} );
 	} );
 
-	$.each( successCases, function ( _, data ) {
+	successCases.forEach( data => {
 		assert.deepEqual(
 			gateway.extractPageFromResponse( data[ 0 ] ),
 			data[ 1 ]
@@ -142,8 +144,8 @@ QUnit.test( 'MediaWiki API gateway is correctly extracting the page data from th
 	} );
 } );
 
-QUnit.test( 'MediaWiki API gateway is correctly converting the page data to a model', function ( assert ) {
-	var gateway = createMediaWikiApiGateway(),
+QUnit.test( 'MediaWiki API gateway is correctly converting the page data to a model', ( assert ) => {
+	const gateway = createMediaWikiApiGateway(),
 		page = gateway.extractPageFromResponse( MEDIAWIKI_API_RESPONSE );
 
 	assert.deepEqual(
@@ -152,37 +154,33 @@ QUnit.test( 'MediaWiki API gateway is correctly converting the page data to a mo
 	);
 } );
 
-QUnit.test( 'MediaWiki API gateway handles the API failure', function ( assert ) {
-	var p,
-		deferred = $.Deferred(),
-		api = {
-			get: this.sandbox.stub().returns( deferred.promise() )
+QUnit.test( 'MediaWiki API gateway handles API failure', function ( assert ) {
+	const api = {
+			get: this.sandbox.stub()
+				.returns( $.Deferred().reject( { status: 400 } ).promise() )
 		},
 		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS );
 
-	p = gateway.getPageSummary( 'Test Title' ).catch( function () {
+	return gateway.getPageSummary( 'Test Title' ).catch( () => {
 		assert.ok( true );
 	} );
-
-	deferred.reject();
-	return p;
 } );
 
 QUnit.test( 'MediaWiki API gateway returns the correct data ', function ( assert ) {
-	var api = {
+	const api = {
 			get: this.sandbox.stub().returns(
 				$.Deferred().resolve( MEDIAWIKI_API_RESPONSE ).promise()
 			)
 		},
 		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS );
 
-	return gateway.getPageSummary( 'Test Title' ).then( function ( result ) {
+	return gateway.getPageSummary( 'Test Title' ).then( ( result ) => {
 		assert.deepEqual( result, MEDIAWIKI_API_RESPONSE_PREVIEW_MODEL );
 	} );
 } );
 
 QUnit.test( 'MediaWiki API gateway handles missing pages ', function ( assert ) {
-	var response = {
+	const response = {
 			query: {
 				pages: [ {
 					canonicalurl: 'http://dev.wiki.local.wmftest.net:8080/wiki/Missing_page',
@@ -204,6 +202,7 @@ QUnit.test( 'MediaWiki API gateway handles missing pages ', function ( assert ) 
 			'en',
 			'ltr',
 			undefined,
+			undefined,
 			undefined
 		),
 		api = {
@@ -213,7 +212,7 @@ QUnit.test( 'MediaWiki API gateway handles missing pages ', function ( assert ) 
 		},
 		gateway = createMediaWikiApiGateway( api, DEFAULT_CONSTANTS );
 
-	return gateway.getPageSummary( 'Test Title' ).then( function ( result ) {
+	return gateway.getPageSummary( 'Test Title' ).then( ( result ) => {
 		assert.deepEqual( result, model );
 	} );
 } );

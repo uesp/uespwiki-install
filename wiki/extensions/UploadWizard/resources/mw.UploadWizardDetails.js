@@ -39,24 +39,6 @@
 
 			this.dataDiv = $( '<div class="mwe-upwiz-data"></div>' );
 
-			// descriptions
-			// Description is not required if a campaign provides alternative wikitext fields,
-			// which are assumed to function like a description
-			descriptionRequired = !(
-				mw.UploadWizard.config.fields &&
-				mw.UploadWizard.config.fields.length &&
-				mw.UploadWizard.config.fields[ 0 ].wikitext
-			);
-			this.descriptionsDetails = new uw.DescriptionsDetailsWidget( {
-				required: descriptionRequired
-			} );
-			this.descriptionsDetailsField = new uw.FieldLayout( this.descriptionsDetails, {
-				label: mw.message( 'mwe-upwiz-desc' ).text(),
-				help: mw.message( 'mwe-upwiz-tooltip-description' ).text(),
-				required: descriptionRequired
-			} );
-			this.mainFields.push( this.descriptionsDetailsField );
-
 			this.titleDetails = new uw.TitleDetailsWidget( {
 				// Normalize file extension, e.g. 'JPEG' to 'jpg'
 				extension: mw.Title.normalizeExtension( this.upload.title.getExtension() )
@@ -67,6 +49,48 @@
 				required: true
 			} );
 			this.mainFields.push( this.titleDetailsField );
+
+			this.captionsDetails = new uw.MultipleLanguageInputWidget( {
+				required: false,
+				// Messages: mwe-upwiz-caption-add-0, mwe-upwiz-caption-add-n
+				label: mw.message( 'mwe-upwiz-caption-add' ),
+				error: mw.message( 'mwe-upwiz-error-bad-captions' ),
+				remove: mw.message( 'mwe-upwiz-remove-caption' ),
+				minLength: mw.UploadWizard.config.minCaptionLength,
+				maxLength: mw.UploadWizard.config.maxCaptionLength
+			} );
+			this.captionsDetailsField = new uw.FieldLayout( this.captionsDetails, {
+				required: false,
+				label: mw.message( 'mwe-upwiz-caption' ).text(),
+				help: mw.message( 'mwe-upwiz-tooltip-caption' ).text()
+			} );
+			if ( mw.UploadWizard.config.wikibase.enabled ) {
+				this.mainFields.push( this.captionsDetailsField );
+			}
+
+			// descriptions
+			// Description is not required if a campaign provides alternative wikitext fields,
+			// which are assumed to function like a description
+			descriptionRequired = !(
+				mw.UploadWizard.config.fields &&
+				mw.UploadWizard.config.fields.length &&
+				mw.UploadWizard.config.fields[ 0 ].wikitext
+			);
+			this.descriptionsDetails = new uw.MultipleLanguageInputWidget( {
+				required: descriptionRequired,
+				// Messages: mwe-upwiz-desc-add-0, mwe-upwiz-desc-add-n
+				label: mw.message( 'mwe-upwiz-desc-add' ),
+				error: mw.message( 'mwe-upwiz-error-bad-descriptions' ),
+				remove: mw.message( 'mwe-upwiz-remove-description' ),
+				minLength: mw.UploadWizard.config.minDescriptionLength,
+				maxLength: mw.UploadWizard.config.maxDescriptionLength
+			} );
+			this.descriptionsDetailsField = new uw.FieldLayout( this.descriptionsDetails, {
+				required: descriptionRequired,
+				label: mw.message( 'mwe-upwiz-desc' ).text(),
+				help: mw.message( 'mwe-upwiz-tooltip-description' ).text()
+			} );
+			this.mainFields.push( this.descriptionsDetailsField );
 
 			this.deedChooserDetailsField = new uw.FieldLayout( this.deedChooserDetails, {
 				label: mw.message( 'mwe-upwiz-copyright-info' ).text(),
@@ -118,6 +142,7 @@
 			this.$form = $( '<form id="mwe-upwiz-detailsform' + this.upload.index + '"></form>' ).addClass( 'detailsForm' );
 			this.$form.append(
 				this.titleDetailsField.$element,
+				mw.UploadWizard.config.wikibase.enabled ? this.captionsDetailsField.$element : null,
 				this.descriptionsDetailsField.$element,
 				this.deedChooserDetailsField.$element,
 				this.dateDetailsField.$element,
@@ -217,14 +242,27 @@
 			);
 
 			uri = new mw.Uri( location.href, { overrideKeys: true } );
+			if ( mw.UploadWizard.config.defaults.caption || uri.query.captionlang ) {
+				this.captionsDetails.setSerialized( {
+					inputs: [
+						{
+							language: uri.query.captionlang ?
+								uw.SingleLanguageInputWidget.static.getClosestAllowedLanguage( uri.query.captionlang ) :
+								uw.SingleLanguageInputWidget.static.getDefaultLanguage(),
+							text: mw.UploadWizard.config.defaults.caption || ''
+						}
+					]
+				} );
+			}
+
 			if ( mw.UploadWizard.config.defaults.description || uri.query.descriptionlang ) {
 				this.descriptionsDetails.setSerialized( {
-					descriptions: [
+					inputs: [
 						{
 							language: uri.query.descriptionlang ?
-								uw.DescriptionDetailsWidget.static.getClosestAllowedLanguage( uri.query.descriptionlang ) :
-								uw.DescriptionDetailsWidget.static.getDefaultLanguage(),
-							description: mw.UploadWizard.config.defaults.description || ''
+								uw.SingleLanguageInputWidget.static.getClosestAllowedLanguage( uri.query.descriptionlang ) :
+								uw.SingleLanguageInputWidget.static.getDefaultLanguage(),
+							text: mw.UploadWizard.config.defaults.description || ''
 						}
 					]
 				} );
@@ -332,22 +370,34 @@
 
 		/**
 		 * Check all the fields for errors and warnings and display them in the UI.
+		 *
+		 * @param {boolean} thorough True to perform a thorough validity check. Defaults to false for a fast on-change check.
+		 * @return {jQuery.Promise} Combined promise of all fields' validation results.
 		 */
-		checkValidity: function () {
-			this.getAllFields().forEach( function ( fieldLayout ) {
-				fieldLayout.checkValidity();
-			} );
+		checkValidity: function ( thorough ) {
+			var fields = this.getAllFields();
+
+			return $.when.apply( $, fields.map( function ( fieldLayout ) {
+				// Update any error/warning messages
+				return fieldLayout.checkValidity( thorough );
+			} ) );
 		},
 
 		/**
-		 * Get a thumbnail caption for this upload (basically, the first description).
+		 * Get a thumbnail caption for this upload (basically, the first caption).
 		 *
 		 * @return {string}
 		 */
 		getThumbnailCaption: function () {
-			var descriptions = this.descriptionsDetails.getSerialized().descriptions;
-			if ( descriptions.length > 0 ) {
-				return mw.Escaper.escapeForTemplate( descriptions[ 0 ].description.trim() );
+			var captions = [];
+			if ( mw.UploadWizard.config.wikibase.enabled ) {
+				captions = this.captionsDetails.getSerialized().inputs;
+			} else {
+				captions = this.descriptionsDetails.getSerialized().inputs;
+			}
+
+			if ( captions.length > 0 ) {
+				return mw.Escaper.escapeForTemplate( captions[ 0 ].text.trim() );
 			} else {
 				return '';
 			}
@@ -385,7 +435,7 @@
 		prefillDate: function () {
 			var dateObj, metadata, dateTimeRegex, matches, dateStr, saneTime,
 				dateMode = 'calendar',
-				yyyyMmDdRegex = /^(\d\d\d\d)[:\/\-](\d\d)[:\/\-](\d\d)\D.*/,
+				yyyyMmDdRegex = /^(\d\d\d\d)[:/-](\d\d)[:/-](\d\d)\D.*/,
 				timeRegex = /\D(\d\d):(\d\d):(\d\d)/;
 
 			// XXX surely we have this function somewhere already
@@ -414,15 +464,15 @@
 							timeMatches = dateInfo.trim().match( timeRegex );
 							if ( timeMatches ) {
 								dateObj = new Date( parseInt( matches[ 1 ], 10 ),
-											parseInt( matches[ 2 ], 10 ) - 1,
-											parseInt( matches[ 3 ], 10 ),
-											parseInt( timeMatches[ 1 ], 10 ),
-											parseInt( timeMatches[ 2 ], 10 ),
-											parseInt( timeMatches[ 3 ], 10 ) );
+									parseInt( matches[ 2 ], 10 ) - 1,
+									parseInt( matches[ 3 ], 10 ),
+									parseInt( timeMatches[ 1 ], 10 ),
+									parseInt( timeMatches[ 2 ], 10 ),
+									parseInt( timeMatches[ 3 ], 10 ) );
 							} else {
 								dateObj = new Date( parseInt( matches[ 1 ], 10 ),
-											parseInt( matches[ 2 ], 10 ) - 1,
-											parseInt( matches[ 3 ], 10 ) );
+									parseInt( matches[ 2 ], 10 ) - 1,
+									parseInt( matches[ 3 ], 10 ) );
 							}
 							return false; // break from $.each
 						}
@@ -507,11 +557,11 @@
 					descText = descText.replace( /&amp;/g, '&' ).replace( /&quot;/g, '"' );
 
 					this.descriptionsDetails.setSerialized( {
-						descriptions: [
+						inputs: [
 							{
 								// The language is probably wrong in many cases...
 								language: uw.DescriptionDetailsWidget.static.getClosestAllowedLanguage( mw.config.get( 'wgContentLanguage' ) ),
-								description: descText.trim()
+								text: descText.trim()
 							}
 						]
 					} );
@@ -613,6 +663,7 @@
 
 			return {
 				title: this.titleDetails.getSerialized(),
+				caption: this.captionsDetails.getSerialized(),
 				description: this.descriptionsDetails.getSerialized(),
 				date: this.dateDetails.getSerialized(),
 				categories: this.categoriesDetails.getSerialized(),
@@ -659,6 +710,9 @@
 
 			if ( serialized.title ) {
 				this.titleDetails.setSerialized( serialized.title );
+			}
+			if ( serialized.caption ) {
+				this.captionsDetails.setSerialized( serialized.caption );
 			}
 			if ( serialized.description ) {
 				this.descriptionsDetails.setSerialized( serialized.description );
@@ -724,9 +778,9 @@
 
 			deed = this.upload.deedChooser.deed;
 
-			information.source = deed.getSourceWikiText();
+			information.source = deed.getSourceWikiText( this.upload );
 
-			information.author = deed.getAuthorWikiText();
+			information.author = deed.getAuthorWikiText( this.upload );
 
 			info = '';
 
@@ -747,7 +801,7 @@
 
 			// add licensing information
 			wikiText += '\n=={{int:license-header}}==\n';
-			wikiText += deed.getLicenseWikiText() + '\n\n';
+			wikiText += deed.getLicenseWikiText( this.upload ) + '\n\n';
 
 			if ( mw.UploadWizard.config.autoAdd.wikitext !== undefined ) {
 				wikiText += mw.UploadWizard.config.autoAdd.wikitext + '\n';
@@ -776,18 +830,11 @@
 		},
 
 		/**
-		 * Post wikitext as edited here, to the file
-		 * XXX This should be split up -- one part should get wikitext from the interface here, and the ajax call
-		 * should be be part of upload
-		 *
-		 * This function is only called if all input seems valid (which doesn't mean that we can't get
-		 * an error, see #processError).
-		 *
 		 * @return {jQuery.Promise}
 		 */
 		submit: function () {
-			var params,
-				tags = [ 'uploadwizard' ];
+			var details = this,
+				wikitext, captions, promise;
 
 			$( 'form', this.containerDiv ).submit();
 
@@ -795,6 +842,135 @@
 			this.upload.state = 'submitting-details';
 			this.setStatus( mw.message( 'mwe-upwiz-submitting-details' ).text() );
 			this.showIndicator( 'progress' );
+
+			wikitext = this.getWikiText();
+			promise = this.submitWikiText( wikitext );
+
+			captions = this.captionsDetails.getValues();
+			if ( mw.UploadWizard.config.wikibase.enabled && Object.keys( captions ).length > 0 ) {
+				promise = promise
+					.then( function ( result ) {
+						// after having submitted the upload, fetch the entity id from page_props
+						// we might fail to retrieve the prop if it has not yet been created,
+						// so try at least 20 times...
+						var status = mw.message( 'mwe-upwiz-submitting-captions', Object.keys( captions ).length ),
+							title = mw.Title.makeTitle( 6, result.upload.filename ),
+							callable = details.getPageProp.bind( details, title, 'mediainfo_entity' );
+						details.setStatus( status.text() );
+						return details.attemptExecute( callable, 20 );
+					} )
+					// submit captions to wikibase
+					.then( this.submitCaptions.bind( this, captions ) )
+					.catch( function ( code, result ) {
+						var languageCodes = Object.keys( captions ),
+							allLanguages = mw.UploadWizard.config.uwLanguages,
+							message = mw.message(
+								'mwe-upwiz-error-submit-captions',
+								details.upload.imageinfo.canonicaltitle,
+								result.errors[ 0 ].html,
+								languageCodes.length
+							).parse(),
+							$list,
+							i;
+
+						// add captions as well, so they can easily be copied over
+						for ( i = 0; i < languageCodes.length; i++ ) {
+							$list = $( '<dl>' );
+							$list.append( $( '<dt>' ).text( allLanguages[ languageCodes[ i ] ] ) );
+							$list.append( $( '<dd>' ).text( captions[ languageCodes[ i ] ] ) );
+						}
+						message += $list[ 0 ].outerHTML;
+
+						details.upload.state = 'error';
+						details.showError( 'caption-fail', message );
+
+						return $.Deferred().reject( code, result ).promise();
+					} );
+			}
+
+			return promise.then( function () {
+				details.showIndicator( 'uploaded' );
+				details.setStatus( mw.message( 'mwe-upwiz-published' ).text() );
+			} );
+		},
+
+		/**
+		 * Attempt to resolve a promise (a couple of times, with an increasing delay).
+		 *
+		 * @param {function} callable
+		 * @param {number} attempts
+		 * @return {jQuery.Promise}
+		 */
+		attemptExecute: function ( callable, attempts ) {
+			var deferred = $.Deferred(),
+				attempt = 0,
+				retry;
+
+			attempts = attempts || 10;
+			retry = function () {
+				callable().then(
+					deferred.resolve,
+					function () {
+						attempt++;
+						if ( attempt >= attempts ) {
+							// don't keep trying forever; just give up if we fail a few times
+							deferred.reject.apply( deferred, arguments );
+						} else {
+							// try again on failure, with an increasing timeout...
+							setTimeout( retry, 2000 * attempt );
+						}
+
+					}
+				);
+			};
+
+			retry();
+
+			return deferred.promise();
+		},
+
+		/**
+		 * @param {mw.Title} title
+		 * @param {string} prop
+		 * @return {jQuery.Promise}
+		 */
+		getPageProp: function ( title, prop ) {
+			return this.upload.api.get( {
+				action: 'query',
+				prop: 'pageprops',
+				titles: title.getPrefixedDb()
+			} ).then( function ( result ) {
+				var props, message;
+
+				if ( result.query.pages[ 0 ].missing ) {
+					// page doesn't exist (yet)
+					message = mw.message( 'mwe-upwiz-error-pageprops-missing-page' ).parse();
+					return $.Deferred().reject( 'pageprops-missing-page', { errors: [ { html: message } ] } ).promise();
+				}
+
+				props = result.query.pages[ 0 ].pageprops;
+				if ( !props || !( prop in props ) ) {
+					// prop doesn't exist (yet)
+					message = mw.message( 'mwe-upwiz-error-pageprops-missing-prop' ).parse();
+					return $.Deferred().reject( 'pageprops-missing-prop', { errors: [ { html: message } ] } ).promise();
+				}
+
+				return props[ prop ];
+			} );
+		},
+
+		/**
+		 * Post wikitext as edited here, to the file
+		 *
+		 * This function is only called if all input seems valid (which doesn't mean that we can't get
+		 * an error, see #processError).
+		 *
+		 * @param {string} wikiText
+		 * @return {jQuery.Promise}
+		 */
+		submitWikiText: function ( wikiText ) {
+			var params,
+				tags = [ 'uploadwizard' ];
 
 			this.firstPoll = ( new Date() ).getTime();
 
@@ -807,7 +983,13 @@
 				filekey: this.upload.fileKey,
 				filename: this.getTitle().getMain(),
 				comment: 'User created page with ' + mw.UploadWizard.userAgent,
-				tags: mw.UploadWizard.config.CanAddTags ? tags : []
+				tags: mw.UploadWizard.config.CanAddTags ? tags : [],
+				// we can ignore upload warnings here, we've already checked
+				// when stashing the file
+				// not ignoring warnings would prevent us from uploading a file
+				// that is a duplicate of something in a foreign repo
+				ignorewarnings: true,
+				text: wikiText
 			};
 
 			// Only enable async publishing if file is larger than 10MiB
@@ -816,7 +998,57 @@
 			}
 
 			params.text = this.getWikiText();
-			return this.submitInternal( params );
+			return this.submitWikiTextInternal( params );
+		},
+
+		/**
+		 * @param {object} captions {<languagecode>: <caption text>} map
+		 * @param {string} entityId
+		 * @return {jQuery.Promise}
+		 */
+		submitCaptions: function ( captions, entityId ) {
+			var languages = Object.keys( captions ),
+				// `promises` will hold all promises for all captions;
+				// prefilling with a bogus promise to ensure $.when always
+				// resolves with an array of multiple results (if there's
+				// just 1, it would otherwise have just that one's arguments,
+				// instead of a multi-dimensional array of results)
+				promises = [ $.Deferred().resolve().promise() ],
+				callable, promise, language, text, i;
+
+			for ( i = 0; i < languages.length; i++ ) {
+				language = languages[ i ];
+				text = captions[ language ];
+				callable = this.submitCaption.bind( this, entityId, language, text );
+
+				promise = this.attemptExecute( callable, 3 );
+				promises.push( promise );
+			}
+
+			return $.when.apply( $, promises );
+		},
+
+		/**
+		 * @param {string} id
+		 * @param {string} language
+		 * @param {string} value
+		 * @return {jQuery.Promise}
+		 */
+		submitCaption: function ( id, language, value ) {
+			var config = mw.UploadWizard.config.wikibase,
+				params = {
+					action: 'wbsetlabel',
+					id: id,
+					language: language,
+					value: value
+				},
+				ajaxOptions = { url: config.api };
+
+			if ( !config.enabled ) {
+				return $.Deferred().reject().promise();
+			}
+
+			return this.upload.api.postWithEditToken( params, ajaxOptions );
 		},
 
 		/**
@@ -826,37 +1058,44 @@
 		 * @param {Object} params API call parameters
 		 * @return {jQuery.Promise}
 		 */
-		submitInternal: function ( params ) {
-			var
-				details = this,
+		submitWikiTextInternal: function ( params ) {
+			var details = this,
 				apiPromise = this.upload.api.postWithEditToken( params );
+
 			return apiPromise
-				.then(
-					function ( result ) {
-						if ( result.upload && result.upload.warnings ) {
-							uw.eventFlowLogger.logApiError( 'details', result );
-						}
-						return details.handleSubmitResult( result, params );
-					},
-					function ( code, result ) {
-						uw.eventFlowLogger.logApiError( 'details', result );
-						details.upload.state = 'error';
-						details.processError( code, result );
-						return $.Deferred().reject( code, result );
-					}
-				)
+				// process the successful (in terms of HTTP status...) API call first:
+				// there may be warnings or other issues with the upload that need
+				// to be dealt with
+				.then( this.validateWikiTextSubmitResult.bind( this, params ) )
+				// making it here means the upload is a success, or it would've been
+				// rejected by now (either by HTTP status code, or in validateWikiTextSubmitResult)
+				.then( function ( result ) {
+					details.upload.extractImageInfo( result.upload.imageinfo );
+					details.upload.thisProgress = 1.0;
+					details.upload.state = 'complete';
+					return result;
+				} )
+				// uh-oh - something went wrong!
+				.catch( function ( code, result ) {
+					uw.eventFlowLogger.logApiError( 'details', result );
+					details.upload.state = 'error';
+					details.processError( code, result );
+					return $.Deferred().reject( code, result );
+				} )
 				.promise( { abort: apiPromise.abort } );
 		},
 
 		/**
-		 * Handles the result of a submission.
+		 * Validates the result of a submission & returns a resolved promise with
+		 * the API response if all went well, or rejects with error code & error
+		 * message as you would expect from failed mediawiki API calls.
 		 *
-		 * @param {Object} result API result of an upload or status check.
 		 * @param {Object} params What we passed to the API that caused this response.
+		 * @param {Object} result API result of an upload or status check.
 		 * @return {jQuery.Promise}
 		 */
-		handleSubmitResult: function ( result, params ) {
-			var wx, warningsKeys, existingFile, existingFileUrl, existingFileExt, ourFileExt,
+		validateWikiTextSubmitResult: function ( params, result ) {
+			var wx, warningsKeys, existingFile, existingFileUrl, existingFileExt, ourFileExt, code, message,
 				details = this,
 				warnings = null,
 				ignoreTheseWarnings = false,
@@ -883,7 +1122,7 @@
 						this.setStatus( mw.message( 'mwe-upwiz-' + result.upload.stage ).text() );
 						setTimeout( function () {
 							if ( details.upload.state !== 'aborted' ) {
-								details.submitInternal( {
+								details.submitWikiTextInternal( {
 									action: 'upload',
 									checkstatus: true,
 									filekey: details.upload.fileKey
@@ -923,48 +1162,49 @@
 				}
 			}
 			if ( result && result.upload && result.upload.imageinfo ) {
-				this.upload.extractImageInfo( result.upload.imageinfo );
-				this.upload.thisProgress = 1.0;
-				this.upload.state = 'complete';
-				this.showIndicator( 'uploaded' );
-				this.setStatus( mw.message( 'mwe-upwiz-published' ).text() );
-				return $.Deferred().resolve();
+				return $.Deferred().resolve( result );
 			} else if ( ignoreTheseWarnings ) {
 				params.ignorewarnings = 1;
-				return this.submitInternal( params );
+				return this.submitWikiTextInternal( params );
 			} else if ( result && result.upload && result.upload.warnings ) {
 				if ( warnings.thumb || warnings[ 'thumb-name' ] ) {
-					this.recoverFromError( 'error-title-thumbnail', mw.message( 'mwe-upwiz-error-title-thumbnail' ).parse() );
+					code = 'error-title-thumbnail';
+					message = mw.message( 'mwe-upwiz-error-title-thumbnail' ).parse();
 				} else if ( warnings.badfilename ) {
-					this.recoverFromError( 'title-invalid', mw.message( 'mwe-upwiz-error-title-invalid' ).parse() );
+					code = 'title-invalid';
+					message = mw.message( 'mwe-upwiz-error-title-invalid' ).parse();
 				} else if ( warnings[ 'bad-prefix' ] ) {
-					this.recoverFromError( 'title-senselessimagename', mw.message( 'mwe-upwiz-error-title-senselessimagename' ).parse() );
+					code = 'title-senselessimagename';
+					message = mw.message( 'mwe-upwiz-error-title-senselessimagename' ).parse();
 				} else if ( existingFile ) {
 					existingFileUrl = mw.config.get( 'wgServer' ) + mw.Title.makeTitle( NS_FILE, existingFile ).getUrl();
-					this.recoverFromError( 'api-warning-exists', mw.message( 'mwe-upwiz-api-warning-exists', existingFileUrl ).parse() );
+					code = 'api-warning-exists';
+					message = mw.message( 'mwe-upwiz-api-warning-exists', existingFileUrl ).parse();
 				} else if ( warnings.duplicate ) {
-					this.recoverFromError( 'upload-error-duplicate', mw.message( 'mwe-upwiz-upload-error-duplicate' ).parse() );
+					code = 'upload-error-duplicate';
+					message = mw.message( 'mwe-upwiz-upload-error-duplicate' ).parse();
 				} else if ( warnings[ 'duplicate-archive' ] !== undefined ) {
 					// warnings[ 'duplicate-archive' ] may be '' (empty string) for revdeleted files
 					if ( this.upload.handler.isIgnoredWarning( 'duplicate-archive' ) ) {
 						// We already told the interface to ignore this warning, so
 						// let's steamroll over it and re-call this handler.
 						params.ignorewarnings = true;
-						return this.submitInternal( params );
+						return this.submitWikiTextInternal( params );
 					} else {
 						// This should _never_ happen, but just in case....
-						this.recoverFromError( 'upload-error-duplicate-archive', mw.message( 'mwe-upwiz-upload-error-duplicate-archive' ).parse() );
+						code = 'upload-error-duplicate-archive';
+						message = mw.message( 'mwe-upwiz-upload-error-duplicate-archive' ).parse();
 					}
 				} else {
 					warningsKeys = [];
 					$.each( warnings, function ( key ) {
 						warningsKeys.push( key );
 					} );
-					this.upload.state = 'error';
-					this.recoverFromError( 'unknown-warning', mw.message( 'api-error-unknown-warning', warningsKeys.join( ', ' ) ).parse() );
+					code = 'unknown-warning';
+					message = mw.message( 'api-error-unknown-warning', warningsKeys.join( ', ' ) ).parse();
 				}
 
-				return $.Deferred().resolve();
+				return $.Deferred().reject( code, { errors: [ { html: message } ] } );
 			} else {
 				return $.Deferred().reject( 'this-info-missing', result );
 			}
@@ -1008,7 +1248,19 @@
 				'spamblacklist',
 				'fileexists-shared-forbidden',
 				'protectedpage',
-				'titleblacklist-forbidden'
+				'titleblacklist-forbidden',
+
+				// below are not actual API errors, but recoverable warnings that have
+				// been discovered in validateWikiTextSubmitResult and fabricated to resemble
+				// API errors and end up here to be dealt with
+				'error-title-thumbnail',
+				'title-invalid',
+				'title-senselessimagename',
+				'api-warning-exists',
+				'upload-error-duplicate',
+				'upload-error-duplicate',
+				'upload-error-duplicate-archive',
+				'unknown-warning'
 			];
 
 			if ( code === 'badtoken' ) {

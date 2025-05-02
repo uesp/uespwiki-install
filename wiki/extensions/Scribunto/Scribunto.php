@@ -21,6 +21,9 @@ if ( function_exists( 'wfLoadExtension' ) ) {
  * as providing hints for IDEs. It is not executed by MediaWiki.
  */
 
+define( 'NS_MODULE', 828 );
+define( 'NS_MODULE_TALK', 829 );
+
 /**
  * The name of the default script engine.
  */
@@ -75,12 +78,12 @@ $wgScribuntoEngineConf = [
 /**
  * Set to true to enable the SyntaxHighlight_GeSHi extension
  */
-$wgScribuntoUseGeSHi = false;
+$wgScribuntoUseGeSHi = true;
 
 /**
  * Set to true to enable the CodeEditor extension
  */
-$wgScribuntoUseCodeEditor = false;
+$wgScribuntoUseCodeEditor = true;
 
 /**
  * Set to true to enable gathering and reporting of performance data

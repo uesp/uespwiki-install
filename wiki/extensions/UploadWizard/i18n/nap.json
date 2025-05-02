@@ -4,7 +4,8 @@
 			"C.R.",
 			"Candalua",
 			"Chelin",
-			"Macofe"
+			"Macofe",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Carrecamiente guidate",
@@ -123,9 +124,6 @@
 	"mwe-upwiz-copy-location": "Copia 'o luoco",
 	"mwe-upwiz-copy-other": "Copia ati nfurmaziune",
 	"mwe-upwiz-desc": "Descrizzione",
-	"mwe-upwiz-desc-placeholder": "Descrive l'immaggene",
-	"mwe-upwiz-desc-add-n": "Azzecca na descriziona dint'a n'ata lengua",
-	"mwe-upwiz-desc-add-0": "Azzecca na descriziona",
 	"mwe-upwiz-title": "Titulo",
 	"mwe-upwiz-date-created": "Data 'e criaziona",
 	"mwe-upwiz-select-date": "Sceglie na data",
@@ -247,7 +245,6 @@
 	"mwe-upwiz-license-own-pd": "Tuttuquante 'e deritte c' 'a licienza Creative Commons zero (comme fosse pubbreco domminio)",
 	"mwe-upwiz-license-pd-old-100": "Autore muorto cchiù 'e 100 anne fà",
 	"mwe-upwiz-license-pd-old": "Autore muorto cchiù 'e 70 anne fà",
-	"mwe-upwiz-license-pd-art": "Riproduzione fedele 'e nu dipinto ca stesse ncopp' 'o pubbreco domminio",
 	"mwe-upwiz-license-pd-us": "Pubbrecata 'a primma vota dint' 'e State Unite apprimm' 'o 1923",
 	"mwe-upwiz-license-pd-usgov": "Fatica origginale d' 'o Guverno Federale d' 'e State Aunita d'Amereca",
 	"mwe-upwiz-license-pd-usgov-nasa": "Fatica origgenale d' 'a NASA",
@@ -258,7 +255,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Prutetta 'a copyright ma se putesse ausà pe' qualunque scopo, pure commerciale",
 	"mwe-upwiz-license-attribution": "Se putess'ausà pe' qualunque scopo, pure commerciale, si 'o pate ' ll'opera è azzeccato overo 'attribbuito a chisto",
 	"mwe-upwiz-license-gfdl": "GNU Free Documentation License",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, attribbuzione addimannata (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, attribbuzione addimannata (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "'O detentore d' 'o copyright ha pubbrecato {{PLURAL:$1|st'opera|st'opere}} cu 'a licienza Creative Commons apposto",
 	"mwe-upwiz-license-cc-subhead": "Nun songo tutt' 'e licienze Creative Commons buone int'a stu sito. Cuntrullate ca 'o proprietario d' 'o copyright ausaje una 'e sti licienze.",
 	"mwe-upwiz-license-flickr-head": "'O detentore d' 'o copyright pubbrecaje {{PLURAL:$1|'a propria|'e proprie}} foto o video ncopp' 'o sito 'e Flickr cu na licienza buona",

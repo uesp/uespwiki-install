@@ -9,9 +9,8 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 }
 
 // Include core class ApiTestCaseUpload ( not part of base autoLoader )
-// @codingStandardsIgnoreStart
+// phpcs:ignore MediaWiki.NamingConventions.ValidGlobalName.wgPrefix
 global $IP;
-// @codingStandardsIgnoreEnd
 require_once "$IP/tests/phpunit/includes/api/ApiTestCaseUpload.php";
 
 abstract class ApiTestCaseVideoUpload extends ApiTestCaseUpload {
@@ -47,11 +46,11 @@ abstract class ApiTestCaseVideoUpload extends ApiTestCaseUpload {
 			]
 		];
 	}
+
 	/**
 	 * Fixture -- run after every test
 	 * Clean up temporary files etc.
-	 *
-	*/
+	 */
 	protected function tearDown() {
 		parent::tearDown();
 
@@ -65,6 +64,8 @@ abstract class ApiTestCaseVideoUpload extends ApiTestCaseUpload {
 
 	/**
 	 * Do login
+	 * @param string $user
+	 * @return array
 	 */
 	protected function doLogin( $user = 'sysop' ) {
 		$user = self::$users['uploader'];
@@ -88,7 +89,9 @@ abstract class ApiTestCaseVideoUpload extends ApiTestCaseUpload {
 	}
 
 	/**
-	 * uploads a file:
+	 * uploads a file
+	 * @param array $file
+	 * @return array
 	 */
 	public function uploadFile( $file ) {
 		global $wgUser;

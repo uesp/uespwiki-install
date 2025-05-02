@@ -4,10 +4,11 @@
 			"Ferrer",
 			"VasilievVV",
 			"Kaganer",
-			"INS Pirat"
+			"INS Pirat",
+			"Putnik"
 		]
 	},
-	"mediafunctions-desc": "Функции парсера для получения информации о медиа-файлах",
+	"mediafunctions-desc": "Функции парсера для получения информации о медиафайлах",
 	"mediafunctions-invalid-title": "«$1» — некорректный заголовок.",
 	"mediafunctions-not-exist": "«$1» не существует"
 }

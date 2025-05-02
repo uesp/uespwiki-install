@@ -11,7 +11,8 @@
 			"Peter Alberti",
 			"Matma Rex",
 			"Macofe",
-			"Ribewiki"
+			"Ribewiki",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Vejviser til oplægning af filer",
@@ -129,9 +130,6 @@
 	"mwe-upwiz-copy-location": "Kopier sted",
 	"mwe-upwiz-copy-other": "Kopier øvrige oplysninger",
 	"mwe-upwiz-desc": "Beskrivelse",
-	"mwe-upwiz-desc-placeholder": "Beskriv billedet",
-	"mwe-upwiz-desc-add-n": "Tilføj en beskrivelse på et andet sprog",
-	"mwe-upwiz-desc-add-0": "Tilføj en beskrivelse",
 	"mwe-upwiz-title": "Titel",
 	"mwe-upwiz-date-created": "Oprettet dato",
 	"mwe-upwiz-select-date": "Vælg en dato",
@@ -246,7 +244,6 @@
 	"mwe-upwiz-license-own-pd": "Alle rettigheder fraskrevet med Creative Commons Zero-licensen (svarer til offentlig ejendom)",
 	"mwe-upwiz-license-pd-old-100": "Ophavsmanden døde for mere end 100 år siden",
 	"mwe-upwiz-license-pd-old": "Ophavsmanden døde for mere end 70 år siden",
-	"mwe-upwiz-license-pd-art": "Tro reproduktion af et maleri, der ikke er beskyttet af ophavsret",
 	"mwe-upwiz-license-pd-us": "Første udgivelse var i USA og før 1923",
 	"mwe-upwiz-license-pd-usgov": "Originalværk af den amerikanske forbundsregering",
 	"mwe-upwiz-license-pd-usgov-nasa": "Originalværk af NASA",
@@ -257,7 +254,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Ophavsretligt beskyttet, men kan anvendes til ethvert formål, herunder kommercielle",
 	"mwe-upwiz-license-attribution": "Kan anvendes til ethvert formål, herunder kommercielle, hvis indehaveren af ​​ophavsretten tilskrives korrekt",
 	"mwe-upwiz-license-gfdl": "GNU Free Documentation License",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Del på samme vilkår, navngivelse kræves (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Del på samme vilkår, navngivelse kræves (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "Indehaveren af ophavsretten har offentliggjort {{PLURAL:$1|dette værk|disse værker}} under den rigtige Creative Commons-licens",
 	"mwe-upwiz-license-cc-subhead": "Ikke alle Creative Commons-licenser er egnede til brug på denne hjemmeside. Sikr dig at indehaveren af ophavsretten har brugt en af disse licenser.",
 	"mwe-upwiz-license-flickr-head": "Indehaveren af ophavsretten har offentliggjort {{PLURAL:$1|sit fotografi eller sin video|sine fotografier eller videoer}} på Flickr under den rigtige licens",

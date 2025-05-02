@@ -12,6 +12,9 @@ module.exports = function ( grunt ) {
 	grunt.initConfig( {
 		banana: conf.MessagesDirs,
 		eslint: {
+			options: {
+				maxWarnings: 0
+			},
 			// Lint the built artifacts with ES5 so that no ES6 slips to production
 			build: {
 				options: {
@@ -23,11 +26,17 @@ module.exports = function ( grunt ) {
 			},
 			sources: {
 				src: [
-					'src/**',
-					'tests/node-qunit/**/*.js',
-					'!resources/dist/index.js',
-					'!docs/**',
-					'!node_modules/**'
+					'src/**/*.js',
+					'tests/node-qunit/**/*.js'
+				]
+			},
+			sourcesfix: {
+				options: {
+					fix: true
+				},
+				src: [
+					'src/**/*.js',
+					'tests/node-qunit/**/*.js'
 				]
 			}
 		},
@@ -36,7 +45,8 @@ module.exports = function ( grunt ) {
 				'*.json',
 				'**/*.json',
 				'!docs/**',
-				'!node_modules/**'
+				'!node_modules/**',
+				'!vendor/**'
 			]
 		},
 		stylelint: {
@@ -44,7 +54,7 @@ module.exports = function ( grunt ) {
 				syntax: 'less'
 			},
 			all: [
-				'resources/ext.popups/**/*.less'
+				'resources/ext.popups.main/**/*.less'
 			]
 		},
 		watch: {
@@ -53,7 +63,7 @@ module.exports = function ( grunt ) {
 				debounceDelay: 1000
 			},
 			lint: {
-				files: [ 'resources/ext.popups/**/*.less', 'resources/**/*.js' ],
+				files: [ 'resources/ext.popups.main/**/*.less', 'resources/**/*.js' ],
 				tasks: [ 'lint' ]
 			},
 			configFiles: {
@@ -65,6 +75,7 @@ module.exports = function ( grunt ) {
 		}
 	} );
 
+	grunt.registerTask( 'fix', [ 'eslint:sourcesfix' ] );
 	grunt.registerTask( 'lint', [ 'eslint', 'stylelint', 'jsonlint', 'banana', 'eslint:build' ] );
 	grunt.registerTask( 'default', [ 'lint' ] );
 };

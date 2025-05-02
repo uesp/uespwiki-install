@@ -57,8 +57,7 @@ class ApiTranscodeReset extends ApiBase {
 		// Make sure its a enabled transcode key we are trying to remove:
 		// ( if you update your transcode keys the api is not how you purge the database of expired keys )
 		if ( isset( $params['transcodekey'] ) ) {
-			global $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet;
-			$transcodeSet = array_merge( $wgEnabledTranscodeSet, $wgEnabledAudioTranscodeSet );
+			$transcodeSet = WebVideoTranscode::enabledTranscodes();
 			if ( !in_array( $params['transcodekey'], $transcodeSet ) ) {
 				if ( is_callable( [ $this, 'dieWithError' ] ) ) {
 					$this->dieWithError(
@@ -110,8 +109,8 @@ class ApiTranscodeReset extends ApiBase {
 	}
 
 	/**
-	 * @param $file
-	 * @param $transcodeKey
+	 * @param File $file
+	 * @param string|bool $transcodeKey
 	 * @return int|string
 	 */
 	public static function checkTimeSinceLastRest( $file, $transcodeKey ) {
@@ -137,12 +136,12 @@ class ApiTranscodeReset extends ApiBase {
 	}
 
 	/**
-	 * @param $state
+	 * @param array $state
 	 * @return int|string
 	 */
 	public static function getStateResetTime( $state ) {
 		global $wgWaitTimeForTranscodeReset;
-		$db = wfGetDB( DB_SLAVE );
+		$db = wfGetDB( DB_REPLICA );
 		// if an error return waitTime +1
 		if ( !is_null( $state['time_error'] ) ) {
 			return $wgWaitTimeForTranscodeReset + 1;
@@ -206,27 +205,26 @@ class ApiTranscodeReset extends ApiBase {
 	 * @deprecated since MediaWiki core 1.25
 	 */
 	protected function getExamples() {
-		// @codingStandardsIgnoreStart
-		return array(
+		return [
 			'Reset all transcodes for Clip.webm :',
 			'    api.php?action=transcodereset&title=File:Clip.webm&token=%2B\\',
-			'Reset the \'360_560kbs.webm\' transcode key for clip.webm. Get a list of transcode keys via a \'transcodestatus\' query',
-			'    api.php?action=transcodereset&title=File:Clip.webm&transcodekey=360_560kbs.webm&token=%2B\\',
-		);
-		// @codingStandardsIgnoreEnd
+			'Reset the \'360_560kbs.webm\' transcode key for clip.webm. ' .
+			'Get a list of transcode keys via a \'transcodestatus\' query',
+			'    api.php?action=transcodereset&title=File:Clip.webm' .
+			'&transcodekey=360_560kbs.webm&token=%2B\\',
+		];
 	}
 
 	/**
 	 * @see ApiBase::getExamplesMessages()
+	 * @return array
 	 */
 	protected function getExamplesMessages() {
-		// @codingStandardsIgnoreStart
-		return array(
+		return [
 			'action=transcodereset&title=File:Clip.webm&token=123ABC'
 				=> 'apihelp-transcodereset-example-1',
 			'action=transcodereset&title=File:Clip.webm&transcodekey=360_560kbs.webm&token=123ABC'
 				=> 'apihelp-transcodereset-example-2',
-		);
-		// @codingStandardsIgnoreEnd
+		];
 	}
 }

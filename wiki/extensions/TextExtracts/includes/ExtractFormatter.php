@@ -33,7 +33,7 @@ class ExtractFormatter extends HtmlFormatter {
 	/**
 	 * @param string $text Text to convert
 	 * @param bool $plainText Whether extract should be plaintext
-	 * @param Config $config
+	 * @param Config $config Configuration object
 	 */
 	public function __construct( $text, $plainText, Config $config ) {
 		parent::__construct( HtmlFormatter::wrapHTML( $text ) );
@@ -49,18 +49,33 @@ class ExtractFormatter extends HtmlFormatter {
 		}
 	}
 
-	public function getText( $dummy = null ) {
+	/**
+	 * Performs final transformations (such as newline replacement for plaintext
+	 * option) and returns resulting HTML.
+	 *
+	 * @param DOMElement|string|null $element ID of element to get HTML from.
+	 * Ignored
+	 * @return string Processed HTML
+	 */
+	public function getText( $element = null ) {
 		$this->filterContent();
 		$text = parent::getText();
 		if ( $this->plainText ) {
 			$text = html_entity_decode( $text );
-			$text = str_replace( "\xC2\xA0", ' ', $text ); // replace nbsp with space
-			$text = str_replace( "\r", "\n", $text ); // for Windows
-			$text = preg_replace( "/\n{3,}/", "\n\n", $text ); // normalise newlines
+			// replace nbsp with space
+			$text = str_replace( "\xC2\xA0", ' ', $text );
+			// for Windows
+			$text = str_replace( "\r", "\n", $text );
+			// normalise newlines
+			$text = preg_replace( "/\n{3,}/", "\n\n", $text );
 		}
 		return $text;
 	}
 
+	/**
+	 * @param string $html HTML string to process
+	 * @return string Processed HTML
+	 */
 	public function onHtmlReady( $html ) {
 		if ( $this->plainText ) {
 			$html = preg_replace( '/\s*(<h([1-6])\b)/i',
@@ -74,8 +89,8 @@ class ExtractFormatter extends HtmlFormatter {
 	/**
 	 * Returns no more than the given number of sentences
 	 *
-	 * @param string $text
-	 * @param int $requestedSentenceCount
+	 * @param string $text Source text to extract from
+	 * @param int $requestedSentenceCount Maximum number of sentences to extract
 	 * @return string
 	 */
 	public static function getFirstSentences( $text, $requestedSentenceCount ) {
@@ -85,10 +100,14 @@ class ExtractFormatter extends HtmlFormatter {
 
 		// Based on code from OpenSearchXml by Brion Vibber
 		$endchars = [
-			'[^\p{Lu}]\.(?:[ \n]|$)', '[\!\?](?:[ \n]|$)', // regular ASCII
-			'。', // full-width ideographic full-stop
-			'．', '！', '？', // double-width roman forms
-			'｡', // half-width ideographic full stop
+			// regular ASCII
+			'[^\p{Lu}]\.(?:[ \n]|$)', '[\!\?](?:[ \n]|$)',
+			// full-width ideographic full-stop
+			'。',
+			// double-width roman forms
+			'．', '！', '？',
+			// half-width ideographic full stop
+			'｡',
 			];
 
 		$endgroup = implode( '|', $endchars );
@@ -113,8 +132,8 @@ class ExtractFormatter extends HtmlFormatter {
 	/**
 	 * Returns no more than a requested number of characters, preserving words
 	 *
-	 * @param string $text
-	 * @param int $requestedLength
+	 * @param string $text Source text to extract from
+	 * @param int $requestedLength Maximum number of characters to return
 	 * @return string
 	 */
 	public static function getFirstChars( $text, $requestedLength ) {

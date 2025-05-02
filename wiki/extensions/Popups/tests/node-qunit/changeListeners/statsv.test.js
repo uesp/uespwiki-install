@@ -1,7 +1,7 @@
 import statsv from '../../../src/changeListeners/statsv';
 
 QUnit.module( 'ext.popups/changeListeners/statsv', {
-	beforeEach: function () {
+	beforeEach() {
 		this.boundActions = {
 			statsvLogged: this.sandbox.spy()
 		};
@@ -11,17 +11,15 @@ QUnit.module( 'ext.popups/changeListeners/statsv', {
 } );
 
 QUnit.test( 'it should log the queued event', function ( assert ) {
-	var state, changeListener;
-
 	assert.expect( 2 );
 
-	state = {
+	const state = {
 		statsv: {
 			action: 'myAction',
 			data: 123
 		}
 	};
-	changeListener = statsv( this.boundActions, this.track );
+	const changeListener = statsv( this.boundActions, this.track );
 	changeListener( undefined, state );
 
 	assert.ok(
@@ -36,16 +34,14 @@ QUnit.test( 'it should log the queued event', function ( assert ) {
 } );
 
 QUnit.test( 'it should not log when no action is given', function ( assert ) {
-	var state, changeListener;
-
 	assert.expect( 2 );
 
-	state = {
+	const state = {
 		statsv: {
 			data: 123
 		}
 	};
-	changeListener = statsv( this.boundActions, this.track );
+	const changeListener = statsv( this.boundActions, this.track );
 	changeListener( undefined, state );
 
 	assert.ok(

@@ -16,7 +16,8 @@
 			"Macofe",
 			"Annamerida",
 			"F3RaN",
-			"Matma Rex"
+			"Matma Rex",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Auxiliar de càrrega",
@@ -134,8 +135,6 @@
 	"mwe-upwiz-copy-location": "Copia la localització",
 	"mwe-upwiz-copy-other": "Copia les altres informacions",
 	"mwe-upwiz-desc": "Descripció",
-	"mwe-upwiz-desc-add-n": "Afegeix una descripció en una altra llengua",
-	"mwe-upwiz-desc-add-0": "Afegeix una descripció",
 	"mwe-upwiz-title": "Títol",
 	"mwe-upwiz-date-created": "Data de creació",
 	"mwe-upwiz-location": "Ubicació",
@@ -245,7 +244,6 @@
 	"mwe-upwiz-license-own-pd": "Renúncia a tots els drets amb la llicència Creative Commons Zero (com domini públic)",
 	"mwe-upwiz-license-pd-old-100": "Fa més de 100 anys que van morir els autors",
 	"mwe-upwiz-license-pd-old": "Fa més de 70 anys que van morir els autors",
-	"mwe-upwiz-license-pd-art": "Reproducció fidel d'una pintura que està en domini públic",
 	"mwe-upwiz-license-pd-us": "Publicat per primera vegada als Estats Units abans de 1923",
 	"mwe-upwiz-license-pd-usgov": "Obra original del Govern Federal dels EUA",
 	"mwe-upwiz-license-pd-usgov-nasa": "Obra original de la NASA",
@@ -256,7 +254,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Amb copyright, però es pot fer servir per a qualsevol propòsit, incloent-hi el comercial.",
 	"mwe-upwiz-license-attribution": "Pot ser utilitzat per a qualsevol propòsit, inclòs comercialment, si el titular dels drets és atribuït correctament",
 	"mwe-upwiz-license-gfdl": "Llicència de Documentació Lliure de GNU",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, atribució requerida (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, atribució requerida (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "El titular dels drets d'autor ha publicat {{PLURAL:$1|aquesta obra|aquestes obres}} amb la llicència Creative Commons correcta",
 	"mwe-upwiz-license-cc-subhead": "No totes les llicències Creative Commons són adients per aquest lloc web. Assegureu-vos que el titular dels drets d'autor utilitza una d'aquestes llicències.",
 	"mwe-upwiz-license-flickr-head": "El titular dels drets va publicar {{PLURAL:$1|la seva foto o vídeo|les seves fotos o vídeos}} a Flickr amb la llicència apropiada.",

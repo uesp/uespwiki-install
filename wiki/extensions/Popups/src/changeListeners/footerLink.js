@@ -2,7 +2,7 @@
  * @module changeListeners/footerLink
  */
 
-var mw = window.mediaWiki,
+const mw = window.mediaWiki,
 	$ = jQuery;
 
 /**
@@ -18,19 +18,18 @@ var mw = window.mediaWiki,
  * @return {jQuery} The link element
  */
 function createFooterLink() {
-	var $link = $( '<li>' ).append(
-			$( '<a>' )
-				.attr( 'href', '#' )
-				.text( mw.message( 'popups-settings-enable' ).text() )
-		),
-		$footer;
+	const $link = $( '<li>' ).append(
+		$( '<a>' )
+			.attr( 'href', '#' )
+			.text( mw.message( 'popups-settings-enable' ).text() )
+	);
 
 	// As yet, we don't know whether the link should be visible.
 	$link.hide();
 
 	// From https://en.wikipedia.org/wiki/MediaWiki:Gadget-ReferenceTooltips.js,
 	// which was written by Yair rand <https://en.wikipedia.org/wiki/User:Yair_rand>.
-	$footer = $( '#footer-places, #f-list' );
+	let $footer = $( '#footer-places, #f-list' );
 
 	if ( $footer.length === 0 ) {
 		$footer = $( '#footer li' ).parent();
@@ -57,12 +56,12 @@ function createFooterLink() {
  * @return {ext.popups.ChangeListener}
  */
 export default function footerLink( boundActions ) {
-	var $footerLink;
+	let $footerLink;
 
-	return function ( prevState, state ) {
+	return ( prevState, state ) => {
 		if ( $footerLink === undefined ) {
 			$footerLink = createFooterLink();
-			$footerLink.click( function ( e ) {
+			$footerLink.click( ( e ) => {
 				e.preventDefault();
 				boundActions.showSettings();
 			} );

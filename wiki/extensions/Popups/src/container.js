@@ -8,7 +8,7 @@
  * @return {Container}
  */
 export default function createContainer() {
-	var factories = {},
+	const factories = {},
 		cache = {};
 
 	/**
@@ -27,7 +27,7 @@ export default function createContainer() {
 		 * @param {String} name
 		 * @param {*} factory
 		 */
-		set: function ( name, factory ) {
+		set( name, factory ) {
 			factories[ name ] = factory;
 		},
 
@@ -40,7 +40,7 @@ export default function createContainer() {
 		 * @return {Boolean} `true` if the service has been defined; otherwise,
 		 *  `false`
 		 */
-		has: function ( name ) {
+		has( name ) {
 			return factories.hasOwnProperty( name );
 		},
 
@@ -57,7 +57,7 @@ export default function createContainer() {
 		 * var container = createContainer();
 		 *
 		 * container.set( 'foo', true );
-		 * container.set( 'baz', function ( c ) {
+		 * container.set( 'baz', ( c ) => {
 		 *   if ( c.get( 'foo' ) ) {
 		 *     return 'qux';
 		 *   }
@@ -71,14 +71,12 @@ export default function createContainer() {
 		 * @return {*}
 		 * @throws Error If the service hasn't been defined
 		 */
-		get: function ( name ) {
-			var factory;
-
+		get( name ) {
 			if ( !this.has( name ) ) {
-				throw new Error( 'The service "' + name + '" hasn\'t been defined.' );
+				throw new Error( `The service "${ name }" hasn't been defined.` );
 			}
 
-			factory = factories[ name ];
+			const factory = factories[ name ];
 
 			if ( typeof factory !== 'function' ) {
 				return factory;

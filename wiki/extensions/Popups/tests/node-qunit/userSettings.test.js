@@ -2,8 +2,8 @@ import { createStubUser, createStubMap } from './stubs';
 import createUserSettings from '../../src/userSettings';
 
 QUnit.module( 'ext.popups/userSettings', {
-	beforeEach: function () {
-		var stubUser = createStubUser( /* isAnon = */ true );
+	beforeEach() {
+		const stubUser = createStubUser( /* isAnon = */ true );
 
 		this.storage = createStubMap();
 		this.userSettings = createUserSettings( this.storage, stubUser );
@@ -28,8 +28,6 @@ QUnit.test( '#getIsEnabled should return false if Page Previews have been disabl
 } );
 
 QUnit.test( '#hasIsEnabled', function ( assert ) {
-	var getStub;
-
 	assert.expect( 3 );
 
 	assert.notOk(
@@ -48,7 +46,7 @@ QUnit.test( '#hasIsEnabled', function ( assert ) {
 
 	// ---
 
-	getStub = this.sandbox.stub( this.storage, 'get' ).returns( false );
+	const getStub = this.sandbox.stub( this.storage, 'get' ).returns( false );
 
 	assert.notOk(
 		this.userSettings.hasIsEnabled(),
@@ -90,7 +88,8 @@ QUnit.test( '#getPreviewCount should return the count as a number', function ( a
 QUnit.test( '#setPreviewCount should store the count as a string', function ( assert ) {
 	this.userSettings.setPreviewCount( 222 );
 
-	assert.strictEqual( this.storage.get( 'ext.popups.core.previewCount' ), '222' );
+	assert.strictEqual(
+		this.storage.get( 'ext.popups.core.previewCount' ), '222' );
 } );
 
 QUnit.test( '#getPreviewCount should override value in storage when is not a number', function ( assert ) {

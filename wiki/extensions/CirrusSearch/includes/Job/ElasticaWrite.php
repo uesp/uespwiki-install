@@ -32,6 +32,41 @@ class ElasticaWrite extends Job {
 	const MAX_ERROR_RETRY = 4;
 
 	/**
+	 * @var array Map from method name to list of classes to
+	 *  handle serialization for each argument.
+	 */
+	private static $SERDE = [
+		'sendData' => [ null, ElasticaDocumentsJsonSerde::class ],
+	];
+
+	public static function build( Title $title, $method, array $arguments, array $params ) {
+		return new self( $title, [
+			'method' => $method,
+			'arguments' => self::serde( $method, $arguments ),
+			'serialized' => true,
+		] + $params );
+	}
+
+	private static function serde( $method, array $arguments, $serialize = true ) {
+		if ( isset( self::$SERDE[$method] ) ) {
+			foreach ( self::$SERDE[$method] as $i => $serde ) {
+				if ( $serde !== null && array_key_exists( $i, $arguments ) ) {
+					$impl = new $serde();
+					if ( $serialize ) {
+						$arguments[$i] = $impl->serialize( $arguments[$i] );
+					} else {
+						$arguments[$i] = $impl->deserialize( $arguments[$i] );
+					}
+				}
+			}
+		}
+		return $arguments;
+	}
+
+	/**
+	 * Entry point for jobs received from the job queue. Creating new
+	 * jobs should be done via self::build.
+	 *
 	 * @param Title $title A mediawiki title related to the job
 	 * @param array $params
 	 */
@@ -55,6 +90,7 @@ class ElasticaWrite extends Job {
 	 * that some point in time around the failure needs to be reindexed
 	 * manually. See https://wikitech.wikimedia.org/wiki/Search for more
 	 * details.
+	 * @return bool
 	 */
 	public function allowRetries() {
 		return false;
@@ -66,15 +102,22 @@ class ElasticaWrite extends Job {
 	protected function doJob() {
 		$connections = $this->decideClusters();
 		$clusterNames = implode( ', ', array_keys( $connections ) );
+
+		$arguments = $this->params['arguments'];
+		if ( !empty( $this->params['serialized'] ) ) {
+			$arguments = $this->serde( $this->params['method'], $arguments, false );
+		}
+
 		LoggerFactory::getInstance( 'CirrusSearch' )->debug(
 			"Running {method} on cluster $clusterNames {diff}s after insertion",
 			[
 				'method' => $this->params['method'],
-				'arguments' => $this->params['arguments'],
+				'arguments' => $arguments,
 				'diff' => time() - $this->params['createdAt'],
 				'clusters' => array_keys( $connections ),
 			]
 		);
+
 		$retry = [];
 		$error = [];
 		foreach ( $connections as $clusterName => $conn ) {
@@ -82,7 +125,7 @@ class ElasticaWrite extends Job {
 			try {
 				$status = call_user_func_array(
 					[ $sender, $this->params['method'] ],
-					$this->params['arguments']
+					$arguments
 				);
 			} catch ( \Exception $e ) {
 				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
@@ -104,11 +147,13 @@ class ElasticaWrite extends Job {
 			}
 		}
 
-		foreach ( $retry as $conn ) {
-			$this->requeueRetry( $conn );
-		}
-		foreach ( $error as $conn ) {
-			$this->requeueError( $conn );
+		if ( empty( $this->params['doNotRetry'] ) ) {
+			foreach ( $retry as $conn ) {
+				$this->requeueRetry( $conn );
+			}
+			foreach ( $error as $conn ) {
+				$this->requeueError( $conn );
+			}
 		}
 		if ( !empty( $error ) ) {
 			$this->setLastError( "ElasticaWrite job reported " . count( $error ) . " failure(s) and " . count( $retry ) . " frozen." );

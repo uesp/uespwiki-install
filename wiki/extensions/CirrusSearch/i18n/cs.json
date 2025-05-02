@@ -8,7 +8,8 @@
 			"Walter Klosse",
 			"Nixtonin",
 			"Matěj Suchánek",
-			"Dvorapa"
+			"Dvorapa",
+			"Ilimanaq29"
 		]
 	},
 	"cirrussearch-desc": "Vyhledávání v MediaWiki běžící na Elasticsearch",
@@ -29,8 +30,6 @@
 	"apihelp-cirrus-settings-dump-description": "Výpis nastavení CirrusSearch pro tuto wiki.",
 	"cirrussearch-give-feedback": "Sdělte nám svůj názor",
 	"cirrussearch-query-too-long": "Vyhledávací dotaz je delší než maximální povolená délka. ($1 > $2)",
-	"cirrussearch-completionsuggester-pref": "Dokončovací našeptávač",
-	"cirrussearch-completionsuggester-desc": "Nový algoritmus pro průběžné hledání. Jakmile ho zapnete, bude vyhledávací pole vpravo nahoře využívat Dokončovací našeptávač.",
 	"cirrussearch-completion-profile-strict": "Přísný profil s odstraněním několika málo interpunkčních znaků, ale ponecháním diakritiky a znamének přízvuku.",
 	"cirrussearch-completion-profile-classic": "Klasické prefixové, odstraněno několik málo interpunkčních znaků a některá diakritická znaménka.",
 	"cirrussearch-completion-profile-normal": "Odstraněno několik málo interpunkčních znaků, některá diakritická znaménka a stopslova.",
@@ -59,5 +58,8 @@
 	"cirrussearch-completion-profile-classic-pref-name": "Klasické prefixové vyhledávání",
 	"cirrussearch-completion-profile-classic-pref-desc": "Bez opravy překlepů. Porovnává začátky názvů.",
 	"cirrussearch-timed-out": "Čas pro vyhledávání vypršel, dostupné výsledky nejsou úplné.",
-	"cirrussearch-regex-timed-out": "Čas pro vyhledávání regulárním výrazem vypršel, dostupné výsledky nejsou úplné. Pro získání úplných výsledků se pokuste regulární výraz zjednodušit."
+	"cirrussearch-regex-timed-out": "Čas pro vyhledávání regulárním výrazem vypršel, dostupné výsledky nejsou úplné. Pro získání úplných výsledků se pokuste regulární výraz zjednodušit.",
+	"cirrussearch-feature-deepcat-endpoint": "$wgCirrusSearchCategoryEndpoint by měl být nastaven na platném konečném bodu SPARQL k použití hlubokého prohledání kategorií.",
+	"cirrussearch-feature-deepcat-exception": "Hluboké prohledávání kategorií pomocí SPARQL se nezdařilo",
+	"cirrussearch-feature-deepcat-toomany": "Rekurzivní prohledávání kategorií vrátilo příliš mnoho kategorií"
 }

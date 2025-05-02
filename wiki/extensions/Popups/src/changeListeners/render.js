@@ -11,16 +11,16 @@ import * as renderer from '../ui/renderer';
  * @return {ext.popups.ChangeListener}
  */
 export default function render( previewBehavior ) {
-	var preview;
+	let preview;
 
-	return function ( prevState, state ) {
+	return ( prevState, state ) => {
 		if ( state.preview.shouldShow && !preview ) {
 			preview = renderer.render( state.preview.fetchResponse );
 			preview.show(
 				state.preview.activeEvent,
 				previewBehavior,
 				state.preview.activeToken
-				);
+			);
 		} else if ( !state.preview.shouldShow && preview ) {
 			preview.hide();
 			preview = undefined;

@@ -8,7 +8,8 @@
 			"Semso98",
 			"Srdjan m",
 			"Matma Rex",
-			"Macofe"
+			"Macofe",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Čarobnjak za postavljanje",
@@ -67,8 +68,6 @@
 	"mwe-upwiz-source-custom": "Navedite podatke o autorskim pravima pojedinačno za svaku datoteku na slijedećoj stranici.",
 	"mwe-upwiz-more-options": "Dodaj lokaciju i više informacija...",
 	"mwe-upwiz-desc": "Opis",
-	"mwe-upwiz-desc-add-n": "Dodaj opis na drugom jeziku",
-	"mwe-upwiz-desc-add-0": "Dodaj opis",
 	"mwe-upwiz-title": "Naslov",
 	"mwe-upwiz-date-created": "Datum pravljenja",
 	"mwe-upwiz-location": "Lokacija",
@@ -129,7 +128,6 @@
 	"mwe-upwiz-license-own-pd": "Odricanje svih prava s licencom Creative Commons Zero (kao javno vlasništvo)",
 	"mwe-upwiz-license-pd-old-100": "Autor je umro prije više od 100 godina",
 	"mwe-upwiz-license-pd-old": "Autor je umro prije više od 70 godina",
-	"mwe-upwiz-license-pd-art": "Vjerna reprodukcija umjetničke slike u javnom vlasništvu",
 	"mwe-upwiz-license-pd-us": "Prvi put objavljeno u SAD prije 1923",
 	"mwe-upwiz-license-pd-usgov": "Originalni rad od strane Američke federalne vlade",
 	"mwe-upwiz-license-pd-usgov-nasa": "Originalno djelo od NASA",
@@ -140,7 +138,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Zaštićeno autorskim pravom, ali se može koristiti u bilo koju svrhu, ukljujući komercijalnu",
 	"mwe-upwiz-license-attribution": "Može se koristiti u bilo koju svrhu, ukljujući komercijalnu, ako je pravilno naveden vlasnik autorskog prava",
 	"mwe-upwiz-license-gfdl": "GNU licenca za slobodnu dokumentaciju",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, neophodno navođenje autorstva (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, neophodno navođenje autorstva (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "Vlasnik autorskog prava je objavio {{PLURAL:$1|ovaj rad|ove radove}} pod Creative Commons licencom",
 	"mwe-upwiz-license-cc-subhead": "Nisu sve Creative Commons licence pogodne za ovaj sajt. Provjerite je li nosilac autorskog prava izabrao jednu od ovih licenci.",
 	"mwe-upwiz-license-flickr-head": "Vlasnik autorskog prava je objavio {{PLURAL:$1|svoju sliku ili video|svoje slike ili video}} na Flickr sa pravom licencom",

@@ -2,7 +2,7 @@
  * @module wait
  */
 
-var $ = jQuery;
+const $ = jQuery;
 
 /**
  * Sugar around `window.setTimeout`.
@@ -11,7 +11,7 @@ var $ = jQuery;
  * import wait from './wait';
  *
  * wait( 150 )
- *   .then( function () {
+ *   .then( () => {
  *     // Continue processing...
  *   } );
  *
@@ -19,9 +19,9 @@ var $ = jQuery;
  * @return {jQuery.Promise}
  */
 export default function wait( delay ) {
-	var result = $.Deferred();
+	const result = $.Deferred();
 
-	setTimeout( function () {
+	setTimeout( () => {
 		result.resolve();
 	}, delay );
 

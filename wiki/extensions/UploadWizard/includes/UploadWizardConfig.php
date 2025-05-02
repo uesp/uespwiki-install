@@ -8,29 +8,31 @@
  *
  * @since 1.2
  *
- * @licence GNU GPL v2+
+ * @license GPL-2.0-or-later
  * @author Jeroen De Dauw < jeroendedauw@gmail.com >
  */
 class UploadWizardConfig {
 
-	/* Returns true if any of the keys of an array is a string
+	/**
+	 * Returns true if any of the keys of an array is a string
 	 *
-	 * @param Array $array
+	 * @param array $array
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	private static function is_assoc( $array ) {
 		return (bool)count( array_filter( array_keys( $array ), 'is_string' ) );
 	}
 
-	/* Same functionality as array_merge_recursive, but sanely
+	/**
+	 * Same functionality as array_merge_recursive, but sanely
 	 * It treats 'normal' integer indexed arrays as scalars, and does
 	 * not recurse into them. Associative arrays are recursed into
 	 *
-	 * @param Array $array
-	 * @param Array $array1
+	 * @param array $array
+	 * @param array $array1
 	 *
-	 * @return Array: Yet another array, sanely replacing contents of $array with $array1
+	 * @return array Yet another array, sanely replacing contents of $array with $array1
 	 */
 	public static function array_replace_sanely( $array, $array1 ) {
 		$newArray = [];
@@ -55,6 +57,7 @@ class UploadWizardConfig {
 		$newArray = array_merge( $newArray, array_diff_key( $array1, $array ) );
 		return $newArray;
 	}
+
 	/**
 	 * Holder for configuration specified via url arguments.
 	 * This will override other config when returned via getConfig.
@@ -65,7 +68,7 @@ class UploadWizardConfig {
 	protected static $urlConfig = [];
 
 	/**
-	 * Returns the globally configuration, optionaly combined with campaign sepcific
+	 * Returns the globally configuration, optionally combined with campaign specific
 	 * configuration.
 	 *
 	 * @since 1.2

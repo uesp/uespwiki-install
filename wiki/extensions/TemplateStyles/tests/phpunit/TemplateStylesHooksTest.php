@@ -3,6 +3,7 @@
 /**
  * @group TemplateStyles
  * @group Database
+ * @covers TemplateStylesHooks
  */
 class TemplateStylesHooksTest extends MediaWikiLangTestCase {
 
@@ -130,28 +131,56 @@ class TemplateStylesHooksTest extends MediaWikiLangTestCase {
 	}
 
 	/**
+	 * @dataProvider provideOnCodeEditorGetPageLanguage
+	 */
+	public function testOnCodeEditorGetPageLanguage( $useCodeEditor, $model, $expect ) {
+		$this->setMwGlobals( [
+			'wgTemplateStylesUseCodeEditor' => $useCodeEditor,
+		] );
+
+		$title = Title::makeTitle( NS_TEMPLATE, 'Test.css' );
+		$lang = 'unchanged';
+		$ret = TemplateStylesHooks::onCodeEditorGetPageLanguage(
+			$title, $lang, $model, 'text/x-whatever'
+		);
+		$this->assertSame( !$expect, $ret );
+		$this->assertSame( $expect ? 'css' : 'unchanged', $lang );
+	}
+
+	public static function provideOnCodeEditorGetPageLanguage() {
+		return [
+			[ true, 'wikitext', false ],
+			[ true, 'css', false ],
+			[ true, 'sanitized-css', true ],
+			[ false, 'sanitized-css', false ],
+		];
+	}
+
+	/**
 	 * Unfortunately we can't just use a parserTests.txt file because our
 	 * tag's output depends on the revision IDs of the input pages.
 	 * @dataProvider provideTag
 	 */
-	public function testTag( $popt, $wikitext, $expect ) {
+	public function testTag(
+		ParserOptions $popt, $getTextOptions, $wikitext, $expect, $globals = []
+	) {
 		global $wgParserConf;
 
-		$this->setMwGlobals( [
+		$this->setMwGlobals( $globals + [
 			'wgScriptPath' => '',
 			'wgScript' => '/index.php',
 			'wgArticlePath' => '/wiki/$1',
 		] );
 
 		$oldCurrentRevisionCallback = $popt->setCurrentRevisionCallback(
-			function ( $title, $parser = false ) use ( &$oldCurrentRevisionCallback ) {
+			function ( Title $title, $parser = false ) use ( &$oldCurrentRevisionCallback ) {
 				if ( $title->getPrefixedText() === 'Template:Test replacement' ) {
 					$user = RequestContext::getMain()->getUser();
 					return new Revision( [
 						'page' => $title->getArticleID(),
 						'user_text' => $user->getName(),
 						'user' => $user->getId(),
-						'parent_id' => $title->getLatestRevId(),
+						'parent_id' => $title->getLatestRevID(),
 						'title' => $title,
 						'content' => new TemplateStylesContent( '.baz { color:orange; bogus:bogus; }' )
 					] );
@@ -162,14 +191,18 @@ class TemplateStylesHooksTest extends MediaWikiLangTestCase {
 
 		$class = $wgParserConf['class'];
 		$parser = new $class( $wgParserConf );
+		/** @var Parser $parser */
 		$parser->firstCallInit();
 		if ( !isset( $parser->mTagHooks['templatestyles'] ) ) {
-			$this->markTestSkipped( 'templatestyles tag hook is not in the parser' );
+			throw new Exception( 'templatestyles tag hook is not in the parser' );
 		}
 		$out = $parser->parse( $wikitext, Title::newFromText( 'Test' ), $popt );
 		$parser->mPreprocessor = null; # Break the Parser <-> Preprocessor cycle
 
-		$this->assertEquals( $expect, $out->getText() );
+		$expect = preg_replace_callback( '/\{\{REV:(.*?)\}\}/', function ( $m ) {
+			return Title::newFromText( 'Template:TemplateStyles test/' . $m[1] )->getLatestRevID();
+		}, $expect );
+		$this->assertEquals( $expect, $out->getText( $getTextOptions ) );
 	}
 
 	public static function provideTag() {
@@ -177,72 +210,89 @@ class TemplateStylesHooksTest extends MediaWikiLangTestCase {
 		$popt->setWrapOutputClass( 'templatestyles-test' );
 
 		$popt2 = ParserOptions::newFromContext( RequestContext::getMain() );
-		$popt2->setWrapOutputClass( false );
+
+		$popt3 = ParserOptions::newFromContext( RequestContext::getMain() );
+		Wikimedia\quietCall( [ $popt3, 'setWrapOutputClass' ], false );
 
 		return [
 			'Tag without src' => [
-				$popt,
+				$popt, [],
 				'<templatestyles />',
 				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
 				"<div class=\"templatestyles-test\"><p><strong class=\"error\">TemplateStyles' <code>src</code> attribute must not be empty.</strong>\n</p></div>",
 				// @codingStandardsIgnoreEnd
 			],
 			'Tag with invalid src' => [
-				$popt,
+				$popt, [],
 				'<templatestyles src="Test&lt;&gt;" />',
 				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
 				"<div class=\"templatestyles-test\"><p><strong class=\"error\">Invalid title for TemplateStyles' <code>src</code> attribute.</strong>\n</p></div>",
 				// @codingStandardsIgnoreEnd
 			],
 			'Tag with valid but nonexistent title' => [
-				$popt,
+				$popt, [],
 				'<templatestyles src="ThisDoes\'\'\'Not\'\'\'Exist" />',
 				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
 				"<div class=\"templatestyles-test\"><p><strong class=\"error\">Page <a href=\"/index.php?title=Template:ThisDoes%27%27%27Not%27%27%27Exist&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"Template:ThisDoes&#39;&#39;&#39;Not&#39;&#39;&#39;Exist (page does not exist)\">Template:ThisDoes&#39;&#39;&#39;Not&#39;&#39;&#39;Exist</a> has no content.</strong>\n</p></div>",
 				// @codingStandardsIgnoreEnd
 			],
 			'Tag with valid but nonexistent title, main namespace' => [
-				$popt,
+				$popt, [],
 				'<templatestyles src=":ThisDoes\'\'\'Not\'\'\'Exist" />',
 				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
 				"<div class=\"templatestyles-test\"><p><strong class=\"error\">Page <a href=\"/index.php?title=ThisDoes%27%27%27Not%27%27%27Exist&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"ThisDoes&#39;&#39;&#39;Not&#39;&#39;&#39;Exist (page does not exist)\">ThisDoes&#39;&#39;&#39;Not&#39;&#39;&#39;Exist</a> has no content.</strong>\n</p></div>",
 				// @codingStandardsIgnoreEnd
 			],
 			'Tag with wikitext page' => [
-				$popt,
+				$popt, [],
 				'<templatestyles src="TemplateStyles test/wikitext" />',
 				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
 				"<div class=\"templatestyles-test\"><p><strong class=\"error\">Page <a href=\"/wiki/Template:TemplateStyles_test/wikitext\" title=\"Template:TemplateStyles test/wikitext\">Template:TemplateStyles test/wikitext</a> must have content model \"Sanitized CSS\" for TemplateStyles (current model is \"wikitext\").</strong>\n</p></div>",
 				// @codingStandardsIgnoreEnd
 			],
 			'Tag with CSS (not sanitized-css) page' => [
-				$popt,
+				$popt, [],
 				'<templatestyles src="TemplateStyles test/nonsanitized.css" />',
 				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
 				"<div class=\"templatestyles-test\"><p><strong class=\"error\">Page <a href=\"/wiki/Template:TemplateStyles_test/nonsanitized.css\" title=\"Template:TemplateStyles test/nonsanitized.css\">Template:TemplateStyles test/nonsanitized.css</a> must have content model \"Sanitized CSS\" for TemplateStyles (current model is \"CSS\").</strong>\n</p></div>",
 				// @codingStandardsIgnoreEnd
 			],
 			'Working tag' => [
-				$popt,
+				$popt, [],
 				'<templatestyles src="TemplateStyles test/styles1.css" />',
 				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
-				"<div class=\"templatestyles-test\"><p><style>.templatestyles-test .foo{color:blue}</style>\n</p></div>",
+				"<div class=\"templatestyles-test\"><style data-mw-deduplicate=\"TemplateStyles:r{{REV:styles1.css}}/templatestyles-test\">.templatestyles-test .foo{color:blue}</style>\n</div>",
 				// @codingStandardsIgnoreEnd
 			],
+			'Disabled' => [
+				$popt, [],
+				'<templatestyles src="TemplateStyles test/styles1.css" />',
+				"<div class=\"templatestyles-test\"></div>",
+				[ 'wgTemplateStylesDisable' => true ],
+			],
 			'Replaced content (which includes sanitization errors)' => [
-				$popt,
+				$popt, [],
 				'<templatestyles src="Test replacement" />',
 				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
-				"<div class=\"templatestyles-test\"><p><style>/*\nErrors processing stylesheet [[:Template:Test replacement]] (rev ):\n• Unrecognized or unsupported property at line 1 character 22.\n*/\n.templatestyles-test .baz{color:orange}</style>\n</p></div>",
+				"<div class=\"templatestyles-test\"><style data-mw-deduplicate=\"TemplateStyles:8fd14043c1cce91e8b9d1487a9d17d8d9ae43890/templatestyles-test\">/*\nErrors processing stylesheet [[:Template:Test replacement]] (rev ):\n• Unrecognized or unsupported property at line 1 character 22.\n*/\n.templatestyles-test .baz{color:orange}</style>\n</div>",
 				// @codingStandardsIgnoreEnd
 			],
 			'Still prefixed despite no wrapper' => [
-				$popt2,
+				$popt2, [ 'unwrap' => true ],
 				'<templatestyles src="TemplateStyles test/styles1.css" />',
-				"<p><style>.mw-parser-output .foo{color:blue}</style>\n</p>",
+				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
+				"<style data-mw-deduplicate=\"TemplateStyles:r{{REV:styles1.css}}\">.mw-parser-output .foo{color:blue}</style>\n",
+				// @codingStandardsIgnoreEnd
 			],
-			'Not yet deduplicated tags' => [
-				$popt,
+			'Still prefixed despite deprecated no wrapper' => [
+				$popt3, [],
+				'<templatestyles src="TemplateStyles test/styles1.css" />',
+				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
+				"<style data-mw-deduplicate=\"TemplateStyles:r{{REV:styles1.css}}\">.mw-parser-output .foo{color:blue}</style>\n",
+				// @codingStandardsIgnoreEnd
+			],
+			'Deduplicated tags' => [
+				$popt, [],
 				trim( '
 <templatestyles src="TemplateStyles test/styles1.css" />
 <templatestyles src="TemplateStyles test/styles1.css" />
@@ -250,14 +300,16 @@ class TemplateStylesHooksTest extends MediaWikiLangTestCase {
 <templatestyles src="TemplateStyles test/styles1.css" />
 <templatestyles src="TemplateStyles test/styles2.css" />
 				' ),
+				// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
 				trim( '
-<div class="templatestyles-test"><p><style>.templatestyles-test .foo{color:blue}</style>
-<style>.templatestyles-test .foo{color:blue}</style>
-<style>.templatestyles-test .bar{color:green}</style>
-<style>.templatestyles-test .foo{color:blue}</style>
-<style>.templatestyles-test .bar{color:green}</style>
-</p></div>
+<div class="templatestyles-test"><style data-mw-deduplicate="TemplateStyles:r{{REV:styles1.css}}/templatestyles-test">.templatestyles-test .foo{color:blue}</style>
+<link rel="mw-deduplicated-inline-style" href="mw-data:TemplateStyles:r{{REV:styles1.css}}/templatestyles-test"/>
+<style data-mw-deduplicate="TemplateStyles:r{{REV:styles2.css}}/templatestyles-test">.templatestyles-test .bar{color:green}</style>
+<link rel="mw-deduplicated-inline-style" href="mw-data:TemplateStyles:r{{REV:styles1.css}}/templatestyles-test"/>
+<link rel="mw-deduplicated-inline-style" href="mw-data:TemplateStyles:r{{REV:styles2.css}}/templatestyles-test"/>
+</div>
 				' ),
+				// @codingStandardsIgnoreEnd
 			],
 		];
 	}

@@ -3,7 +3,7 @@
 use Wikimedia\ScopedCallback;
 
 // @codingStandardsIgnoreLine Squiz.Classes.ValidClassName.NotCamelCaps
-class Scribunto_LuaUstringLibraryTests extends Scribunto_LuaEngineTestBase {
+class Scribunto_LuaUstringLibraryTest extends Scribunto_LuaEngineTestBase {
 	protected static $moduleName = 'UstringLibraryTests';
 
 	private $normalizationDataProvider = null;
@@ -56,7 +56,7 @@ class Scribunto_LuaUstringLibraryTests extends Scribunto_LuaEngineTestBase {
 			foreach ( $chars as &$c ) {
 				$c = sprintf( "%x", $c );
 			}
-			$e = "$e\t" . join( "\t", $chars );
+			$e = "$e\t" . implode( "\t", $chars );
 		}
 		$actual = $dataProvider->runNorm( $c1, $c2, $c3, $c4, $c5 );
 		$this->assertSame( $expected, $actual );

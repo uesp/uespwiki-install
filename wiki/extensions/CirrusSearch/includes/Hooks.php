@@ -6,12 +6,15 @@ use ApiBase;
 use ApiMain;
 use ApiOpenSearch;
 use CirrusSearch;
+use CirrusSearch\Profile\SearchProfileServiceFactory;
 use CirrusSearch\Search\FancyTitleResultsType;
+use Content;
 use DeferredUpdates;
 use JobQueueGroup;
 use LinksUpdate;
 use OutputPage;
 use MediaWiki\MediaWikiServices;
+use Revision;
 use SearchResultSet;
 use SpecialSearch;
 use Title;
@@ -87,7 +90,6 @@ class Hooks {
 			$wgCirrusSearchPhraseRescoreWindowSize,
 			$wgCirrusSearchFunctionRescoreWindowSize,
 			$wgCirrusSearchFragmentSize,
-			$wgCirrusSearchBoostLinks,
 			$wgCirrusSearchAllFields,
 			$wgCirrusSearchAllFieldsForRescore,
 			$wgCirrusSearchPhraseRescoreBoost,
@@ -103,7 +105,6 @@ class Hooks {
 		}
 
 		self::overrideMoreLikeThisOptionsFromMessage();
-		PhraseSuggesterProfiles::overrideOptionsFromMessage();
 
 		if ( $request ) {
 			// Engage the experimental highlighter if a url parameter requests it
@@ -116,14 +117,10 @@ class Hooks {
 			self::overrideNumeric( $wgCirrusSearchPhraseSlop[ 'boost' ], $request, 'cirrusPhraseSlop', 10 );
 			self::overrideNumeric( $wgCirrusSearchFunctionRescoreWindowSize, $request, 'cirrusFunctionWindow', 10000 );
 			self::overrideNumeric( $wgCirrusSearchFragmentSize, $request, 'cirrusFragmentSize', 1000 );
-			self::overrideYesNo( $wgCirrusSearchBoostLinks, $request, 'cirrusBoostLinks' );
 			self::overrideYesNo( $wgCirrusSearchAllFields[ 'use' ], $request, 'cirrusUseAllFields' );
 			self::overrideYesNo( $wgCirrusSearchAllFieldsForRescore, $request, 'cirrusUseAllFieldsForRescore' );
 			self::overrideUseExtraPluginForRegex( $request );
 			self::overrideMoreLikeThisOptions( $request );
-			PhraseSuggesterProfiles::overrideOptions( $request );
-			RescoreProfiles::overrideOptions( $request );
-			FullTextQueryBuilderProfiles::overrideOptions( $request );
 			self::overrideSecret( $wgCirrusSearchLogElasticRequests, $wgCirrusSearchLogElasticRequestsSecret, $request, 'cirrusLogElasticRequests', false );
 			self::overrideYesNo( $wgCirrusSearchEnableAltLanguage, $request, 'cirrusAltLanguage' );
 		}
@@ -405,7 +402,7 @@ class Hooks {
 
 	/**
 	 * Hook called to include Elasticsearch version info on Special:Version
-	 * @param array $software Array of wikitext and version numbers
+	 * @param array &$software Array of wikitext and version numbers
 	 * @return bool
 	 */
 	public static function onSoftwareInfo( &$software ) {
@@ -491,14 +488,14 @@ class Hooks {
 
 	/**
 	 * Register Cirrus's unit tests.
-	 * @param array $files containing tests
+	 * @param array &$files containing tests
 	 * @return bool
 	 */
 	public static function onUnitTestsList( &$files ) {
 		// This is pretty much exactly how the Translate extension declares its
 		// multiple test directories.  There really isn't any excuse for doing
 		// it any other way.
-		$dir = __DIR__ . '/../tests/unit';
+		$dir = __DIR__ . '/../tests/phpunit';
 		$directoryIterator = new RecursiveDirectoryIterator( $dir );
 		$fileIterator = new RecursiveIteratorIterator( $directoryIterator );
 
@@ -516,8 +513,8 @@ class Hooks {
 
 	/**
 	 * Extract namespaces from query string.
-	 * @param array $namespaces
-	 * @param string $search
+	 * @param array &$namespaces
+	 * @param string &$search
 	 * @return bool
 	 */
 	public static function prefixSearchExtractNamespace( &$namespaces, &$search ) {
@@ -530,7 +527,7 @@ class Hooks {
 	/**
 	 * Let Elasticsearch take a crack at getting near matches once mediawiki has tried all kinds of variants.
 	 * @param string $term the original search term and all language variants
-	 * @param null|Title $titleResult resulting match.  A Title if we found something, unchanged otherwise.
+	 * @param null|Title &$titleResult resulting match.  A Title if we found something, unchanged otherwise.
 	 * @return bool return false if we find something, true otherwise so mediawiki can try its default behavior
 	 * @throws ApiUsageException
 	 * @throws UsageException
@@ -670,7 +667,7 @@ class Hooks {
 	 * and for variables this should work cross skin
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ResourceLoaderGetConfigVars
 	 *
-	 * @param array $vars
+	 * @param array &$vars
 	 * @return bool
 	 */
 	public static function onResourceLoaderGetConfigVars( &$vars ) {
@@ -704,44 +701,17 @@ class Hooks {
 	/**
 	 * Add $wgCirrusSearchInterwikiProv to external results.
 	 * @param Title $title
-	 * @param mixed $text
+	 * @param mixed &$text
 	 * @param mixed $result
 	 * @param mixed $terms
 	 * @param mixed $page
-	 * @param array $query
+	 * @param array &$query
 	 */
 	public static function onShowSearchHitTitle( Title $title, &$text, $result, $terms, $page, &$query = [] ) {
 		global $wgCirrusSearchInterwikiProv;
 		if ( $wgCirrusSearchInterwikiProv && $title->isExternal() ) {
 			$query["wprov"] = $wgCirrusSearchInterwikiProv;
 		}
-	}
-
-	/**
-	 * Activate Completion Suggester as a Beta Feature if available
-	 * @param User $user
-	 * @param array &$pref beta feature prefs
-	 * @return bool
-	 */
-	public static function getBetaFeaturePreferences( User $user, &$pref ) {
-		global $wgCirrusSearchUseCompletionSuggester,
-			$wgExtensionAssetsPath;
-
-		if ( $wgCirrusSearchUseCompletionSuggester !== 'beta' ) {
-			return true;
-		}
-
-		$pref['cirrussearch-completionsuggester'] = [
-			'label-message' => 'cirrussearch-completionsuggester-pref',
-			'desc-message' => 'cirrussearch-completionsuggester-desc',
-			'info-link' => '//mediawiki.org/wiki/Special:MyLanguage/Extension:CirrusSearch/CompletionSuggester',
-			'discussion-link' => '//mediawiki.org/wiki/Special:MyLanguage/Extension_talk:CirrusSearch/CompletionSuggester',
-			'screenshot' => [
-				'ltr' => "$wgExtensionAssetsPath/CirrusSearch/resources/images/cirrus-beta-ltr.svg",
-				'rtl' => "$wgExtensionAssetsPath/CirrusSearch/resources/images/cirrus-beta-rtl.svg",
-			]
-		];
-		return true;
 	}
 
 	/**
@@ -830,7 +800,11 @@ class Hooks {
 					->getResolver( $config );
 			}
 		);
-		return true;
+		$container->defineService( SearchProfileServiceFactory::SERVICE_NAME,
+			function ( MediaWikiServices $serviceContainer ) {
+				return new SearchProfileServiceFactory();
+			}
+		);
 	}
 
 	/**
@@ -853,6 +827,56 @@ class Hooks {
 			new Job\DeleteArchive( $title, [ 'docIds' => $restoredPages ] )
 		);
 		return true;
+	}
+
+	public static function onSpecialStatsAddExtra( &$extraStats, $context ) {
+		$search = new CirrusSearch();
+
+		$status = $search->countContentWords();
+		if ( !$status->isOK() ) {
+			return;
+		}
+		$wordCount = $status->getValue();
+		if ( $wordCount !== null ) {
+			$extraStats['cirrussearch-article-words'] = $wordCount;
+		}
+	}
+
+	/**
+	 * @param WikiPage $wikiPage
+	 * @param User $user
+	 * @param Content $content
+	 * @param string $summary
+	 * @param bool $isMinor
+	 * @param bool $isWatch
+	 * @param string $section
+	 * @param int $flags
+	 * @param Revision $revision
+	 */
+	public static function onPageContentInsertComplete( WikiPage $wikiPage, $user, $content, $summary, $isMinor, $isWatch, $section, $flags, $revision ) {
+		global $wgCirrusSearchInstantIndexNew;
+		if ( empty( $wgCirrusSearchInstantIndexNew ) ) {
+			return;
+		}
+		if ( $wikiPage->isRedirect() ) {
+			// Not much point to instant-index redirects since they usually won't have
+			// much useful content.
+			return;
+		}
+		if ( is_array( $wgCirrusSearchInstantIndexNew ) ) {
+			$namespace = $wikiPage->getTitle()->getNamespace();
+			if ( !in_array( $namespace, $wgCirrusSearchInstantIndexNew ) ) {
+				// Index only in namespaces specified in the config
+				return;
+			}
+		}
+		// Update newly created page. This may not have all the correct link data, etc.
+		// but that will be picked up later by the LinkUpdate job.
+		DeferredUpdates::addCallableUpdate( function () use ( $wikiPage ) {
+			$updater = new Updater( self::getConnection(), self::getConfig() );
+			$updater->updatePages( [ $wikiPage ],
+				Updater::SKIP_LINKS | Updater::INDEX_ON_SKIP | Updater::INSTANT_INDEX );
+		} );
 	}
 
 }

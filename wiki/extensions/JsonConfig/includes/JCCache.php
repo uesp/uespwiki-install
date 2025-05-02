@@ -94,9 +94,6 @@ class JCCache {
 		if ( !$value ) {
 			$value = '';
 			$exp = 10; // caching an error condition for short time
-			wfLogWarning(
-				"No content is available, caching empty '$this->titleValue' for $exp seconds"
-			);
 		} elseif ( !is_string( $value ) ) {
 			$value = $value->getNativeData();
 		}
@@ -204,8 +201,6 @@ class JCCache {
 				break;
 			}
 			if ( !isset( $res['revisions'][0]['*'] ) ) {
-				JCUtils::warn( 'Unable to get config content',
-					[ 'title' => $articleName, 'result' => $res ] );
 				break;
 			}
 

@@ -3,7 +3,6 @@
 namespace CirrusSearch;
 
 use BatchRowIterator;
-use CirrusSearch;
 use CirrusSearch\Iterator\CallbackIterator;
 use CirrusSearch\Maintenance\Maintenance;
 use JobQueueGroup;
@@ -134,11 +133,12 @@ class ForceSearchIndex extends Maintenance {
 
 		// Make sure we've actually got indices to populate
 		if ( !$this->simpleCheckIndexes() ) {
-			$this->error(
-				"$wiki index(es) do not exist. Did you forget to run updateSearchIndexConfig?", 1
+			$this->fatalError(
+				"$wiki index(es) do not exist. Did you forget to run updateSearchIndexConfig?"
 			);
 		}
 
+		$this->indexUpdates = !$this->getOption( 'deletes', false );
 		// We need to check ids options early otherwise hasOption may return
 		// true even if the user did not set the option on the commandline
 		if ( $this->hasOption( 'ids' ) ) {
@@ -152,7 +152,6 @@ class ForceSearchIndex extends Maintenance {
 			$this->toDate = new MWTimestamp( $this->getOption( 'to', false ) );
 		}
 		$this->toId = $this->getOption( 'toId' );
-		$this->indexUpdates = !$this->getOption( 'deletes', false );
 		$this->archive = (bool)$this->getOption( 'archive', false );
 		if ( $this->archive ) {
 			// If we're indexing only for archive, this implies deletes
@@ -246,8 +245,8 @@ class ForceSearchIndex extends Maintenance {
 			|| $this->hasOption( 'from' ) || $this->hasOption( 'to' )
 			|| $this->hasOption( 'fromId' ) || $this->hasOption( 'toId' )
 		) {
-			$this->error(
-				'--ids cannot be used with deletes/archive/from/to/fromId/toId/limit', 1
+			$this->fatalError(
+				'--ids cannot be used with deletes/archive/from/to/fromId/toId/limit'
 			);
 		}
 
@@ -255,8 +254,8 @@ class ForceSearchIndex extends Maintenance {
 			function ( $pageId ) {
 				$pageId = trim( $pageId );
 				if ( !ctype_digit( $pageId ) ) {
-					$this->error( "Invalid page id provided in --ids, got '$pageId', " .
-						"expected a positive integer", 1 );
+					$this->fatalError( "Invalid page id provided in --ids, got '$pageId', " .
+						"expected a positive integer" );
 				}
 				return intval( $pageId );
 			},
@@ -385,24 +384,28 @@ class ForceSearchIndex extends Maintenance {
 		$dbr = $this->getDB( DB_REPLICA, [ 'vslow' ] );
 		$it = new BatchRowIterator(
 			$dbr,
-			'archive',
-			[ 'ar_namespace', 'ar_title', 'ar_timestamp' ],
-			$this->mBatchSize
+			'logging',
+			[ 'log_timestamp' ],
+			$this->getBatchSize()
 		);
 
-		$this->attachPageConditions( $dbr, $it, 'ar' );
-		$this->attachTimestampConditions( $dbr, $it, 'ar' );
-		$it->addConditions( [ 'ar_page_id IS NOT NULL' ] );
+		$this->attachPageConditions( $dbr, $it, 'log' );
+		$this->attachTimestampConditions( $dbr, $it, 'log' );
+		$it->addConditions( [
+			'log_type' => 'delete',
+			'log_action' => 'delete',
+			'EXISTS(select * from archive where ar_title = log_title and ar_namespace = log_namespace)',
+		] );
 
-		$it->setFetchColumns( [ 'ar_timestamp', 'ar_namespace', 'ar_title', 'ar_page_id' ] );
+		$it->setFetchColumns( [ 'log_timestamp', 'log_namespace', 'log_title', 'log_page' ] );
 
 		return new CallbackIterator( $it, function ( $batch ) {
 			$titlesToDelete = [];
 			$docIdsToDelete = [];
 			$archive = [];
 			foreach ( $batch as $row ) {
-				$title = Title::makeTitle( $row->ar_namespace, $row->ar_title );
-				$id = $this->getSearchConfig()->makeId( $row->ar_page_id );
+				$title = Title::makeTitle( $row->log_namespace, $row->log_title );
+				$id = $this->getSearchConfig()->makeId( $row->log_page );
 				$titlesToDelete[] = $title;
 				$docIdsToDelete[] = $id;
 				$archive[] = [
@@ -415,10 +418,8 @@ class ForceSearchIndex extends Maintenance {
 				'titlesToDelete' => $titlesToDelete,
 				'docIdsToDelete' => $docIdsToDelete,
 				'archive' => $archive,
-				'endingAt' => isset( $title )
-					? substr( preg_replace(
-						'/[^' . Title::legalChars() . ']/', '_', $title->getPrefixedDBkey()
-					), 0, 30 )
+				'endingAt' => isset( $row )
+					? ( new MWTimestamp( $row->log_timestamp ) )->getTimestamp( TS_ISO_8601 )
 					: 'unknown',
 			];
 		} );
@@ -426,7 +427,10 @@ class ForceSearchIndex extends Maintenance {
 
 	protected function getIdsIterator() {
 		$dbr = $this->getDB( DB_REPLICA, [ 'vslow' ] );
-		$it = new BatchRowIterator( $dbr, 'page', 'page_id', $this->mBatchSize );
+		$pageQuery = self::getPageQueryInfo();
+		$it = new BatchRowIterator( $dbr, $pageQuery['tables'], 'page_id', $this->getBatchSize() );
+		$it->setFetchColumns( $pageQuery['fields'] );
+		$it->addJoinConditions( $pageQuery['joins'] );
 		$it->addConditions( [
 			'page_id in (' . $dbr->makeList( $this->pageIds, LIST_COMMA ) . ')',
 		] );
@@ -437,15 +441,17 @@ class ForceSearchIndex extends Maintenance {
 
 	protected function getUpdatesByDateIterator() {
 		$dbr = $this->getDB( DB_REPLICA, [ 'vslow' ] );
+		$pageQuery = self::getPageQueryInfo();
 		$it = new BatchRowIterator(
 			$dbr,
-			[ 'page', 'revision' ],
+			array_merge( $pageQuery['tables'], [ 'revision' ] ),
 			[ 'rev_timestamp', 'page_id' ],
-			$this->mBatchSize
+			$this->getBatchSize()
 		);
-		$it->addConditions( [
-			'rev_page = page_id',
-			'rev_id = page_latest',
+		$it->setFetchColumns( $pageQuery['fields'] );
+		$it->addJoinConditions( $pageQuery['joins'] );
+		$it->addJoinConditions( [
+			'revision' => [ 'JOIN', [ 'rev_page = page_id', 'rev_id = page_latest' ] ]
 		] );
 
 		$this->attachTimestampConditions( $dbr, $it, 'rev' );
@@ -456,7 +462,10 @@ class ForceSearchIndex extends Maintenance {
 
 	protected function getUpdatesByIdIterator() {
 		$dbr = $this->getDB( DB_REPLICA, [ 'vslow' ] );
-		$it = new BatchRowIterator( $dbr, 'page', 'page_id', $this->mBatchSize );
+		$pageQuery = self::getPageQueryInfo();
+		$it = new BatchRowIterator( $dbr,  $pageQuery['tables'], 'page_id', $this->getBatchSize() );
+		$it->setFetchColumns( $pageQuery['fields'] );
+		$it->addJoinConditions( $pageQuery['joins'] );
 		$fromId = $this->getOption( 'fromId', 0 );
 		if ( $fromId > 0 ) {
 			$it->addConditions( [
@@ -489,10 +498,26 @@ class ForceSearchIndex extends Maintenance {
 		}
 	}
 
-	private function attachPageConditions( IDatabase $dbr, BatchRowIterator $it, $columnPrefix ) {
-		if ( $columnPrefix === 'page' ) {
-			$it->setFetchColumns( WikiPage::selectFields() );
+	/**
+	 * Back-compat for WikiPage::getQueryInfo()
+	 * @todo Remove this in favor of calling WikiPage::getQueryInfo() directly
+	 *  when support for MediaWiki before 1.31 is dropped.
+	 */
+	private static function getPageQueryInfo() {
+		if ( is_callable( [ WikiPage::class, 'getQueryInfo' ] ) ) {
+			/** @suppress PhanUndeclaredStaticMethod Static call to undeclared method */
+			return WikiPage::getQueryInfo();
 		}
+
+		return [
+			'tables' => [ 'page' ],
+			/** @suppress PhanDeprecatedFunction fallback to deprecated function */
+			'fields' => WikiPage::selectFields(),
+			'joins' => [],
+		];
+	}
+
+	private function attachPageConditions( IDatabase $dbr, BatchRowIterator $it, $columnPrefix ) {
 		if ( $this->namespace ) {
 			$it->addConditions( [
 				"{$columnPrefix}_namespace" => $this->namespace,
@@ -611,19 +636,19 @@ class ForceSearchIndex extends Maintenance {
 		if ( $this->toId === null ) {
 			$this->toId = $dbr->selectField( 'page', 'MAX(page_id)' );
 			if ( $this->toId === false ) {
-				$this->error( "Couldn't find any pages to index.  toId = $this->toId.", 1 );
+				$this->fatalError( "Couldn't find any pages to index.  toId = $this->toId." );
 			}
 		}
 		$fromId = $this->getOption( 'fromId' );
 		if ( $fromId === null ) {
 			$fromId = $dbr->selectField( 'page', 'MIN(page_id) - 1' );
 			if ( $fromId === false ) {
-				$this->error( "Couldn't find any pages to index.  fromId = $fromId.", 1 );
+				$this->fatalError( "Couldn't find any pages to index.  fromId = $fromId." );
 			}
 		}
 		if ( $fromId === $this->toId ) {
-			$this->error(
-				"Couldn't find any pages to index.  fromId = $fromId = $this->toId = toId.", 1
+			$this->fatalError(
+				"Couldn't find any pages to index.  fromId = $fromId = $this->toId = toId."
 			);
 		}
 		$builder = new \CirrusSearch\Maintenance\ChunkBuilder();

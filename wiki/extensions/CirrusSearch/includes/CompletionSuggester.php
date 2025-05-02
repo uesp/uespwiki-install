@@ -2,18 +2,24 @@
 
 namespace CirrusSearch;
 
-use Elastica;
-use Elastica\Request;
-use CirrusSearch;
-use CirrusSearch\BuildDocument\Completion\SuggestBuilder;
+use CirrusSearch\Profile\SearchProfileService;
+use CirrusSearch\Query\CompSuggestQueryBuilder;
+use CirrusSearch\Query\PrefixSearchQueryBuilder;
+use CirrusSearch\Search\CompletionResultsCollector;
+use CirrusSearch\Search\FancyTitleResultsType;
+use CirrusSearch\Search\SearchRequestBuilder;
+use Elastica\Exception\ExceptionInterface;
+use Elastica\Index;
+use Elastica\ResultSet;
+use Elastica\Multi\Search as MultiSearch;
+use Elastica\Query;
 use CirrusSearch\Search\SearchContext;
+use Elastica\Search;
 use MediaWiki\MediaWikiServices;
-use SearchSuggestion;
 use SearchSuggestionSet;
 use Status;
-use ApiUsageException;
-use UsageException;
 use User;
+use Wikimedia\Assert\Assert;
 
 /**
  * Performs search as you type queries using Completion Suggester.
@@ -56,61 +62,80 @@ use User;
  * 2. The redirect suggestions
  * Because the same canonical title can be returned twice we support fetch_limit_factor
  * in suggest profiles to fetch more than what the use asked.
+ *
+ * Additionally if the namespaces request include non NS_MAIN a prefix search query
+ * is sent to the main index. Results are appended to the suggest results. Appending
+ * is far from ideal but in the current state scores between the suggest index and prefix
+ * search are not comparable.
+ * TODO: investigate computing the comp suggest score on main indices to properly merge
+ * results.
  */
 class CompletionSuggester extends ElasticsearchIntermediary {
-	const VARIANT_EXTRA_DISCOUNT = 0.0001;
 	/**
-	 * @var string term to search.
+	 * @const string multisearch key to identify the comp suggest request
 	 */
-	private $term;
+	const MSEARCH_KEY_SUGGEST = "suggest";
 
 	/**
-	 * @var string[]|null search variants
+	 * @const string multisearch key to identify the prefix search request
 	 */
-	private $variants;
+	const MSEARCH_KEY_PREFIX = "prefix";
 
 	/**
-	 * @var integer maximum number of result
+	 * @var integer maximum number of result (final)
 	 */
 	private $limit;
 
 	/**
-	 * @var integer offset
+	 * @var integer offset (final)
 	 */
 	private $offset;
 
 	/**
-	 * @var string index base name to use
+	 * @var string index base name to use (final)
 	 */
 	private $indexBaseName;
 
 	/**
-	 * Search environment configuration
+	 * @var Index (final)
+	 */
+	private $completionIndex;
+
+	/**
+	 * Search environment configuration (final)
 	 * @var SearchConfig
 	 */
 	private $config;
 
 	/**
-	 * @var string Query type (comp_suggest_geo or comp_suggest)
-	 */
-	public $queryType;
-
-	/**
-	 * @var SearchContext
+	 * @var SearchContext (final)
 	 */
 	private $searchContext;
 
-	private $settings;
+	/**
+	 * @var CompSuggestQueryBuilder $compSuggestBuilder (final)
+	 */
+	private $compSuggestBuilder;
+
+	/**
+	 * @var PrefixSearchQueryBuilder $prefixSearchQueryBuilder (final)
+	 */
+	private $prefixSearchQueryBuilder;
+
+	/**
+	 * @var SearchRequestBuilder the builder to build the search for prefix search queries
+	 */
+	private $prefixSearchRequestBuilder;
 
 	/**
 	 * @param Connection $conn
 	 * @param int $limit Limit the results to this many
-	 * @param int $offset the offset
+	 * @param int $offset
 	 * @param SearchConfig $config Configuration settings
 	 * @param int[]|null $namespaces Array of namespace numbers to search or null to search all namespaces.
 	 * @param User|null $user user for which this search is being performed.  Attached to slow request logs.
 	 * @param string|bool $index Base name for index to search from, defaults to $wgCirrusSearchIndexBaseName
-	 * @param string|null $profileName
+	 * @param string|null $profileName force the profile to use otherwise SearchProfileService defaults will be used
 	 */
 	public function __construct( Connection $conn, $limit, $offset = 0, SearchConfig $config = null, array $namespaces = null,
 		User $user = null, $index = false, $profileName = null ) {
@@ -127,36 +152,19 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 		$this->limit = $limit;
 		$this->offset = $offset;
 		$this->indexBaseName = $index ?: $config->get( SearchConfig::INDEX_BASE_NAME );
+		$this->completionIndex = $this->connection->getIndex( $this->indexBaseName,
+			Connection::TITLE_SUGGEST_TYPE );
 		$this->searchContext = new SearchContext( $this->config, $namespaces );
 
-		if ( $profileName == null ) {
-			$profileName = $this->config->get( 'CirrusSearchCompletionSettings' );
-		}
-		$this->settings = $this->config->getElement( 'CirrusSearchCompletionProfiles', $profileName );
-	}
-
-	/**
-	 * @param string $search
-	 * @throws ApiUsageException
-	 * @throws UsageException
-	 */
-	private function checkRequestLength( $search ) {
-		$requestLength = mb_strlen( $search );
-		if ( $requestLength > Searcher::MAX_TITLE_SEARCH ) {
-			if ( class_exists( ApiUsageException::class ) ) {
-				throw ApiUsageException::newWithMessage(
-					null,
-					[ 'apierror-cirrus-requesttoolong', $requestLength, Searcher::MAX_TITLE_SEARCH ],
-					'request_too_long',
-					[],
-					400
-				);
-			} else {
-				/** @suppress PhanDeprecatedClass */
-				throw new UsageException( 'Prefix search request was longer than the maximum allowed length.' .
-					" ($requestLength > " . Searcher::MAX_TITLE_SEARCH . ')', 'request_too_long', 400 );
-			}
-		}
+		$profileDefinition = $this->config->getProfileService()
+			->loadProfile( SearchProfileService::COMPLETION, SearchProfileService::CONTEXT_DEFAULT, $profileName );
+		$this->compSuggestBuilder = new CompSuggestQueryBuilder(
+			$this->searchContext,
+			$profileDefinition,
+			$limit,
+			$offset
+		);
+		$this->prefixSearchQueryBuilder = new PrefixSearchQueryBuilder();
 	}
 
 	/**
@@ -171,45 +179,42 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 	 * @return Status
 	 */
 	public function suggest( $text, $variants = null ) {
-		// If the offset requested is greater than the hard limit
-		// allowed we will always return an empty set so let's do it
-		// asap.
-		if ( $this->offset >= $this->getHardLimit() ) {
+		$suggestSearch = $this->getSuggestSearchRequest( $text, $variants );
+		$msearch = new MultiSearch( $this->connection->getClient() );
+		if ( $suggestSearch !== null ) {
+			$msearch->addSearch( $suggestSearch, self::MSEARCH_KEY_SUGGEST );
+		}
+
+		$prefixSearch = $this->getPrefixSearchRequest( $text, $variants );
+		if ( $prefixSearch !== null ) {
+			$msearch->addSearch( $prefixSearch, self::MSEARCH_KEY_PREFIX );
+		}
+
+		if ( empty( $msearch->getSearches() ) ) {
 			return Status::newGood( SearchSuggestionSet::emptySuggestionSet() );
 		}
 
-		$this->checkRequestLength( $text );
-		$this->setTermAndVariants( $text, $variants );
-
-		list( $profiles, $suggest ) = $this->buildQuery();
-		$this->connection->setTimeout( $this->config->getElement( 'wgCirrusSearchClientSideSearchTimeout', 'default' ) );
-
-		$index = $this->connection->getIndex( $this->indexBaseName, Connection::TITLE_SUGGEST_TYPE );
+		$this->connection->setTimeout( $this->config->getElement( 'CirrusSearchClientSideSearchTimeout', 'default' ) );
 		$result = Util::doPoolCounterWork(
 			'CirrusSearch-Completion',
 			$this->user,
-			function () use( $index, $suggest, $profiles, $text ) {
-				$log = $this->newLog( "{queryType} search for '{query}'", $this->queryType, [
+			function () use( $msearch, $text ) {
+				$log = $this->newLog( "{queryType} search for '{query}'", "comp_suggest", [
 					'query' => $text,
 					'offset' => $this->offset,
 				] );
 				$this->start( $log );
 				try {
-					$search = [
-						'_source' => [ 'target_title' ],
-						'suggest' => $suggest,
-					];
-					$result = $index->request( "_search", Request::POST, $search, [ 'size' => 0 ] );
-					if ( $result->isOk() ) {
-						$result = $this->postProcessSuggest( $result, $profiles, $log );
-						return $this->success( $result );
-					} else {
-						throw new \Elastica\Exception\ResponseException(
-							new Request( "_suggest", Request::POST, $suggest ),
-							$result
-						);
+					$results = $msearch->search();
+					if ( $results->hasError() ||
+						// Catches HTTP errors (ex: 5xx) not reported
+						// by hasError()
+						!$results->getResponse()->isOk()
+					) {
+						return $this->multiFailure( $results );
 					}
-				} catch ( \Elastica\Exception\ExceptionInterface $e ) {
+					return $this->success( $this->processMSearchResponse( $results->getResultSets(), $log ) );
+				} catch ( ExceptionInterface $e ) {
 					return $this->failure( $e );
 				}
 			}
@@ -218,242 +223,140 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 	}
 
 	/**
-	 * protected for tests
-	 *
-	 * @param string $term
-	 * @param string[]|null $variants
+	 * @param ResultSet[] $results
+	 * @param CompletionRequestLog $log
+	 * @return SearchSuggestionSet
 	 */
-	protected function setTermAndVariants( $term, array $variants = null ) {
-		$this->term = $term;
-		if ( empty( $variants ) ) {
-			$this->variants = null;
-			return;
-		}
-		$variants = array_diff( array_unique( $variants ), [ $term ] );
-		if ( empty( $variants ) ) {
-			$this->variants = null;
-		} else {
-			$this->variants = $variants;
-		}
+	private function processMSearchResponse( array $results, CompletionRequestLog $log ) {
+		$collector = new CompletionResultsCollector( $this->limit, $this->offset );
+		$totalHits = $this->collectCompSuggestResults( $collector, $results, $log );
+		$totalHits += $this->collectPrefixSearchResults( $collector, $results, $log );
+		$log->setTotalHits( $totalHits );
+		return $collector->logAndGetSet( $log );
 	}
 
 	/**
-	 * Builds the suggest queries and profiles.
-	 * Use with list( $profiles, $suggest ).
-	 * @return array the profiles and suggest queries
+	 * @param CompletionResultsCollector $collector
+	 * @param ResultSet[] $results
+	 * @param CompletionRequestLog $log
+	 * @return int
 	 */
-	protected function buildQuery() {
-		if ( mb_strlen( $this->term ) > SuggestBuilder::MAX_INPUT_LENGTH ) {
-			// Trim the query otherwise we won't find results
-			$this->term = mb_substr( $this->term, 0, SuggestBuilder::MAX_INPUT_LENGTH );
+	private function collectCompSuggestResults( CompletionResultsCollector $collector, array $results, CompletionRequestLog $log ) {
+		if ( !isset( $results[self::MSEARCH_KEY_SUGGEST] ) ) {
+			return 0;
 		}
-
-		$queryLen = mb_strlen( trim( $this->term ) ); // Avoid cheating with spaces
-		$this->queryType = "comp_suggest";
-
-		$profiles = $this->settings;
-		$suggest = $this->buildSuggestQueries( $profiles, $this->term, $queryLen );
-
-		// Handle variants, update the set of profiles and suggest queries
-		if ( !empty( $this->variants ) ) {
-			list( $addProfiles, $addSuggest ) = $this->handleVariants( $profiles, $queryLen );
-			$profiles += $addProfiles;
-			$suggest += $addSuggest;
-		}
-		return [ $profiles, $suggest ];
+		$log->addIndex( $this->completionIndex->getName() );
+		$suggestResults = $results[self::MSEARCH_KEY_SUGGEST];
+		$log->setSuggestTookMs( intval( $suggestResults->getResponse()->getQueryTime() * 1000 ) );
+		return $this->compSuggestBuilder->postProcess(
+			$collector,
+			$suggestResults,
+			$this->completionIndex->getName()
+		);
 	}
 
 	/**
-	 * Builds a set of suggest query by reading the list of profiles
-	 * @param array $profiles
-	 * @param string $query
-	 * @param int $queryLen the length to use when checking min/max_query_len
-	 * @return array a set of suggest queries ready to for elastic
+	 * @param CompletionResultsCollector $collector
+	 * @param ResultSet[] $results
+	 * @param CompletionRequestLog $log
+	 * @return int
 	 */
-	protected function buildSuggestQueries( array $profiles, $query, $queryLen ) {
-		$suggest = [];
-		foreach ( $profiles as $name => $config ) {
-			$sugg = $this->buildSuggestQuery( $config, $query, $queryLen );
-			if ( !$sugg ) {
+	private function collectPrefixSearchResults( CompletionResultsCollector $collector, array $results, CompletionRequestLog $log ) {
+		if ( !isset( $results[self::MSEARCH_KEY_PREFIX] ) ) {
+			return 0;
+		}
+		$indexName = $this->prefixSearchRequestBuilder->getPageType()->getIndex()->getName();
+		$prefixResults = $results[self::MSEARCH_KEY_PREFIX];
+		$totalHits = $prefixResults->getTotalHits();
+		$log->addIndex( $indexName );
+		$log->setPrefixTookMs( intval( $prefixResults->getResponse()->getQueryTime() * 1000 ) );
+		// We only append as we can't really compare scores without more complex code/evaluation
+		if ( $collector->isFull() ) {
+			return $totalHits;
+		}
+		/** @var FancyTitleResultsType $rType */
+		$rType = $this->prefixSearchRequestBuilder->getSearchContext()->getResultsType();
+		// the code below highly depends on the array format built by
+		// FancyTitleResultsType::transformOneElasticResult assert that this type
+		// is properly set so that we fail during unit tests if someone changes it
+		// inadvertently.
+		Assert::precondition( $rType instanceof FancyTitleResultsType, '$rType must be a FancyTitleResultsType' );
+		// scores can go negative, it's not a problem we only use scores for sorting
+		// they'll be forgotten in client response
+		$score = $collector->getMinScore() !== null ? $collector->getMinScore() - 1 : count( $prefixResults->getResults() );
+
+		foreach ( $prefixResults->getResults() as $res ) {
+			$pageId = $this->config->makePageId( $res->getId() );
+			/** @suppress PhanUndeclaredMethod transformOneElasticResult exists (FancyTitleResultsType asserted) */
+			$title = FancyTitleResultsType::chooseBestTitleOrRedirect( $rType->transformOneElasticResult( $res ) );
+			if ( $title === false ) {
 				continue;
 			}
-			$suggest[$name] = $sugg;
-		}
-		return $suggest;
-	}
-
-	/**
-	 * Builds a suggest query from a profile
-	 * @param array $config Profile
-	 * @param string $query
-	 * @param int $queryLen the length to use when checking min/max_query_len
-	 * @return array|null suggest query ready to for elastic or null
-	 */
-	protected function buildSuggestQuery( array $config, $query, $queryLen ) {
-		// Do not remove spaces at the end, the user might tell us he finished writing a word
-		$query = ltrim( $query );
-		if ( $config['min_query_len'] > $queryLen ) {
-			return null;
-		}
-		if ( isset( $config['max_query_len'] ) && $queryLen > $config['max_query_len'] ) {
-			return null;
-		}
-		$field = $config['field'];
-		$limit = $this->getHardLimit();
-		$suggest = [
-			'prefix' => $query,
-			'completion' => [
-				'field' => $field,
-				'size' => $limit * $config['fetch_limit_factor']
-			]
-		];
-		if ( isset( $config['fuzzy'] ) ) {
-			$suggest['completion']['fuzzy'] = $config['fuzzy'];
-		}
-		return $suggest;
-	}
-
-	/**
-	 * Update the suggest queries and return additional profiles flagged the 'fallback' key
-	 * with a discount factor = originalDiscount * 0.0001/(variantIndex+1).
-	 * @param array $profiles the default profiles
-	 * @param int $queryLen the original query length
-	 * @return array new variant profiles
-	 */
-	protected function handleVariants( array $profiles, $queryLen ) {
-		$variantIndex = 0;
-		$allVariantProfiles = [];
-		$allSuggestions = [];
-		foreach ( $this->variants as $variant ) {
-			$variantIndex++;
-			foreach ( $profiles as $name => $profile ) {
-				$variantProfName = $name . '-variant-' . $variantIndex;
-				$profile = $this->buildVariantProfile( $profile, self::VARIANT_EXTRA_DISCOUNT / $variantIndex );
-				$suggest = $this->buildSuggestQuery(
-					$profile, $variant, $queryLen
-				);
-				if ( $suggest !== null ) {
-					$allVariantProfiles[$variantProfName] = $profile;
-					$allSuggestions[$variantProfName] = $suggest;
-				}
+			$suggestion = new \SearchSuggestion( $score--, $title->getPrefixedText(), $title, $pageId );
+			if ( !$collector->collect( $suggestion, 'prefix', $indexName ) && $collector->isFull() ) {
+				break;
 			}
 		}
-		return [ $allVariantProfiles, $allSuggestions ];
+		return $totalHits;
 	}
 
 	/**
-	 * Creates a copy of $profile[$name] with a custom '-variant-SEQ' suffix.
-	 * And applies an extra discount factor of 0.0001.
-	 * The copy is added to the profiles container.
-	 * @param array $profile profile to copy
-	 * @param float $extraDiscount extra discount factor to rank variant suggestion lower.
-	 * @return array
+	 * @param string $text Search term
+	 * @param string[]|null $variants Search term variants
+	 * (usually issued from $wgContLang->autoConvertToAllVariants( $text ) )
+	 * @return Search|null
 	 */
-	protected function buildVariantProfile( array $profile, $extraDiscount = 0.0001 ) {
-		// mark the profile as a fallback query
-		$profile['fallback'] = true;
-		$profile['discount'] *= $extraDiscount;
-		return $profile;
-	}
-
-	/**
-	 * merge top level multi-queries and resolve returned pageIds into Title objects.
-	 *
-	 * WARNING: experimental API
-	 *
-	 * @param \Elastica\Response $response Response from elasticsearch _suggest api
-	 * @param array $profiles the suggestion profiles
-	 * @param CompletionRequestLog $log
-	 * @return SearchSuggestionSet a set of Suggestions
-	 */
-	protected function postProcessSuggest( \Elastica\Response $response, $profiles, CompletionRequestLog $log ) {
-		$log->setResponse( $response );
-		$fullResponse = $response->getData();
-		if ( !isset( $fullResponse['suggest'] ) ) {
-			// Edge case where the index contains 0 documents and does not even return the 'suggest' field
-			return SearchSuggestionSet::emptySuggestionSet();
+	private function getSuggestSearchRequest( $text, $variants ) {
+		if ( !$this->compSuggestBuilder->areResultsPossible() ) {
+			return null;
 		}
 
-		$data = $fullResponse['suggest'];
+		$suggest = $this->compSuggestBuilder->build( $text, $variants );
+		$query = new Query( new Query\MatchNone() );
+		$query->setSize( 0 );
+		$query->setSuggest( $suggest );
+		$query->setSource( [ 'target_title' ] );
+		$search = new Search( $this->connection->getClient() );
+		$search->addIndex( $this->completionIndex );
+		$search->setQuery( $query );
+		return $search;
+	}
 
-		$limit = $this->getHardLimit();
-		$suggestionsByDocId = [];
-		$suggestionProfileByDocId = [];
-		$hitsTotal = 0;
-		foreach ( $data as $name => $results ) {
-			$discount = $profiles[$name]['discount'];
-			foreach ( $results  as $suggested ) {
-				$hitsTotal += count( $suggested['options'] );
-				foreach ( $suggested['options'] as $suggest ) {
-					$page = $suggest['text'];
-					$targetTitle = $page;
-					$targetTitleNS = NS_MAIN;
-					if ( isset( $suggest['_source']['target_title'] ) ) {
-						$targetTitle = $suggest['_source']['target_title']['title'];
-						$targetTitleNS = $suggest['_source']['target_title']['namespace'];
-					}
-					list( $docId, $type ) = $this->decodeId( $suggest['_id'] );
-					$score = $discount * $suggest['_score'];
-					if ( !isset( $suggestionsByDocId[$docId] ) ||
-						$score > $suggestionsByDocId[$docId]->getScore()
-					) {
-						$pageId = $this->config->makePageId( $docId );
-						$suggestion = new SearchSuggestion( $score, null, null, $pageId );
-						// Use setText, it'll build the Title
-						if ( $type === SuggestBuilder::TITLE_SUGGESTION && $targetTitleNS === NS_MAIN ) {
-							// For title suggestions we always use the target_title
-							// This is because we may encounter default_sort or subphrases that are not valid titles...
-							// And we prefer to display the title over close redirects
-							// for CrossNS redirect we prefer the returned suggestion
-							$suggestion->setText( $targetTitle );
+	/**
+	 * @param string $term Search term
+	 * @param string[]|null $variants Search term variants
+	 * (usually issued from $wgContLang->autoConvertToAllVariants( $text ) )
+	 * @return Search|null
+	 */
+	private function getPrefixSearchRequest( $term, $variants ) {
+		$namespaces = $this->searchContext->getNamespaces();
+		if ( $namespaces === null ) {
+			return null;
+		}
 
-						} else {
-							$suggestion->setText( $page );
-						}
-						$suggestionsByDocId[$docId] = $suggestion;
-						$suggestionProfileByDocId[$docId] = $name;
-					}
-				}
+		foreach ( $namespaces as $k => $v ) {
+			// non-strict comparison, it can be strings
+			if ( $v == NS_MAIN ) {
+				unset( $namespaces[$k] );
 			}
 		}
 
-		// simply sort by existing scores
-		uasort( $suggestionsByDocId, function ( SearchSuggestion $a, SearchSuggestion $b ) {
-			return $b->getScore() - $a->getScore();
-		} );
-
-		$suggestionsByDocId = $this->offset < $limit
-			? array_slice( $suggestionsByDocId, $this->offset, $limit - $this->offset, true )
-			: [];
-
-		$indexName = $this->connection->getIndex( $this->indexBaseName, Connection::TITLE_SUGGEST_TYPE )->getName();
-		$log->setResult( $indexName, $suggestionsByDocId, $suggestionProfileByDocId );
-
-		return new SearchSuggestionSet( $suggestionsByDocId );
-	}
-
-	/**
-	 * @param string $id compacted id (id + $type)
-	 * @return array 2 elt array [ $id, $type ]
-	 */
-	private function decodeId( $id ) {
-		return [ intval( substr( $id, 0, -1 ) ), substr( $id, -1 ) ];
-	}
-
-	/**
-	 * Set the max number of results to extract.
-	 * @param int $limit
-	 */
-	public function setLimit( $limit ) {
-		$this->limit = $limit;
-	}
-
-	/**
-	 * Set the offset
-	 * @param int $offset
-	 */
-	public function setOffset( $offset ) {
-		$this->offset = $offset;
+		if ( $namespaces === [] ) {
+			return null;
+		}
+		$limit = CompSuggestQueryBuilder::computeHardLimit( $this->limit, $this->offset, $this->config );
+		if ( $this->offset > $limit ) {
+			return null;
+		}
+		$prefixSearchContext = new SearchContext( $this->config, $namespaces );
+		$prefixSearchContext->setResultsType( new FancyTitleResultsType( 'prefix' ) );
+		$this->prefixSearchQueryBuilder->build( $prefixSearchContext, $term, $variants );
+		$this->prefixSearchRequestBuilder = new SearchRequestBuilder( $prefixSearchContext, $this->connection, $this->indexBaseName );
+		return $this->prefixSearchRequestBuilder->setLimit( $limit )
+			// collect all results up to $limit, $this->offset is the offset the client wants
+			// not the offset in prefix search results.
+			->setOffset( 0 )
+			->build();
 	}
 
 	/**
@@ -466,28 +369,15 @@ class CompletionSuggester extends ElasticsearchIntermediary {
 		return new CompletionRequestLog(
 			$description,
 			$queryType,
-			$extra
+			$extra,
+			$this->searchContext->getNamespaces()
 		);
 	}
 
 	/**
-	 * Get the hard limit
-	 * The completion api does not supports offset we have to add a hack
-	 * here to work around this limitation.
-	 * To avoid ridiculously large queries we set also a hard limit.
-	 * Note that this limit will be changed by fetch_limit_factor set to 2 or 1.5
-	 * depending on the profile.
-	 * @return int the number of results to fetch from elastic
+	 * @return Index
 	 */
-	private function getHardLimit() {
-		$limit = $this->limit + $this->offset;
-		$hardLimit = $this->config->get( 'CirrusSearchCompletionSuggesterHardLimit' );
-		if ( $hardLimit === null ) {
-			$hardLimit = 50;
-		}
-		if ( $limit > $hardLimit ) {
-			return $hardLimit;
-		}
-		return $limit;
+	public function getCompletionIndex() {
+		return $this->completionIndex;
 	}
 }

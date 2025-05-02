@@ -42,11 +42,11 @@ interface ResultsType {
 	/**
 	 * Get the highlighting configuration.
 	 *
-	 * @param array $highlightSource configuration for how to highlight the source.
-	 *  Empty if source should be ignored.
+	 * @param array $extraHighlightFields configuration for how to highlight regex matches.
+	 *  Empty if regex should be ignored.
 	 * @return array|null highlighting configuration for elasticsearch
 	 */
-	function getHighlightingConfiguration( array $highlightSource );
+	function getHighlightingConfiguration( array $extraHighlightFields );
 
 	/**
 	 * @param SearchContext $context
@@ -83,10 +83,10 @@ class TitleResultsType extends BaseResultsType {
 	}
 
 	/**
-	 * @param array $highlightSource
+	 * @param array $extraHighlightFields
 	 * @return array|null
 	 */
-	public function getHighlightingConfiguration( array $highlightSource ) {
+	public function getHighlightingConfiguration( array $extraHighlightFields ) {
 		return null;
 	}
 
@@ -129,10 +129,10 @@ class FancyTitleResultsType extends TitleResultsType {
 	}
 
 	/**
-	 * @param array $highlightSource
+	 * @param array $extraHighlightFields
 	 * @return array|null
 	 */
-	public function getHighlightingConfiguration( array $highlightSource ) {
+	public function getHighlightingConfiguration( array $extraHighlightFields ) {
 		global $wgCirrusSearchUseExperimentalHighlighter;
 
 		if ( $wgCirrusSearchUseExperimentalHighlighter ) {
@@ -189,53 +189,27 @@ class FancyTitleResultsType extends TitleResultsType {
 	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
 		$results = [];
 		foreach ( $resultSet->getResults() as $r ) {
-			$title = TitleHelper::makeTitle( $r );
-			$highlights = $r->getHighlights();
-			$resultForTitle = [];
-
-			// Now we have to use the highlights to figure out whether it was the title or the redirect
-			// that matched.  It is kind of a shame we can't really give the highlighting to the client
-			// though.
-			if ( isset( $highlights[ "title.$this->matchedAnalyzer" ] ) ) {
-				$resultForTitle[ 'titleMatch' ] = $title;
-			} elseif ( isset( $highlights[ "title.{$this->matchedAnalyzer}_asciifolding" ] ) ) {
-				$resultForTitle[ 'titleMatch' ] = $title;
-			}
-			$redirectHighlights = [];
-
-			if ( isset( $highlights[ "redirect.title.$this->matchedAnalyzer" ] ) ) {
-				$redirectHighlights = $highlights[ "redirect.title.$this->matchedAnalyzer" ];
-			}
-			if ( isset( $highlights[ "redirect.title.{$this->matchedAnalyzer}_asciifolding" ] ) ) {
-				$redirectHighlights = array_merge( $redirectHighlights,
-					$highlights[ "redirect.title.{$this->matchedAnalyzer}_asciifolding" ] );
-			}
-			if ( count( $redirectHighlights ) !== 0 ) {
-				foreach ( $redirectHighlights as $redirectTitle ) {
-					// The match was against a redirect so we should replace the $title with one that
-					// represents the redirect.
-					// The first step is to strip the actual highlighting from the title.
-					$redirectTitle = str_replace( Searcher::HIGHLIGHT_PRE, '', $redirectTitle );
-					$redirectTitle = str_replace( Searcher::HIGHLIGHT_POST, '', $redirectTitle );
-
-					// Instead of getting the redirect's real namespace we're going to just use the namespace
-					// of the title.  This is not great but OK given that we can't find cross namespace
-					// redirects properly any way.
-					$redirectTitle = TitleHelper::makeRedirectTitle( $r, $redirectTitle, $r->namespace );
-					$resultForTitle[ 'redirectMatches' ][] = $redirectTitle;
-				}
-			}
-			if ( count( $resultForTitle ) === 0 ) {
-				// We're not really sure where the match came from so lets just pretend it was the title.
-				LoggerFactory::getInstance( 'CirrusSearch' )->warning(
-					"Title search result type hit a match but we can't " .
-					"figure out what caused the match:  $r->namespace:$r->title"
-				);
-				$resultForTitle[ 'titleMatch' ] = $title;
-			}
-			$results[] = $resultForTitle;
+			$results[] = $this->transformOneElasticResult( $r );
 		}
 		return $results;
+	}
+
+	/**
+	 * Finds best title or redirect
+	 * @param array $match array returned by self::transformOneElasticResult
+	 * @return \Title|false choose best
+	 */
+	public static function chooseBestTitleOrRedirect( array $match ) {
+		if ( isset( $match['titleMatch'] ) ) {
+			return $match['titleMatch'];
+		} else {
+			if ( isset( $match['redirectMatches'][0] ) ) {
+				// TODO maybe dig around in the redirect matches and find the best one?
+				return $match['redirectMatches'][0];
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -243,6 +217,67 @@ class FancyTitleResultsType extends TitleResultsType {
 	 */
 	public function createEmptyResult() {
 		return [];
+	}
+
+	/**
+	 * Transform a result from elastic into an array of Titles.
+	 *
+	 * @param \Elastica\Result $r
+	 * @return \Title[] with the following keys :
+	 *   titleMatch => a title if the title matched
+	 *   redirectMatches => an array of redirect matches, one per matched redirect
+	 */
+	public function transformOneElasticResult( \Elastica\Result $r ) {
+		$title = TitleHelper::makeTitle( $r );
+		$highlights = $r->getHighlights();
+		$resultForTitle = [];
+
+		// Now we have to use the highlights to figure out whether it was the title or the redirect
+		// that matched.  It is kind of a shame we can't really give the highlighting to the client
+		// though.
+		if ( isset( $highlights["title.$this->matchedAnalyzer"] ) ) {
+			$resultForTitle['titleMatch'] = $title;
+		} elseif ( isset( $highlights["title.{$this->matchedAnalyzer}_asciifolding"] ) ) {
+			$resultForTitle['titleMatch'] = $title;
+		}
+		$redirectHighlights = [];
+
+		if ( isset( $highlights["redirect.title.$this->matchedAnalyzer"] ) ) {
+			$redirectHighlights = $highlights["redirect.title.$this->matchedAnalyzer"];
+		}
+		if ( isset( $highlights["redirect.title.{$this->matchedAnalyzer}_asciifolding"] ) ) {
+			$redirectHighlights =
+				array_merge( $redirectHighlights,
+					$highlights["redirect.title.{$this->matchedAnalyzer}_asciifolding"] );
+		}
+		if ( count( $redirectHighlights ) !== 0 ) {
+			foreach ( $redirectHighlights as $redirectTitle ) {
+				// The match was against a redirect so we should replace the $title with one that
+				// represents the redirect.
+				// The first step is to strip the actual highlighting from the title.
+				$redirectTitle = str_replace( [ Searcher::HIGHLIGHT_PRE, Searcher::HIGHLIGHT_POST ],
+					'', $redirectTitle );
+
+				// Instead of getting the redirect's real namespace we're going to just use the namespace
+				// of the title.  This is not great but OK given that we can't find cross namespace
+				// redirects properly any way.
+				// TODO: ask the highlighter to return the namespace for this kind of matches
+				// this would perhaps help to partially fix T115756
+				$redirectTitle =
+					TitleHelper::makeRedirectTitle( $r, $redirectTitle, $r->namespace );
+				$resultForTitle['redirectMatches'][] = $redirectTitle;
+			}
+		}
+		if ( count( $resultForTitle ) === 0 ) {
+			// We're not really sure where the match came from so lets just pretend it was the title.
+			LoggerFactory::getInstance( 'CirrusSearch' )
+				->warning( "Title search result type hit a match but we can't " .
+					"figure out what caused the match: {namespace}:{title}",
+					[ 'namespace' => $r->namespace, 'title' => $r->title ] );
+			$resultForTitle['titleMatch'] = $title;
+		}
+
+		return $resultForTitle;
 	}
 }
 
@@ -301,10 +336,10 @@ class FullTextResultsType extends BaseResultsType {
 	 * Get one fragment from redirect title and heading each or else they
 	 * won't be sorted by score.
 	 *
-	 * @param array $highlightSource
+	 * @param array $extraHighlightFields
 	 * @return array|null of highlighting configuration
 	 */
-	public function getHighlightingConfiguration( array $highlightSource ) {
+	public function getHighlightingConfiguration( array $extraHighlightFields ) {
 		global $wgCirrusSearchUseExperimentalHighlighter,
 			$wgCirrusSearchFragmentSize;
 
@@ -375,21 +410,21 @@ class FullTextResultsType extends BaseResultsType {
 		}
 		// If there isn't a match just return a match sized chunk from the beginning of the page.
 		$text = $remainingText;
-		$text[ 'no_match_size' ] = $text[ 'fragment_size' ];
-		if ( isset( $text[ 'options' ][ 'skip_if_last_matched' ] ) ) {
-			unset( $text[ 'options' ][ 'skip_if_last_matched' ] );
-		}
 
 		$config = [
-			'pre_tags' => [ Searcher::HIGHLIGHT_PRE ],
-			'post_tags' => [ Searcher::HIGHLIGHT_POST ],
+			'pre_tags' => [ Searcher::HIGHLIGHT_PRE_MARKER ],
+			'post_tags' => [ Searcher::HIGHLIGHT_POST_MARKER ],
 			'fields' => [],
 		];
 
-		if ( count( $highlightSource ) ) {
-			$this->configureHighlightingForSource( $config, $highlightSource, $text );
+		unset( $text[ 'options' ][ 'skip_if_last_matched' ] );
+		if ( count( $extraHighlightFields ) ) {
+			$this->configureHighlightingForRegex( $config, $extraHighlightFields, $text );
 			return $config;
 		}
+
+		$text[ 'no_match_size' ] = $text[ 'fragment_size' ];
+
 		$experimental = [];
 		if ( $this->highlightingConfig & self::HIGHLIGHT_TITLE ) {
 			$config[ 'fields' ][ 'title' ] = $entireValue;
@@ -475,57 +510,75 @@ class FullTextResultsType extends BaseResultsType {
 
 	/**
 	 * @param array &$config
-	 * @param array $highlightSource
-	 * @param array $options various options
+	 * @param array $extraHighlightFields
+	 * @param array $options
 	 */
-	private function configureHighlightingForSource( array &$config, array $highlightSource, array $options ) {
+	private function configureHighlightingForRegex( array &$config, array $extraHighlightFields, array $options ) {
 		global $wgCirrusSearchRegexMaxDeterminizedStates,
 			$wgCirrusSearchUseExperimentalHighlighter;
-		$patterns = [];
-		$locale = null;
-		$caseInsensitive = false;
-		foreach ( $highlightSource as $part ) {
-			if ( isset( $part[ 'pattern' ] ) ) {
-				$patterns[] = $part[ 'pattern' ];
-				$locale = $part[ 'locale' ];
-				$caseInsensitive |= $part[ 'insensitive' ];
+
+		$includes_text = false;
+		foreach ( $extraHighlightFields as $field => $parts ) {
+			$isTextField = $field == 'text' || $field == 'source_text';
+			$fieldOptions = $options;
+			if ( $isTextField ) {
+				$includes_text = true;
+				$fieldOptions['no_match_size'] = $fieldOptions['fragment_size'];
+			}
+			$patterns = [];
+			$locale = null;
+			$caseInsensitive = false;
+			foreach ( $parts as $part ) {
+				if ( isset( $part[ 'pattern' ] ) ) {
+					$patterns[] = $part[ 'pattern' ];
+					$locale = $part[ 'locale' ];
+					$caseInsensitive |= $part[ 'insensitive' ];
+				}
+			}
+			if ( count( $patterns ) && $wgCirrusSearchUseExperimentalHighlighter ) {
+				// highlight for regex queries is only supported by the experimental
+				// highlighter.
+				$config['fields']["$field.plain"] = $fieldOptions;
+				$fieldOptions = [
+					'regex' => $patterns,
+					'locale' => $locale,
+					'regex_flavor' => 'lucene',
+					'skip_query' => true,
+					'regex_case_insensitive' => (bool)$caseInsensitive,
+					'max_determinized_states' => $wgCirrusSearchRegexMaxDeterminizedStates,
+				];
+				if ( isset( $config['fields']["$field.plain"]['options'] ) ) {
+					$config[ 'fields' ][ "$field.plain" ][ 'options' ] = array_merge(
+						$config[ 'fields' ][ "$field.plain" ][ 'options' ],
+						$fieldOptions
+					);
+				} else {
+					$config[ 'fields' ][ "$field.plain" ][ 'options' ] = $fieldOptions;
+				}
+			} else {
+				foreach ( $extraHighlightFields as $field => $parts ) {
+					$queryStrings = [];
+					foreach ( $parts as $part ) {
+						if ( isset( $part[ 'query' ] ) ) {
+							$queryStrings[] = $part[ 'query' ];
+						}
+					}
+					if ( count( $queryStrings ) ) {
+						$config['fields']["$field.plain"] = $fieldOptions;
+						$bool = new \Elastica\Query\BoolQuery();
+						foreach ( $queryStrings as $queryString ) {
+							$bool->addShould( $queryString );
+						}
+						$config[ 'fields' ][ "$field.plain" ][ 'highlight_query' ] = $bool->toArray();
+					}
+				}
 			}
 		}
-		if ( count( $patterns ) && $wgCirrusSearchUseExperimentalHighlighter ) {
-			// highlight for regex queries is only supported by the experimental
-			// highlighter.
-			$config['fields']['source_text.plain'] = $options;
-			$options = [
-				'regex' => $patterns,
-				'locale' => $locale,
-				'regex_flavor' => 'lucene',
-				'skip_query' => true,
-				'regex_case_insensitive' => (bool)$caseInsensitive,
-				'max_determinized_states' => $wgCirrusSearchRegexMaxDeterminizedStates,
-			];
-			if ( isset( $config['fields']['source_text.plain']['options'] ) ) {
-				$config[ 'fields' ][ 'source_text.plain' ][ 'options' ] = array_merge(
-					$config[ 'fields' ][ 'source_text.plain' ][ 'options' ],
-					$options
-				);
-			} else {
-				$config[ 'fields' ][ 'source_text.plain' ][ 'options' ] = $options;
-			}
-		} else {
-			$queryStrings = [];
-			foreach ( $highlightSource as $part ) {
-				if ( isset( $part[ 'query' ] ) ) {
-					$queryStrings[] = $part[ 'query' ];
-				}
-			}
-			if ( count( $queryStrings ) ) {
-				$config['fields']['source_text.plain'] = $options;
-				$bool = new \Elastica\Query\BoolQuery();
-				foreach ( $queryStrings as $queryString ) {
-					$bool->addShould( $queryString );
-				}
-				$config[ 'fields' ][ 'source_text.plain' ][ 'highlight_query' ] = $bool->toArray();
-			}
+		if ( !$includes_text ) {
+			// Return the beginning of text as the content snippet
+			$config['fields']['text'] = $options;
+			$config['fields']['text']['no_match_size'] = $options[ 'fragment_size' ];
+			unset( $config['fields']['text']['options']['skip_if_last_matched'] );
 		}
 	}
 }
@@ -546,7 +599,7 @@ class IdResultsType implements ResultsType {
 		return [];
 	}
 
-	public function getHighlightingConfiguration( array $highlightSource ) {
+	public function getHighlightingConfiguration( array $extraHighlightFields ) {
 		return null;
 	}
 
@@ -568,5 +621,51 @@ class IdResultsType implements ResultsType {
 	 */
 	public function createEmptyResult() {
 		return [];
+	}
+}
+
+class SingleAggResultsType implements ResultsType {
+	/** @var string Name of aggregation */
+	private $name;
+
+	/** @param string $name Name of aggregation to return */
+	public function __construct( $name ) {
+		$this->name = $name;
+	}
+
+	/**
+	 * @return false|string|array corresponding to Elasticsearch source filtering syntax
+	 */
+	public function getSourceFiltering() {
+		return false;
+	}
+
+	public function getStoredFields() {
+		return [];
+	}
+
+	public function getHighlightingConfiguration( array $extraHighlightFields ) {
+		return null;
+	}
+
+	/**
+	 * @param SearchContext $context
+	 * @param \Elastica\ResultSet $resultSet
+	 * @return mixed|null Type depends on the aggregation performed. For
+	 *  a sum this will return an integer.
+	 */
+	public function transformElasticsearchResult( SearchContext $context, \Elastica\ResultSet $resultSet ) {
+		$aggs = $resultSet->getAggregations();
+		if ( isset( $aggs[$this->name] ) ) {
+			return $aggs[$this->name]['value'];
+		}
+		return $this->createEmptyResult();
+	}
+
+	/**
+	 * @return null
+	 */
+	public function createEmptyResult() {
+		return null;
 	}
 }

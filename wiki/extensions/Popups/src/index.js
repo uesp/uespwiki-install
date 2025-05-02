@@ -8,21 +8,23 @@ import * as ReduxThunk from 'redux-thunk';
 import createGateway from './gateway';
 import createUserSettings from './userSettings';
 import createPreviewBehavior from './previewBehavior';
-import createSettingsDialogRenderer from './ui/settingsDialog';
+import createSettingsDialogRenderer from './ui/settingsDialogRenderer';
 import registerChangeListener from './changeListener';
 import createIsEnabled from './isEnabled';
 import { fromElement as titleFromElement } from './title';
 import { init as rendererInit } from './ui/renderer';
 import createExperiments from './experiments';
 import { isEnabled as isStatsvEnabled } from './instrumentation/statsv';
-import { isEnabled as isEventLoggingEnabled } from './instrumentation/eventLogging';
+import { isEnabled as isEventLoggingEnabled }
+	from './instrumentation/eventLogging';
 import changeListeners from './changeListeners';
 import * as actions from './actions';
 import reducers from './reducers';
 import createMediaWikiPopupsObject from './integrations/mwpopups';
 import getUserBucket from './getUserBucket';
+import getPageviewTracker, { getSendBeacon } from './getPageviewTracker';
 
-var mw = mediaWiki,
+const mw = mediaWiki,
 	$ = jQuery,
 
 	BLACKLISTED_LINKS = [
@@ -91,6 +93,26 @@ function getEventLoggingTracker( user, config, bucket, window ) {
 }
 
 /**
+ * Returns timestamp since the beginning of the current document's origin
+ * as reported by `window.performance.now()`. See
+ * https://developer.mozilla.org/en-US/docs/Web/API/DOMHighResTimeStamp#The_time_origin
+ * for a detailed explanation of the time origin.
+ *
+ * The value returned by this function is used for [the `timestamp` property
+ * of the Schema:Popups events sent by the EventLogging
+ * instrumentation](./src/changeListeners/eventLogging.js).
+ *
+ * @return {number|null}
+ */
+function getCurrentTimestamp() {
+	if ( window.performance && window.performance.now ) {
+		// return an integer; see T182000
+		return Math.round( window.performance.now() );
+	}
+	return null;
+}
+
+/**
  * Subscribes the registered change listeners to the
  * [store](http://redux.js.org/docs/api/Store.html#store).
  *
@@ -101,58 +123,71 @@ function getEventLoggingTracker( user, config, bucket, window ) {
  * @param {PreviewBehavior} previewBehavior
  * @param {EventTracker} statsvTracker
  * @param {EventTracker} eventLoggingTracker
+ * @param {EventTracker} pageviewTracker
+ * @param {Function} getCurrentTimestamp
  */
-function registerChangeListeners( store, actions, userSettings, settingsDialog, previewBehavior, statsvTracker, eventLoggingTracker ) {
+function registerChangeListeners(
+	store, actions, userSettings, settingsDialog, previewBehavior,
+	statsvTracker, eventLoggingTracker, pageviewTracker, getCurrentTimestamp
+) {
 	registerChangeListener( store, changeListeners.footerLink( actions ) );
 	registerChangeListener( store, changeListeners.linkTitle() );
 	registerChangeListener( store, changeListeners.render( previewBehavior ) );
-	registerChangeListener( store, changeListeners.statsv( actions, statsvTracker ) );
-	registerChangeListener( store, changeListeners.syncUserSettings( userSettings ) );
-	registerChangeListener( store, changeListeners.settings( actions, settingsDialog ) );
-	registerChangeListener( store, changeListeners.eventLogging( actions, eventLoggingTracker ) );
+	registerChangeListener(
+		store, changeListeners.statsv( actions, statsvTracker ) );
+	registerChangeListener(
+		store, changeListeners.syncUserSettings( userSettings ) );
+	registerChangeListener(
+		store, changeListeners.settings( actions, settingsDialog ) );
+	registerChangeListener(
+		store,
+		changeListeners.eventLogging(
+			actions, eventLoggingTracker, getCurrentTimestamp
+		) );
+	registerChangeListener( store,
+		changeListeners.pageviews( actions, pageviewTracker )
+	);
 }
 
 /*
  * Initialize the application by:
- * 1. Creating the state store
- * 2. Binding the actions to such store
- * 3. Trigger the boot action to bootstrap the system
- * 4. When the page content is ready:
- *   - Process the eligible links for page previews
- *   - Initialize the renderer
- *   - Bind hover and click events to the eligible links to trigger actions
+ * 1. Initializing side-effects and "services"
+ * 2. Creating the state store
+ * 3. Binding the actions to such store
+ * 4. Registering change listeners
+ * 5. Triggering the boot action to bootstrap the system
+ * 6. When the page content is ready:
+ *   - Initializing the renderer
+ *   - Binding hover and click events to the eligible links to trigger actions
  */
-mw.requestIdleCallback( function () {
-	var compose = Redux.compose,
-		userBucket,
-		store,
-		boundActions,
-
+( function init() {
+	let compose = Redux.compose;
+	const
 		// So-called "services".
 		generateToken = mw.user.generateRandomSessionId,
 		gateway = createGateway( mw.config ),
-		userSettings,
-		settingsDialog,
-		experiments,
-		statsvTracker,
-		eventLoggingTracker,
-		isEnabled,
-		previewBehavior;
-
-	userBucket = getUserBucket( mw.experiments, mw.config.get( 'wgPopupsAnonsExperimentalGroupSize' ),
-		mw.user.sessionId() );
-	userSettings = createUserSettings( mw.storage );
-	settingsDialog = createSettingsDialogRenderer();
-	experiments = createExperiments( mw.experiments );
-	statsvTracker = getStatsvTracker( mw.user, mw.config, experiments );
-	eventLoggingTracker = getEventLoggingTracker(
-		mw.user,
-		mw.config,
-		userBucket,
-		window
-	);
-
-	isEnabled = createIsEnabled( mw.user, userSettings, mw.config, userBucket );
+		userBucket = getUserBucket(
+			mw.experiments,
+			mw.config.get( 'wgPopupsAnonsExperimentalGroupSize' ),
+			mw.user.sessionId()
+		),
+		userSettings = createUserSettings( mw.storage ),
+		settingsDialog = createSettingsDialogRenderer(),
+		experiments = createExperiments( mw.experiments ),
+		statsvTracker = getStatsvTracker( mw.user, mw.config, experiments ),
+		// Virtual pageviews are always tracked.
+		pageviewTracker = getPageviewTracker( mw.config,
+			mw.loader.using,
+			() => mw.eventLog,
+			getSendBeacon( window.navigator )
+		),
+		eventLoggingTracker = getEventLoggingTracker(
+			mw.user,
+			mw.config,
+			userBucket,
+			window
+		),
+		isEnabled = createIsEnabled( mw.user, userSettings, mw.config, userBucket );
 
 	// If debug mode is enabled, then enable Redux DevTools.
 	if ( mw.config.get( 'debug' ) === true ) {
@@ -160,19 +195,22 @@ mw.requestIdleCallback( function () {
 		compose = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose;
 	}
 
-	store = Redux.createStore(
+	const store = Redux.createStore(
 		Redux.combineReducers( reducers ),
 		compose( Redux.applyMiddleware(
 			ReduxThunk.default
 		) )
 	);
-	boundActions = Redux.bindActionCreators( actions, store.dispatch );
-
-	previewBehavior = createPreviewBehavior( mw.config, mw.user, boundActions );
+	const boundActions = Redux.bindActionCreators( actions, store.dispatch );
+	const previewBehavior = createPreviewBehavior(
+		mw.config, mw.user, boundActions
+	);
 
 	registerChangeListeners(
 		store, boundActions, userSettings, settingsDialog,
-		previewBehavior, statsvTracker, eventLoggingTracker
+		previewBehavior, statsvTracker, eventLoggingTracker,
+		pageviewTracker,
+		getCurrentTimestamp
 	);
 
 	boundActions.boot(
@@ -180,7 +218,8 @@ mw.requestIdleCallback( function () {
 		mw.user,
 		userSettings,
 		generateToken,
-		mw.config
+		mw.config,
+		window.location.href
 	);
 
 	/*
@@ -189,37 +228,39 @@ mw.requestIdleCallback( function () {
 	 */
 	mw.popups = createMediaWikiPopupsObject( store );
 
-	mw.hook( 'wikipage.content' ).add( function ( $container ) {
-		var invalidLinksSelector = BLACKLISTED_LINKS.join( ', ' ),
-			validLinkSelector = 'a[href][title]:not(' + invalidLinksSelector + ')';
+	const invalidLinksSelector = BLACKLISTED_LINKS.join( ', ' ),
+		validLinkSelector = `#mw-content-text a[href][title]:not(${ invalidLinksSelector })`;
 
-		rendererInit();
+	rendererInit();
 
-		$container
-			.on( 'mouseover keyup', validLinkSelector, function ( event ) {
-				var mwTitle = titleFromElement( this, mw.config );
+	/*
+	 * Binding hover and click events to the eligible links to trigger actions
+	 */
+	$( document )
+		.on( 'mouseover keyup', validLinkSelector, function ( event ) {
+			const mwTitle = titleFromElement( this, mw.config );
 
-				if ( mwTitle ) {
-					boundActions.linkDwell( mwTitle, this, event, gateway, generateToken );
-				}
-			} )
-			.on( 'mouseout blur', validLinkSelector, function () {
-				var mwTitle = titleFromElement( this, mw.config );
+			if ( mwTitle ) {
+				boundActions.linkDwell(
+					mwTitle, this, event, gateway, generateToken
+				);
+			}
+		} )
+		.on( 'mouseout blur', validLinkSelector, function () {
+			const mwTitle = titleFromElement( this, mw.config );
 
-				if ( mwTitle ) {
-					boundActions.abandon( this );
-				}
-			} )
-			.on( 'click', validLinkSelector, function () {
-				var mwTitle = titleFromElement( this, mw.config );
+			if ( mwTitle ) {
+				boundActions.abandon( this );
+			}
+		} )
+		.on( 'click', validLinkSelector, function () {
+			const mwTitle = titleFromElement( this, mw.config );
 
-				if ( mwTitle ) {
-					boundActions.linkClick( this );
-				}
-			} );
-
-	} );
-} );
+			if ( mwTitle ) {
+				boundActions.linkClick( this );
+			}
+		} );
+}() );
 
 window.Redux = Redux;
 window.ReduxThunk = ReduxThunk;

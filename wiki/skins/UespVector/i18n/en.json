@@ -1,6 +1,0 @@
-{
-	"skinname-uespvector": "UESP Vector",
-	"uespvector-skin-desc": "UESP's version of Vector",
-	"uespvector.css": "/* CSS placed here will affect users of the Vector skin */",
-	"uespvector.js": "/* Any JavaScript here will be loaded for users using the Vector skin */"
-}

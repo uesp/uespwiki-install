@@ -1,7 +1,11 @@
 import eventLogging from '../../../src/changeListeners/eventLogging';
 
+function getCurrentTimestamp() {
+	return 123;
+}
+
 QUnit.module( 'ext.popups/eventLogging', {
-	beforeEach: function () {
+	beforeEach() {
 		this.boundActions = {
 			eventLogged: this.sandbox.spy()
 		};
@@ -9,7 +13,8 @@ QUnit.module( 'ext.popups/eventLogging', {
 		this.eventLoggingTracker = this.sandbox.spy();
 		this.changeListener = eventLogging(
 			this.boundActions,
-			this.eventLoggingTracker
+			this.eventLoggingTracker,
+			getCurrentTimestamp
 		);
 	}
 } );
@@ -17,22 +22,19 @@ QUnit.module( 'ext.popups/eventLogging', {
 function createState( baseData, event ) {
 	return {
 		eventLogging: {
-			baseData: baseData,
-			event: event
+			baseData,
+			event
 		}
 	};
 }
 
 QUnit.test( 'it should log the queued event', function ( assert ) {
-	var baseData,
-		state;
-
-	baseData = {
+	const baseData = {
 		foo: 'bar',
 		baz: 'qux'
 	};
 
-	state = createState( baseData, {
+	const state = createState( baseData, {
 		action: 'pageLoaded'
 	} );
 
@@ -44,7 +46,8 @@ QUnit.test( 'it should log the queued event', function ( assert ) {
 			{
 				foo: 'bar',
 				baz: 'qux',
-				action: 'pageLoaded'
+				action: 'pageLoaded',
+				timestamp: 123
 			}
 		),
 		'It should merge the event data and the accumulated base data.'
@@ -52,7 +55,7 @@ QUnit.test( 'it should log the queued event', function ( assert ) {
 } );
 
 QUnit.test( 'it should call the eventLogged bound action creator', function ( assert ) {
-	var state = createState( {}, undefined );
+	const state = createState( {}, undefined );
 
 	this.changeListener( undefined, state );
 
@@ -69,6 +72,7 @@ QUnit.test( 'it should call the eventLogged bound action creator', function ( as
 
 	assert.ok( this.boundActions.eventLogged.called );
 	assert.deepEqual( this.boundActions.eventLogged.getCall( 0 ).args[ 0 ], {
-		action: 'pageLoaded'
+		action: 'pageLoaded',
+		timestamp: 123
 	} );
 } );

@@ -5,16 +5,15 @@
 			"Peter Bowman",
 			"Rezonansowy",
 			"WTM",
-			"Ty221"
+			"Ty221",
+			"Railfail536"
 		]
 	},
-	"popups-message": "Wyskakujące okienka",
+	"popups-message": "Podglądy strony",
 	"popups-desc": "Wyświetla podgląd po umieszczeniu wskaźnika myszy na odnośniku",
-	"popups-redirects": "przekierowuje do<h3>$1</h3>",
 	"popups-settings-title": "Podgląd strony",
-	"popups-settings-description": "To narzędzie umożliwia szybki podgląd linków do stron wiki i przypisów.",
 	"popups-settings-option-simple": "Włącz",
-	"popups-settings-option-simple-description": "Zobacz zdanie wprowadzające oraz podgląd obrazka na stronie. Zalecane dla czytelników.",
+	"popups-settings-option-simple-description": "Uzyskaj szybkie podglądy tematu podczas czytania strony.",
 	"popups-settings-option-advanced": "Zaawansowany",
 	"popups-settings-option-off": "Wyłącz",
 	"popups-settings-save": "Zapisz",
@@ -22,9 +21,13 @@
 	"popups-settings-cancel": "Anuluj",
 	"popups-settings-help": "Możesz ponownie włączyć podgląd za pomocą linku znajdującego się w stopce strony.",
 	"popups-settings-enable": "Aktywuj podgląd",
-	"popups-send-feedback": "Wyślij opinię (link zewnętrzny)",
-	"popups-preview-no-preview": "Wygląda na to, że nie ma podglądu tej strony",
+	"popups-preview-no-preview": "Wystąpił problem z wyświetlaniem podglądu strony",
+	"popups-preview-footer-read": "Przejdź do tej strony",
+	"popups-preview-disambiguation": "Ten tytuł odnosi się do więcej niż jednej strony",
+	"popups-preview-disambiguation-link": "Pokaż podobne strony",
 	"prefs-reading": "Preferencje czytania",
+	"popups-prefs-optin-title": "Podgląd stron\n\n<em>Podczas czytania strony zapewni szybki podgląd tematu</em>",
 	"popups-prefs-optin-enabled-label": "Włącz",
-	"popups-prefs-optin-disabled-label": "Wyłącz"
+	"popups-prefs-optin-disabled-label": "Wyłącz",
+	"popups-prefs-conflicting-gadgets-info": "Niektóre gadżety i inne ustawienia mogą wpływać na wydajność tej funkcji. Jeśli wystąpią problemy, przejrzyj swoje gadżety i skrypty, w tym globalne."
 }

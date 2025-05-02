@@ -7,7 +7,8 @@
 			"Matma Rex",
 			"Robin Owain",
 			"Diafol",
-			"Macofe"
+			"Macofe",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Dewin Uwchlwytho",
@@ -120,8 +121,6 @@
 	"mwe-upwiz-copy-location": "Copïo'r man",
 	"mwe-upwiz-copy-other": "Copïo'r wybodaeth arall",
 	"mwe-upwiz-desc": "Disgrifiad",
-	"mwe-upwiz-desc-add-n": "Ychwanegu disgrifiad mewn iaith arall",
-	"mwe-upwiz-desc-add-0": "Ychwanegu disgrifiad",
 	"mwe-upwiz-title": "Teitl",
 	"mwe-upwiz-date-created": "Dyddiad creu",
 	"mwe-upwiz-location": "Lleoliad",
@@ -226,7 +225,6 @@
 	"mwe-upwiz-license-own-pd": "Ildiwyd pob hawl gyda'r drwydded Creative Commons Zero (yn debyg i'r parth cyhoeddus)",
 	"mwe-upwiz-license-pd-old-100": "Bu farw'r awdur mwy na 100 mlynedd yn ôl",
 	"mwe-upwiz-license-pd-old": "Bu farw'r awdur mwy na 70 mlynedd yn ôl",
-	"mwe-upwiz-license-pd-art": "Atgynhyrchiad cywir o ddarlun sydd yn y parth cyhoeddus",
 	"mwe-upwiz-license-pd-us": "Cyhoeddwyd yn gyntaf yn UDA, a hynny cyn 1923",
 	"mwe-upwiz-license-pd-usgov": "Gwaith gwreiddiol o waith Llywodraeth Ffederal yr Unol Daleithiau",
 	"mwe-upwiz-license-pd-usgov-nasa": "Gwaith gwreiddiol o NASA",
@@ -237,7 +235,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Mae hawlfraint arno, ond gall gael ei ddefnyddio at unrhyw bwrpas, gan gynnwys masnach.",
 	"mwe-upwiz-license-attribution": "Caniateir ei defnyddio at unrhyw ddiben, gan gynnwys masnach, cyhyd a'i bod yn cael ei dadogi'n gywir i ddeilydd yr hawlfraint",
 	"mwe-upwiz-license-gfdl": "GNU Free Documentation License",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Haelfraint, rhaid tadogi (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Haelfraint, rhaid tadogi (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "Cyhoeddodd deilydd yr hawlfraint y {{PLURAL:$1||gwaith hwn|gweithiau hyn}} gyda'r drwydded Creative Commons cywir",
 	"mwe-upwiz-license-cc-subhead": "Nid yw pob trwydded Creative Commons yn addas i'r wefan hon. Sicrhewch bod deilydd yr hawlfraint wedi defnyddio un o'r trwyddedi addas.",
 	"mwe-upwiz-license-flickr-head": "Cyhoeddodd deilydd yr hawlfraint ei  {{PLURAL:$1||lun neu ei fideo|ei luniau neu ei fideos}} ar Flickr gyda'r drwydded cywir arnynt",

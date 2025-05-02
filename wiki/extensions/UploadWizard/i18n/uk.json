@@ -26,7 +26,8 @@
 			"NickK",
 			"Matma Rex",
 			"Macofe",
-			"Piramidion"
+			"Piramidion",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Майстер завантаження",
@@ -156,9 +157,6 @@
 	"mwe-upwiz-copy-location": "Скопіювати розташування",
 	"mwe-upwiz-copy-other": "Скопіювати іншу інформацію",
 	"mwe-upwiz-desc": "Опис",
-	"mwe-upwiz-desc-placeholder": "Опишіть файл",
-	"mwe-upwiz-desc-add-n": "Додати опис іншою мовою",
-	"mwe-upwiz-desc-add-0": "Додати опис",
 	"mwe-upwiz-title": "Назва",
 	"mwe-upwiz-date-created": "Дата створення",
 	"mwe-upwiz-select-date": "Виберіть дату",
@@ -285,7 +283,6 @@
 	"mwe-upwiz-license-own-pd": "Відмова від усіх прав за ліцензією Creative Commons Zero (як суспільне надбання)",
 	"mwe-upwiz-license-pd-old-100": "Автор помер більш 100 років тому",
 	"mwe-upwiz-license-pd-old": "Автор помер понад 70 років тому",
-	"mwe-upwiz-license-pd-art": "Точна репродукція картини, що перебуває в суспільному надбанні",
 	"mwe-upwiz-license-pd-us": "Вперше опубліковано в Сполучених Штатах до 1923 року",
 	"mwe-upwiz-license-pd-usgov": "Оригінальна робота федерального уряду США",
 	"mwe-upwiz-license-pd-usgov-nasa": "Оригінальна робота НАСА",
@@ -296,7 +293,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Захищено авторським правом, але може бути використано для будь-яких цілей, для комерційних також",
 	"mwe-upwiz-license-attribution": "Може бути використаний для будь-яких цілей, у тому числі й комерційних, якщо правильно зазначено правовласника",
 	"mwe-upwiz-license-gfdl": "GNU Free Documentation License",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Копілефт, потрібно зазначати авторів (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Копілефт, потрібно зазначати авторів (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "Власник авторських прав опублікував {{PLURAL:$1|1=цей твір|ці твори}} на умовах ліцензії Creative Commons",
 	"mwe-upwiz-license-cc-subhead": "Не всі ліцензії Creative Commons підходять для цього сайту. Переконайтеся, що правовласник використовував одну з наступних ліцензій.",
 	"mwe-upwiz-license-flickr-head": "Власника авторських прав опублікував {{PLURAL:$1|1=це фото або відео|ці фото або відео}} на Flickr під ліцензією",

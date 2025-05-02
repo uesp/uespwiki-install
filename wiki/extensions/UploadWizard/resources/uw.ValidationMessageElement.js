@@ -28,7 +28,7 @@
 	};
 
 	// Hack: Steal methods from OO.ui.FieldLayout.
-	// TODO: Upstream ValidationMessageElement to OOjs UI, make FieldLayout use it.
+	// TODO: Upstream ValidationMessageElement to OOUI, make FieldLayout use it.
 	uw.ValidationMessageElement.prototype.makeMessage = OO.ui.FieldLayout.prototype.makeMessage;
 	uw.ValidationMessageElement.prototype.setErrors = OO.ui.FieldLayout.prototype.setErrors;
 	uw.ValidationMessageElement.prototype.setNotices = OO.ui.FieldLayout.prototype.setNotices;
@@ -36,9 +36,14 @@
 
 	/**
 	 * Check the field's widget for errors and warnings and display them in the UI.
+	 *
+	 * @param {boolean} thorough True to perform a thorough validity check. Defaults to false for a fast on-change check.
+	 * @return {jQuery.Promise}
 	 */
-	uw.ValidationMessageElement.prototype.checkValidity = function () {
+	uw.ValidationMessageElement.prototype.checkValidity = function ( thorough ) {
 		var element = this;
+		thorough = thorough || false;
+
 		if ( !this.validatedWidget.getWarnings || !this.validatedWidget.getErrors ) {
 			// Don't do anything for non-Details widgets
 			return;
@@ -46,13 +51,16 @@
 		if ( this.validatedWidget.pushPending ) {
 			this.validatedWidget.pushPending();
 		}
-		$.when(
-			this.validatedWidget.getWarnings(),
-			this.validatedWidget.getErrors()
-		).done( function ( warnings, errors ) {
+
+		return $.when(
+			this.validatedWidget.getWarnings( thorough ),
+			this.validatedWidget.getErrors( thorough )
+		).then( function ( warnings, errors ) {
 			// this.notices and this.errors are arrays of mw.Messages and not strings in this subclass
 			element.setNotices( warnings );
 			element.setErrors( errors );
+
+			return $.Deferred().resolve( warnings, errors ).promise();
 		} ).always( function () {
 			if ( element.validatedWidget.popPending ) {
 				element.validatedWidget.popPending();
@@ -68,13 +76,16 @@
 	 */
 	uw.ValidationMessageElement.prototype.makeMessage = function ( kind, error ) {
 		var code, content, $listItem;
-		if ( error.parseDom ) {
+		if ( error.parse ) {
+			// mw.Message object
 			code = error.key;
-			content = error.parseDom();
+			content = new OO.ui.HtmlSnippet( error.parse() );
 		} else {
+			// { key: ..., html: ... } object (= formatted API error responses)
 			code = error.code;
 			content = $( $.parseHTML( error.html ) );
 		}
+
 		$listItem = OO.ui.FieldLayout.prototype.makeMessage.call( this, kind, content )
 			.addClass( 'mwe-upwiz-fieldLayout-' + kind + '-' + code );
 		return $listItem;

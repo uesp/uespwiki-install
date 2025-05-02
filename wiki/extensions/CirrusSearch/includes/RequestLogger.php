@@ -4,7 +4,6 @@ namespace CirrusSearch;
 
 use DeferredUpdates;
 use MediaWiki\Logger\LoggerFactory;
-use RequestContext;
 use SearchResultSet;
 use User;
 
@@ -197,7 +196,7 @@ class RequestLogger {
 					'hits' => isset( $context['hits'] ) ? $this->encodeHits( $context['hits'] ) : [],
 				];
 				if ( !empty( $context['syntax'] ) ) {
-					$request['payload']['syntax'] = join( ',', $context['syntax'] );
+					$request['payload']['syntax'] = implode( ',', $context['syntax'] );
 				}
 				$allHits = array_merge( $allHits, $request['hits'] );
 				if ( $log->isCachedResponse() ) {
@@ -262,6 +261,12 @@ class RequestLogger {
 				// When tracking down performance issues it is useful to know if they are localized
 				// to a particular set of instances
 				'host' => gethostname(),
+				// Referer can be helpful when trying to figure out what requests were made by bots.
+				'referer' => (string)( $wgRequest->getHeader( 'Referer' ) ?: '' ),
+				// Reasonable indication it's not a "normal" web request, as a standard web request
+				// would have first had a WMF-Last-Access cookie set, and then submitting an
+				// autocomplete/fulltext search would have sent that as well.
+				'hascookies' => $wgRequest->getHeader( 'Cookie' ) ? "1" : "0",
 			],
 			'requests' => $requests,
 		];

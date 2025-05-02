@@ -42,7 +42,7 @@
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	//
 	// -- ogv-support.js
@@ -53,7 +53,7 @@
 	(function() {
 
 	  var OGVCompat = __webpack_require__(1),
-	    OGVVersion = ("1.4.1-20170407171329-c48dd8c2");
+	    OGVVersion = ("1.5.7-20180219202209-808c5b29");
 
 	  if (window) {
 	    // 1.0-compat globals
@@ -69,9 +69,9 @@
 	})();
 
 
-/***/ },
+/***/ }),
 /* 1 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	var BogoSlow = __webpack_require__(2);
 
@@ -144,9 +144,9 @@
 	module.exports = OGVCompat;
 
 
-/***/ },
+/***/ }),
 /* 2 */
-/***/ function(module, exports) {
+/***/ (function(module, exports) {
 
 	/**
 	 * A quick CPU/JS engine benchmark to guesstimate whether we're
@@ -268,5 +268,5 @@
 	module.exports = BogoSlow;
 
 
-/***/ }
+/***/ })
 /******/ ]);

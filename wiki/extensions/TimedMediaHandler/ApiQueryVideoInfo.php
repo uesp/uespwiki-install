@@ -1,13 +1,11 @@
 <?php
-// @codingStandardsIgnoreStart
 /**
  * Extends imageinfo with support for videoinfo sources property.
  *
  * Alternatively core ApiQueryImageInfo could support being extended in some straightforward ways.
- * see: http://www.mediawiki.org/wiki/User:Catrope/Extension_review/TimedMediaHandler#ApiQueryVideoInfo.php
+ * see: https://www.mediawiki.org/wiki/User:Catrope/Extension_review/TimedMediaHandler#ApiQueryVideoInfo.php
  *
  */
-// @codingStandardsIgnoreEnd
 
 class ApiQueryVideoInfo extends ApiQueryImageInfo {
 
@@ -58,6 +56,7 @@ class ApiQueryVideoInfo extends ApiQueryImageInfo {
 
 	/**
 	 * @see ApiBase::getExamplesMessages()
+	 * @return array
 	 */
 	protected function getExamplesMessages() {
 		return [

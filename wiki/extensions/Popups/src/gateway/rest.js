@@ -4,8 +4,7 @@
 
 import { createModel, createNullModel } from '../preview/model';
 
-var RESTBASE_ENDPOINT = '/api/rest_v1/page/summary/',
-	RESTBASE_PROFILE = 'https://www.mediawiki.org/wiki/Specs/Summary/1.2.0',
+const RESTBASE_PROFILE = 'https://www.mediawiki.org/wiki/Specs/Summary/1.2.0',
 	mw = window.mediaWiki,
 	$ = jQuery;
 /**
@@ -26,13 +25,11 @@ var RESTBASE_ENDPOINT = '/api/rest_v1/page/summary/',
  * @param {Function} ajax A function with the same signature as `jQuery.ajax`
  * @param {Object} config Configuration that affects the major behavior of the
  *  gateway.
- * @param {Number} config.THUMBNAIL_SIZE The length of the major dimension of
- *  the thumbnail.
- * @param {Function} extractParser A function that takes response and returns parsed extract
- * @returns {RESTBaseGateway}
+ * @param {Function} extractParser A function that takes response and returns
+ *  parsed extract
+ * @return {RESTBaseGateway}
  */
 export default function createRESTBaseGateway( ajax, config, extractParser ) {
-
 	/**
 	 * Fetches page data from [the RESTBase page summary endpoint][0].
 	 *
@@ -44,32 +41,49 @@ export default function createRESTBaseGateway( ajax, config, extractParser ) {
 	 * @return {jQuery.Promise}
 	 */
 	function fetch( title ) {
+		const endpoint = config.endpoint;
+
 		return ajax( {
-			url: RESTBASE_ENDPOINT + encodeURIComponent( title ),
+			url: endpoint + encodeURIComponent( title ),
 			headers: {
-				Accept: 'application/json; charset=utf-8; ' +
-					'profile="' + RESTBASE_PROFILE + '"'
+				Accept: `application/json; charset=utf-8; profile="${ RESTBASE_PROFILE }"`
 			}
 		} );
 	}
 
 	function getPageSummary( title ) {
-		var result = $.Deferred();
+		const result = $.Deferred();
 
 		fetch( title )
 			.then(
-				function ( page ) {
+				( page ) => {
+					// Endpoint response may be empty or simply missing a title.
+					if ( !page || !page.title ) {
+						page = $.extend( true, page || {}, { title } );
+					}
+					// And extract may be omitted if empty string
+					if ( page.extract === undefined ) {
+						page.extract = '';
+					}
 					result.resolve(
 						convertPageToModel( page, config.THUMBNAIL_SIZE, extractParser ) );
 				},
-				function ( jqXHR ) {
+				( jqXHR, textStatus, errorThrown ) => {
+					// Adapt the response to the ideal API.
+					// TODO: should we just let the client handle this too?
 					if ( jqXHR.status === 404 ) {
-
 						result.resolve(
-							createNullModel( title )
+							createNullModel( title, new mw.Title( title ).getUrl() )
 						);
 					} else {
-						result.reject();
+						// The client will choose how to handle these errors which may
+						// include those due to HTTP 5xx status. The rejection typing
+						// matches Fetch failures.
+						result.reject( 'http', {
+							xhr: jqXHR,
+							textStatus,
+							exception: errorThrown
+						} );
 					}
 				}
 			);
@@ -78,9 +92,9 @@ export default function createRESTBaseGateway( ajax, config, extractParser ) {
 	}
 
 	return {
-		fetch: fetch,
-		convertPageToModel: convertPageToModel,
-		getPageSummary: getPageSummary
+		fetch,
+		convertPageToModel,
+		getPageSummary
 	};
 }
 
@@ -97,23 +111,37 @@ export default function createRESTBaseGateway( ajax, config, extractParser ) {
  * @param {Object} thumbnail The thumbnail image
  * @param {Object} original The original image
  * @param {Number} thumbSize The requested size
- * @returns {Object}
+ * @return {Object}
  */
 function generateThumbnailData( thumbnail, original, thumbSize ) {
-	var parts = thumbnail.source.split( '/' ),
-		lastPart = parts[ parts.length - 1 ],
-		filename,
-		width,
-		height;
+	const parts = thumbnail.source.split( '/' ),
+		lastPart = parts[ parts.length - 1 ];
 
 	// The last part, the thumbnail's full filename, is in the following form:
 	// ${width}px-${filename}.${extension}. Splitting the thumbnail's filename
 	// makes this function resilient to the thumbnail not having the same
 	// extension as the original image, which is definitely the case for SVG's
 	// where the thumbnail's extension is .svg.png.
-	filename = lastPart.substr( lastPart.indexOf( 'px-' ) + 3 );
+	const filenamePxIndex = lastPart.indexOf( 'px-' );
+	if ( filenamePxIndex === -1 ) {
+		// The thumbnail size is not customizable. Presumably, RESTBase requested a
+		// width greater than the original and so MediaWiki returned the original's
+		// URL instead of a thumbnail compatible URL. An original URL does not have
+		// a "thumb" path, e.g.:
+		//
+		//   https://upload.wikimedia.org/wikipedia/commons/a/aa/Red_Giant_Earth_warm.jpg
+		//
+		// Instead of:
+		//
+		//   https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Red_Giant_Earth_warm.jpg/512px-Red_Giant_Earth_warm.jpg
+		//
+		// Use the original.
+		return original;
+	}
+	const filename = lastPart.substr( filenamePxIndex + 3 );
 
 	// Scale the thumbnail's largest dimension.
+	let width, height;
 	if ( thumbnail.width > thumbnail.height ) {
 		width = thumbSize;
 		height = Math.floor( ( thumbSize / thumbnail.width ) * thumbnail.height );
@@ -128,12 +156,12 @@ function generateThumbnailData( thumbnail, original, thumbSize ) {
 		return original;
 	}
 
-	parts[ parts.length - 1 ] = width + 'px-' + filename;
+	parts[ parts.length - 1 ] = `${ width }px-${ filename }`;
 
 	return {
 		source: parts.join( '/' ),
-		width: width,
-		height: height
+		width,
+		height
 	};
 }
 
@@ -145,7 +173,7 @@ function generateThumbnailData( thumbnail, original, thumbSize ) {
  * @param {Object} page
  * @param {Number} thumbSize
  * @param {Function} extractParser
- * @returns {PreviewModel}
+ * @return {PreviewModel}
  */
 function convertPageToModel( page, thumbSize, extractParser ) {
 	return createModel(
@@ -154,6 +182,11 @@ function convertPageToModel( page, thumbSize, extractParser ) {
 		page.lang,
 		page.dir,
 		extractParser( page ),
-		page.thumbnail ? generateThumbnailData( page.thumbnail, page.originalimage, thumbSize ) : undefined
+		page.type,
+		page.thumbnail ?
+			generateThumbnailData(
+				page.thumbnail, page.originalimage, thumbSize
+			) : undefined,
+		page.pageid
 	);
 }

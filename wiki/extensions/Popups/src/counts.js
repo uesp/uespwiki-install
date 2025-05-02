@@ -14,7 +14,7 @@
  * @return {String}
  */
 exports.getEditCountBucket = function getEditCountBucket( count ) {
-	var bucket;
+	let bucket;
 
 	if ( count === 0 ) {
 		bucket = '0';
@@ -28,7 +28,7 @@ exports.getEditCountBucket = function getEditCountBucket( count ) {
 		bucket = '1000+';
 	}
 
-	return bucket + ' edits';
+	return `${ bucket } edits`;
 };
 
 /**
@@ -46,7 +46,7 @@ exports.getEditCountBucket = function getEditCountBucket( count ) {
  * @return {String}
  */
 exports.getPreviewCountBucket = function getPreviewCountBucket( count ) {
-	var bucket;
+	let bucket;
 
 	if ( count === 0 ) {
 		bucket = '0';
@@ -58,5 +58,5 @@ exports.getPreviewCountBucket = function getPreviewCountBucket( count ) {
 		bucket = '21+';
 	}
 
-	return bucket !== undefined ? ( bucket + ' previews' ) : 'unknown';
+	return bucket !== undefined ? ( `${ bucket } previews` ) : 'unknown';
 };

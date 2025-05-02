@@ -3,7 +3,7 @@ import { createModel } from '../../../src/preview/model';
 import eventLogging from '../../../src/reducers/eventLogging';
 
 QUnit.module( 'ext.popups/reducers#eventLogging', {
-	beforeEach: function () {
+	beforeEach() {
 		this.initialState = eventLogging( undefined, {
 			type: '@@INIT'
 		} );
@@ -23,31 +23,30 @@ QUnit.test( '@@INIT', function ( assert ) {
 } );
 
 QUnit.test( 'BOOT', function ( assert ) {
-	var action = {
-			type: 'BOOT',
-			isEnabled: true,
-			isNavPopupsEnabled: false,
-			sessionToken: '0123456789',
-			pageToken: '9876543210',
-			page: {
-				title: 'Foo',
-				namespaceID: 1,
-				id: 2
-			},
-			user: {
-				isAnon: false,
-				editCount: 11,
-				previewCount: 22
-			}
+	const action = {
+		type: 'BOOT',
+		isEnabled: true,
+		isNavPopupsEnabled: false,
+		sessionToken: '0123456789',
+		pageToken: '9876543210',
+		page: {
+			title: 'Foo',
+			namespaceId: 1,
+			id: 2
 		},
-		expectedEditCountBucket,
-		expectedPreviewCountBucket,
-		state;
+		user: {
+			isAnon: false,
+			editCount: 11,
+			previewCount: 22
+		}
+	};
 
-	expectedEditCountBucket = counts.getEditCountBucket( action.user.editCount );
-	expectedPreviewCountBucket = counts.getPreviewCountBucket( action.user.previewCount );
+	const expectedEditCountBucket =
+		counts.getEditCountBucket( action.user.editCount );
+	const expectedPreviewCountBucket =
+		counts.getPreviewCountBucket( action.user.previewCount );
 
-	state = eventLogging( this.initialState, action );
+	let state = eventLogging( this.initialState, action );
 
 	assert.deepEqual(
 		state,
@@ -55,7 +54,7 @@ QUnit.test( 'BOOT', function ( assert ) {
 			previewCount: action.user.previewCount,
 			baseData: {
 				pageTitleSource: action.page.title,
-				namespaceIdSource: action.page.namespaceID,
+				namespaceIdSource: action.page.namespaceId,
 				pageIdSource: action.page.id,
 				isAnon: action.user.isAnon,
 				popupEnabled: action.isEnabled,
@@ -87,15 +86,12 @@ QUnit.test( 'BOOT', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'EVENT_LOGGED', function ( assert ) {
-	var state,
-		action;
-
-	state = {
+QUnit.test( 'EVENT_LOGGED', ( assert ) => {
+	let state = {
 		event: {}
 	};
 
-	action = {
+	let action = {
 		type: 'EVENT_LOGGED',
 		event: {}
 	};
@@ -131,13 +127,12 @@ QUnit.test( 'EVENT_LOGGED', function ( assert ) {
 
 } );
 
-QUnit.test( 'PREVIEW_SHOW', function ( assert ) {
-	var state,
-		count = 22,
+QUnit.test( 'PREVIEW_SHOW', ( assert ) => {
+	const count = 22,
 		expectedCount = count + 1,
 		token = '1234567890';
 
-	state = {
+	let state = {
 		previewCount: count,
 		baseData: {
 			previewCountBucket: counts.getPreviewCountBucket( count )
@@ -146,13 +141,13 @@ QUnit.test( 'PREVIEW_SHOW', function ( assert ) {
 
 		// state.interaction.started is used in this part of the reducer.
 		interaction: {
-			token: token
+			token
 		}
 	};
 
 	state = eventLogging( state, {
 		type: 'PREVIEW_SHOW',
-		token: token
+		token
 	} );
 
 	assert.equal(
@@ -171,24 +166,21 @@ QUnit.test( 'PREVIEW_SHOW', function ( assert ) {
 } );
 
 QUnit.module( 'ext.popups/reducers#eventLogging @integration', {
-	beforeEach: function () {
+	beforeEach() {
 		this.link = $( '<a>' );
 	}
 } );
 
 QUnit.test( 'LINK_DWELL starts an interaction', function ( assert ) {
-	var state,
-		action;
-
-	state = {
+	const state = {
 		interaction: undefined
 	};
 
-	action = {
+	const action = {
 		type: 'LINK_DWELL',
 		el: this.link,
 		title: 'Foo',
-		namespaceID: 1,
+		namespaceId: 1,
 		token: '0987654321',
 		timestamp: Date.now()
 	};
@@ -199,7 +191,7 @@ QUnit.test( 'LINK_DWELL starts an interaction', function ( assert ) {
 			interaction: {
 				link: action.el,
 				title: 'Foo',
-				namespaceID: 1,
+				namespaceId: 1,
 				token: action.token,
 				started: action.timestamp,
 
@@ -211,19 +203,17 @@ QUnit.test( 'LINK_DWELL starts an interaction', function ( assert ) {
 } );
 
 QUnit.test( 'LINK_DWELL doesn\'t start a new interaction under certain conditions', function ( assert ) {
-	var state,
-		now = Date.now(),
-		action;
+	const now = Date.now();
 
-	state = {
+	let state = {
 		interaction: undefined
 	};
 
-	action = {
+	const action = {
 		type: 'LINK_DWELL',
 		el: this.link,
 		title: 'Foo',
-		namespaceID: 1,
+		namespaceId: 1,
 		token: '0987654321',
 		timestamp: now
 	};
@@ -240,7 +230,7 @@ QUnit.test( 'LINK_DWELL doesn\'t start a new interaction under certain condition
 		{
 			link: action.el,
 			title: 'Foo',
-			namespaceID: 1,
+			namespaceId: 1,
 			token: '0987654321',
 			started: now,
 
@@ -249,98 +239,92 @@ QUnit.test( 'LINK_DWELL doesn\'t start a new interaction under certain condition
 	);
 } );
 
-QUnit.test(
-	'LINK_DWELL should enqueue a "dismissed" or "dwelledButAbandoned" event under certain conditions',
-	function ( assert ) {
-		var token = '0987654321',
-			now = Date.now(),
-			state;
-
-		// Read: The user dwells on link A, abandons it, and dwells on link B fewer
-		// than 300 ms after (before the ABANDON_END action is reduced).
-		state = eventLogging( undefined, {
-			type: 'LINK_DWELL',
-			el: this.link,
-			title: 'Foo',
-			namespaceID: 1,
-			token: token,
-			timestamp: now
-		} );
-
-		state = eventLogging( state, {
-			type: 'ABANDON_START',
-			timestamp: now + 250
-		} );
-
-		state = eventLogging( state, {
-			type: 'LINK_DWELL',
-			el: $( '<a>' ),
-			title: 'Bar',
-			namespaceID: 1,
-			token: '1234567890',
-			timestamp: now + 500
-		} );
-
-		assert.deepEqual(
-			state.event,
-			{
-				pageTitleHover: 'Foo',
-				namespaceIdHover: 1,
-				linkInteractionToken: '0987654321',
-				totalInteractionTime: 250, // 250 - 0
-				action: 'dwelledButAbandoned'
-			}
-		);
-
-		// ---
-
-		state = eventLogging( undefined, {
-			type: 'LINK_DWELL',
-			el: this.link,
-			title: 'Foo',
-			namespaceID: 1,
-			token: token,
-			timestamp: now
-		} );
-
-		state = eventLogging( state, {
-			type: 'LINK_CLICK',
-			el: this.link
-		} );
-
-		state = eventLogging( state, {
-			type: 'LINK_DWELL',
-			el: $( '<a>' ),
-			title: 'Bar',
-			namespaceID: 1,
-			token: 'banana',
-			timestamp: now + 500
-		} );
-
-		assert.strictEqual(
-			state.event,
-			undefined,
-			'It shouldn\'t enqueue either event if the interaction is finalized.'
-		);
-	}
-);
-
-QUnit.test( 'LINK_CLICK should enqueue an "opened" event', function ( assert ) {
-	var token = '0987654321',
-		state,
-		expectedState,
+QUnit.test( 'LINK_DWELL should enqueue a "dismissed" or "dwelledButAbandoned" event under certain conditions', function ( assert ) {
+	const token = '0987654321',
 		now = Date.now();
 
-	state = {
-		interaction: undefined
-	};
-
-	expectedState = state = eventLogging( state, {
+	// Read: The user dwells on link A, abandons it, and dwells on link B fewer
+	// than 300 ms after (before the ABANDON_END action is reduced).
+	let state = eventLogging( undefined, {
 		type: 'LINK_DWELL',
 		el: this.link,
 		title: 'Foo',
-		namespaceID: 1,
-		token: token,
+		namespaceId: 1,
+		token,
+		timestamp: now
+	} );
+
+	state = eventLogging( state, {
+		type: 'ABANDON_START',
+		timestamp: now + 250
+	} );
+
+	state = eventLogging( state, {
+		type: 'LINK_DWELL',
+		el: $( '<a>' ),
+		title: 'Bar',
+		namespaceId: 1,
+		token: '1234567890',
+		timestamp: now + 500
+	} );
+
+	assert.deepEqual(
+		state.event,
+		{
+			pageTitleHover: 'Foo',
+			namespaceIdHover: 1,
+			linkInteractionToken: '0987654321',
+			totalInteractionTime: 250, // 250 - 0
+			action: 'dwelledButAbandoned'
+		}
+	);
+
+	// ---
+
+	state = eventLogging( undefined, {
+		type: 'LINK_DWELL',
+		el: this.link,
+		title: 'Foo',
+		namespaceId: 1,
+		token,
+		timestamp: now
+	} );
+
+	state = eventLogging( state, {
+		type: 'LINK_CLICK',
+		el: this.link
+	} );
+
+	state = eventLogging( state, {
+		type: 'LINK_DWELL',
+		el: $( '<a>' ),
+		title: 'Bar',
+		namespaceId: 1,
+		token: 'banana',
+		timestamp: now + 500
+	} );
+
+	assert.strictEqual(
+		state.event,
+		undefined,
+		'It shouldn\'t enqueue either event if the interaction is finalized.'
+	);
+} );
+
+QUnit.test( 'LINK_CLICK should enqueue an "opened" event', function ( assert ) {
+	const token = '0987654321',
+		now = Date.now();
+
+	let state = {
+		interaction: undefined
+	};
+
+	const expectedState = state = eventLogging( state, {
+		type: 'LINK_DWELL',
+		el: this.link,
+		title: 'Foo',
+		namespaceId: 1,
+		token,
 		timestamp: now
 	} );
 
@@ -372,11 +356,10 @@ QUnit.test( 'LINK_CLICK should enqueue an "opened" event', function ( assert ) {
 } );
 
 QUnit.test( 'PREVIEW_SHOW should update the perceived wait time of the interaction', function ( assert ) {
-	var state,
-		now = Date.now(),
+	const now = Date.now(),
 		token = '1234567890';
 
-	state = {
+	let state = {
 		interaction: undefined
 	};
 
@@ -384,22 +367,22 @@ QUnit.test( 'PREVIEW_SHOW should update the perceived wait time of the interacti
 		type: 'LINK_DWELL',
 		el: this.link,
 		title: 'Foo',
-		namespaceID: 1,
-		token: token,
+		namespaceId: 1,
+		token,
 		timestamp: now
 	} );
 
 	state = eventLogging( state, {
 		type: 'PREVIEW_SHOW',
-		token: token,
+		token,
 		timestamp: now + 500
 	} );
 
 	assert.deepEqual( state.interaction, {
 		link: this.link,
 		title: 'Foo',
-		namespaceID: 1,
-		token: token,
+		namespaceId: 1,
+		token,
 		started: now,
 
 		isUserDwelling: true,
@@ -409,11 +392,10 @@ QUnit.test( 'PREVIEW_SHOW should update the perceived wait time of the interacti
 } );
 
 QUnit.test( 'LINK_CLICK should include perceivedWait if the preview has been shown', function ( assert ) {
-	var token = '0987654321',
-		state,
+	const token = '0987654321',
 		now = Date.now();
 
-	state = {
+	let state = {
 		interaction: undefined
 	};
 
@@ -421,14 +403,14 @@ QUnit.test( 'LINK_CLICK should include perceivedWait if the preview has been sho
 		type: 'LINK_DWELL',
 		el: this.link,
 		title: 'Foo',
-		namespaceID: 1,
-		token: token,
+		namespaceId: 1,
+		token,
 		timestamp: now
 	} );
 
 	state = eventLogging( state, {
 		type: 'PREVIEW_SHOW',
-		token: token,
+		token,
 		timestamp: now + 750
 	} );
 
@@ -455,29 +437,25 @@ QUnit.test( 'LINK_CLICK should include perceivedWait if the preview has been sho
 	);
 } );
 
-QUnit.test( 'FETCH_COMPLETE', function ( assert ) {
-	var model,
-		token = '1234567890',
+QUnit.test( 'FETCH_COMPLETE', ( assert ) => {
+	const token = '1234567890',
 		initialState = {
 			interaction: {
-				token: token
+				token
 			}
 		},
-		state;
-
-	model = createModel(
-		'Foo',
-		'https://en.wikipedia.org/wiki/Foo',
-		'en',
-		'ltr',
-		'',
-		{}
-	);
-
-	state = eventLogging( initialState, {
+		model = createModel(
+			'Foo',
+			'https://en.wikipedia.org/wiki/Foo',
+			'en',
+			'ltr',
+			'',
+			{}
+		);
+	let state = eventLogging( initialState, {
 		type: 'FETCH_COMPLETE',
 		result: model,
-		token: token
+		token
 	} );
 
 	assert.strictEqual(
@@ -516,7 +494,7 @@ QUnit.test( 'FETCH_COMPLETE', function ( assert ) {
 } );
 
 QUnit.test( 'ABANDON_START', function ( assert ) {
-	var state = {
+	let state = {
 		interaction: {}
 	};
 
@@ -532,19 +510,16 @@ QUnit.test( 'ABANDON_START', function ( assert ) {
 } );
 
 QUnit.test( 'ABANDON_END', function ( assert ) {
-	var state,
-		action;
-
-	action = {
+	let action = {
 		type: 'LINK_DWELL',
 		el: this.link,
 		title: 'Foo',
-		namespaceID: 1,
+		namespaceId: 1,
 		token: '1234567890',
 		timestamp: Date.now()
 	};
 
-	state = eventLogging( state, action );
+	const state = eventLogging( state, action );
 
 	action = {
 		type: 'ABANDON_END',
@@ -568,8 +543,8 @@ QUnit.test( 'ABANDON_END', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'PREVIEW_DWELL', function ( assert ) {
-	var state = {
+QUnit.test( 'PREVIEW_DWELL', ( assert ) => {
+	let state = {
 		interaction: {}
 	};
 
@@ -584,13 +559,12 @@ QUnit.test( 'PREVIEW_DWELL', function ( assert ) {
 } );
 
 QUnit.test( 'SETTINGS_SHOW should enqueue a "tapped settings cog" event', function ( assert ) {
-	var initialState = {
+	const initialState = {
 			interaction: {}
 		},
-		state,
 		token = '0123456789';
 
-	state = eventLogging( initialState, {
+	let state = eventLogging( initialState, {
 		type: 'SETTINGS_SHOW'
 	} );
 
@@ -613,8 +587,8 @@ QUnit.test( 'SETTINGS_SHOW should enqueue a "tapped settings cog" event', functi
 		type: 'LINK_DWELL',
 		el: this.link,
 		title: 'Foo',
-		namespaceID: 1,
-		token: token,
+		namespaceId: 1,
+		token,
 		timestamp: Date.now()
 	} );
 
@@ -634,8 +608,8 @@ QUnit.test( 'SETTINGS_SHOW should enqueue a "tapped settings cog" event', functi
 	);
 } );
 
-QUnit.test( 'SETTINGS_CHANGE should enqueue disabled event', function ( assert ) {
-	var state = eventLogging( undefined, {
+QUnit.test( 'SETTINGS_CHANGE should enqueue disabled event', ( assert ) => {
+	let state = eventLogging( undefined, {
 		type: 'SETTINGS_CHANGE',
 		wasEnabled: false,
 		enabled: false
@@ -677,29 +651,27 @@ QUnit.test( 'SETTINGS_CHANGE should enqueue disabled event', function ( assert )
 } );
 
 QUnit.test( 'ABANDON_END should enqueue an event', function ( assert ) {
-	var dwelledState,
-		token = '0987654321',
-		now = Date.now(),
-		state;
+	const token = '0987654321',
+		now = Date.now();
 
-	dwelledState = eventLogging( undefined, {
+	const dwelledState = eventLogging( undefined, {
 		type: 'LINK_DWELL',
 		el: this.link,
 		title: 'Foo',
-		namespaceID: 1,
-		token: token,
+		namespaceId: 1,
+		token,
 		timestamp: now
 	} );
 
-	state = eventLogging( dwelledState, {
+	let state = eventLogging( dwelledState, {
 		type: 'ABANDON_START',
-		token: token,
+		token,
 		timestamp: now + 500
 	} );
 
 	state = eventLogging( state, {
 		type: 'ABANDON_END',
-		token: token
+		token
 	} );
 
 	assert.deepEqual(
@@ -724,19 +696,19 @@ QUnit.test( 'ABANDON_END should enqueue an event', function ( assert ) {
 
 	state = eventLogging( dwelledState, {
 		type: 'PREVIEW_SHOW',
-		token: token,
+		token,
 		timestamp: now + 700
 	} );
 
 	state = eventLogging( state, {
 		type: 'ABANDON_START',
-		token: token,
+		token,
 		timestamp: now + 850
 	} );
 
 	state = eventLogging( state, {
 		type: 'ABANDON_END',
-		token: token
+		token
 	} );
 
 	assert.deepEqual(
@@ -758,21 +730,19 @@ QUnit.test( 'ABANDON_END should enqueue an event', function ( assert ) {
 } );
 
 QUnit.test( 'ABANDON_END doesn\'t enqueue an event under certain conditions', function ( assert ) {
-	var token = '0987654321',
-		now = Date.now(),
-		dwelledState,
-		state;
+	const token = '0987654321',
+		now = Date.now();
 
-	dwelledState = eventLogging( undefined, {
+	const dwelledState = eventLogging( undefined, {
 		type: 'LINK_DWELL',
 		el: this.link,
 		title: 'Foo',
-		namespaceID: 1,
-		token: token,
+		namespaceId: 1,
+		token,
 		timestamp: now
 	} );
 
-	state = eventLogging( dwelledState, {
+	let state = eventLogging( dwelledState, {
 		type: 'ABANDON_END',
 		token: '1234567890'
 	} );
@@ -787,7 +757,7 @@ QUnit.test( 'ABANDON_END doesn\'t enqueue an event under certain conditions', fu
 
 	state = eventLogging( dwelledState, {
 		type: 'ABANDON_END',
-		token: token
+		token
 	} );
 
 	assert.strictEqual(
@@ -810,13 +780,13 @@ QUnit.test( 'ABANDON_END doesn\'t enqueue an event under certain conditions', fu
 
 	state = eventLogging( state, {
 		type: 'ABANDON_START',
-		token: token,
+		token,
 		timestamp: now + 700
 	} );
 
 	state = eventLogging( state, {
 		type: 'ABANDON_END',
-		token: token,
+		token,
 		timestamp: now + 1000 // ABANDON_END_DELAY is 300 ms.
 	} );
 

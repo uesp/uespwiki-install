@@ -6,29 +6,26 @@ import { BUCKETS } from '../../src/constants';
 
 function createStubUserSettings( isEnabled ) {
 	return {
-		hasIsEnabled: function () {
+		hasIsEnabled() {
 			return isEnabled !== undefined;
 		},
-		getIsEnabled: function () {
+		getIsEnabled() {
 			return Boolean( isEnabled );
 		}
 	};
 }
 
 QUnit.module( 'ext.popups#isEnabled (logged out)', {
-	beforeEach: function () {
+	beforeEach() {
 		this.user = stubs.createStubUser( /* isAnon = */ true );
 	}
 } );
 
-QUnit.test( 'is should handle logged out users', function ( assert ) {
-	var user = stubs.createStubUser( /* isAnon = */ true ),
-		cases,
-		i, testCase,
-		userSettings,
+QUnit.test( 'is should handle logged out users', ( assert ) => {
+	const user = stubs.createStubUser( /* isAnon = */ true ),
 		config = new Map();
 
-	cases = [
+	const cases = [
 		/*
 		[
 			<isAnon>, <bucket>, <expected value of isEnabled>, <test description>
@@ -48,8 +45,9 @@ QUnit.test( 'is should handle logged out users', function ( assert ) {
 			' and the user is not in the sample.' ]
 	];
 
-	for ( i = 0; i < cases.length; i++ ) {
-		testCase = cases[ i ];
+	let userSettings;
+	for ( let i = 0; i < cases.length; i++ ) {
+		const testCase = cases[ i ];
 		userSettings = createStubUserSettings( testCase[ 0 ] );
 
 		assert.equal(
@@ -82,8 +80,8 @@ QUnit.test( 'is should handle logged out users', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'it should handle logged in users', function ( assert ) {
-	var user = stubs.createStubUser( /* isAnon = */ false ),
+QUnit.test( 'it should handle logged in users', ( assert ) => {
+	const user = stubs.createStubUser( /* isAnon = */ false ),
 		userSettings = createStubUserSettings( false ),
 		config = new Map();
 
@@ -107,8 +105,8 @@ QUnit.test( 'it should handle logged in users', function ( assert ) {
 	);
 } );
 
-QUnit.test( 'it should handle the conflict with the Navigation Popups Gadget', function ( assert ) {
-	var user = stubs.createStubUser( /* isAnon = */ false ),
+QUnit.test( 'it should handle the conflict with the Navigation Popups Gadget', ( assert ) => {
+	const user = stubs.createStubUser( /* isAnon = */ false ),
 		userSettings = createStubUserSettings( false ),
 		config = new Map();
 

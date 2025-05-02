@@ -67,20 +67,20 @@
 		checkFlickr: function ( flickrInputUrl ) {
 			var photoIdMatches, albumIdMatches, userCollectionMatches, userPhotostreamMatches, groupPoolMatches, userGalleryMatches, userFavoritesMatches;
 
-			photoIdMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^\/]+\/)?photos\/[^\/]+\/([0-9]+)/ );
-			albumIdMatches = flickrInputUrl.match( /flickr\.com\/photos\/[^\/]+\/(sets|albums)\/([0-9]+)/ );
-			userCollectionMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^\/]+\/)?photos\/[^\/]+\/collections\/?([0-9]+)?/ );
-			userPhotostreamMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^\/]+\/)?photos\/([^\/]+)/ );
-			groupPoolMatches = flickrInputUrl.match( /flickr\.com\/groups\/[^\/]+(?:\/pool\/([^\/]+))?/ );
-			userGalleryMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^\/]+\/)?photos\/[^\/]+\/galleries\/([0-9]+)/ );
-			userFavoritesMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^\/]+\/)?photos\/([^\/]+)\/favorites/ );
+			photoIdMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^/]+\/)?photos\/[^/]+\/([0-9]+)/ );
+			albumIdMatches = flickrInputUrl.match( /flickr\.com\/photos\/[^/]+\/(sets|albums)\/([0-9]+)/ );
+			userCollectionMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^/]+\/)?photos\/[^/]+\/collections\/?([0-9]+)?/ );
+			userPhotostreamMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^/]+\/)?photos\/([^/]+)/ );
+			groupPoolMatches = flickrInputUrl.match( /flickr\.com\/groups\/[^/]+(?:\/pool\/([^/]+))?/ );
+			userGalleryMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^/]+\/)?photos\/[^/]+\/galleries\/([0-9]+)/ );
+			userFavoritesMatches = flickrInputUrl.match( /flickr\.com\/(?:x\/t\/[^/]+\/)?photos\/([^/]+)\/favorites/ );
 
 			this.$spinner = $.createSpinner( { size: 'large', type: 'block' } );
 			$( '#mwe-upwiz-flickr-select-list-container' ).after( this.$spinner );
 
 			if ( photoIdMatches === null ) {
 				// try static urls
-				photoIdMatches = flickrInputUrl.match( /static\.?flickr\.com\/[^\/]+\/([0-9]+)_/ );
+				photoIdMatches = flickrInputUrl.match( /static\.?flickr\.com\/[^/]+\/([0-9]+)_/ );
 			}
 			if ( albumIdMatches || photoIdMatches || userCollectionMatches || userPhotostreamMatches ||
 				groupPoolMatches || userGalleryMatches || userFavoritesMatches ) {
@@ -439,7 +439,7 @@
 				$( '#mwe-upwiz-flickr-select-list' ).append( checkboxesWidget.$element );
 				// Set up checkboxes
 				checkboxesWidget.on( 'select', function () {
-					var selectedCount = checkboxesWidget.getSelectedItems().length;
+					var selectedCount = checkboxesWidget.findSelectedItems().length;
 					// If at least one item is selected, activate the upload button
 					checker.selectButton.setDisabled( selectedCount === 0 );
 					// Limit the number of selectable images
@@ -456,7 +456,7 @@
 					$( '#mwe-upwiz-flickr-select-list-container' ).hide();
 					$( '#mwe-upwiz-upload-ctrls' ).show();
 					$( '#mwe-upwiz-flickr-select-list-container' ).after( checker.$spinner );
-					$.when.apply( $, checkboxesWidget.getSelectedItemsData().map( function ( image ) {
+					$.when.apply( $, checkboxesWidget.findSelectedItemsData().map( function ( image ) {
 						uploads.push( checker.imageUploads[ image ] );
 						// For each image, load the description and URL to upload from
 						return $.when(

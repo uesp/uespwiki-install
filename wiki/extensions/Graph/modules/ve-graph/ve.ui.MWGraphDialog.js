@@ -46,7 +46,7 @@ ve.ui.MWGraphDialog.static.actions = [
 	{
 		action: 'done',
 		label: OO.ui.deferMsg( 'visualeditor-dialog-action-insert' ),
-		flags: [ 'constructive', 'primary' ],
+		flags: [ 'progressive', 'primary' ],
 		modes: 'insert'
 	},
 	{
@@ -294,6 +294,7 @@ ve.ui.MWGraphDialog.prototype.getTeardownProcess = function ( data ) {
 			// Kill staging
 			if ( data === undefined ) {
 				this.getFragment().getSurface().popStaging();
+				this.getFragment().update( this.getFragment().getSurface().getSelection() );
 			}
 		}, this );
 };

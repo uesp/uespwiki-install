@@ -20,7 +20,7 @@
  */
 export default function syncUserSettings( userSettings ) {
 
-	return function ( prevState, state ) {
+	return ( prevState, state ) => {
 
 		syncIfChanged(
 			prevState, state, 'eventLogging', 'previewCount',
@@ -57,7 +57,7 @@ function get( state, reducer, prop ) {
  * changed
  */
 function syncIfChanged( prevState, state, reducer, prop, sync ) {
-	var current = get( state, reducer, prop );
+	const current = get( state, reducer, prop );
 	if ( prevState && ( get( prevState, reducer, prop ) !== current ) ) {
 		sync( current );
 	}

@@ -1,5 +1,7 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 class SpecialDeleteBatch extends SpecialPage {
 	/**
 	 * Constructor
@@ -29,8 +31,7 @@ class SpecialDeleteBatch extends SpecialPage {
 
 		# Show a message if the database is in read-only mode
 		if ( wfReadOnly() ) {
-			$this->getOutput()->readOnlyPage();
-			return;
+			throw new ReadOnlyError;
 		}
 
 		# If user is blocked, s/he doesn't need to access this page
@@ -255,25 +256,37 @@ class DeleteBatchForm {
 		if ( $filename ) { /* if from filename, delete from filename */
 			for ( $linenum = 1; !feof( $file ); $linenum++ ) {
 				$line = trim( fgets( $file ) );
-				if ( $line == false ) {
+				if ( !$line ) {
 					break;
 				}
 				/* explode and give me a reason
 				   the file should contain only "page title|reason"\n lines
 				   the rest is trash
 				*/
-				$arr = explode( "|", $line );
-				is_null( $arr[1] ) ? $reason = '' : $reason = $arr[1];
-				$this->deletePage( $arr[0], $reason, $dbw, true, $linenum );
+				if ( strpos( $line, '|' ) !== -1 ) {
+					$arr = explode( '|', $line );
+				} else {
+					$arr = [ $line ];
+				}
+				if ( count( $arr ) < 2 ) {
+					$arr[1] = '';
+				}
+				$this->deletePage( $arr[0], $arr[1], $dbw, true, $linenum );
 			}
 		} else {
 			/* run through text and do all like it should be */
 			$lines = explode( "\n", $line );
 			foreach ( $lines as $single_page ) {
+				$single_page =  trim( $single_page );
 				/* explode and give me a reason */
-				$page_data = explode( "|", trim( $single_page ) );
-				if ( count( $page_data ) < 2 )
+				if ( strpos( $single_page, '|' ) !== -1 ) {
+					$page_data = explode( '|', $single_page );
+				} else {
+					$page_data = [ $single_page ];
+				}
+				if ( count( $page_data ) < 2 ) {
 					$page_data[1] = '';
+				}
 				$this->deletePage( $page_data[0], $page_data[1], $dbw, false, 0, $OldUser );
 			}
 		}
@@ -296,7 +309,7 @@ class DeleteBatchForm {
 	 * @$linennum Integer - mostly for informational reasons
 	 * @param $line
 	 * @param string $reason
-	 * @param DatabaseBase $db
+	 * @param \Wikimedia\Rdbms\IDatabase $db
 	 * @param bool $multi
 	 * @param int $linenum
 	 * @param null|User $user
@@ -368,7 +381,8 @@ class DeleteBatchForm {
 		$db->endAtomic( __METHOD__ );
 		if ( $localFileExists ) {
 			// Flush DBs in case of fragile file operations
-			wfGetLBFactory()->commitMasterChanges( __METHOD__ );
+			$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
+			$lbFactory->commitMasterChanges( __METHOD__ );
 		}
 
 		return true;

@@ -8,7 +8,8 @@
 			"Y-M D",
 			"Matma Rex",
 			"Macofe",
-			"Pymouss"
+			"Pymouss",
+			"Envlh"
 		]
 	},
 	"uploadwizard": "Ameiler enporzhiañ",
@@ -94,8 +95,6 @@
 	"mwe-upwiz-copy-location": "Eilañ al lec'hiadur",
 	"mwe-upwiz-copy-other": "Eilañ titouroù all",
 	"mwe-upwiz-desc": "Deskrivadur",
-	"mwe-upwiz-desc-add-n": "Ouzhpennañ un deskrivadur en ur yezh all",
-	"mwe-upwiz-desc-add-0": "Ouzhpennañ un deskrivadur",
 	"mwe-upwiz-title": "Titl",
 	"mwe-upwiz-date-created": "Deiziad krouiñ",
 	"mwe-upwiz-location": "Lec'hiadur",
@@ -193,7 +192,6 @@
 	"mwe-upwiz-license-own-pd": "Pep gwir dilezet gant an an aotre-implijout Creative Commons mann (evel en domani foran)",
 	"mwe-upwiz-license-pd-old-100": "Marvet eo an aozer ouzhpenn 100 vloaz zo",
 	"mwe-upwiz-license-pd-old": "Marvet eo an aozer ouzhpenn 70 vloaz zo",
-	"mwe-upwiz-license-pd-art": "Eiladenn feal eus ul livadur zo en domani foran",
 	"mwe-upwiz-license-pd-us": "Embannet da gentañ er Stadoù-Unanet a-raok 1923",
 	"mwe-upwiz-license-pd-usgov": "Oberenn orin eus Gouarnamant kevreadel SUA",
 	"mwe-upwiz-license-pd-usgov-nasa": "Oberenn orin eus an NASA",
@@ -204,7 +202,7 @@
 	"mwe-upwiz-license-copyrighted-free-use": "Gwirioù-aozer zo warnañ met gallout a ra bezañ implijet evit forzh petra, evit kenwerzhañ ivez",
 	"mwe-upwiz-license-attribution": "Gallout a ra bezañ implijet e ne vern pe degouezh, evit abegoù kenwerzhel ker buan all, gant ma vo merket mat gant piv emañ ar gwirioù-aozer",
 	"mwe-upwiz-license-gfdl": "Aotre-implijout teuliaouiñ frank GNU",
-	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, deroadenn rekis (GFDL, CC BY-SA-3.0)",
+	"mwe-upwiz-license-cc-by-sa-3.0-gfdl": "Copyleft, deroadenn rekis (GFDL, CC BY-SA 3.0)",
 	"mwe-upwiz-license-cc-head": "Perc'henn ar gwirioù aozañ en deus embannet an {{PLURAL:$1|oberenn-mañ|oberennoù-mañ}} gant an aotre-implijout Creative Commons reizh",
 	"mwe-upwiz-license-cc-subhead": "Ne zere ket holl aotreoù-implijout Creative Commons evit al lec'hienn-mañ -- bezit sur ez eus bet implijet unan eus an aotreoù-mañ gant perc'henn ar gwirioù aozer.",
 	"mwe-upwiz-license-flickr-head": "Embannet eo bet gant perc'henn ar gwirioù aozer e {{PLURAL:$1|skeudenn pe video|skeudennoù pe videoioù}} war Flickr gant an aotre-implijout a zere",

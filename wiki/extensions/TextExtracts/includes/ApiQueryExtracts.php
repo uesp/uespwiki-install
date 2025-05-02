@@ -40,7 +40,12 @@ class ApiQueryExtracts extends ApiQueryBase {
 	/**
 	 * Bump when memcache needs clearing
 	 */
-	const CACHE_VERSION = 1;
+	const CACHE_VERSION = 2;
+
+	/**
+	 * @var string
+	 */
+	const PREFIX = 'ex';
 
 	/**
 	 * @var ParserOptions
@@ -59,11 +64,21 @@ class ApiQueryExtracts extends ApiQueryBase {
 	 */
 	private $supportedContentModels = [ 'wikitext' ];
 
+	/**
+	 * @param \ApiQuery $query API query module object
+	 * @param string $moduleName Name of this query module
+	 * @param Config $conf MediaWiki configuration
+	 */
 	public function __construct( $query, $moduleName, Config $conf ) {
-		parent::__construct( $query, $moduleName, 'ex' );
+		parent::__construct( $query, $moduleName, self::PREFIX );
 		$this->config = $conf;
 	}
 
+	/**
+	 * Evaluates the parameters, performs the requested extraction of text,
+	 * and sets up the result
+	 * @return null
+	 */
 	public function execute() {
 		$titles = $this->getPageSet()->getGoodTitles();
 		if ( count( $titles ) == 0 ) {
@@ -98,10 +113,16 @@ class ApiQueryExtracts extends ApiQueryBase {
 				$text = '';
 				$titleInFileNamespace = true;
 			} else {
+				$params = $this->params;
 				$text = $this->getExtract( $t );
 				$text = $this->truncate( $text );
-				if ( $this->params['plaintext'] ) {
+				if ( $params['plaintext'] ) {
 					$text = $this->doSections( $text );
+				} else {
+					if ( $params['sentences'] ) {
+						$this->addWarning( $this->msg( 'apiwarn-textextracts-sentences-and-html', self::PREFIX ) );
+					}
+					$this->addWarning( 'apiwarn-textextracts-malformed-html' );
 				}
 			}
 
@@ -120,6 +141,10 @@ class ApiQueryExtracts extends ApiQueryBase {
 		}
 	}
 
+	/**
+	 * @param array $params Ignored parameters
+	 * @return string
+	 */
 	public function getCacheMode( $params ) {
 		return 'public';
 	}
@@ -204,7 +229,9 @@ class ApiQueryExtracts extends ApiQueryBase {
 		$apiException = null;
 		if ( !$this->parserOptions ) {
 			$this->parserOptions = new ParserOptions( new User( '127.0.0.1' ) );
-			if ( is_callable( [ $this->parserOptions, 'setWrapOutputClass' ] ) ) {
+			if ( is_callable( [ $this->parserOptions, 'setWrapOutputClass' ] ) &&
+				!defined( 'ParserOutput::SUPPORTS_UNWRAP_TRANSFORM' )
+			) {
 				$this->parserOptions->setWrapOutputClass( false );
 			}
 		}
@@ -212,7 +239,7 @@ class ApiQueryExtracts extends ApiQueryBase {
 		if ( $page->shouldCheckParserCache( $this->parserOptions, 0 ) ) {
 			$pout = MediaWikiServices::getInstance()->getParserCache()->get( $page, $this->parserOptions );
 			if ( $pout ) {
-				$text = $pout->getText();
+				$text = $pout->getText( [ 'unwrap' => true ] );
 				if ( $this->params['intro'] ) {
 					$text = $this->getFirstSection( $text, false );
 				}
@@ -288,13 +315,13 @@ class ApiQueryExtracts extends ApiQueryBase {
 	}
 
 	/**
-	 * @param \ApiQuery $query
-	 * @param string $action
+	 * @param \ApiQuery $query API query module
+	 * @param string $name Name of this query module
 	 * @return ApiQueryExtracts
 	 */
-	public static function factory( $query, $action ) {
+	public static function factory( $query, $name ) {
 		$config = MediaWikiServices::getInstance()->getConfigFactory()->makeConfig( 'textextracts' );
-		return new self( $query, $action, $config );
+		return new self( $query, $name, $config );
 	}
 
 	/**
@@ -380,19 +407,24 @@ class ApiQueryExtracts extends ApiQueryBase {
 		if ( $this->params['sectionformat'] == 'raw' ) {
 			return $matches[0];
 		}
-		$func = __CLASS__ . "::doSection_{$this->params['sectionformat']}";
+		$sectionformat = ucfirst( $this->params['sectionformat'] );
+		$func = __CLASS__ . "::doSection{$sectionformat}";
 		return call_user_func( $func, $matches[1], trim( $matches[2] ) );
 	}
 
-	private static function doSection_wiki( $level, $text ) {
+	private static function doSectionWiki( $level, $text ) {
 		$bars = str_repeat( '=', $level );
 		return "\n$bars $text $bars";
 	}
 
-	private static function doSection_plain( $level, $text ) {
+	private static function doSectionPlain( $level, $text ) {
 		return "\n$text";
 	}
 
+	/**
+	 * Return an array describing all possible parameters to this module
+	 * @return array
+	 */
 	public function getAllowedParams() {
 		return [
 			'chars' => [
@@ -427,6 +459,7 @@ class ApiQueryExtracts extends ApiQueryBase {
 
 	/**
 	 * @see ApiBase::getExamplesMessages()
+	 * @return array
 	 */
 	protected function getExamplesMessages() {
 		return [
@@ -435,6 +468,10 @@ class ApiQueryExtracts extends ApiQueryBase {
 		];
 	}
 
+	/**
+	 * @see ApiBase::getHelpUrls()
+	 * @return string
+	 */
 	public function getHelpUrls() {
 		return 'https://www.mediawiki.org/wiki/Extension:TextExtracts#API';
 	}

@@ -10,11 +10,12 @@
 			"Orlodrim",
 			"PifyZ",
 			"Urhixidur",
-			"Thibaut120094"
+			"Thibaut120094",
+			"The RedBurn"
 		]
 	},
 	"graph-desc": "Permet aux balises &lt;graph&gt; ou aux pages complètes de devenir des graphiques basés sur [http://vega.github.io/ Vega]",
-	"graphsandbox": "Bac à sable graphique",
+	"graphsandbox": "Bac à sable de Graph",
 	"graph-tracking-category": "Pages avec des graphiques",
 	"graph-tracking-category-desc": "La page contient une balise <code><nowiki><graph></nowiki></code>.",
 	"graph-broken-category": "Pages avec des graphiques contenant des erreurs",
@@ -28,7 +29,7 @@
 	"apihelp-graph-example": "Obtenir le JSON du graphique par hachage et titre",
 	"apihelp-graph-param-hash": "Valeur de hachage du graphique",
 	"apihelp-graph-param-title": "Titre de la page avec le graphique",
-	"apihelp-graph-param-text": "Texte du graphique à convertir en JSON. Doit être posté et utilisé sans titre ni paramètres de hachage",
+	"apihelp-graph-param-text": "Texte du graphique à convertir en JSON. Doit être publié et utilisé sans titre ni paramètres de hachage",
 	"apierror-graph-mustposttext": "La requête doit être envoyée à l'aide de POST quand le paramètre <var>text</var> est utilisé.",
 	"apierror-graph-invalid": "Graphique non valide.",
 	"apierror-graph-missing": "Aucun graphique trouvé.",

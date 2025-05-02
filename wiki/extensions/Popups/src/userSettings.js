@@ -8,7 +8,7 @@
  * @global
  */
 
-var IS_ENABLED_KEY = 'mwe-popups-enabled',
+const IS_ENABLED_KEY = 'mwe-popups-enabled',
 	PREVIEW_COUNT_KEY = 'ext.popups.core.previewCount';
 
 /**
@@ -33,7 +33,7 @@ export default function createUserSettings( storage ) {
 		 * @name UserSettings#getIsEnabled
 		 * @return {Boolean}
 		 */
-		getIsEnabled: function () {
+		getIsEnabled() {
 			return storage.get( IS_ENABLED_KEY ) !== '0';
 		},
 
@@ -44,7 +44,7 @@ export default function createUserSettings( storage ) {
 		 * @name UserSettings#setIsEnabled
 		 * @param {Boolean} isEnabled
 		 */
-		setIsEnabled: function ( isEnabled ) {
+		setIsEnabled( isEnabled ) {
 			storage.set( IS_ENABLED_KEY, isEnabled ? '1' : '0' );
 		},
 
@@ -56,8 +56,8 @@ export default function createUserSettings( storage ) {
 		 * @name UserSettings#hasIsEnabled
 		 * @return {Boolean}
 		 */
-		hasIsEnabled: function () {
-			var value = storage.get( IS_ENABLED_KEY );
+		hasIsEnabled() {
+			const value = storage.get( IS_ENABLED_KEY );
 
 			return Boolean( value ) !== false;
 		},
@@ -65,22 +65,23 @@ export default function createUserSettings( storage ) {
 		/**
 		 * Gets the number of previews that the user has seen.
 		 *
-		 * If the storage isn't available, then -1 is returned.
-		 * If the value in storage is not a number it will override stored value to 0
+		 * - If the storage isn't available, then -1 is returned.
+		 * - If the value in storage is not a number it will override stored value
+		 *   to 0
 		 *
 		 * @function
 		 * @name UserSettings#getPreviewCount
 		 * @return {Number}
 		 */
-		getPreviewCount: function () {
-			var result = storage.get( PREVIEW_COUNT_KEY ), count;
+		getPreviewCount() {
+			const result = storage.get( PREVIEW_COUNT_KEY );
 
 			if ( result === false ) {
 				return -1;
 			} else if ( result === null ) {
 				return 0;
 			}
-			count = parseInt( result, 10 );
+			let count = parseInt( result, 10 );
 
 			// stored number is not a zero, override it to zero and store new value
 			if ( isNaN( count ) ) {
@@ -97,7 +98,7 @@ export default function createUserSettings( storage ) {
 		 * @name UserSettings#setPreviewCount
 		 * @param {Number} count
 		 */
-		setPreviewCount: function ( count ) {
+		setPreviewCount( count ) {
 			storage.set( PREVIEW_COUNT_KEY, count.toString() );
 		}
 	};

@@ -105,8 +105,7 @@ class SpecialDisambiguationPageLinks extends QueryPage {
 
 		$fname = get_class( $this ) . '::recache';
 		$dbw = wfGetDB( DB_MASTER );
-		$dbr = wfGetDB( DB_SLAVE, [ $this->getName(), __METHOD__, 'vslow' ] );
-		if ( !$dbw || !$dbr ) {
+		if ( !$dbw ) {
 			return false;
 		}
 
@@ -118,9 +117,7 @@ class SpecialDisambiguationPageLinks extends QueryPage {
 				$num = $res->numRows();
 				// Fetch results
 				$vals = [];
-				// @codingStandardsIgnoreStart
-				while ( $res && $row = $dbr->fetchObject( $res ) ) {
-				// @codingStandardsIgnoreEnd
+				foreach ( $res as $row ) {
 					if ( isset( $row->value ) ) {
 						if ( $this->usesTimestamps() ) {
 							$value = wfTimestamp( TS_UNIX, $row->value );
@@ -175,7 +172,7 @@ class SpecialDisambiguationPageLinks extends QueryPage {
 	 * @return ResultWrapper
 	 */
 	function fetchFromCache( $limit, $offset = false ) {
-		$dbr = wfGetDB( DB_SLAVE );
+		$dbr = wfGetDB( DB_REPLICA );
 		$options = [];
 		if ( $limit !== false ) {
 			$options['LIMIT'] = intval( $limit );

@@ -27,7 +27,7 @@ use User;
  * @ingroup JsonConfig
  * @author Yuri Astrakhan
  * @copyright © 2013 Yuri Astrakhan
- * @license GNU General Public Licence 2.0 or later
+ * @license GPL-2.0-or-later
  */
 class JCSingleton {
 	/**
@@ -461,7 +461,7 @@ class JCSingleton {
 		} elseif ( $value instanceof JCTitle ) {
 			// Nothing to do
 			return $value;
-		} elseif ( $namespace !== null && !is_integer( $namespace ) ) {
+		} elseif ( $namespace !== null && !is_int( $namespace ) ) {
 			throw new Exception( '$namespace parameter must be either null or an integer' );
 		}
 
@@ -878,10 +878,10 @@ class JCSingleton {
 
 	public static function onPageContentSaveComplete(
 		/** @noinspection PhpUnusedParameterInspection */
-		$article, $user, $content, $summary, $isMinor, $isWatch,
+		\WikiPage $wikiPage, $user, $content, $summary, $isMinor, $isWatch,
 		$section, $flags, $revision, $status, $baseRevId
 	) {
-		return self::onArticleChangeComplete( $article, $content );
+		return self::onArticleChangeComplete( $wikiPage, $content );
 	}
 
 	public static function onArticleDeleteComplete(

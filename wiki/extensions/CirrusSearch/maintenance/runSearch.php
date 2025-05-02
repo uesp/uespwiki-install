@@ -157,6 +157,7 @@ class RunSearch extends Maintenance {
 					'category' => $result->getCategorySnippet(),
 				],
 				'explanation' => $result->getExplanation(),
+				'extra' => $result->getExtensionData(),
 			];
 			$result = $value->next();
 		}
@@ -258,8 +259,7 @@ class RunSearch extends Maintenance {
 			}
 
 		default:
-			$this->error( "\nERROR: Unknown search type $searchType\n" );
-			exit( 1 );
+			$this->fatalError( "\nERROR: Unknown search type $searchType\n" );
 		}
 	}
 }

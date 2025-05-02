@@ -24,8 +24,9 @@
 		for ( metadataType in uw.CopyMetadataWidget.static.copyMetadataTypes ) {
 			if ( uw.CopyMetadataWidget.static.copyMetadataTypes.hasOwnProperty( metadataType ) ) {
 				defaultStatus = uw.CopyMetadataWidget.static.copyMetadataTypes[ metadataType ];
-				// mwe-upwiz-copy-title, mwe-upwiz-copy-description, mwe-upwiz-copy-date,
-				// mwe-upwiz-copy-categories, mwe-upwiz-copy-location, mwe-upwiz-copy-other
+				// mwe-upwiz-copy-title, mwe-upwiz-copy-caption, mwe-upwiz-copy-description,
+				// mwe-upwiz-copy-date, mwe-upwiz-copy-categories, mwe-upwiz-copy-location,
+				// mwe-upwiz-copy-other
 				copyMetadataMsg = mw.message( 'mwe-upwiz-copy-' + metadataType ).text();
 
 				checkboxes.push( new OO.ui.CheckboxMultioptionWidget( {
@@ -42,7 +43,7 @@
 		} );
 		this.copyButton = new OO.ui.ButtonWidget( {
 			label: mw.message( 'mwe-upwiz-copy-metadata-button' ).text(),
-			flags: [ 'constructive' ]
+			flags: [ 'progressive' ]
 		} );
 		this.undoButton = new OO.ui.ButtonWidget( {
 			label: mw.message( 'mwe-upwiz-copy-metadata-button-undo' ).text()
@@ -90,6 +91,7 @@
 	 */
 	uw.CopyMetadataWidget.static.copyMetadataTypes = {
 		title: true,
+		caption: true,
 		description: true,
 		date: false,
 		categories: true,
@@ -103,7 +105,7 @@
 	 * @private
 	 */
 	uw.CopyMetadataWidget.prototype.onCheckboxesSelect = function () {
-		this.copyButton.setDisabled( this.checkboxesWidget.getSelectedItemsData().length === 0 );
+		this.copyButton.setDisabled( this.checkboxesWidget.findSelectedItemsData().length === 0 );
 	};
 
 	/**
@@ -112,7 +114,7 @@
 	 * @private
 	 */
 	uw.CopyMetadataWidget.prototype.onCopyClick = function () {
-		var metadataTypes = this.checkboxesWidget.getSelectedItemsData();
+		var metadataTypes = this.checkboxesWidget.findSelectedItemsData();
 		this.copyMetadata( metadataTypes );
 
 		this.undoButton.toggle( true );

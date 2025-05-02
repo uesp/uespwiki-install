@@ -9,7 +9,7 @@
 			"Termininja"
 		]
 	},
-	"timedmediahandler-desc": "Приложение за файлове тип Ogg Theora и Vorbis, с плейър на JavaScript",
+	"timedmediahandler-desc": "Приложение за аудио, видео и timed text, поддържащ форматите WebM, Ogg Theora, Vorbis, srt",
 	"timedmedia-ogg-short-audio": "Ogg $1 звуков файл, $2",
 	"timedmedia-ogg-short-video": "Ogg $1 видео файл, $2",
 	"timedmedia-ogg-long-audio": "Ogg $1 звуков файл, продължителност $2, $3",
@@ -20,10 +20,11 @@
 	"timedmedia-dismiss": "Затваряне",
 	"timedmedia-download": "Изтегляне на файла",
 	"timedmedia-desc-link": "Информация за файла",
+	"timedmedia-direct-link": "Изтегляне",
 	"timedmedia-percent-done": "Около $1% завършени",
 	"timedmedia-source-file": "Източник на $1",
 	"timedmedia-source-audio-file-desc": "Оригинален $1-файл ($2)",
 	"timedmediahandler": "Аудио и видео файлове",
-	"log-name-timedmediahandler": "Дневник на timed media transcodes",
+	"log-name-timedmediahandler": "Дневник на TimedMediaHandler",
 	"log-description-timedmediahandler": "Това е дневник на действия, свързани с timed media transcodes."
 }

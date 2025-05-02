@@ -5,7 +5,7 @@
  * $wgUploadWizardConfig[ 'name'] =  'value';
  */
 global $wgFileExtensions, $wgServer, $wgScriptPath, $wgAPIModules, $wgLang,
-	$wgMemc, $wgUploadWizardConfig, $wgCheckFileExtensions;
+	$wgMemc, $wgUploadWizardConfig, $wgCheckFileExtensions, $wgUser;
 
 $userLangCode = $wgLang->getCode();
 // We need to get a list of languages for the description dropdown.
@@ -63,10 +63,15 @@ if ( !$uwLanguages ) {
 		}
 	}
 
-	// Sort the list by the language name. (If a specific collation is not available
-	// for the user's language, this falls back to a generic 'root' one.)
-	$collator = Collator::create( $userLangCode );
-	$collator->asort( $uwLanguages );
+	// Sort the list by the language name.
+	if ( class_exists( 'Collator' ) ) {
+		// If a specific collation is not available for the user's language,
+		// this falls back to a generic 'root' one.
+		$collator = Collator::create( $userLangCode );
+		$collator->asort( $uwLanguages );
+	} else {
+		natcasesort( $uwLanguages );
+	}
 	// Cache the list for 1 day
 	$wgMemc->set( $cacheKey, $uwLanguages, 60 * 60 * 24 );
 }
@@ -210,6 +215,9 @@ return [
 	'defaults' => [
 		// Categories to list by default in the list of cats to add.
 		'categories' => [],
+
+		// Initial value for the caption field.
+		'caption' => '',
 
 		// Initial value for the description field.
 		'description' => '',
@@ -395,8 +403,9 @@ return [
 			'templates' => [ 'PD-old' ]
 		],
 		'pd-art' => [
-			'msg' => 'mwe-upwiz-license-pd-art',
-			'templates' => [ 'PD-Art' ]
+			'msg' => 'mwe-upwiz-license-pd-art-70',
+			'templates' => [ 'PD-Art|PD-old-70' ],
+			'url' => '//commons.wikimedia.org/wiki/Commons:Licensing#Material_in_the_public_domain',
 		],
 		'pd-us' => [
 			'msg' => 'mwe-upwiz-license-pd-us',
@@ -522,6 +531,17 @@ return [
 		]
 	],
 
+	'patents' => [
+		'extensions' => [ 'stl' ],
+		'template' => '3dpatent',
+		'url' => [
+			'legalcode' => '//wikimediafoundation.org/wiki/Wikimedia_3D_file_patent_license',
+			'warranty' => '//meta.wikimedia.org/wiki/Wikilegal/3D_files_and_3D_printing',
+			'license' => '//meta.wikimedia.org/wiki/Wikilegal/3D_files_and_3D_printing',
+			'weapons' => '//meta.wikimedia.org/wiki/Wikilegal/3D_files_and_3D_printing#Weapons',
+		],
+	],
+
 	// Max author string length
 	'maxAuthorLength' => 10000,
 
@@ -540,6 +560,12 @@ return [
 	// Min file title string length
 	'minTitleLength' => 5,
 
+	// Max file caption length
+	'maxCaptionLength' => 255,
+
+	// Min file caption length
+	'minCaptionLength' => 0,
+
 	// Max file description length
 	'maxDescriptionLength' => 10000,
 
@@ -553,7 +579,7 @@ return [
 	'maxSimultaneousConnections' => 3,
 
 	// Max number of uploads for a given form
-	'maxUploads' => 50,
+	'maxUploads' => $wgUser->isAllowed( 'mass-upload' ) ? 500 : 50,
 
 	// Max file size that is allowed by PHP (may be higher/lower than MediaWiki file size limit).
 	// When using chunked uploading, these limits can be ignored.
@@ -642,4 +668,11 @@ return [
 	// Should we pester the user with a confirmation step when submitting a file without assigning it
 	// to any categories?
 	'enableCategoryCheck' => true,
+
+	// enable structured data to go into a wikibase repository
+	'wikibase' => [
+		'enabled' => false,
+		// url to wikibase repo API
+		'api' => $wgScriptPath. '/api.php',
+	],
 ];

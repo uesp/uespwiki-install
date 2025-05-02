@@ -22,10 +22,10 @@ use Popups\PopupsContext;
 use Popups\PopupsHooks;
 
 /**
- * Integration tests for Page Preview hooks
+ * Integration tests for popups hooks
  *
  * @group Popups
- * @coversDefaultClass  PopupsHooks
+ * @coversDefaultClass \Popups\PopupsHooks
  */
 class PopupsHooksTest extends MediaWikiTestCase {
 
@@ -136,7 +136,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 		$this->assertEquals( 'notEmpty', $prefs[ 'someNotEmptyValue'] );
 		$this->assertArrayHasKey( PopupsContext::PREVIEWS_OPTIN_PREFERENCE_NAME, $prefs );
 		$this->assertEquals( 1, array_search( \Popups\PopupsContext::PREVIEWS_OPTIN_PREFERENCE_NAME,
-			array_keys( $prefs ) ), ' PagePreviews preferences should be injected after Skin select' );
+			array_keys( $prefs ) ), ' Previews preferences should be injected after Skin select' );
 	}
 
 	/**
@@ -165,7 +165,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 		$this->assertCount( 3, $prefs );
 		$this->assertArrayHasKey( PopupsContext::PREVIEWS_OPTIN_PREFERENCE_NAME, $prefs );
 		$this->assertEquals( 2, array_search( PopupsContext::PREVIEWS_OPTIN_PREFERENCE_NAME,
-			array_keys( $prefs ) ), ' PagePreviews should be injected at end of array' );
+			array_keys( $prefs ) ), ' Previews should be injected at end of array' );
 	}
 
 	/**
@@ -177,12 +177,14 @@ class PopupsHooksTest extends MediaWikiTestCase {
 			'wgPopupsAnonsExperimentalGroupSize' => 0.1,
 			'wgPopupsEventLogging' => false,
 			'wgPopupsBetaFeature' => true,
+			'wgPopupsRestGatewayEndpoint' => '/api',
+			'wgPopupsVirtualPageViews' => true,
 			'wgPopupsGateway' => 'mwApiPlain',
 			'wgPopupsStatsvSamplingRate' => 0
 		];
 		$this->setMwGlobals( $config );
 		PopupsHooks::onResourceLoaderGetConfigVars( $vars );
-		$this->assertCount( 6, $vars );
+		$this->assertCount( 8, $vars );
 
 		foreach ( $config as $key => $value ) {
 			$this->assertEquals(
@@ -194,7 +196,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 	}
 
 	/**
-	 * @covers PopupsHooks::onUserGetDefaultOptions
+	 * @covers ::onUserGetDefaultOptions
 	 */
 	public function testOnUserGetDefaultOptions() {
 		$userOptions = [
@@ -310,7 +312,7 @@ class PopupsHooksTest extends MediaWikiTestCase {
 	}
 
 	/**
-	 * @covers PopupsHooks::onMakeGlobalVariablesScript
+	 * @covers ::onMakeGlobalVariablesScript
 	 */
 	public function testOnMakeGlobalVariablesScript() {
 		$user = User::newFromId( 0 );

@@ -27,7 +27,7 @@ $wgExtensionCredits['specialpage'][] = [
 	'author'			=> 'Rob Church, Kris Blair (Developaws)',
 	'version'			=> '2.1',
 	'url'				=> 'https://www.mediawiki.org/wiki/Extension:Patroller',
-	'licence-name'		=> 'GPL-2.0'
+	'licence-name'		=> 'GPL-2.0-only'
 ];
 
 // Register hooks

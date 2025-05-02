@@ -1,14 +1,16 @@
 <?php
 namespace TextExtracts\Test;
 
-use PHPUnit_Framework_TestCase;
+use MediaWikiCoversValidator;
 use TextExtracts\ApiQueryExtracts;
 
 /**
- * @covers ApiQueryExtracts
+ * @covers \TextExtracts\ApiQueryExtracts
  * @group TextExtracts
  */
-class ApiQueryExtractsTest extends PHPUnit_Framework_TestCase {
+class ApiQueryExtractsTest extends \PHPUnit\Framework\TestCase {
+	use MediaWikiCoversValidator;
+
 	private function newInstance() {
 		$context = $this->getMockBuilder( 'IContextSource' )
 			->disableOriginalConstructor()
