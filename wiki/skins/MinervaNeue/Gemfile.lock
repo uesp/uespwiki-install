@@ -35,7 +35,7 @@ GEM
     headless (2.3.1)
     http-cookie (1.0.3)
       domain_name (~> 0.5)
-    i18n (0.7.0)
+    i18n (0.8.0)
     json (1.8.3)
     mediawiki_api (0.7.0)
       faraday (~> 0.9, >= 0.9.0)
